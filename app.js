@@ -1,17 +1,17 @@
 // NEURALESE v2 — UI wiring. All numerics live in engine/analysis/surgery/decode/sae/rome (unit-tested vs PyTorch).
-import { GPT2Tokenizer } from './tokenizer.js?v=5';
-import { CFG, buildWeights, parseSafetensors, cloneWeights, mulberry32 } from './model.js?v=5';
-import { Engine, defaultRuntime, logSoftmax, topK, SITES } from './engine.js?v=5';
-import { computeStats, actCovariance, fitTunedLens, lensGrid, dla, patchResid, patchHeads, pathPatchHeadsToLogits, ablationSweep, buildControlVector, vectorArithmetic, tokenStats } from './analysis.js?v=5';
-import { Editor, MATS, getMat, toSafetensors, quantize } from './surgery.js?v=5';
-import { defaultDecode, applyPenalties, filterDist, pick, contrastiveLogits, cfgLogits, beamSearch } from './decode.js?v=5';
-import { SAE } from './sae.js?v=5';
-import { computeRome } from './rome.js?v=5';
-import { CORPUS } from './corpus.js?v=5';
-import { heatmap, lines, bars, showTip, seqColor, divColor } from './charts.js?v=5';
-import { Viz } from './viz.js?v=5';
-import { AudioEngine, editKind, STYLES } from './audio.js?v=5';
-import { buildV5 } from './v5.js?v=5';
+import { GPT2Tokenizer } from './tokenizer.js?v=6';
+import { CFG, buildWeights, parseSafetensors, cloneWeights, mulberry32 } from './model.js?v=6';
+import { Engine, defaultRuntime, logSoftmax, topK, SITES } from './engine.js?v=6';
+import { computeStats, actCovariance, fitTunedLens, lensGrid, dla, patchResid, patchHeads, pathPatchHeadsToLogits, ablationSweep, buildControlVector, vectorArithmetic, tokenStats } from './analysis.js?v=6';
+import { Editor, MATS, getMat, toSafetensors, quantize } from './surgery.js?v=6';
+import { defaultDecode, applyPenalties, filterDist, pick, contrastiveLogits, cfgLogits, beamSearch } from './decode.js?v=6';
+import { SAE } from './sae.js?v=6';
+import { computeRome } from './rome.js?v=6';
+import { CORPUS } from './corpus.js?v=6';
+import { heatmap, lines, bars, showTip, seqColor, divColor } from './charts.js?v=6';
+import { Viz } from './viz.js?v=6';
+import { AudioEngine, editKind, STYLES } from './audio.js?v=6';
+import { buildV5 } from './v5.js?v=6';
 const audio = new AudioEngine();
 const { d, H, L, ff, V } = CFG;
 const $ = (id) => document.getElementById(id), $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -343,7 +343,7 @@ function weightEdit(label, e, path) { // records relative Frobenius change of th
 async function showSvd() {
   const path = matPath(); if (path === 'wte') throw new Error('wte SVD (50257×256) is too slow for the browser here; use a layer matrix or wpe'); $('svdInfo').textContent = 'running one-sided Jacobi SVD…'; await tick();
   const t0 = performance.now(), { a, rows, cols } = getMat(M, path), r = ed.svdOf(path, true), S2 = r.S; const tot = S2.reduce((x, y) => x + y * y, 0); let c = 0; const cum = S2.map((s) => (c += s * s) / tot);
-  const out = new Float32Array(rows * cols); (await import('./linalg.js?v=5')).svdReconstruct(r, Float64Array.from(S2), out); let e = 0; for (let i = 0; i < out.length; i++) e += (out[i] - a[i]) ** 2;
+  const out = new Float32Array(rows * cols); (await import('./linalg.js?v=6')).svdReconstruct(r, Float64Array.from(S2), out); let e = 0; for (let i = 0; i < out.length; i++) e += (out[i] - a[i]) ** 2;
   bars($('svdC'), Array.from(S2), { log: true, title: `σ spectrum ${path} (${rows}×${cols}, log) · hover for energy`, label: (i) => `σ${i} = ${S2[i].toPrecision(5)}  cum energy ${(cum[i] * 100).toFixed(2)}%`, onClick: (i) => ($('svK').value = i + 1) });
   $('svdInfo').textContent = `${S2.length} σ · ${r.sweeps} sweeps · ${(performance.now() - t0).toFixed(0)} ms · recon rel.err ${(Math.sqrt(e) / frob(a)).toExponential(2)} · 90% energy @ k=${cum.findIndex((x) => x >= 0.9) + 1}`;
 }
@@ -514,9 +514,11 @@ function wire() {
     const r = await loadModel(); W = r.W; tok = r.tok; M = cloneWeights(W); ed = new Editor(W, M); R = defaultRuntime(); eng = new Engine(M, R); engClean = new Engine(W, defaultRuntime());
     buildUI(); viz = new Viz($('gl'), (s) => setSel(s)); wire(); caInputs(); afterChange(); setSel({ l: 0, h: 0 }); $('loader').style.display = 'none'; hud();
     V5.mount({ viz, W: () => W, M: () => M, eng: () => eng, engClean: () => engClean, tok: () => tok, R: () => R, ed: () => ed, S: () => S, stats: () => stats, sae: () => sae, setSel, showTab, commit, weightEdit, download, generate, analyze, undo, redo, ensureStats, guard, toast, audio,
+      applyShared: (st) => commit('load shared experiment', () => { R = Object.assign(defaultRuntime(), st.R || {}); eng.R = R; ed.setEdits(st.edits || []); }),
       reset: () => commit('reset everything', () => { R = defaultRuntime(); eng.R = R; ed.setEdits([]); }), nextVecId: () => nextVec++,
       makeEngine: (w, r) => { const e = new Engine(w, r); e.stats = stats; e.sae = eng.sae; return e; } });
-    window.NEURALESE = { v5: V5, viz, audio, W, M, tok, ed, get R() { return R; }, eng, engClean, commit, generate, analyze, undo, redo, get stats() { return stats; }, mb: r.mb };
+    window.NEURALESE = { v6: V5, v5: V5, viz, audio, W, M, tok, ed, get R() { return R; }, eng, engClean, commit, generate, analyze, undo, redo, get stats() { return stats; }, mb: r.mb };
+    if (/#x=/.test(location.hash)) { try { await V5.out.shareLoad(location.hash); } catch (e) { toast('share link: ' + e.message); } }
     await generate();
   } catch (e) { console.error(e); setLoad('✖ ' + e.message); }
 })();
