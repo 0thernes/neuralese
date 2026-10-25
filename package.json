@@ -1,7 +1,7 @@
 {
  "name": "neuralese",
- "version": "6.0.0",
- "description": "NEURALESE v6: in-browser interpretability & weight-surgery lab for TinyStories-8M",
+ "version": "7.0.0",
+ "description": "NEURALESE v7: in-browser interpretability & weight-surgery lab for TinyStories-8M",
  "main": "index.js",
  "scripts": {
   "test": "node --test test/",
@@ -9,6 +9,8 @@
   "ref": ".venv/bin/python ref.py",
   "smoke5": "node smoke-v5.mjs http://localhost:8765/",
   "smoke6": "node smoke-v6.mjs http://localhost:8765/",
+  "smoke7": "node smoke-v7.mjs http://localhost:8765/",
+  "lint": "npx --yes eslint@9 site test tools",
   "cli": "node site/cli.mjs --model model",
   "docs": "node tools/gendocs.mjs"
  },
