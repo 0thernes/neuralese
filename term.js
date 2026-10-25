@@ -1,6 +1,7 @@
 // In-app terminal: a small, safe command language over the real app API (no eval). Shared by the batch runner.
-import { $, esc, MATS_OK } from './term-util.js?v=5';
-export const VERSION = '5.0.0';
+import { $, esc, MATS_OK } from './term-util.js?v=6';
+export const VERSION = '6.0.0';
+import { CMDS as SCI_CMDS } from './lab-science.js?v=6';
 const SET_KEYS = ['n', 'seed', 'temp', 'topk', 'topp', 'minp', 'typical', 'rep', 'freq', 'pres', 'mode'];
 export const COMMANDS = {
   help: ['help [cmd]', 'list commands or show usage of one'],
@@ -41,6 +42,7 @@ export const COMMANDS = {
 };
 export function complete(prefix) { const p = prefix.trimStart(); if (p.includes(' ')) { const [c, ...r] = p.split(/\s+/); const last = r[r.length - 1] || ''; const pool = c === 'tab' ? Object.keys(COMMANDS.tab[1].match(/\(([^)]*)\)/)[1].split(', ').reduce((a, k) => ((a[k] = 1), a), {})) : c === 'help' ? Object.keys(COMMANDS) : c === 'theme' ? ['dark', 'light'] : c === 'edit' ? ['chaos', 'quant', 'svd', 'scale', 'head', 'neuron', 'interp'] : c === 'sweep' ? ['blend', 'steer', 'htemp', 'neuron', 'lbias', 'window', 'hsteer'] : c === 'set' ? SET_KEYS : c === 'spectrum' && r.length === 2 ? MATS_OK : []; return pool.filter((k) => k.startsWith(last)).map((k) => [c, ...r.slice(0, -1), k].join(' ')); } return Object.keys(COMMANDS).filter((k) => k.startsWith(p)); }
 
+for (const [k, v] of Object.entries(SCI_CMDS)) if (!COMMANDS[k]) COMMANDS[k] = v;
 export function makeTerminal(A, out) {
   const hist = JSON.parse(localStorage.getItem('neuralese.term.hist') || '[]');
   const num = (x, name, lo = -Infinity, hi = Infinity) => { const v = +x; if (x == null || x === '' || !isFinite(v) || v < lo || v > hi) throw new Error(`${name} must be a number in [${lo}, ${hi}]`); return v; };
@@ -51,7 +53,7 @@ export function makeTerminal(A, out) {
     const [cmd, ...a] = line.split(/\s+/), rest = line.slice(cmd.length).trim();
     switch (cmd) {
       case 'help': if (a[0]) { const c = COMMANDS[a[0]]; if (!c) throw new Error('unknown command ' + a[0]); return `${c[0]}\n  ${c[1]}`; } return Object.values(COMMANDS).map(([u, h]) => `${u.padEnd(44)} ${h}`).join('\n');
-      case 'version': return `NEURALESE v${VERSION} · model roneneldan/TinyStories-8M (GPT-Neo, 8 layers, d=256) · CPU f32 JavaScript inference`;
+      case 'version': return `NEURALESE v${VERSION} · model roneneldan/TinyStories-8M (GPT-Neo, 8 layers, d=256) · CPU f32 JavaScript inference (WebGPU unembedding optional, see "gpu")`;
       case 'clear': A.termClear(); return '';
       case 'history': return hist.map((h, i) => `${String(i + 1).padStart(4)}  ${h}`).join('\n');
       case 'echo': return rest;
@@ -96,7 +98,7 @@ export function makeTerminal(A, out) {
       case 'audio': if (a[0] === 'on') await A.audioOn(); else if (a[0] === 'off' || a[0] === 'mute') A.audioMute(); else throw new Error('audio on|off|mute'); return 'audio ' + a[0];
       case 'sel': { const l = layer(a[0]); A.setSel(a[1] != null ? { l, h: num(a[1], 'head', 0, 15) | 0 } : { l }); return `selected L${l}${a[1] != null ? 'H' + a[1] : ''}`; }
       case 'run': { const outp = []; for (const s of rest.split(';')) { const r = await exec(s); if (r) outp.push(`$ ${s.trim()}\n${r}`); } return outp.join('\n'); }
-      default: throw new Error(`unknown command "${cmd}" — type help`);
+      default: if (A.ext && A.ext[cmd]) return A.ext[cmd](a); throw new Error(`unknown command "${cmd}" — type help`);
     }
   }
   return { exec, hist };

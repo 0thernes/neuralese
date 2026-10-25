@@ -1,6 +1,7 @@
 // Weight surgery: a replayable list of edit ops applied to a fresh copy of the original weights.
-import { CFG, copyWeightsInto, mulberry32, gauss } from './model.js?v=5';
-import { svd, svdReconstruct } from './linalg.js?v=5';
+import { CFG, copyWeightsInto, mulberry32, gauss } from './model.js?v=6';
+import { svd, svdReconstruct } from './linalg.js?v=6';
+import { resolve, fromPath } from './drill.js?v=6';
 const { d, ff, L } = CFG;
 export const MATS = ['q', 'k', 'v', 'o', 'fc', 'proj'];
 export const SHAPE = { q: [d, d], k: [d, d], v: [d, d], o: [d, d], fc: [ff, d], proj: [d, ff] };
@@ -40,6 +41,7 @@ export class Editor {
           if (e.fn === 'noise') { const r = []; for (let j = 0; j < 16; j++) for (let i = 0; i < d; i++) r.push((t.i * 16 + j) * d + i); for (const k of ['q', 'k', 'v']) ed(P[k], Q[k], r); } }
         else if (t.type === 'neuron') { const idx = []; for (let i = 0; i < d; i++) idx.push(i * ff + t.i); ed(P.proj, Q.proj, idx); if (e.fn === 'noise') { const r = []; for (let i = 0; i < d; i++) r.push(t.i * d + i); ed(P.fc, Q.fc, r); } }
         else if (t.type === 'matrix') { const { a } = getMat(W, t.path), { a: oa } = getMat(O, t.path); ed(a, oa, a.keys()); }
+        else if (t.type === 'sel') { for (const p of resolve(W, fromPath(t.path))) { const arr = W.layers[p.l][p.key], oarr = O.layers[p.l][p.key]; ed(arr, oarr, p.idx || arr.keys()); } }
         else if (t.type === 'embed') for (const tk of t.toks) { const r = []; for (let i = 0; i < d; i++) r.push(tk * d + i); ed(W.wte, O.wte, r); }
         break;
       }
@@ -70,7 +72,7 @@ export class Editor {
   }
   label(e) {
     switch (e.kind) {
-      case 'elem': { const t = e.target, a = e.fn === 'scale' ? `×${e.amt}` : e.fn === 'noise' ? `+${e.amt}σ noise` : e.fn === 'add' ? `+${e.amt}` : e.fn; return `${t.type === 'head' ? `L${t.l}H${t.i}.o` : t.type === 'neuron' ? `L${t.l}N${t.i}` : t.type === 'matrix' ? t.path : `emb[${t.word}]`} ${a}`; }
+      case 'elem': { const t = e.target, a = e.fn === 'scale' ? `×${e.amt}` : e.fn === 'noise' ? `+${e.amt}σ noise` : e.fn === 'add' ? `+${e.amt}` : e.fn; return `${t.type === 'head' ? `L${t.l}H${t.i}.o` : t.type === 'neuron' ? `L${t.l}N${t.i}` : t.type === 'matrix' || t.type === 'sel' ? t.path : `emb[${t.word}]`} ${a}`; }
       case 'svd': return `SVD ${e.path} ${e.mode === 'topk' ? `keep top-${e.k}` : e.mode === 'flatten' ? `flatten top-${e.k}` : `${e.mode} σ${e.from}..${e.to}${e.mode === 'scale' ? ' ×' + e.factor : ''}`}`;
       case 'lowrank': return `rank-${e.rank} perturb ${e.path} ${e.sigma}σ`;
       case 'quant': return `int${e.bits} L[${e.layers.join(',')}] {${e.mats.join(',')}}`;
