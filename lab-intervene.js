@@ -1,9 +1,9 @@
 // INTERVENE/RUN extras: parameter sweeps, batch experiments, advanced steering controls (all act on the real engine).
-import * as C from './labcore.js?v=6';
-import { logSoftmax } from './engine.js?v=6';
-import { CORPUS } from './corpus.js?v=6';
-import { lines } from './charts.js?v=6';
-import { $, esc, opts, hOpts, cv, tipq, prog, tick, tokId, parseLayers, d, H, hd, L, ff } from './lab-ui.js?v=6';
+import * as C from './labcore.js?v=7';
+import { logSoftmax } from './engine.js?v=7';
+import { CORPUS } from './corpus.js?v=7';
+import { lines } from './charts.js?v=7';
+import { $, esc, opts, hOpts, cv, tipq, prog, tick, tokId, parseLayers, d, H, hd, L, ff } from './lab-ui.js?v=7';
 const PROMPT = 'Once upon a time, there was a little girl named Lily. She loved to';
 export const markup = {
   sweep: ['SWEEP', 'Sweeps & batch', `<fieldset><legend>parameter sweep ${tipq('Each point builds a fresh engine with that parameter value (weights blended or runtime cloned) and measures perplexity on corpus tokens, KL vs the clean model at the prompt end, and p(target).')}</legend>

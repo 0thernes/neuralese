@@ -1,23 +1,24 @@
 // v6 SCIENCE group: drill-down inspector, gradients & attribution, head circuits, representation geometry, loss landscape;
 // VIEW: 3D modes; TOOLS: WebGPU, model zoo + diff, shareable experiment URLs. Every number is computed live from the current weights.
-import { CORPUS } from './corpus.js?v=6';
-import { lines, bars, heatmap, scatter } from './charts.js?v=6';
-import { $, esc, fmt, opts, cv, tipq, prog, tick, lOpts, hOpts } from './lab-ui.js?v=6';
-import * as D from './drill.js?v=6';
-import * as G from './grad.js?v=6';
-import * as S from './science.js?v=6';
-import { svd } from './linalg.js?v=6';
-import { GPU, bench, cpuMatVec } from './gpu.js?v=6';
-import { ZOO, loadZoo, httpRange, weightDiff } from './zoo.js?v=6';
-import { cloneWeights } from './model.js?v=6';
+import { CORPUS } from './corpus.js?v=7';
+import { docs as DSdocs } from './dataset.js?v=7';
+import { lines, bars, heatmap, scatter } from './charts.js?v=7';
+import { $, esc, fmt, opts, cv, tipq, prog, tick, lOpts, hOpts } from './lab-ui.js?v=7';
+import * as D from './drill.js?v=7';
+import * as G from './grad.js?v=7';
+import * as S from './science.js?v=7';
+import { svd } from './linalg.js?v=7';
+import { GPU, bench, cpuMatVec } from './gpu.js?v=7';
+import { ZOO, loadZoo, httpRange, weightDiff } from './zoo.js?v=7';
+import { cloneWeights } from './model.js?v=7';
 const P = (id) => `<div class="prog" id="${id}"><i></i></div>`;
-const docsN = (n, T = 24) => CORPUS.slice(0, Math.max(1, Math.min(40, n))).map((x) => x.slice(0, T));
+const docsN = (n, T = 24) => DSdocs(n, T); // shared dataset (built-in or user corpus)
 const pearson = (a, b) => { const n = a.length, ma = a.reduce((s, x) => s + x, 0) / n, mb = b.reduce((s, x) => s + x, 0) / n; let ab = 0, aa = 0, bb = 0; for (let i = 0; i < n; i++) { ab += (a[i] - ma) * (b[i] - mb); aa += (a[i] - ma) ** 2; bb += (b[i] - mb) ** 2; } return ab / Math.sqrt(aa * bb || 1); };
 const ci = (x, p = 3) => `${fmt(x.est, p)} <span class="sm">[${fmt(x.lo, p)}, ${fmt(x.hi, p)}]</span>`;
 const MATK = ['q', 'k', 'v', 'o', 'fc', 'proj'];
 export const markup = {
   drill: ['DRILL', 'Drill-down inspector', `<fieldset><legend>model → layer → sublayer → matrix → head/neuron → row/col → weight ${tipq('Every level resolves to an exact set of parameter indices. Stats, spectra, gradients, Fisher, finite-difference sensitivity, ablation, provenance and edits all act on that same set. Navigation is synced with the 3D view.')}</legend>
-<div id="dBc" class="crumbs" aria-label="breadcrumb"></div><div class="r"><input id="dPath" style="flex:1" value="L3.attn.q.H5" aria-label="node path"/><button id="dGoP">go</button><label>docs</label><input type="number" id="dN" value="3" style="width:4em"/><label>ε</label><input id="dEps" value="0.001" style="width:5em"/><button class="pri" id="dGo">inspect</button></div>
+<nav id="dBc" class="crumbs" aria-label="breadcrumb"></nav><div class="r"><input id="dPath" style="flex:1" value="L3.attn.q.H5" aria-label="node path"/><button id="dGoP">go</button><label>docs</label><input type="number" id="dN" value="3" style="width:4em"/><label>ε</label><input id="dEps" value="0.001" style="width:5em"/><button class="pri" id="dGo">inspect</button></div>
 <div class="r"><label>children</label><input type="number" id="dPage" value="0" style="width:4em" title="page of 64"/><span id="dKidInfo" class="sm"></span></div><div id="dKids" class="chips"></div>${P('dP')}<div id="dOut"></div>${cv('dSpec', 'singular values σ_i (log scale) of the selected block')}${cv('dHist', 'weight histogram of the selection')}
 <div class="two"><div><b>provenance: tokens whose loss moves most when this set is zeroed</b><div id="dProv"></div></div><div><b>direct logit effect (unit level)</b><div id="dLogit" class="sm">select a head or neuron</div></div></div>
 <fieldset><legend>edit this selection</legend><div class="r"><select id="dFn">${opts(['scale', 'zero', 'noise', 'add', 'invert'])}</select><input id="dAmt" value="0.5" style="width:5em"/><button id="dEd">apply (undoable)</button></div></fieldset></fieldset>`],
