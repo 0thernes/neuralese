@@ -119,4 +119,24 @@ Good practice: change one thing at a time, include a control, report effect size
   quiz: [
     { q: 'ECE measures…', options: ['average |accuracy − confidence| across confidence bins, weighted by bin size', 'perplexity', 'KL to the clean model'], a: 0, why: 'Expected calibration error.' },
     { q: 'Edit strength α = 0 in the blend sweep corresponds to…', options: ['the original weights', 'the fully edited weights', 'zero weights'], a: 0, why: 'W + 0·(M − W) = W.' } ] },
+{ id: 'l11', level: 'Research', title: '11 · Gradients, attribution and curvature', minutes: 30,
+  lecture: `The backward pass gives ∂m/∂(everything). **Gradient × input** is a first-order attribution; **integrated gradients** integrate the gradient along a path from a baseline and satisfy completeness (attributions sum to m(x) − m(x′)). **Attribution patching** estimates the effect of patching every head from one backward pass; always validate it against true activation patching, as GRADIENTS does (Pearson r).
+
+The **empirical Fisher** (mean squared gradient) and the **saliency** Σ|θ·g| rank parameters by local sensitivity; the top **Hessian eigenvalue** measures sharpness. The DRILL inspector checks the analytic directional derivative against a finite difference for any selection.`,
+  diagram: svg(520, 120, `<line x1="30" y1="100" x2="480" y2="20" stroke="#5eead4"/><circle cx="30" cy="100" r="4" fill="#f472b6"/><circle cx="480" cy="20" r="4" fill="#f472b6"/><text x="36" y="114">baseline x′</text><text x="420" y="14">input x</text><text x="180" y="50">∫ ∇m along the path</text>`),
+  lab: ['attrib gxi', 'attrib ig play dance', 'atp', 'fisher 2', 'drill L3.attn.q.H5'],
+  labNotes: 'Compare the IG completeness error with grad×input, and the AtP scatter with the y = x line.',
+  quiz: [
+    { q: 'Integrated gradients attributions sum to…', options: ['m(x) − m(baseline)', 'zero', 'the gradient norm'], a: 0, why: 'Completeness axiom.' },
+    { q: 'Attribution patching is…', options: ['a first-order Taylor estimate of activation patching', 'exact activation patching', 'a training method'], a: 0, why: '(a_corrupt − a_clean)·∂m/∂a.' } ] },
+{ id: 'l12', level: 'Research', title: '12 · Circuits and geometry', minutes: 30,
+  lecture: `A head's **OV circuit** W_U·W_O·W_V·W_E maps tokens to logits; positive eigenvalues mean copying. **Composition scores** measure how much a later head reads (via Q, K or V) what an earlier head wrote. **Induction heads** attend to the token after an earlier copy of the current one; TinyStories-8M has strong previous-token heads but only weak induction, which is a real finding, not a bug.
+
+Representation geometry: **CKA** compares layers, **TwoNN** estimates intrinsic dimension, **anisotropy** measures a shared direction, **logit-lens KL** shows how far each layer is from the final prediction. Loss-landscape slices and **superposition** interference complete the picture.`,
+  diagram: svg(520, 120, `<circle cx="80" cy="60" r="18" fill="none" stroke="#5eead4"/><circle cx="260" cy="60" r="18" fill="none" stroke="#5eead4"/><circle cx="440" cy="60" r="18" fill="none" stroke="#5eead4"/><line x1="98" y1="60" x2="242" y2="60" stroke="#f472b6"/><line x1="278" y1="60" x2="422" y2="60" stroke="#f472b6"/><text x="140" y="50">K-comp</text><text x="320" y="50">V-comp</text>`),
+  lab: ['eigen', 'comp', 'induct', 'geom 2', 'land 2d 3 q svd', 'mode surface'],
+  labNotes: 'Open 3D MODES → circuit graph to see the strongest compositions; the loss surface opens automatically after the 2-D slice.',
+  quiz: [
+    { q: 'A positive OV copying score means the head…', options: ['tends to increase the logit of the token it attends to', 'ignores the token', 'attends to the previous position'], a: 0, why: 'Positive eigenvalues of the token→logit map.' },
+    { q: 'CKA = 1 between two layers means…', options: ['identical representation geometry up to rotation and scale', 'identical weights', 'zero loss'], a: 0, why: 'CKA is invariant to orthogonal transforms and isotropic scaling.' } ] },
 ];
