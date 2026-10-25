@@ -1,9 +1,9 @@
 // MODEL group: architecture schematic, parameter/FLOP breakdown, weight statistics (live tensors).
-import * as C from './labcore.js?v=6';
-import { getMat, MATS } from './surgery.js?v=6';
-import { CFG } from './model.js?v=6';
-import { heatmap, lines, bars, scatter } from './charts.js?v=6';
-import { $, esc, fmt, human, opts, lOpts, hOpts, XB, cv, tipq, pal, prog, svgEl, tick, d, H, hd, L, V } from './lab-ui.js?v=6';
+import * as C from './labcore.js?v=7';
+import { getMat, MATS } from './surgery.js?v=7';
+import { CFG } from './model.js?v=7';
+import { heatmap, lines, bars, scatter } from './charts.js?v=7';
+import { $, esc, fmt, human, opts, lOpts, hOpts, XB, cv, tipq, pal, prog, svgEl, tick, d, H, hd, L, V } from './lab-ui.js?v=7';
 
 export const markup = {
   arch: ['ARCH', 'Architecture schematic', `<fieldset><legend>architecture schematic ${tipq('Generated from the live weights and the runtime layer program: duplicated, reordered or skipped slots appear here. Click a block to select that layer.')}</legend><div class="r"><button class="pri" id="xArch">render</button><span class="sm" id="xArchInfo"></span>${XB('xArchSvg', 'svg')}</div><div id="xArchSvg" class="svgbox"></div></fieldset><fieldset><legend>config</legend><div id="xCfg" class="sm"></div></fieldset>`],
