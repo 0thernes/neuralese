@@ -1,7 +1,7 @@
 // Quantitative analyses for NEURALESE v6. Every function is deterministic given a seed and documented with its definition.
-import { CFG } from './model.js?v=6';
-import { svd } from './linalg.js?v=6';
-import { forward, logitsAt, dims } from './grad.js?v=6';
+import { CFG } from './model.js?v=7';
+import { svd } from './linalg.js?v=7';
+import { forward, logitsAt, dims } from './grad.js?v=7';
 export function rng(seed = 1) { let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 const gauss = (r) => Math.sqrt(-2 * Math.log(r() + 1e-12)) * Math.cos(2 * Math.PI * r());
 
