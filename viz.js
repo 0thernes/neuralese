@@ -1,6 +1,21 @@
 // 3D view: layer stack (heads, neurons, residual stream) + real weight matrix as height-field / point cloud.
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+// audio-reactive post FX: chromatic aberration + scanlines + rolling bars, all scaled by the live audio level; glitch = block tearing on anomalies
+const FX = { uniforms: { tDiffuse: { value: null }, uLevel: { value: 0 }, uGlitch: { value: 0 }, uTime: { value: 0 }, uRes: { value: new THREE.Vector2(1, 1) } },
+  vertexShader: 'varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }',
+  fragmentShader: `uniform sampler2D tDiffuse; uniform float uLevel,uGlitch,uTime; uniform vec2 uRes; varying vec2 vUv;
+  float h(float n){return fract(sin(n)*43758.5453);}
+  void main(){ vec2 uv=vUv; float row=floor(uv.y*40.0+uTime*3.0); float tear=uGlitch*step(0.7,h(row+floor(uTime*20.0)))*(h(row*1.7)-0.5)*0.12; uv.x+=tear;
+    float ab=0.0015+0.012*uLevel+0.02*uGlitch; vec2 dir=uv-0.5;
+    vec3 c=vec3(texture2D(tDiffuse,uv+dir*ab).r,texture2D(tDiffuse,uv).g,texture2D(tDiffuse,uv-dir*ab).b);
+    float scan=0.5+0.5*sin(uv.y*uRes.y*1.6); c*=1.0-(0.08+0.25*uLevel)*scan; c+=0.04*uLevel*sin(uv.y*6.0-uTime*4.0);
+    if(uGlitch>0.01){ c=mix(c,c.gbr,uGlitch*step(0.85,h(row+uTime))); }
+    c*=1.0-0.35*dot(dir,dir)*2.0; gl_FragColor=vec4(c,1.0);}` };
 import { CFG } from './model.js';
 import { getMat } from './surgery.js';
 const { L, H, ff, d } = CFG, GAP = 2.4;
@@ -29,9 +44,11 @@ export class Viz {
     canvas.addEventListener('pointerup', (e) => { if (!down || Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 4) return; mv.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1); ray.setFromCamera(mv, this.cam); ray.params.Points.threshold = 0.06;
       const hit = ray.intersectObjects([...this.heads.flat(), ...this.neur, ...this.slabs])[0]; if (!hit) return; const u = hit.object.userData;
       if (u.type === 'head') this.onPick({ l: u.l, h: u.h }); else if (u.type === 'neurons') this.onPick({ l: u.l, n: hit.index }); else { const l = this.slabs.indexOf(hit.object); if (l >= 0) this.onPick({ l }); } });
-    addEventListener('resize', () => { r.setSize(innerWidth, innerHeight); this.cam.aspect = innerWidth / innerHeight; this.cam.updateProjectionMatrix(); });
-    const loop = () => { requestAnimationFrame(loop); this.ctl.update(); r.render(s, this.cam); }; loop();
+    addEventListener('resize', () => { r.setSize(innerWidth, innerHeight); this.comp && this.comp.setSize(innerWidth, innerHeight); this.cam.aspect = innerWidth / innerHeight; this.cam.updateProjectionMatrix(); });
+    this.levelFn = () => 0; this.glitchV = 0; const comp = new EffectComposer(r); comp.addPass(new RenderPass(s, this.cam)); this.fx = new ShaderPass(FX); comp.addPass(this.fx); comp.addPass(new OutputPass()); this.comp = comp;
+    const loop = (ms) => { requestAnimationFrame(loop); this.ctl.update(); const u = this.fx.uniforms; u.uTime.value = ms / 1000; u.uLevel.value = u.uLevel.value * 0.8 + 0.2 * Math.min(1, this.levelFn() * 2.5); this.glitchV *= 0.95; u.uGlitch.value = this.glitchV; u.uRes.value.set(innerWidth, innerHeight); comp.render(); }; requestAnimationFrame(loop);
   }
+  glitch(a = 1) { this.glitchV = Math.max(this.glitchV, a); }
   select(sel) { const l = sel.l ?? 0; this.slabs.forEach((s, i) => s.material.color.setHex(i === l ? 0x23406a : 0x14203a)); if (sel.h != null) { this.sel.visible = true; this.sel.position.copy(this.heads[l][sel.h].position); this.sel.rotation.x = Math.PI / 2; } else this.sel.visible = false; }
   // tr: a trace of one position (last token). Head glow = ‖z_h‖, neuron color = activation, stream radius = ‖resid‖
   activations(tr) {
