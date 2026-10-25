@@ -139,4 +139,28 @@ Representation geometry: **CKA** compares layers, **TwoNN** estimates intrinsic 
   quiz: [
     { q: 'A positive OV copying score means the head…', options: ['tends to increase the logit of the token it attends to', 'ignores the token', 'attends to the previous position'], a: 0, why: 'Positive eigenvalues of the token→logit map.' },
     { q: 'CKA = 1 between two layers means…', options: ['identical representation geometry up to rotation and scale', 'identical weights', 'zero loss'], a: 0, why: 'CKA is invariant to orthogonal transforms and isotropic scaling.' } ] },
+{ id: 'l13', level: 'Research', title: '13 · Statistics for interpretability', minutes: 25,
+  lecture: `A single ablation number is an anecdote. **STATS** turns it into a test: for each head, per-document losses with and without the head form paired samples; a **sign-flip permutation test** asks how often random sign flips of the differences give a mean as large as observed. Report the **effect size** (Cohen's d_z) and a **bootstrap CI**, not just p.
+
+Testing 16 heads means 16 chances of a false positive. **Holm** controls the chance of *any* false positive; **Benjamini–Hochberg** controls the expected *fraction* of false discoveries. With 12 documents the smallest possible paired p is 2/4096 — tiny samples cap how significant anything can be.`,
+  diagram: svg(520, 120, `<line x1="40" y1="100" x2="480" y2="100" stroke="#94a3b8"/><path d="M60 100 C160 100 200 20 260 20 C320 20 360 100 460 100" fill="none" stroke="#5eead4"/><line x1="420" y1="30" x2="420" y2="100" stroke="#f472b6"/><text x="380" y="24">observed</text><text x="200" y="114">null distribution (permutations)</text>`),
+  lab: ['stats 0 12 2000', 'stats 7 12 2000'],
+  labNotes: 'Compare layer 0 and layer 7: how many heads survive Holm vs BH? Do confidence intervals that exclude 0 match the corrected p-values?',
+  quiz: [
+    { q: 'A paired sign-flip permutation test assumes, under the null…', options: ['each per-document difference is equally likely to be positive or negative', 'the data are normal', 'the two models have equal weights'], a: 0, why: 'Symmetry of the paired differences around zero.' },
+    { q: 'Benjamini–Hochberg controls…', options: ['the expected false discovery rate', 'the probability of any false positive', 'the effect size'], a: 0, why: 'Holm controls the family-wise error rate; BH the FDR.' },
+    { q: 'Why report Cohen’s d next to p?', options: ['p depends on sample size; d measures magnitude', 'd replaces the test', 'p is always wrong'], a: 0, why: 'Large samples make tiny effects significant.' } ] },
+{ id: 'l14', level: 'Research', title: '14 · Circuits, probes and reproducible evals', minutes: 35,
+  lecture: `**ACDC** automates circuit finding: replace components by their activations on a corrupt prompt, keep only those whose replacement moves the metric by more than τ of the clean–corrupt gap. Check the result with **faithfulness** and test your own hypotheses with **causal scrubbing**. Raising τ gives smaller, less faithful circuits.
+
+A **linear probe** asks whether a property is linearly decodable; the **control task** asks whether the probe could have memorised it anyway. Report **selectivity**. Decodable does not mean used — follow up with interventions.
+
+Finally make it reproducible: the **weights hash** and **manifest** pin exactly what was run, **EVAL** checks the edit did not silently break the model, and **REPORT** packages methods, numbers and figures.`,
+  diagram: svg(520, 120, `<rect x="30" y="40" width="90" height="40" fill="none" stroke="#5eead4"/><rect x="215" y="40" width="90" height="40" fill="none" stroke="#5eead4"/><rect x="400" y="40" width="90" height="40" fill="none" stroke="#5eead4"/><line x1="120" y1="60" x2="215" y2="60" stroke="#f472b6"/><line x1="305" y1="60" x2="400" y2="60" stroke="#f472b6"/><text x="48" y="64">discover</text><text x="238" y="64">verify</text><text x="418" y="64">report</text>`),
+  lab: ['acdc 0.02', 'acdc 0.1', 'scrub L6H9 L7H3 L7MLP', 'probe all', 'evalh 8', 'hash', 'manifest'],
+  labNotes: 'Compare circuit size and faithfulness at τ = 0.02 and 0.1. Which layers make noun vs verb most decodable, and is selectivity high there?',
+  quiz: [
+    { q: 'Faithfulness of 100% means the circuit…', options: ['recovers the full clean–corrupt metric gap', 'contains every node', 'has zero loss'], a: 0, why: '(m_circuit − m_corrupt)/(m_clean − m_corrupt).' },
+    { q: 'High probe accuracy but low selectivity suggests…', options: ['the probe memorises word identities', 'the feature is causally used', 'the model is broken'], a: 0, why: 'The control task scores just as well.' },
+    { q: 'Two runs have identical weights if…', options: ['their SHA-256 weight hashes match', 'their perplexities match', 'they used the same prompt'], a: 0, why: 'The hash covers every bit of every tensor.' } ] },
 ];
