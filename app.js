@@ -1,324 +1,481 @@
-import * as THREE from 'three';
-import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
-import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
-import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
-import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+// NEURALESE v2 — UI wiring. All numerics live in engine/analysis/surgery/decode/sae/rome (unit-tested vs PyTorch).
 import { GPT2Tokenizer } from './tokenizer.js';
-import { CFG, buildWeights, parseSafetensors, cloneWeights, Stream, sample, mulberry32 } from './model.js';
-import { Hacker } from './hacks.js';
-import { PRESETS } from './presets.js';
+import { CFG, buildWeights, parseSafetensors, cloneWeights, mulberry32 } from './model.js';
+import { Engine, defaultRuntime, logSoftmax, topK, SITES } from './engine.js';
+import { computeStats, actCovariance, fitTunedLens, lensGrid, dla, patchResid, patchHeads, pathPatchHeadsToLogits, ablationSweep, buildControlVector, vectorArithmetic, tokenStats } from './analysis.js';
+import { Editor, MATS, getMat, toSafetensors, quantize } from './surgery.js';
+import { defaultDecode, applyPenalties, filterDist, pick, contrastiveLogits, cfgLogits, beamSearch } from './decode.js';
+import { SAE } from './sae.js';
+import { computeRome } from './rome.js';
+import { CORPUS } from './corpus.js';
+import { heatmap, lines, bars, showTip, seqColor, divColor } from './charts.js';
+import { Viz } from './viz.js';
+const { d, H, L, ff, V } = CFG;
+const $ = (id) => document.getElementById(id), $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const tick = () => new Promise((r) => setTimeout(r, 0));
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+const toast = (m, bad) => { const t = $('toast'); t.textContent = m; t.style.borderColor = bad ? '#f87171' : ''; t.style.display = 'block'; clearTimeout(toast.h); toast.h = setTimeout(() => (t.style.display = 'none'), bad ? 6000 : 2500); };
+const guard = (fn) => async (...a) => { try { await fn(...a); } catch (e) { console.error(e); toast('✖ ' + e.message, true); } };
 
-const REPO = 'https://huggingface.co/roneneldan/TinyStories-8M/resolve';
-const ST_URL = `${REPO}/refs%2Fpr%2F1/model.safetensors`; // safetensors conversion of the official weights
-const $ = (id) => document.getElementById(id);
-const setLoad = (msg, f) => { $('loadmsg').textContent = msg; if (f != null) $('loadbar').style.width = (f * 100).toFixed(1) + '%'; };
-
-async function fetchProgress(url, range, onp) {
-  const r = await fetch(url, range ? { headers: { Range: `bytes=${range[0]}-${range[1]}` } } : {});
-  if (!r.ok) throw new Error('HTTP ' + r.status);
-  const total = range ? range[1] - range[0] + 1 : +r.headers.get('content-length');
-  const rd = r.body.getReader(); const chunks = []; let got = 0;
+// ───────── loading (HTTP Range: only the fp32 tensors, skipping the bool attn.bias buffers) ─────────
+const REPO = 'https://huggingface.co/roneneldan/TinyStories-8M/resolve', ST_URL = `${REPO}/refs%2Fpr%2F1/model.safetensors`;
+const setLoad = (m, f) => { $('loadmsg').textContent = m; if (f != null) $('loadbar').style.width = (f * 100).toFixed(1) + '%'; };
+async function fetchRange(url, a, b, onp) {
+  const r = await fetch(url, { headers: { Range: `bytes=${a}-${b}` } }); if (!r.ok) throw new Error('HTTP ' + r.status);
+  const total = b - a + 1, rd = r.body.getReader(), chunks = []; let got = 0;
   for (;;) { const { done, value } = await rd.read(); if (done) break; chunks.push(value); got += value.length; onp && onp(got / total); }
   const out = new Uint8Array(got); let o = 0; for (const c of chunks) { out.set(c, o); o += c.length; }
-  return { buf: out.buffer, partial: r.status === 206 };
+  return r.status === 206 ? out.buffer : out.buffer.slice(a, b + 1);
 }
-
 async function loadModel() {
   setLoad('reading safetensors header…', 0.01);
-  const h8 = await fetchProgress(ST_URL, [0, 7]);
-  const n = Number(new DataView(h8.buf).getBigUint64(0, true));
-  const hb = await fetchProgress(ST_URL, [8, 8 + n - 1]);
-  const header = JSON.parse(new TextDecoder().decode(hb.partial ? hb.buf : hb.buf.slice(8, 8 + n)));
-  let end = 0; for (const [k, v] of Object.entries(header)) if (v.dtype === 'F32') end = Math.max(end, v.data_offsets[1]);
-  setLoad(`streaming ${(end / 1e6).toFixed(1)} MB of fp32 weights (skipping causal-mask buffers)…`);
-  const vocabP = fetch(`${REPO}/main/vocab.json`).then((r) => r.json());
-  const mergesP = fetch(`${REPO}/main/merges.txt`).then((r) => r.text());
-  const d = await fetchProgress(ST_URL, [8 + n, 8 + n + end - 1], (f) => setLoad(`streaming weights… ${(f * end / 1e6).toFixed(1)} / ${(end / 1e6).toFixed(1)} MB`, f * 0.95));
-  const data = d.partial ? d.buf : d.buf.slice(8 + n);
-  setLoad('building tokenizer + tensors…', 0.97);
-  const W = buildWeights(parseSafetensors(data, n, header));
-  const tok = new GPT2Tokenizer(await vocabP, await mergesP);
-  return { W, tok, mb: end / 1e6 };
+  const n = Number(new DataView(await fetchRange(ST_URL, 0, 7)).getBigUint64(0, true));
+  const header = JSON.parse(new TextDecoder().decode(await fetchRange(ST_URL, 8, 8 + n - 1)));
+  let end = 0; for (const v of Object.values(header)) if (v.dtype === 'F32') end = Math.max(end, v.data_offsets[1]);
+  const vocabP = fetch(`${REPO}/main/vocab.json`).then((r) => r.json()), mergesP = fetch(`${REPO}/main/merges.txt`).then((r) => r.text());
+  const data = await fetchRange(ST_URL, 8 + n, 8 + n + end - 1, (f) => setLoad(`streaming fp32 weights ${(f * end / 1e6).toFixed(1)} / ${(end / 1e6).toFixed(1)} MB`, f * 0.95));
+  setLoad('building tensors + tokenizer…', 0.97);
+  return { W: buildWeights(parseSafetensors(data, n, header)), tok: new GPT2Tokenizer(await vocabP, await mergesP), mb: end / 1e6 };
 }
 
-// ───────────────────────── 3D scene ─────────────────────────
-const canvas = $('gl');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-renderer.setSize(innerWidth, innerHeight);
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x04050a);
-scene.fog = new THREE.FogExp2(0x04050a, 0.018);
-const camera = new THREE.PerspectiveCamera(48, innerWidth / innerHeight, 0.1, 400);
-camera.position.set(22, 17, 28);
-const controls = new OrbitControls(camera, canvas);
-controls.target.set(0, 8.4, 0); controls.enableDamping = true; controls.autoRotate = true; controls.autoRotateSpeed = 0.35;
-const composer = new EffectComposer(renderer);
-composer.addPass(new RenderPass(scene, camera));
-const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.72, 0.5, 0.22);
-composer.addPass(bloom); composer.addPass(new OutputPass());
-scene.add(new THREE.AmbientLight(0x6070ff, 0.5));
-const pl = new THREE.PointLight(0x4df3ff, 60, 60); pl.position.set(0, 20, 0); scene.add(pl);
-
-// starfield
-{ const g = new THREE.BufferGeometry(), N = 2500, p = new Float32Array(N * 3);
-  for (let i = 0; i < N; i++) { const r = 60 + Math.random() * 120, t = Math.random() * 6.283, u = Math.acos(2 * Math.random() - 1); p.set([r * Math.sin(u) * Math.cos(t), r * Math.cos(u), r * Math.sin(u) * Math.sin(t)], i * 3); }
-  g.setAttribute('position', new THREE.BufferAttribute(p, 3));
-  scene.add(new THREE.Points(g, new THREE.PointsMaterial({ color: 0x8090ff, size: 0.35, transparent: true, opacity: 0.6 }))); }
-
-const GAP = 2.4, GRID = 32, CELL = 0.2, RING = 4.6;
-const layers = []; const pickables = [];
-const headGeo = new THREE.SphereGeometry(0.24, 20, 14);
-const cellGeo = new THREE.BoxGeometry(CELL * 0.78, 0.05, CELL * 0.78);
-function makeLabel(text, color = '#9fb0ff') {
-  const c = document.createElement('canvas'); c.width = 256; c.height = 64; const x = c.getContext('2d');
-  x.font = '600 30px "JetBrains Mono", monospace'; x.fillStyle = color; x.shadowColor = color; x.shadowBlur = 12; x.fillText(text, 8, 42);
-  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false }));
-  s.scale.set(2.6, 0.65, 1); return s;
+// ───────── state ─────────
+let W, M, tok, ed, R, eng, engClean, stats = null, sae = null, saeA = null, viz, cov = new Map();
+const D = defaultDecode(); D.n = 60;
+const S = { sel: { l: 0, h: 0, n: null, mat: 'q' }, undo: [], redo: [], gen: null, lastTraces: null, perf: { tps: 0, ms: 0 }, an: null, wmode: 'height', wdiff: false };
+const snap = () => ({ edits: structuredClone(ed.edits.map(({ _err, ...e }) => e)), R: structuredClone(R) });
+function restore(s) { R = structuredClone(s.R); eng.R = R; ed.setEdits(structuredClone(s.edits)); afterChange(); }
+// every state-changing action goes through commit → undoable, then a full refresh of dependent views
+function commit(label, fn) { const before = snap(); fn(); S.undo.push({ label, s: before }); S.redo = []; afterChange(); toast('✔ ' + label); }
+function undo() { const u = S.undo.pop(); if (!u) return; S.redo.push({ label: u.label, s: snap() }); restore(u.s); toast('↶ ' + u.label); }
+function redo() { const u = S.redo.pop(); if (!u) return; S.undo.push({ label: u.label, s: snap() }); restore(u.s); toast('↷ ' + u.label); }
+let regenT = null;
+function afterChange() { renderOps(); renderSteerList(); renderProgram(); renderHeadGrid(); refreshWeights(); hud(); clearTimeout(regenT); if ($('autoRegen').checked) regenT = setTimeout(() => generate(), 120); }
+async function ensureStats() {
+  if (stats) return stats; const n = +$('statN').value;
+  stats = await computeStats(W, CORPUS, n, (f) => prog('statP', f)); eng.stats = stats; engClean.stats = stats;
+  $('statInfo').textContent = `${stats.N} tokens · ${stats.docs.length} stories`; prog('statP', 1); hud(); return stats;
 }
-for (let l = 0; l < CFG.L; l++) {
-  const g = new THREE.Group(); g.position.y = l * GAP; scene.add(g);
-  const slab = new THREE.Mesh(new THREE.CylinderGeometry(RING + 0.7, RING + 0.7, 0.05, 64, 1, true), new THREE.MeshBasicMaterial({ color: 0x2a3480, transparent: true, opacity: 0.18, side: THREE.DoubleSide, depthWrite: false }));
-  const disc = new THREE.Mesh(new THREE.CircleGeometry(RING + 0.7, 64), new THREE.MeshBasicMaterial({ color: 0x0c1030, transparent: true, opacity: 0.35, side: THREE.DoubleSide, depthWrite: false }));
-  disc.rotation.x = -Math.PI / 2; disc.position.y = -0.04;
-  const rim = new THREE.Mesh(new THREE.TorusGeometry(RING + 0.7, 0.025, 8, 128), new THREE.MeshBasicMaterial({ color: l % 2 ? 0xff4fd8 : 0x4df3ff, transparent: true, opacity: 0.55 }));
-  rim.rotation.x = Math.PI / 2;
-  g.add(slab, disc, rim); disc.userData = { kind: 'layer', l }; pickables.push(disc);
-  const cells = new THREE.InstancedMesh(cellGeo, new THREE.MeshBasicMaterial({ color: 0xffffff }), GRID * GRID);
-  const m4 = new THREE.Matrix4();
-  for (let i = 0; i < GRID * GRID; i++) { m4.makeTranslation((i % GRID - GRID / 2 + 0.5) * CELL, 0, (Math.floor(i / GRID) - GRID / 2 + 0.5) * CELL); cells.setMatrixAt(i, m4); cells.setColorAt(i, new THREE.Color(0x101540)); }
-  cells.userData = { kind: 'neuron', l }; g.add(cells); pickables.push(cells);
-  const heads = [];
-  for (let h = 0; h < CFG.H; h++) {
-    const a = (h / CFG.H) * Math.PI * 2;
-    const m = new THREE.Mesh(headGeo, new THREE.MeshStandardMaterial({ color: 0x1a2050, emissive: new THREE.Color(0x4df3ff), emissiveIntensity: 0.15, roughness: 0.3, metalness: 0.2 }));
-    m.position.set(Math.cos(a) * RING, 0.3, Math.sin(a) * RING); m.userData = { kind: 'head', l, h };
-    g.add(m); heads.push(m); pickables.push(m);
-  }
-  const lab = makeLabel(`L${l} ${l % 2 ? 'local' : 'global'}`, l % 2 ? '#ff8fe6' : '#8ff6ff'); lab.position.set(RING + 2.4, 0.3, 0); g.add(lab);
-  layers.push({ g, cells, heads, rim, slab, targetY: l * GAP, act: new Float32Array(1024), headAct: new Float32Array(16), resid: 0 });
-}
-// residual spine
-const spine = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, GAP * 8 + 2, 12), new THREE.MeshBasicMaterial({ color: 0x4df3ff, transparent: true, opacity: 0.35 }));
-spine.position.y = GAP * 3.5; scene.add(spine);
-const pulses = [];
-function firePulse(color = 0xff4fd8) {
-  const m = new THREE.Mesh(new THREE.SphereGeometry(0.22, 16, 12), new THREE.MeshBasicMaterial({ color })); m.position.y = -1.5; scene.add(m); pulses.push(m);
-}
-// selection marker
-const marker = new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.035, 8, 40), new THREE.MeshBasicMaterial({ color: 0xffc14d, transparent: true, opacity: 0.7 })); marker.visible = false; scene.add(marker);
-// attention heatmap plane
-const attC = document.createElement('canvas'); attC.width = attC.height = 256; const attX = attC.getContext('2d');
-const attTex = new THREE.CanvasTexture(attC); attTex.magFilter = THREE.NearestFilter;
-const attPlane = new THREE.Mesh(new THREE.PlaneGeometry(4, 4), new THREE.MeshBasicMaterial({ map: attTex, transparent: true, opacity: 0.95, side: THREE.DoubleSide }));
-attPlane.visible = false; scene.add(attPlane);
-const attLab = makeLabel('attention', '#ffc14d'); attLab.visible = false; scene.add(attLab);
-
-const tmpC = new THREE.Color();
-function paintLayer(L, editedNeurons, ablated, editedHeads, l) {
-  let mx = 1e-6; for (let i = 0; i < 1024; i++) mx = Math.max(mx, Math.abs(L.act[i]));
-  for (let i = 0; i < 1024; i++) {
-    const v = L.act[i] / mx;
-    if (editedNeurons.has(l * 1024 + i)) tmpC.setRGB(1, 0.75, 0.2);
-    else if (v >= 0) tmpC.setRGB(0.04 + v * v * 0.4, 0.06 + v * 1.1, 0.18 + v * 1.4);
-    else tmpC.setRGB(0.1 - v * 0.9, 0.04, 0.2 - v * 0.6);
-    L.cells.setColorAt(i, tmpC);
-  }
-  L.cells.instanceColor.needsUpdate = true;
-  let hm = 1e-6; for (let h = 0; h < 16; h++) hm = Math.max(hm, L.headAct[h]);
-  L.heads.forEach((m, h) => {
-    const k = l * 16 + h, a = L.headAct[h] / hm;
-    if (ablated.has(k)) { m.material.emissive.setHex(0xff2040); m.material.emissiveIntensity = 0.25; m.scale.setScalar(0.7); }
-    else { m.material.emissive.setHex(editedHeads.has(k) ? 0xffc14d : 0x4df3ff); m.material.emissiveIntensity = 0.1 + a * 2.2; m.scale.setScalar(0.8 + a * 0.6); }
-  });
+async function ensureTuned() { await ensureStats(); if (!stats.tuned) { $('statInfo').textContent += ' · fitting tuned lens…'; await tick(); fitTunedLens(stats, 1e-3); $('statInfo').textContent = `${stats.N} tok · tuned lens ✔`; } return stats.tuned; }
+async function ensureCov(l) { if (!cov.has(l)) { await ensureStats(); cov.set(l, await actCovariance(W, stats, l, (f) => prog('romeP', f * 0.3))); } return cov.get(l); }
+const prog = (id, f) => { const e = $(id); if (e) e.firstElementChild.style.width = (f * 100).toFixed(0) + '%'; };
+function hud() {
+  const mem = performance.memory ? `${(performance.memory.usedJSHeapSize / 1e6).toFixed(0)} MB heap` : 'heap n/a';
+  $('hud').innerHTML = `<span>TinyStories-8M · <b>${R.program.length}</b> slots</span><span><b>${S.perf.tps.toFixed(1)}</b> tok/s</span><span><b>${S.perf.ms.toFixed(1)}</b> ms/tok</span><span>${mem}</span><span>edits <b>${ed.edits.length}</b></span><span>steer <b>${R.steer.filter((v) => v.on).length}</b></span><span>stats <b>${stats ? stats.N : '–'}</b></span><span>SAE <b>${sae ? `L${sae.layer}×${sae.m}` : '–'}</b></span><span>backend <b>CPU/JS f32</b></span>`;
 }
 
-// ───────────────────────── state ─────────────────────────
-let W, M, tok, H, running = false, sel = null, curB = null;
-const attHist = () => (curB ? curB.attnHist : []);
+// ───────── UI construction ─────────
+const TABS = { gen: 'GEN', steer: 'STEER', an: 'ANALYZE', causal: 'CAUSAL', sae: 'SAE', surg: 'SURGERY', rt: 'RUNTIME', ops: 'OPS', viz: '3D' };
+const opts = (a, v) => a.map((x) => { const [k, t] = Array.isArray(x) ? x : [x, x]; return `<option value="${k}"${k == v ? ' selected' : ''}>${t}</option>`; }).join('');
+const layerOpts = (v = 0) => opts([...Array(L).keys()], v);
+const P = {};
+P.gen = `
+<fieldset><legend>prompt</legend><textarea id="prompt" rows="3">Once upon a time, there was a little girl named Lily. She loved to</textarea>
+<div class="r"><button class="pri" id="bGen">▶ generate</button><button id="bStop">■ stop</button><label><input type="checkbox" id="autoRegen" checked/> auto-regen on edit</label></div></fieldset>
+<fieldset><legend>decoding</legend>
+<div class="r"><label>mode</label><select id="d_mode">${opts([['sample', 'sample'], ['greedy', 'greedy'], ['beam', 'beam search'], ['contrastive', 'contrastive (CD)'], ['cfg', 'CFG / negative prompt']], D.mode)}</select><label>tokens</label><input type="number" id="d_n" value="${D.n}" min="1" max="400"/><label>seed</label><input type="number" id="d_seed" value="${D.seed}"/></div>
+<div class="r"><label>temp</label><input type="number" step="0.05" id="d_temp" value="${D.temp}"/><label>top-k</label><input type="number" id="d_topk" value="${D.topk}"/><label>top-p</label><input type="number" step="0.01" id="d_topp" value="${D.topp}"/></div>
+<div class="r"><label>min-p</label><input type="number" step="0.01" id="d_minp" value="${D.minp}"/><label>typical</label><input type="number" step="0.01" id="d_typical" value="${D.typical}"/></div>
+<div class="r"><label>repetition</label><input type="number" step="0.05" id="d_rep" value="${D.rep}"/><label>frequency</label><input type="number" step="0.05" id="d_freq" value="${D.freq}"/><label>presence</label><input type="number" step="0.05" id="d_pres" value="${D.pres}"/></div>
+<div class="r"><label>logit bias</label><input id="d_bias" style="flex:1" placeholder=" dragon:+5,  the:-3   (token text : delta)"/></div>
+<div class="r"><label>beams</label><input type="number" id="d_beams" value="${D.beams}"/><label>len-pen</label><input type="number" step="0.1" id="d_lenpen" value="${D.lenpen}"/></div>
+<div class="r"><label>CD α</label><input type="number" step="0.01" id="d_cdAlpha" value="${D.cdAlpha}"/><label>β</label><input type="number" step="0.1" id="d_cdBeta" value="${D.cdBeta}"/><label>expert</label><select id="d_cdRole">${opts([['hacked', 'hacked (amateur=clean)'], ['clean', 'clean (amateur=hacked)']])}</select></div>
+<div class="r"><label>CFG γ</label><input type="number" step="0.1" id="d_cfg" value="${D.cfg}"/><label>neg prompt</label><input id="d_neg" style="flex:1" placeholder="e.g. Once upon a time, there was a sad"/></div>
+<div class="sm">CD = log p<sub>exp</sub> − β·log p<sub>ama</sub> on tokens with p<sub>exp</sub> ≥ α·max. CFG = log p<sub>neg</sub> + γ(log p<sub>pos</sub> − log p<sub>neg</sub>). Penalties apply after CD/CFG. Live top-k under the output: highlighted = survived filters.</div></fieldset>`;
+P.steer = `
+<fieldset><legend>build control vector (contrastive pairs, computed on the CLEAN model)</legend>
+<textarea id="cvPairs" rows="5">Lily was very happy and | Lily was very sad and
+The sun was bright and warm. | The rain was cold and dark.
+She laughed and smiled. | She cried and frowned.
+It was a wonderful day. | It was a terrible day.</textarea>
+<div class="r"><label>name</label><input id="cvName" value="joy" style="width:80px"/><label>site</label><select id="cvSite">${opts(['resid_post', 'resid_pre', 'attn_out', 'mlp_out'])}</select><label>method</label><select id="cvMethod">${opts([['mean', 'mean-diff'], ['pca', 'PCA-1 of diffs']])}</select><label>agg</label><select id="cvAgg">${opts([['last', 'last tok'], ['mean', 'mean tok']])}</select></div>
+<div class="r"><label>schedule</label><select id="cvSched">${opts([['band', 'band'], ['all', 'all layers'], ['single', 'single layer'], ['gauss', 'gaussian'], ['custom', 'custom list']])}</select><label>center</label><select id="cvC">${layerOpts(3)}</select><label>width</label><input type="number" id="cvW" value="1" step="0.5"/><input id="cvCustom" placeholder="0,0,1,1,1,0,0,0" style="width:120px"/></div>
+<div class="r"><label>coef</label><input type="number" id="cvCoef" value="4" step="0.5"/><label>mask</label><select id="cvMask">${opts([['all', 'all tokens'], ['prompt', 'prompt only'], ['gen', 'generated only'], ['range', 'position range']])}</select><input type="number" id="cvA" value="0"/><input type="number" id="cvB" value="999"/></div>
+<div class="r"><button class="pri" id="bCv">+ build &amp; add</button><span id="cvInfo" class="sm"></span></div></fieldset>
+<fieldset><legend>vector arithmetic</legend><div class="r"><input id="cvExpr" style="flex:1" placeholder="1.0*joy - 0.5*fear"/><input id="cvExprName" value="mix" style="width:70px"/><button id="bCvExpr">= add</button></div></fieldset>
+<fieldset><legend>stack (stacked vectors are summed)</legend><div id="steerList"></div>
+<div class="r"><button id="bCvExport">export JSON</button><label class="sm">import</label><input type="file" id="cvImport" accept=".json"/></div></fieldset>
+<fieldset><legend>projection readout</legend><div class="sm">Select a vector in the "readout" dropdown above the output: each token is colored by (resid at the vector's site, at its peak layer) · v̂, z-scored over the sequence.</div><canvas class="ch" id="cvProj"></canvas></fieldset>`;
+P.an = `
+<fieldset><legend>input</legend><textarea id="anText" rows="2">Lily and Tom went to the park. Lily gave the ball to</textarea>
+<div class="r"><button class="pri" id="bAn">▶ analyze (hacked model)</button><label><input type="checkbox" id="anTuned"/> tuned lens</label><label>DLA target</label><input id="anTgt" placeholder="auto = top-1" style="width:90px"/><label>pos</label><input type="number" id="anPos" value="-1"/></div><div class="sm" id="anInfo"></div></fieldset>
+<fieldset><legend>logit / tuned lens (rows = embed + slots, cols = positions; cell = top-1, color = p)</legend><div class="scroll"><table class="grid" id="lensT"></table></div></fieldset>
+<fieldset><legend>direct logit attribution</legend><div id="dlaSum" class="sm"></div><canvas class="ch" id="dlaHeads"></canvas><div class="r" style="align-items:flex-start"><div style="flex:1"><table id="dlaHT"></table></div><div style="flex:1"><table id="dlaNT"></table></div></div></fieldset>
+<fieldset><legend>attention — every head (click a cell to zoom; rows=query, cols=key)</legend><canvas class="ch" id="attAll"></canvas><div class="r"><label>slot</label><select id="attS">${layerOpts()}</select><label>head</label><select id="attH">${opts([...Array(H).keys()])}</select></div><canvas class="ch" id="attOne"></canvas></fieldset>
+<fieldset><legend>residual norm & cosine(prev slot) trajectory</legend><canvas class="ch" id="normC"></canvas><canvas class="ch" id="cosC"></canvas></fieldset>
+<fieldset><legend>per-token entropy / surprisal</legend><div id="pplInfo" class="sm"></div><canvas class="ch" id="entC"></canvas></fieldset>
+<fieldset><legend>top neurons per token</legend><div class="scroll"><table id="neuT"></table></div></fieldset>`;
+P.causal = `
+<fieldset><legend>clean / corrupted (must tokenize to equal length)</legend>
+<input id="caClean" style="width:100%" value="Lily and Tom went to the park. Lily gave the ball to"/><input id="caCorr" style="width:100%" value="Lily and Tom went to the park. Tom gave the ball to"/>
+<div class="r"><label>answer</label><input id="caAns" value=" Tom" style="width:70px"/><label>wrong</label><input id="caWrong" value=" Lily" style="width:70px"/><span class="sm" id="caLen"></span></div>
+<div class="r"><button class="pri" id="bPR">resid patch L×pos</button><button id="bPH">head patch</button><button id="bPP">path: head→logits</button></div>
+<div class="r"><button id="bAbl">ablation sweep</button><select id="caAblT">${opts(['zero', 'mean', 'resample'])}</select><span class="sm">mean/resample use corpus stats</span></div>
+<div class="prog" id="caP"><i></i></div><div id="caInfo" class="sm"></div></fieldset>
+<fieldset><legend id="caTitle">result</legend><canvas class="ch" id="caMap"></canvas><div class="sm">metric = logit(ans) − logit(wrong). Patching shows (m − m_corr)/(m_clean − m_corr): 1 = fully restores. Click a head cell to select it.</div></fieldset>`;
+P.sae = `
+<fieldset><legend>corpus statistics (clean model)</legend><div class="r"><label>tokens</label><input type="number" id="statN" value="1200" step="100"/><button id="bStats">compute</button><span id="statInfo" class="sm">not computed (${CORPUS.length} stories built in)</span></div><div class="prog" id="statP"><i></i></div></fieldset>
+<fieldset><legend>train sparse autoencoder on resid_post</legend><div class="r"><label>layer</label><select id="saeL">${layerOpts(3)}</select><label>features</label><input type="number" id="saeM" value="512"/><label>epochs</label><input type="number" id="saeE" value="6"/></div>
+<div class="r"><label>lr</label><input type="number" id="saeLr" value="0.002" step="0.001"/><label>L1</label><input type="number" id="saeL1" value="0.003" step="0.001"/><button class="pri" id="bSae">train</button><button id="bSaeStop">stop</button></div>
+<div class="prog" id="saeP"><i></i></div><div id="saeInfo" class="sm"></div><canvas class="ch" id="saeLoss"></canvas></fieldset>
+<fieldset><legend>features (sorted by max act)</legend><div class="r"><label>sort</label><select id="saeSort">${opts(['max', 'density'])}</select><input id="saeQ" placeholder="filter by top-context text" style="flex:1"/></div><div class="scroll"><table id="saeT"></table></div><div id="saeCtx" class="sm"></div></fieldset>
+<fieldset><legend>clamps during generation</legend><div class="r"><label>feature</label><input type="number" id="clF" value="0"/><select id="clMode">${opts(['clamp', 'add', 'scale'])}</select><input type="number" id="clV" value="10" step="0.5"/><button id="bClamp">+ add</button></div><div id="clList"></div></fieldset>`;
+P.surg = `
+<fieldset><legend>matrix</legend><div class="r"><label>layer</label><select id="smL">${layerOpts()}</select><label>mat</label><select id="smM">${opts([...MATS, 'wte', 'wpe'])}</select><button id="bSvd">SVD spectrum</button><span id="svdInfo" class="sm"></span></div><canvas class="ch" id="svdC"></canvas>
+<div class="r"><label>keep top-k</label><input type="number" id="svK" value="32"/><button id="bSvTop">apply</button><label>flatten top-k</label><button id="bSvFlat">apply</button></div>
+<div class="r"><label>σ range</label><input type="number" id="svA" value="0"/><input type="number" id="svB" value="3"/><button id="bSvDrop">drop</button><label>×</label><input type="number" id="svF" value="3" step="0.5"/><button id="bSvScale">scale</button></div>
+<div class="r"><label>low-rank noise rank</label><input type="number" id="lrR" value="4"/><label>σ</label><input type="number" id="lrS" value="0.5" step="0.1"/><button id="bLr">perturb</button></div>
+<div class="r"><label>element op</label><select id="elT">${opts(['matrix', 'head', 'neuron', 'embed'])}</select><label>idx</label><input type="number" id="elI" value="0"/><input id="elWords" placeholder="embed words: dragon,cat" style="width:130px"/></div>
+<div class="r"><select id="elF">${opts(['scale', 'zero', 'invert', 'add', 'noise'])}</select><input type="number" id="elA" value="2" step="0.1"/><button id="bEl">apply</button></div></fieldset>
+<fieldset><legend>quantization (per-row absmax, symmetric)</legend><div class="r"><select id="qB">${opts([['8', 'int8'], ['4', 'int4'], ['2', 'int2']])}</select><label>layers</label><input id="qL" value="0-7" style="width:60px"/><label>mats</label><input id="qM" value="q,k,v,o,fc,proj" style="width:120px"/><button id="bQ">quantize</button><span id="qInfo" class="sm"></span></div></fieldset>
+<fieldset><legend>layer transplant / interpolation</legend><div class="r"><label>dst</label><select id="ipD">${layerOpts(4)}</select><label>← src</label><select id="ipS">${layerOpts(3)}</select><label>t</label><input type="number" id="ipT" value="0.5" step="0.1"/><button id="bIp">apply</button><span class="sm">t=1 = full transplant</span></div></fieldset>
+<fieldset><legend>LayerNorm γ/β</legend><div class="r"><select id="lnW">${opts(['ln1', 'ln2', 'lnf'])}</select><select id="lnL">${layerOpts()}</select><label>γ×</label><input type="number" id="lnG" value="1.5" step="0.1"/><label>β+</label><input type="number" id="lnB" value="0" step="0.05"/><button id="bLn">apply</button></div></fieldset>
+<fieldset><legend>positional embeddings (weights)</legend><div class="r"><select id="wpF">${opts(['scale', 'zero', 'shuffle', 'noise'])}</select><input type="number" id="wpA" value="0" step="0.1"/><button id="bWp">apply</button></div></fieldset>
+<fieldset><legend>ROME rank-one fact edit</legend><div class="r"><input id="roP" style="width:100%" value="Once upon a time, there was a little girl named"/></div>
+<div class="r"><label>subject</label><input id="roS" value="girl" style="width:70px"/><label>target</label><input id="roT" value=" Max" style="width:70px"/><label>layer</label><select id="roL">${layerOpts(4)}</select><button class="pri" id="bRome">compute + apply</button></div><div class="prog" id="romeP"><i></i></div><div id="roInfo" class="sm"></div></fieldset>
+<fieldset><legend>chaos</legend><div class="r"><input type="range" id="chP" min="0" max="100" value="20"/><span class="v" id="chV">20%</span><button class="dan" id="bChaos">inject gaussian noise everywhere</button></div></fieldset>`;
+P.rt = `
+<fieldset><legend>layer program (duplicate / delete / skip / reorder — runtime, not weights)</legend><div id="progList"></div><div class="r"><button id="bProgReset">reset program</button></div></fieldset>
+<fieldset><legend>heads of layer <select id="hgL">${layerOpts()}</select> — temperature (logits ÷ τ) & ablation</legend><div id="headGrid"></div></fieldset>
+<fieldset><legend>attention mask override</legend><div id="maskList"></div></fieldset>
+<fieldset><legend>positional tampering (runtime index remap)</legend><div class="r"><label>scale</label><input type="number" id="psS" value="1" step="0.1"/><label>shift</label><input type="number" id="psH" value="0"/><label>freeze @</label><input type="number" id="psF" value="-1"/><button id="bPos">set</button></div><div class="sm">p' = freeze≥0 ? min(t, freeze) : round(t·scale) + shift, clamped to [0, 2047]</div></fieldset>
+<fieldset><legend>neuron overrides</legend><div class="r"><label>L</label><select id="naL">${layerOpts()}</select><label>neuron</label><input type="number" id="naN" value="0"/><select id="naM">${opts(['zero', 'mean', 'clamp'])}</select><input type="number" id="naV" value="5"/><button id="bNa">+ add</button></div><div id="naList"></div></fieldset>`;
+P.ops = `
+<fieldset><legend>history (edit stack — click to jump)</legend><div class="r"><button id="bU2">↶ undo</button><button id="bR2">↷ redo</button><button class="dan" id="bReset">reset everything</button></div><div class="hist" id="histL"></div></fieldset>
+<fieldset><legend>active weight edits (replayed from original on every rebuild)</legend><div class="hist" id="editL"></div></fieldset>
+<fieldset><legend>snapshot (edit diffs + runtime, not weights)</legend><div class="r"><button id="bSnapE">export .json</button><input type="file" id="snapI" accept=".json"/></div></fieldset>
+<fieldset><legend>weights</legend><div class="r"><button id="bST">download modified model.safetensors (HF names, F32)</button></div><div class="sm">Runtime interventions (program, steering, head temps, masks, SAE clamps) are not representable as weights and are kept in the snapshot.</div></fieldset>`;
+P.viz = `
+<fieldset><legend>weight-matrix view</legend><div class="r"><label>layer</label><select id="vzL">${layerOpts()}</select><label>mat</label><select id="vzM">${opts(MATS)}</select><select id="vzMode">${opts([['height', 'height-field'], ['points', 'point cloud']])}</select><label><input type="checkbox" id="vzDiff"/> diff vs original</label></div><div id="vzInfo" class="sm"></div></fieldset>
+<fieldset><legend>legend</legend><div class="sm">Slabs = layers. Spheres = heads (glow/size = ‖z<sub>h</sub>‖ at last token). Grid of points = 1024 MLP neurons (red +, blue −). Teal tube = residual stream (radius ∝ ‖x‖). Click a head, neuron or slab to select it everywhere.</div></fieldset>`;
 
-function editedSets() {
-  const n = new Set(), h = new Set();
-  for (const e of H.edits) { if (e.type === 'neuron') n.add(e.l * 1024 + e.i); if (e.type === 'head') h.add(e.l * 16 + e.i); }
-  return { n, h };
+function buildUI() {
+  const tabs = $('tabs'), panes = $('panes');
+  for (const [k, t] of Object.entries(TABS)) { const b = document.createElement('button'); b.textContent = t; b.dataset.t = k; b.onclick = () => showTab(k); tabs.appendChild(b); const p = document.createElement('div'); p.className = 'pane'; p.id = 'pane_' + k; p.innerHTML = P[k]; panes.appendChild(p); }
+  showTab('gen');
 }
-function repaint() { const s = editedSets(); layers.forEach((L, l) => paintLayer(L, s.n, H.ablated, s.h, l)); drawAttention(); }
+function showTab(k) { $$('#tabs button').forEach((b) => b.classList.toggle('on', b.dataset.t === k)); $$('.pane').forEach((p) => p.classList.toggle('on', p.id === 'pane_' + k)); }
 
-function drawAttention() {
-  if (!sel || sel.kind !== 'head' || !attHist().length) { attPlane.visible = attLab.visible = false; return; }
-  const hist = attHist(), T = hist.length, slot = H.order.indexOf(sel.l), S = Math.min(T, 256);
-  const off = T - S, px = 256 / S;
-  attX.fillStyle = '#05060f'; attX.fillRect(0, 0, 256, 256);
-  for (let t = off; t < T; t++) {
-    const row = hist[t][slot][sel.h];
-    for (let s = Math.max(off, 0); s <= t; s++) {
-      const v = Math.sqrt(row[s] || 0);
-      attX.fillStyle = `rgb(${(40 + v * 215) | 0},${(20 + v * 170) | 0},${(60 + v * 195) | 0})`;
-      attX.fillRect((s - off) * px, (t - off) * px, Math.ceil(px), Math.ceil(px));
-    }
-  }
-  attTex.needsUpdate = true;
-  const L = layers[sel.l];
-  attPlane.position.set(0, L.g.position.y + 2.6, -RING - 2.6); attPlane.visible = true;
-  attLab.position.set(0.6, L.g.position.y + 4.9, -RING - 2.6); attLab.visible = true;
+// ───────── generation ─────────
+function readDecode() {
+  for (const k of ['n', 'seed', 'temp', 'topk', 'topp', 'minp', 'typical', 'rep', 'freq', 'pres', 'beams', 'lenpen', 'cdAlpha', 'cdBeta', 'cfg']) D[k] = +$('d_' + k).value;
+  D.mode = $('d_mode').value; D.neg = $('d_neg').value; D.cdRole = $('d_cdRole').value; D.bias = {};
+  for (const part of $('d_bias').value.split(',').map((s) => s.trim()).filter(Boolean)) { const m = part.match(/^(.*):\s*([+-]?[0-9.]+)$/); if (!m) throw new Error('bad logit bias: ' + part); const ids = tok.encode(m[1].startsWith(' ') ? m[1] : ' ' + m[1].trim()); D.bias[ids[0]] = (D.bias[ids[0]] || 0) + +m[2]; }
 }
-
-function topTokens(vec, k = 6) {
-  const d = CFG.d, V = CFG.V, sc = new Float32Array(V);
-  for (let i = 0; i < V; i++) { let s = 0; const o = i * d; for (let j = 0; j < d; j++) s += M.wte[o + j] * vec[j]; sc[i] = s; }
-  const idx = Array.from(sc.keys()); idx.sort((a, b) => sc[b] - sc[a]);
-  const f = (i) => `<span class="tk">${esc(tok.tokenStr(i))}</span>`;
-  return { pos: idx.slice(0, k).map(f).join(''), neg: idx.slice(-k).reverse().map((i) => f(i).replace('tk', 'tk neg')).join('') };
-}
-const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/\n/g, '↵').replace(/ /g, '·');
-
-function inspect() {
-  const el = $('insp'); if (!sel) return;
-  const L = layers[sel.l];
-  if (sel.kind === 'neuron') {
-    const col = new Float32Array(CFG.d); for (let i = 0; i < CFG.d; i++) col[i] = M.layers[sel.l].proj[i * CFG.ff + sel.i];
-    const t = topTokens(col);
-    el.innerHTML = `<b>MLP neuron L${sel.l}·N${sel.i}</b><br>activation now: <b>${L.act[sel.i].toFixed(3)}</b><br>when it fires it pushes toward:<br>${t.pos}<br>and away from:<br>${t.neg}`;
-  } else if (sel.kind === 'head') {
-    const k = sel.l * 16 + sel.h, hist = attHist(); let att = '';
-    if (hist.length && curB) {
-      const row = hist[hist.length - 1][H.order.indexOf(sel.l)][sel.h]; const ids = curB.ids;
-      const top = Array.from(row.keys()).sort((a, b) => row[b] - row[a]).slice(0, 4);
-      att = '<br>last token attends to:<br>' + top.map((p) => `<span class="tk">${esc(tok.tokenStr(ids[p] ?? 0))} ${(row[p] * 100).toFixed(0)}%</span>`).join('');
-    }
-    el.innerHTML = `<b>Attention head L${sel.l}·H${sel.h}</b> ${H.ablated.has(k) ? '<span style="color:#ff5470">ABLATED</span>' : ''}<br>${sel.l % 2 ? 'local (256-token window)' : 'global'} · output norm <b>${L.headAct[sel.h].toFixed(3)}</b>${att}<br><i style="color:#7b84b5">heatmap floats behind the stack</i>`;
-  } else if (sel.kind === 'layer') {
-    el.innerHTML = `<b>Layer ${sel.l}</b> (${sel.l % 2 ? 'local' : 'global'} attention)<br>stack slot ${H.order.indexOf(sel.l)} · residual norm <b>${(L.resid || 0).toFixed(2)}</b><br>16 heads × 16 dims · 1024 GELU neurons<br>edits on it: ${H.edits.filter((e) => e.l === sel.l).length}`;
-  } else if (sel.kind === 'embed') {
-    el.innerHTML = `<b>Embedding row</b> "${esc($('tTok').value)}" → ids ${tok.encode($('tTok').value).join(',')}<br>tied weights: editing it changes both how the token is read <i>and</i> how likely it is to be written.`;
-  }
-}
-
-function select(s) {
-  sel = s; if (!s) { marker.visible = false; return; }
-  $('tgtType').value = s.kind; $('tL').value = s.l; if (s.kind === 'head') $('tI').value = s.h; if (s.kind === 'neuron') $('tI').value = s.i;
-  const L = layers[s.l]; marker.visible = true;
-  if (s.kind === 'head') { marker.position.copy(L.heads[s.h].getWorldPosition(new THREE.Vector3())); marker.rotation.set(Math.PI / 2, 0, 0); marker.scale.setScalar(1); marker.material.opacity = 0.8; }
-  else if (s.kind === 'neuron') { marker.position.set((s.i % GRID - GRID / 2 + 0.5) * CELL, L.g.position.y + 0.08, (Math.floor(s.i / GRID) - GRID / 2 + 0.5) * CELL); marker.rotation.set(Math.PI / 2, 0, 0); marker.scale.setScalar(0.35); marker.material.opacity = 0.9; }
-  else { marker.position.set(0, L.g.position.y, 0); marker.rotation.set(Math.PI / 2, 0, 0); marker.scale.setScalar((RING + 1.0) / 0.42); marker.material.opacity = 0.35; }
-  drawAttention(); inspect();
-}
-
-// picking
-const ray = new THREE.Raycaster(), mouse = new THREE.Vector2(); let downAt = null;
-function pick(ev) {
-  mouse.set((ev.clientX / innerWidth) * 2 - 1, -(ev.clientY / innerHeight) * 2 + 1); ray.setFromCamera(mouse, camera);
-  const hits = ray.intersectObjects(pickables, false); if (!hits.length) return null;
-  const pr = (h) => (h.object.userData.kind === 'head' ? 0 : h.object.userData.kind === 'neuron' ? 1 : 2);
-  hits.sort((a, b) => a.distance - b.distance || pr(a) - pr(b));
-  let h = hits[0]; const hd = hits.find((x) => x.object.userData.kind !== 'layer' && x.distance < h.distance + 0.5); if (hd) h = hd;
-  const u = h.object.userData;
-  if (u.kind === 'neuron') return { kind: 'neuron', l: u.l, i: h.instanceId };
-  return { ...u };
-}
-canvas.addEventListener('pointerdown', (e) => (downAt = [e.clientX, e.clientY]));
-canvas.addEventListener('pointerup', (e) => { if (!downAt || Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) > 5 || !H) return; const p = pick(e); if (p) select(p); });
-canvas.addEventListener('pointermove', (e) => {
-  const tip = $('tip'); if (!H) return; const p = pick(e);
-  if (!p) { tip.style.display = 'none'; canvas.style.cursor = 'grab'; return; }
-  canvas.style.cursor = 'pointer'; tip.style.display = 'block'; tip.style.left = e.clientX + 14 + 'px'; tip.style.top = e.clientY + 10 + 'px';
-  tip.textContent = p.kind === 'head' ? `head L${p.l}·H${p.h}  ‖out‖=${layers[p.l].headAct[p.h].toFixed(2)}` : p.kind === 'neuron' ? `neuron L${p.l}·N${p.i}  a=${layers[p.l].act[p.i].toFixed(3)}` : `layer ${p.l}`;
-});
-
-addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); composer.setSize(innerWidth, innerHeight); });
-const clock = new THREE.Clock();
-(function loop() {
-  requestAnimationFrame(loop); const dt = Math.min(clock.getDelta(), 0.05), t = clock.elapsedTime;
-  controls.update();
-  layers.forEach((L, l) => {
-    L.g.position.y += (L.targetY - L.g.position.y) * Math.min(1, dt * 4);
-    L.rim.material.opacity = 0.35 + Math.min(L.resid / 6, 1) * 0.6 + Math.sin(t * 2 + l) * 0.05;
-    L.g.rotation.y = Math.sin(t * 0.2 + l * 0.5) * 0.04;
-  });
-  for (let i = pulses.length - 1; i >= 0; i--) { const p = pulses[i]; p.position.y += dt * 14; p.scale.setScalar(1 + Math.sin(t * 20) * 0.2); if (p.position.y > GAP * 8 + 1) { scene.remove(p); pulses.splice(i, 1); } }
-  marker.rotation.z += dt; if (sel && sel.kind === 'head') marker.position.copy(layers[sel.l].heads[sel.h].getWorldPosition(new THREE.Vector3()));
-  attPlane.lookAt(camera.position); attLab.position.y = attPlane.position.y + 2.3;
-  composer.render();
-})();
-
-// ───────────────────────── generation ─────────────────────────
-function append(el, text, cls) { const s = document.createElement('span'); s.className = cls; s.textContent = text; el.appendChild(s); el.scrollTop = el.scrollHeight; }
-function updRecord(rec) {
-  if (!rec) return;
-  for (let l = 0; l < 8; l++) { layers[l].act.set(rec.neurons[l]); layers[l].headAct.set(rec.heads[l]); }
-  H.order.forEach((l, slot) => (layers[l].resid = rec.resid[slot]));
-}
+function tokSpan(id, cls, info) { const s = document.createElement('span'); s.className = 't ' + (cls || ''); s.textContent = tok.tokenStr(id); if (info) s._info = info; return s; }
+function attachTips(box) { box.onmousemove = (e) => { const t = e.target._info; showTip(e, t ? t() : ''); }; box.onmouseleave = () => showTip(null, ''); }
+let genId = 0;
 async function generate() {
-  if (running) return; running = true; $('gen').disabled = true;
-  const prompt = $('prompt').value, ids = tok.encode(prompt);
-  const temp = +$('temp').value, N = +$('ntok').value, seed = +$('seed').value;
-  const A = new Stream(W), B = new Stream(M); A.ids = ids.slice(); B.ids = ids.slice(); curB = B;
-  const rA = mulberry32(seed), rB = mulberry32(seed);
-  $('outA').innerHTML = ''; $('outB').innerHTML = ''; $('diverge').textContent = '';
-  append($('outA'), prompt, 'p'); append($('outB'), prompt, 'p');
-  let oA, oB; for (let i = 0; i < ids.length; i++) { oA = A.step(ids[i]); oB = B.step(ids[i], { ...H.runtime(), record: i === ids.length - 1 }); }
-  updRecord(oB.rec); repaint();
-  let doneA = false, doneB = false, div = -1; const t0 = performance.now(); let n = 0;
-  for (let k = 0; k < N && running && !(doneA && doneB); k++) {
-    let a = -1, b = -1;
-    if (!doneA) { a = sample(A.logits(oA.hidden), temp, 50, rA); if (a === 50256) doneA = true; else { A.ids.push(a); append($('outA'), tok.tokenStr(a), 't'); oA = A.step(a); } }
-    if (!doneB) { b = sample(B.logits(oB.hidden), temp, 50, rB); if (b === 50256) doneB = true; else { B.ids.push(b); const diff = A.ids[B.ids.length - 1] !== b; if (diff && div < 0) { div = k; $('diverge').textContent = `diverged @ token ${k}`; } append($('outB'), tok.tokenStr(b), diff ? 't diff' : 't'); oB = B.step(b, { ...H.runtime(), record: true }); updRecord(oB.rec); repaint(); firePulse(diff ? 0xff4fd8 : 0x4df3ff); $('tokhud').textContent = JSON.stringify(tok.tokenStr(b)); } }
-    n++; $('speed').textContent = `${(n / ((performance.now() - t0) / 1000)).toFixed(1)} tok/s ×2 models`;
-    if (sel) inspect();
-    await new Promise((r) => setTimeout(r, 16));
+  const my = ++genId; readDecode(); const ids = tok.encode($('prompt').value); if (!ids.length) return;
+  const outB = $('outB'), outA = $('outA'); outB.innerHTML = ''; outA.innerHTML = ''; const cmp = $('cmpOn').checked; outA.style.display = cmp ? '' : 'none';
+  for (const id of ids) { outB.appendChild(tokSpan(id, 'pr')); if (cmp) outA.appendChild(tokSpan(id, 'pr')); }
+  const t0 = performance.now();
+  const seq = eng.newSeq(ids.length); const traces = []; let r; for (const id of ids) { r = eng.step(seq, id, { trace: true }); traces.push(r.trace); }
+  const amaEng = D.cdRole === 'clean' ? eng : engClean, expEng = D.cdRole === 'clean' ? engClean : eng;
+  let sA = null, rA = null, sN = null, rN = null, sC = null, rC = null;
+  if (D.mode === 'contrastive') { // run the other model over the prompt
+    const other = D.cdRole === 'clean' ? engClean : engClean; sA = other.newSeq(ids.length); for (const id of ids) rA = other.step(sA, id);
   }
-  if (div < 0) $('diverge').textContent = 'identical';
-  running = false; $('gen').disabled = false;
+  if (D.mode === 'cfg' && D.neg) { const nids = tok.encode(D.neg); sN = eng.newSeq(nids.length); for (const id of nids) rN = eng.step(sN, id); }
+  if (cmp) { sC = engClean.newSeq(ids.length); for (const id of ids) rC = engClean.step(sC, id); }
+  const rng = mulberry32(D.seed), rngC = mulberry32(D.seed); const gen = [], genC = []; let nTok = 0, tStart = performance.now(), cDone = !cmp, bDone = false;
+  $('genInfo').textContent = `prompt ${ids.length} tok · ${(performance.now() - t0).toFixed(0)} ms`;
+  if (D.mode === 'beam') {
+    await tick(); const best = beamSearch(eng, seq, r.h, { beams: D.beams, n: D.n, lenpen: D.lenpen, o: D }); if (my !== genId) return;
+    for (const id of best.ids) outB.appendChild(tokSpan(id)); gen.push(...best.ids); bDone = true; nTok = best.ids.length;
+    $('genInfo').textContent += ` · beam ${D.beams}: logp ${best.logp.toFixed(2)} score ${best.score.toFixed(3)}`;
+  }
+  for (let step = 0; step < D.n && my === genId && !(bDone && cDone); step++) {
+    if (!bDone) {
+      let l;
+      if (D.mode === 'contrastive') { const lH = eng.logits(r.h), lO = engClean.logits(rA.h); l = D.cdRole === 'clean' ? contrastiveLogits(lO, lH, D.cdAlpha, D.cdBeta) : contrastiveLogits(lH, lO, D.cdAlpha, D.cdBeta); }
+      else if (D.mode === 'cfg' && sN) l = cfgLogits(eng.logits(r.h), eng.logits(rN.h), D.cfg); else l = eng.logits(r.h);
+      applyPenalties(l, seq.ids, gen, D); const dist = filterDist(l, D), id = pick(dist, rng, D.mode === 'greedy');
+      const kept = new Set(dist.ids), top = topK(dist.lp, 10).map((i) => [i, Math.exp(dist.lp[i]), kept.has(i)]), pc = dist.probs[dist.ids.indexOf(id)];
+      const sp = tokSpan(id, '', () => `p(${JSON.stringify(tok.tokenStr(id))}) = ${pc.toFixed(4)}  (post-filter)\n` + top.map(([i, p, k]) => `${k ? '●' : '○'} ${JSON.stringify(tok.tokenStr(i)).padEnd(14)} ${p.toFixed(4)}`).join('\n'));
+      sp.style.background = `rgba(244,114,182,${Math.min(0.55, -Math.log(pc + 1e-9) / 12)})`; sp._pos = seq.T; outB.appendChild(sp); gen.push(id);
+      $('topk').innerHTML = top.map(([i, p, k]) => `<div class="${k ? '' : 'x'}">${esc(JSON.stringify(tok.tokenStr(i)))} ${(p * 100).toFixed(1)}%<i style="width:${(p * 100).toFixed(0)}%"></i></div>`).join('');
+      if (id === 50256) bDone = true;
+      else { r = eng.step(seq, id, { trace: true }); traces.push(r.trace); if (sA) rA = engClean.step(sA, id); if (sN) rN = eng.step(sN, id); nTok++; }
+    }
+    if (!cDone) { const l = applyPenalties(engClean.logits(rC.h), sC.ids, genC, D), dist = filterDist(l, D), id = pick(dist, rngC, D.mode === 'greedy'); const k = genC.length; genC.push(id);
+      outA.appendChild(tokSpan(id, gen[k] !== undefined && gen[k] !== id ? 'dv' : '')); if (id === 50256) cDone = true; else rC = engClean.step(sC, id); }
+    if (step % 2 === 0) { const dt = performance.now() - tStart; S.perf.tps = nTok / (dt / 1000) || 0; S.perf.ms = dt / Math.max(1, nTok); hud(); viz.activations(r.trace); await tick(); }
+  }
+  const dt = performance.now() - tStart; if (nTok) { S.perf.tps = nTok / (dt / 1000); S.perf.ms = dt / nTok; }
+  S.lastTraces = traces; S.lastIds = seq.ids.slice(); viz.activations(r.trace); hud();
+  const first = gen.findIndex((x, i) => genC[i] !== undefined && genC[i] !== x); $('genInfo').textContent += ` · ${nTok} tok${cmp ? first < 0 ? ' · identical to clean' : ` · diverges from clean at +${first}` : ''}`;
+  attachTips(outB); readout();
+  window.NEURALESE_LAST = { hacked: tok.decode(gen), clean: tok.decode(genC) };
+}
+// per-token projection of the residual onto a steering vector
+function readout() {
+  const id = $('readSel').value, tr = S.lastTraces; if (!tr) return; const spans = [...$('outB').children];
+  const v = R.steer.find((x) => String(x.id) === id); if (!v) { spans.forEach((s) => { if (s.classList.contains('pr')) s.style.background = ''; }); return; }
+  let pl = 0; v.sched.forEach((x, l) => { if (Math.abs(x) > Math.abs(v.sched[pl])) pl = l; }); const vec = v.vecs[pl]; let nn = 0; for (const x of vec) nn += x * x; nn = Math.sqrt(nn) || 1;
+  const proj = tr.map((t) => { const s = t.slotLayer.indexOf(pl); const a = s >= 0 ? (t[v.site][s] || t.resid_post[s]) : null; if (!a) return 0; let p = 0; for (let i = 0; i < d; i++) p += a[i] * vec[i]; return p / nn; });
+  const mu = proj.reduce((a, b) => a + b, 0) / proj.length, sd = Math.sqrt(proj.reduce((a, b) => a + (b - mu) ** 2, 0) / proj.length) || 1;
+  spans.forEach((s, i) => { if (i >= proj.length) return; const z = (proj[i] - mu) / sd; s.style.background = divColor(z, 2.5); const old = s._info; s._info = () => `proj on "${v.name}" @L${pl}: ${proj[i].toFixed(3)} (z ${z.toFixed(2)})` + (old ? '\n' + old() : ''); });
+  lines($('cvProj'), [{ ys: proj, color: '#fbbf24', label: 'proj' }], { xs: tr.map((t) => tok.tokenStr(t.tok)), title: `projection on ${v.name} @ L${pl} (${v.site})` }); attachTips($('outB'));
 }
 
-// ───────────────────────── controls ─────────────────────────
-function refreshLog() {
-  const el = $('log'); const items = [];
-  for (const e of H.edits) items.push(`<div>${esc(H.label(e)).replace(/·/g, ' ')}<span data-id="${e.id}">✕</span></div>`);
-  for (const k of H.ablated) items.push(`<div>ablate L${(k / 16) | 0}·H${k % 16}<span data-ab="${k}">✕</span></div>`);
-  if (H.steer.alpha) items.push(`<div>steer "${esc(H.steer.a)}"−"${esc(H.steer.b)}" @L${H.steer.layer} ×${H.steer.alpha}</div>`);
-  if (H.chaos) items.push(`<div>chaos ${H.chaos}%</div>`);
-  el.innerHTML = items.join('') || '<div class="empty">no edits — the model is pristine</div>';
-  $('order').innerHTML = H.order.map((l, i) => `<span class="${l !== i ? 'sw' : ''}">${l}</span>`).join('');
-  layers.forEach((L) => (L.targetY = H.order.indexOf(layers.indexOf(L)) * GAP));
-  repaint(); if (sel) inspect();
+// ───────── steering ─────────
+function schedule() {
+  const k = $('cvSched').value, c = +$('cvC').value, w = +$('cvW').value;
+  if (k === 'all') return Array(L).fill(1); if (k === 'single') return Array.from({ length: L }, (_, l) => (l === c ? 1 : 0));
+  if (k === 'band') return Array.from({ length: L }, (_, l) => (Math.abs(l - c) <= w ? 1 : 0)); if (k === 'gauss') return Array.from({ length: L }, (_, l) => +Math.exp(-((l - c) ** 2) / (2 * Math.max(w, 0.3) ** 2)).toFixed(3));
+  const a = $('cvCustom').value.split(',').map(Number); if (a.length !== L || a.some(isNaN)) throw new Error(`custom schedule needs ${L} numbers`); return a;
 }
-$('log').addEventListener('click', (e) => { const id = e.target.dataset.id, ab = e.target.dataset.ab; if (id) H.remove(+id); if (ab) H.ablated.delete(+ab); refreshLog(); });
-const bindV = (id, f = (v) => v) => { const u = () => ($(id + 'v').textContent = f($(id).value)); $(id).addEventListener('input', u); u(); };
-bindV('temp'); bindV('ntok'); bindV('amt');
-document.querySelectorAll('[data-op]').forEach((b) => b.addEventListener('click', () => {
-  const type = $('tgtType').value, l = Math.max(0, Math.min(7, +$('tL').value)), i = Math.max(0, Math.min(type === 'head' ? 15 : 1023, +$('tI').value));
-  const e = { type, l, i, op: b.dataset.op, amt: +$('amt').value };
-  if (type === 'embed') { e.word = $('tTok').value; e.toks = tok.encode(e.word); }
-  H.add(e); refreshLog(); flash(b);
-}));
-$('ablate').addEventListener('click', (ev) => { const l = +$('tL').value, h = Math.min(15, +$('tI').value), k = l * 16 + h; H.ablated.has(k) ? H.ablated.delete(k) : H.ablated.add(k); refreshLog(); flash(ev.target); });
-function updSteer() { H.steer.a = $('stA').value; H.steer.b = $('stB').value; H.steer.layer = +$('stL').value; H.steer.alpha = +$('stS').value; $('stLv').textContent = H.steer.layer; $('stSv').textContent = H.steer.alpha; if (H.steer.alpha) H.computeSteer(); refreshLog(); }
-['stA', 'stB', 'stL', 'stS'].forEach((id) => $(id).addEventListener('change', updSteer));
-['stL', 'stS'].forEach((id) => $(id).addEventListener('input', () => { $('stLv').textContent = $('stL').value; $('stSv').textContent = $('stS').value; }));
-$('swap').addEventListener('click', () => { const a = H.order.indexOf(+$('swA').value), b = H.order.indexOf(+$('swB').value); [H.order[a], H.order[b]] = [H.order[b], H.order[a]]; refreshLog(); });
-$('shuffle').addEventListener('click', () => { for (let i = 7; i > 0; i--) { const j = (Math.random() * (i + 1)) | 0; [H.order[i], H.order[j]] = [H.order[j], H.order[i]]; } refreshLog(); });
-$('chaos').addEventListener('input', () => ($('chaosv').textContent = $('chaos').value + '%'));
-$('chaos').addEventListener('change', () => { H.chaos = +$('chaos').value; H.rebuild(); refreshLog(); });
-$('reset').addEventListener('click', () => { H.resetAll(); $('chaos').value = 0; $('chaosv').textContent = '0%'; $('stS').value = 0; $('stSv').textContent = '0'; refreshLog(); });
-async function restart() { running = false; while ($('gen').disabled) await new Promise((r) => setTimeout(r, 30)); generate(); }
-$('gen').addEventListener('click', restart);
-$('stop').addEventListener('click', () => (running = false));
-document.querySelectorAll('[data-preset]').forEach((b) => b.addEventListener('click', () => {
-  H.resetAll(); PRESETS[b.dataset.preset](H);
-  $('chaos').value = H.chaos; $('chaosv').textContent = H.chaos + '%'; $('stS').value = H.steer.alpha; $('stSv').textContent = H.steer.alpha;
-  $('stA').value = H.steer.a; $('stB').value = H.steer.b; $('stL').value = H.steer.layer; $('stLv').textContent = H.steer.layer;
-  refreshLog(); flash(b); restart();
-}));
-$('tgtType').addEventListener('change', () => { if ($('tgtType').value === 'embed') { sel = { kind: 'embed', l: 0 }; inspect(); } });
-function flash(b) { b.animate([{ boxShadow: '0 0 24px #ff4fd8' }, { boxShadow: 'none' }], { duration: 600 }); }
+const maskOf = () => ({ kind: $('cvMask').value, a: +$('cvA').value, b: +$('cvB').value });
+let nextVec = 1;
+function addVector(name, site, vecs, meta = {}) { commit(`steer + ${name}`, () => R.steer.push({ id: nextVec++, name, site, vecs, coef: +$('cvCoef').value, sched: schedule(), mask: maskOf(), on: true, ...meta })); }
+function renderSteerList() {
+  const box = $('steerList'); if (!box) return; const sel = $('readSel'), cur = sel.value;
+  sel.innerHTML = '<option value="">surprisal</option>' + R.steer.map((v) => `<option value="${v.id}">proj: ${esc(v.name)}</option>`).join(''); sel.value = R.steer.some((v) => String(v.id) === cur) ? cur : '';
+  box.innerHTML = R.steer.length ? '' : '<div class="sm">no vectors</div>';
+  R.steer.forEach((v, i) => {
+    const norms = v.vecs.map((x) => Math.hypot(...x)); const row = document.createElement('div'); row.className = 'r';
+    row.innerHTML = `<input type="checkbox" ${v.on ? 'checked' : ''} data-k="on"/><b>${esc(v.name)}</b><span class="sm">${v.site} · sched [${v.sched.map((x) => +(+x).toFixed(2)).join(',')}] · mask ${v.mask.kind}${v.mask.kind === 'range' ? ` ${v.mask.a}-${v.mask.b}` : ''} · ‖v‖ ${norms.map((x) => x.toFixed(1)).join('/')}</span><label>coef</label><input type="number" step="0.5" value="${v.coef}" data-k="coef"/><button data-k="del">✕</button>`;
+    row.querySelector('[data-k=on]').onchange = (e) => commit(`steer ${v.name} ${e.target.checked ? 'on' : 'off'}`, () => (R.steer[i].on = e.target.checked));
+    row.querySelector('[data-k=coef]').onchange = (e) => commit(`steer ${v.name} coef ${e.target.value}`, () => (R.steer[i].coef = +e.target.value));
+    row.querySelector('[data-k=del]').onclick = () => commit(`steer − ${v.name}`, () => R.steer.splice(i, 1)); box.appendChild(row);
+  });
+}
+const download = (name, data, type = 'application/json') => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([data], { type })); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000); };
+const vecToJSON = (v) => ({ ...v, vecs: v.vecs.map((x) => Array.from(x, (y) => +y.toFixed(6))) });
+const vecFromJSON = (v) => ({ ...v, vecs: v.vecs.map((x) => Float32Array.from(x)) });
 
-// ───────────────────────── boot ─────────────────────────
-try {
-  const r = await loadModel(); W = r.W; tok = r.tok; M = cloneWeights(W); H = new Hacker(W, M, tok);
-  window.NEURALESE = { W, M, H, tok, generate };
-  setLoad(`loaded ${r.mb.toFixed(1)} MB · 19.7M params`, 1);
-  $('loader').style.opacity = 0; setTimeout(() => $('loader').remove(), 900);
-  refreshLog(); select({ kind: 'layer', l: 3 }); generate();
-} catch (e) { setLoad('failed to load model: ' + e.message + ' — try reloading', 0); console.error(e); }
+// ───────── analysis ─────────
+const tstr = (id) => JSON.stringify(tok.tokenStr(id)).slice(1, -1);
+async function analyze() {
+  const ids = tok.encode($('anText').value); if (!ids.length) return; if (ids.length > 64) throw new Error('analysis input capped at 64 tokens');
+  const t0 = performance.now(); const run = eng.run(ids, { trace: true }), trs = run.traces, slots = R.program.length; const tuned = $('anTuned').checked ? await ensureTuned() : null;
+  S.an = { ids, trs }; const grid = lensGrid(eng, trs, { k: 5, tuned });
+  const rows = ['embed', ...R.program.map((s, i) => `s${i}:L${s.layer}`)];
+  let html = '<tr><th></th>' + ids.map((id) => `<th>${esc(tstr(id))}</th>`).join('') + '</tr>';
+  rows.forEach((rn, r) => { html += `<tr><th>${rn}</th>` + grid.map((col, p) => { const c = col[r]; return `<td data-p="${p}" data-r="${r}" style="background:${seqColor(c.probs[0])}">${esc(tstr(c.ids[0]))}</td>`; }).join('') + '</tr>'; });
+  const T = $('lensT'); T.innerHTML = html; T.onmousemove = (e) => { const td = e.target.closest('td'); if (!td) return showTip(e, ''); const c = grid[+td.dataset.p][+td.dataset.r]; showTip(e, `${rows[+td.dataset.r]} @ pos ${td.dataset.p} (${tuned ? 'tuned' : 'logit'} lens)  H=${c.ent.toFixed(2)} nats\n` + c.ids.map((id, i) => `${JSON.stringify(tok.tokenStr(id)).padEnd(14)} ${c.probs[i].toFixed(4)}`).join('\n')); }; T.onmouseleave = () => showTip(null, '');
+  // DLA
+  let pos = +$('anPos').value; if (pos < 0) pos = ids.length + pos; const tr = trs[pos]; const lp = logSoftmax(eng.logits(tr.h));
+  const tgt = $('anTgt').value ? tok.encode($('anTgt').value)[0] : topK(lp, 1)[0]; const r = dla(eng, tr, tgt), logit = eng.logitOf(tr.h, tgt);
+  $('dlaSum').innerHTML = `target <b>${esc(JSON.stringify(tok.tokenStr(tgt)))}</b> @ pos ${pos} (p=${Math.exp(lp[tgt]).toFixed(4)}) · logit ${logit.toFixed(4)} = Σ ${r.total.toFixed(4)} (err ${(logit - r.total).toExponential(1)}) · embed ${r.embed.toFixed(3)} · biases ${r.biases.reduce((a, b) => a + b.v, 0).toFixed(3)} · other(steer/SAE) ${r.other.toFixed(3)}`;
+  const HM = Array.from({ length: slots }, () => Array(H).fill(0)); for (const x of r.heads) HM[x.slot][x.h] = x.v;
+  heatmap($('dlaHeads'), HM, { rows: rows.slice(1), cols: [...Array(H).keys()], label: (i, j) => `slot ${i} L${R.program[i].layer} H${j}: ${HM[i][j].toFixed(4)}`, onClick: (i, j) => setSel({ l: R.program[i].layer, h: j }) });
+  $('dlaHT').innerHTML = '<tr><th>head</th><th>DLA</th></tr>' + r.heads.slice(0, 12).map((x) => `<tr><td>L${x.l}H${x.h}</td><td style="color:${x.v > 0 ? '#5eead4' : '#f87171'}">${x.v.toFixed(4)}</td></tr>`).join('');
+  $('dlaNT').innerHTML = '<tr><th>neuron</th><th>DLA</th></tr>' + r.neurons.slice(0, 12).map((x) => `<tr><td>L${x.l}N${x.n}</td><td style="color:${x.v > 0 ? '#5eead4' : '#f87171'}">${x.v.toFixed(4)}</td></tr>`).join('');
+  drawAttention();
+  // trajectories + entropy + neurons
+  const st = tokenStats(eng, trs, ids), pal = ['#5eead4', '#f472b6', '#fbbf24', '#60a5fa', '#a78bfa', '#f87171', '#34d399', '#e879f9'];
+  const xs = rows; lines($('normC'), st.rows.map((x, p) => ({ ys: x.norms, color: p === ids.length - 1 ? '#fff' : pal[p % 8] + '88', width: p === ids.length - 1 ? 2 : 1, label: p === ids.length - 1 ? 'last' : null })), { xs, title: '‖resid‖ per slot (each line = one token, white = last)' });
+  lines($('cosC'), st.rows.map((x, p) => ({ ys: x.cos, color: p === ids.length - 1 ? '#fff' : pal[p % 8] + '88', width: p === ids.length - 1 ? 2 : 1, label: p === ids.length - 1 ? 'last' : null })), { xs: xs.slice(1), title: 'cos(x_s, x_{s−1})' });
+  lines($('entC'), [{ ys: st.rows.map((x) => x.ent), color: '#5eead4', label: 'entropy' }, { ys: st.rows.map((x) => x.nll ?? NaN), color: '#f472b6', label: 'surprisal next' }], { xs: ids.map(tstr), title: 'entropy (teal) / −log p(next actual) (pink), nats' });
+  $('pplInfo').textContent = `perplexity on this text: ${st.ppl.toFixed(3)} (hacked model, ${ids.length - 1} predictions)`;
+  $('neuT').innerHTML = '<tr><th>token</th><th>top MLP neurons (act)</th></tr>' + st.rows.map((x, p) => `<tr><td>${esc(tstr(ids[p]))}</td><td>${x.topNeurons.slice(0, 6).map(([a, s, n]) => `L${R.program[s].layer}N${n} ${a.toFixed(2)}`).join(' · ')}</td></tr>`).join('');
+  $('anInfo').textContent = `${ids.length} tokens · ${slots} slots · ${(performance.now() - t0).toFixed(0)} ms`;
+  viz.activations(tr);
+}
+function drawAttention() {
+  if (!S.an) return; const trs = S.an.trs, T = trs.length, slots = R.program.length;
+  const big = Array.from({ length: slots * T }, () => Array(H * T).fill(0));
+  for (let s = 0; s < slots; s++) for (let q = 0; q < T; q++) { const pats = trs[q].pattern[s]; if (!pats) continue; for (let h = 0; h < H; h++) for (let k = 0; k <= q; k++) big[s * T + q][h * T + k] = pats[h][k] ?? 0; }
+  heatmap($('attAll'), big, { diverging: false, max: 1, padL: 4, padT: 2, h: Math.min(520, slots * T * 3 + 10), rows: Array(slots * T).fill(''), label: (i, j) => `slot ${(i / T) | 0} H${(j / T) | 0} q=${i % T} k=${j % T}: ${big[i][j].toFixed(3)}`, onClick: (i, j) => { $('attS').value = (i / T) | 0; $('attH').value = (j / T) | 0; setSel({ l: R.program[(i / T) | 0].layer, h: (j / T) | 0 }); } });
+  const s = Math.min(+$('attS').value, slots - 1), h = +$('attH').value, one = Array.from({ length: T }, (_, q) => Array.from({ length: T }, (_, k) => trs[q].pattern[s]?.[h]?.[k] ?? 0)), lab = S.an.ids.map(tstr);
+  heatmap($('attOne'), one, { diverging: false, max: 1, rows: lab, cols: lab, padL: 60, h: Math.max(160, T * 14 + 20), label: (q, k) => `slot ${s} H${h}: ${lab[q]} → ${lab[k]}  ${one[q][k].toFixed(4)}` });
+}
+
+// ───────── causal ─────────
+function caInputs() { const c = tok.encode($('caClean').value), x = tok.encode($('caCorr').value), a = tok.encode($('caAns').value)[0], w = tok.encode($('caWrong').value)[0]; $('caLen').textContent = `${c.length} vs ${x.length} tok`; return [c, x, a, w]; }
+function showCausal(res, kind, ids) {
+  const isHead = kind !== 'resid', M = res.M.map((row) => row.map((c) => c.norm));
+  $('caTitle').textContent = { resid: 'residual-stream patching (slot × position)', heads: 'head-output (z) patching, all positions', path: 'path patching: head → logits (direct)', abl: 'ablation: Δmetric / |base|' }[kind];
+  heatmap($('caMap'), M, { rows: R.program.map((s, i) => `s${i}L${s.layer}`), cols: isHead ? [...Array(H).keys()] : ids.map(tstr), label: (i, j) => `${isHead ? `L${R.program[i]?.layer ?? i}H${j}` : `slot ${i} @ ${tstr(ids[j])}`}: norm ${M[i][j].toFixed(4)} raw ${res.M[i][j].raw.toFixed(4)}`, onClick: isHead ? (i, j) => setSel({ l: kind === 'abl' ? i : R.program[i].layer, h: j }) : null });
+  $('caInfo').textContent = res.base != null ? `base metric ${res.base.toFixed(4)}` : `clean ${res.clean.toFixed(4)} · corrupted ${res.corrupt.toFixed(4)}`;
+}
+
+// ───────── SAE ─────────
+let saeStop = false;
+async function trainSae() {
+  await ensureStats(); const l = +$('saeL').value, m = +$('saeM').value; saeStop = false; const s = new SAE(l, m, 1); const pts = [];
+  await s.train(stats.resid[l], stats.N, { epochs: +$('saeE').value, lr: +$('saeLr').value, l1: +$('saeL1').value, onp: (p) => { prog('saeP', p.frac); pts.push(p); $('saeInfo').textContent = `ep ${p.ep} · loss ${p.loss.toFixed(4)} · nMSE ${p.mse.toFixed(4)} · L0 ${p.l0.toFixed(1)}`; lines($('saeLoss'), [{ ys: pts.map((x) => x.mse), color: '#5eead4', label: 'nMSE' }, { ys: pts.map((x) => x.l0 / m), color: '#f472b6', label: 'L0/m' }], { title: 'nMSE (teal) · L0/m (pink)', min: 0 }); }, shouldStop: () => saeStop });
+  sae = s; saeA = s.analyse(stats.resid[l], stats.N, 10); eng.sae = s; prog('saeP', 1);
+  $('saeInfo').textContent += ` · FVU ${saeA.fvu.toFixed(4)} · alive ${saeA.alive}/${m}`; renderSae(); hud();
+}
+function ctxStr(i) { const c = stats.context(i, 10); return `${esc(tok.decode(c.before))}<b style="color:#fbbf24">${esc(tok.tokenStr(c.tok))}</b>${esc(tok.decode(c.after))}`; }
+function renderSae() {
+  if (!sae) return; const q = $('saeQ').value.toLowerCase(), by = $('saeSort').value;
+  let fs = [...Array(sae.m).keys()].filter((f) => saeA.dens[f] > 0); fs.sort((a, b) => by === 'max' ? saeA.mx[b] - saeA.mx[a] : saeA.dens[b] - saeA.dens[a]);
+  if (q) fs = fs.filter((f) => saeA.tops[f].some(([, i]) => tok.decode(stats.context(i, 6).before.concat([stats.ids[i]])).toLowerCase().includes(q)));
+  $('saeT').innerHTML = '<tr><th>f</th><th>max</th><th>dens</th><th>top context</th></tr>' + fs.slice(0, 150).map((f) => `<tr data-f="${f}" style="cursor:pointer"><td>${f}</td><td>${saeA.mx[f].toFixed(2)}</td><td>${(saeA.dens[f] * 100).toFixed(1)}%</td><td>${ctxStr(saeA.tops[f][0][1])}</td></tr>`).join('');
+  $$('#saeT tr[data-f]').forEach((tr) => (tr.onclick = () => { const f = +tr.dataset.f; $('clF').value = f; $('saeCtx').innerHTML = `<b>feature ${f}</b> top activations:<br>` + saeA.tops[f].map(([a, i]) => `${a.toFixed(2)} · ${ctxStr(i)}`).join('<br>'); }));
+  $('clList').innerHTML = R.sae.clamps.map((c, i) => `<div class="r">f${c.f} ${c.mode} ${c.value} <button data-i="${i}">✕</button></div>`).join('') || '<div class="sm">none</div>';
+  $$('#clList button').forEach((b) => (b.onclick = () => commit('SAE clamp −', () => R.sae.clamps.splice(+b.dataset.i, 1))));
+}
+
+// ───────── surgery ─────────
+const matPath = () => { const m = $('smM').value; return m === 'wte' || m === 'wpe' ? m : `L${$('smL').value}.${m}`; };
+const frob = (a) => { let s = 0; for (let i = 0; i < a.length; i++) s += a[i] * a[i]; return Math.sqrt(s); };
+function weightEdit(label, e, path) { // records relative Frobenius change of the touched matrix
+  const before = path ? Float32Array.from(getMat(M, path).a) : null; commit(label, () => ed.push(e));
+  if (path) { const a = getMat(M, path).a; let s = 0; for (let i = 0; i < a.length; i++) s += (a[i] - before[i]) ** 2; $('svdInfo').textContent = `‖ΔW‖/‖W‖ = ${(Math.sqrt(s) / frob(before)).toExponential(3)}`; }
+}
+async function showSvd() {
+  const path = matPath(); if (path === 'wte') throw new Error('wte SVD (50257×256) is too slow for the browser here; use a layer matrix or wpe'); $('svdInfo').textContent = 'running one-sided Jacobi SVD…'; await tick();
+  const t0 = performance.now(), { a, rows, cols } = getMat(M, path), r = ed.svdOf(path, true), S2 = r.S; const tot = S2.reduce((x, y) => x + y * y, 0); let c = 0; const cum = S2.map((s) => (c += s * s) / tot);
+  const out = new Float32Array(rows * cols); (await import('./linalg.js')).svdReconstruct(r, Float64Array.from(S2), out); let e = 0; for (let i = 0; i < out.length; i++) e += (out[i] - a[i]) ** 2;
+  bars($('svdC'), Array.from(S2), { log: true, title: `σ spectrum ${path} (${rows}×${cols}, log) · hover for energy`, label: (i) => `σ${i} = ${S2[i].toPrecision(5)}  cum energy ${(cum[i] * 100).toFixed(2)}%`, onClick: (i) => ($('svK').value = i + 1) });
+  $('svdInfo').textContent = `${S2.length} σ · ${r.sweeps} sweeps · ${(performance.now() - t0).toFixed(0)} ms · recon rel.err ${(Math.sqrt(e) / frob(a)).toExponential(2)} · 90% energy @ k=${cum.findIndex((x) => x >= 0.9) + 1}`;
+}
+const parseLayers = (s) => { const out = new Set(); for (const p of s.split(',')) { const m = p.trim().match(/^(\d)(?:-(\d))?$/); if (!m) throw new Error('bad layer list ' + s); for (let l = +m[1]; l <= +(m[2] ?? m[1]); l++) out.add(l); } return [...out].filter((l) => l < L); };
+
+// ───────── runtime: program, heads, masks ─────────
+function renderProgram() {
+  const box = $('progList'); if (!box) return; box.innerHTML = '';
+  R.program.forEach((s, i) => { const r = document.createElement('div'); r.className = 'r';
+    r.innerHTML = `<b>s${i}</b><select data-k="layer">${layerOpts(s.layer)}</select><label><input type="checkbox" data-k="attn" ${s.attn ? 'checked' : ''}/>attn</label><label><input type="checkbox" data-k="mlp" ${s.mlp ? 'checked' : ''}/>mlp</label><button data-k="up">↑</button><button data-k="dn">↓</button><button data-k="dup">dup</button><button data-k="del">✕</button>`;
+    r.querySelector('[data-k=layer]').onchange = (e) => commit(`slot ${i} ← L${e.target.value}`, () => (R.program[i].layer = +e.target.value));
+    for (const k of ['attn', 'mlp']) r.querySelector(`[data-k=${k}]`).onchange = (e) => commit(`slot ${i} ${k} ${e.target.checked ? 'on' : 'skip'}`, () => (R.program[i][k] = e.target.checked));
+    r.querySelector('[data-k=up]').onclick = () => i > 0 && commit(`swap s${i}↔s${i - 1}`, () => R.program.splice(i - 1, 2, R.program[i], R.program[i - 1]));
+    r.querySelector('[data-k=dn]').onclick = () => i < R.program.length - 1 && commit(`swap s${i}↔s${i + 1}`, () => R.program.splice(i, 2, R.program[i + 1], R.program[i]));
+    r.querySelector('[data-k=dup]').onclick = () => commit(`duplicate s${i} (L${s.layer})`, () => R.program.splice(i + 1, 0, { ...s }));
+    r.querySelector('[data-k=del]').onclick = () => R.program.length > 1 && commit(`delete s${i} (L${s.layer})`, () => R.program.splice(i, 1)); box.appendChild(r); });
+  const mb = $('maskList'); mb.innerHTML = '';
+  R.attnMask.forEach((m, l) => { const r = document.createElement('div'); r.className = 'r'; r.innerHTML = `<b>L${l}</b><select>${opts(['causal', 'self', 'noself', 'bos', 'nobos', 'uniform'], m.mode)}</select><label>window</label><input type="number" value="${m.window}"/><span class="sm">${m.window ? '' : l % 2 ? '(native local 256)' : '(native global)'}</span>`;
+    r.querySelector('select').onchange = (e) => commit(`L${l} mask ${e.target.value}`, () => (R.attnMask[l].mode = e.target.value)); r.querySelector('input').onchange = (e) => commit(`L${l} window ${e.target.value}`, () => (R.attnMask[l].window = +e.target.value)); mb.appendChild(r); });
+  $('naList').innerHTML = R.neuronAbl.map((n, i) => `<div class="r">L${n.l}N${n.n} ${n.mode}${n.mode === 'clamp' ? ' ' + n.value : ''} <button data-i="${i}">✕</button></div>`).join('') || '<div class="sm">none</div>';
+  $$('#naList button').forEach((b) => (b.onclick = () => commit('neuron override −', () => R.neuronAbl.splice(+b.dataset.i, 1))));
+  $('psS').value = R.pos.scale; $('psH').value = R.pos.shift; $('psF').value = R.pos.freeze; if (sae) renderSae();
+}
+function renderHeadGrid() {
+  const box = $('headGrid'); if (!box) return; const l = +$('hgL').value; box.innerHTML = '';
+  for (let h = 0; h < H; h++) { const r = document.createElement('div'); r.className = 'r'; if (S.sel.l === l && S.sel.h === h) r.style.background = '#1a2a44';
+    r.innerHTML = `<b style="width:28px">H${h}</b><label>τ</label><input type="number" step="0.1" value="${R.headTemp[l][h]}"/><select>${opts([['', 'active'], 'zero', 'mean', 'resample'], R.headAbl[l][h] || '')}</select><button>select</button>`;
+    r.querySelector('input').onchange = (e) => commit(`L${l}H${h} τ=${e.target.value}`, () => (R.headTemp[l][h] = +e.target.value));
+    r.querySelector('select').onchange = guard(async (e) => { const v = e.target.value || null; if (v === 'mean' || v === 'resample') await ensureStats(); commit(`L${l}H${h} ${v || 'restore'}`, () => (R.headAbl[l][h] = v)); });
+    r.querySelector('button').onclick = () => setSel({ l, h }); box.appendChild(r); }
+}
+
+// ───────── ops ─────────
+function renderOps() {
+  const hl = $('histL'); if (!hl) return;
+  hl.innerHTML = [...S.undo.map((u, i) => `<div data-u="${i}"><b>${i + 1}</b>${esc(u.label)}</div>`), ...S.redo.slice().reverse().map((u) => `<div class="undone">${esc(u.label)}</div>`)].join('') || '<div class="sm">empty</div>';
+  $$('#histL div[data-u]').forEach((dv) => (dv.onclick = () => { const k = +dv.dataset.u; while (S.undo.length > k + 1) undo(); }));
+  $('editL').innerHTML = ed.edits.map((e) => `<div><b>#${e.id}</b>${esc(ed.label(e))}</div>`).join('') || '<div class="sm">no weight edits — model is bit-identical to the original</div>';
+  $('bUndo').disabled = !S.undo.length; $('bRedo').disabled = !S.redo.length;
+}
+function exportSnap() { const s = snap(); s.R.steer = R.steer.map(vecToJSON); download('neuralese-snapshot.json', JSON.stringify({ format: 'neuralese-snapshot', version: 2, model: 'roneneldan/TinyStories-8M', decode: D, ...s })); }
+async function importSnap(file) {
+  const j = JSON.parse(await file.text()); if (j.format !== 'neuralese-snapshot') throw new Error('not a neuralese snapshot'); j.R.steer = j.R.steer.map(vecFromJSON);
+  const needs = j.R.headAbl.flat().some((x) => x === 'mean' || x === 'resample') || j.R.neuronAbl.some((n) => n.mode === 'mean'); if (needs) await ensureStats();
+  if (j.R.sae.clamps.length && !sae) toast('snapshot has SAE clamps: train an SAE on the same layer to activate them', true);
+  nextVec = Math.max(nextVec, ...j.R.steer.map((v) => v.id + 1)); const before = snap(); restore({ edits: j.edits, R: j.R }); S.undo.push({ label: 'import snapshot', s: before }); S.redo = []; renderOps();
+}
+
+// ───────── selection sync ─────────
+function setSel(s) {
+  Object.assign(S.sel, { h: null, n: null }, s); const { l, h, n } = S.sel; viz.select(S.sel);
+  $('selInfo').textContent = `L${l}${h != null ? ` H${h}` : ''}${n != null ? ` N${n}` : ''}`;
+  $('hgL').value = l; $('smL').value = l; $('vzL').value = l; $('naL').value = l; if (h != null) { $('attH').value = h; const s2 = R.program.findIndex((p) => p.layer === l); if (s2 >= 0) $('attS').value = s2; $('elT').value = 'head'; $('elI').value = h; drawAttention(); }
+  if (n != null) { $('naN').value = n; $('elT').value = 'neuron'; $('elI').value = n; }
+  renderHeadGrid(); refreshWeights(); inspector();
+}
+function inspector() {
+  const { l, h, n } = S.sel, Pm = M.layers[l], Po = W.layers[l]; let html = `<div class="sm">layer ${l} (${l % 2 ? 'local attention, window 256' : 'global attention'})</div>`;
+  const nrm = (a, idx) => { let s = 0; for (const i of idx) s += a[i] * a[i]; return Math.sqrt(s); };
+  if (h != null) { const oc = [], qr = []; for (let i = 0; i < d; i++) for (let j = h * 16; j < h * 16 + 16; j++) oc.push(i * d + j); for (let j = h * 16; j < h * 16 + 16; j++) for (let i = 0; i < d; i++) qr.push(j * d + i);
+    html += `<table><tr><th>head ${h}</th><th>now</th><th>orig</th></tr>${['q', 'k', 'v'].map((k) => `<tr><td>‖W${k}[h]‖</td><td>${nrm(Pm[k], qr).toFixed(3)}</td><td>${nrm(Po[k], qr).toFixed(3)}</td></tr>`).join('')}<tr><td>‖Wo[:,h]‖</td><td>${nrm(Pm.o, oc).toFixed(3)}</td><td>${nrm(Po.o, oc).toFixed(3)}</td></tr><tr><td>τ / ablation</td><td colspan=2>${R.headTemp[l][h]} / ${R.headAbl[l][h] || 'active'}</td></tr></table>`;
+    if (S.an) { const s = R.program.findIndex((p) => p.layer === l), T = S.an.trs.length, pat = S.an.trs[T - 1].pattern[s]?.[h]; if (pat) html += `<div class="sm">last-token attention:</div>` + [...pat].map((w, k) => [w, k]).sort((a, b) => b[0] - a[0]).slice(0, 6).map(([w, k]) => `${esc(tstr(S.an.ids[k]))} ${w.toFixed(3)}`).join('<br>'); } }
+  if (n != null) { const ir = [], oc = []; for (let i = 0; i < d; i++) { ir.push(n * d + i); oc.push(i * ff + n); }
+    html += `<table><tr><th>neuron ${n}</th><th>now</th><th>orig</th></tr><tr><td>‖w_in‖</td><td>${nrm(Pm.fc, ir).toFixed(3)}</td><td>${nrm(Po.fc, ir).toFixed(3)}</td></tr><tr><td>‖w_out‖</td><td>${nrm(Pm.proj, oc).toFixed(3)}</td><td>${nrm(Po.proj, oc).toFixed(3)}</td></tr></table>`;
+    const u = new Float32Array(d); for (let i = 0; i < d; i++) u[i] = Pm.proj[i * ff + n] * M.lnfW[i]; const lg = eng.logits(u); html += `<div class="sm">w_out·W_U top tokens: ${topK(lg, 8).map((i) => esc(tstr(i))).join(' · ')}<br>bottom: ${topK(lg.map((x) => -x), 6).map((i) => esc(tstr(i))).join(' · ')}</div>`; }
+  $('insp').innerHTML = html;
+}
+function refreshWeights() { if (!viz) return; const path = `L${$('vzL').value}.${$('vzM').value}`; const r = viz.weights(M, W, path, $('vzMode').value, $('vzDiff').checked); $('vzInfo').textContent = `${path} ${r.rows}×${r.cols} shown at ${r.R}×${r.C} (max-|·| pooling), height = w/σ_orig (σ=${r.sd.toFixed(4)})${$('vzDiff').checked ? ', showing W − W_orig' : ''}`; }
+
+// ───────── command palette ─────────
+const CMDS = () => [
+  ['Generate', () => generate()], ['Stop generation', () => genId++], ['Undo', undo], ['Redo', redo], ['Toggle dense layout', () => document.body.classList.toggle('dense')],
+  ...Object.entries(TABS).map(([k, t]) => [`Go to ${t}`, () => showTab(k)]), ['Analyze input', () => $('bAn').click()], ['Compute corpus stats', () => $('bStats').click()],
+  ['Export snapshot', exportSnap], ['Download safetensors', () => $('bST').click()], ['Reset everything', () => $('bReset').click()], ['Resid patching', () => $('bPR').click()], ['Head patching', () => $('bPH').click()], ['Train SAE', () => $('bSae').click()], ['SVD spectrum of selected matrix', () => $('bSvd').click()],
+  ...[...Array(L).keys()].map((l) => [`Select layer ${l}`, () => setSel({ l })]),
+];
+let palSel = 0;
+function palOpen() { $('pal').classList.remove('hidden'); $('palIn').value = ''; palSel = 0; palRender(); $('palIn').focus(); }
+function palRender() { const q = $('palIn').value.toLowerCase(); const list = CMDS().filter(([n]) => n.toLowerCase().includes(q)); palSel = Math.min(palSel, Math.max(0, list.length - 1)); $('palList').innerHTML = list.map(([n], i) => `<div class="${i === palSel ? 'on' : ''}" data-i="${i}">${esc(n)}</div>`).join(''); $$('#palList div').forEach((dv) => (dv.onclick = () => { $('pal').classList.add('hidden'); list[+dv.dataset.i][1](); })); return list; }
+
+// ───────── wiring ─────────
+function wire() {
+  const on = (id, ev, fn) => $(id).addEventListener(ev, guard(fn));
+  on('bGen', 'click', generate); on('bStop', 'click', () => genId++); on('bUndo', 'click', undo); on('bRedo', 'click', redo); on('bU2', 'click', undo); on('bR2', 'click', redo);
+  on('bDense', 'click', () => document.body.classList.toggle('dense')); on('bPal', 'click', palOpen); on('readSel', 'change', readout);
+  // steering
+  on('bCv', 'click', async () => { const pairs = $('cvPairs').value.split('\n').map((s) => s.split('|').map((x) => x.trim())).filter((p) => p.length === 2 && p[0] && p[1]); if (!pairs.length) throw new Error('need lines "positive | negative"');
+    const t0 = performance.now(), site = $('cvSite').value, vecs = buildControlVector(engClean, tok, pairs, { site, method: $('cvMethod').value, agg: $('cvAgg').value });
+    addVector($('cvName').value || 'v', site, vecs, { method: $('cvMethod').value, pairs: pairs.length }); $('cvInfo').textContent = `${pairs.length} pairs · ${(performance.now() - t0).toFixed(0)} ms`; });
+  on('bCvExpr', 'click', () => { const vecs = vectorArithmetic($('cvExpr').value, R.steer); addVector($('cvExprName').value || 'mix', R.steer[0]?.site || 'resid_post', vecs, { expr: $('cvExpr').value }); });
+  on('bCvExport', 'click', () => download('neuralese-vectors.json', JSON.stringify({ format: 'neuralese-vectors', vectors: R.steer.map(vecToJSON) })));
+  on('cvImport', 'change', async (e) => { const j = JSON.parse(await e.target.files[0].text()); const vs = (j.vectors || []).map(vecFromJSON); if (!vs.length || vs.some((v) => v.vecs.length !== L || v.vecs[0].length !== d)) throw new Error(`expected vectors with ${L}×${d}`); commit(`import ${vs.length} vectors`, () => vs.forEach((v) => R.steer.push({ ...v, id: nextVec++ }))); });
+  // analysis
+  on('bAn', 'click', analyze); on('anTuned', 'change', analyze); on('attS', 'change', drawAttention); on('attH', 'change', drawAttention);
+  // causal
+  for (const id of ['caClean', 'caCorr']) on(id, 'input', caInputs);
+  const ca = (kind, f) => async () => { const [c, x, a, w] = caInputs(); prog('caP', 0); const t0 = performance.now(); const res = await f(c, x, a, w); prog('caP', 1); showCausal(res, kind, c); $('caInfo').textContent += ` · ${(performance.now() - t0).toFixed(0)} ms`; };
+  on('bPR', 'click', ca('resid', (c, x, a, w) => patchResid(eng, c, x, a, w, (f) => prog('caP', f))));
+  on('bPH', 'click', ca('heads', (c, x, a, w) => patchHeads(eng, c, x, a, w, (f) => prog('caP', f))));
+  on('bPP', 'click', ca('path', (c, x, a, w) => pathPatchHeadsToLogits(eng, c, x, a, w)));
+  on('bAbl', 'click', ca('abl', async (c, x, a, w) => { const t = $('caAblT').value; if (t !== 'zero') await ensureStats(); return ablationSweep(eng, c, a, w, t, (f) => prog('caP', f)); }));
+  // stats + SAE
+  on('bStats', 'click', async () => { stats = null; cov.clear(); await ensureStats(); });
+  on('bSae', 'click', trainSae); on('bSaeStop', 'click', () => (saeStop = true)); on('saeSort', 'change', renderSae); on('saeQ', 'input', renderSae);
+  on('bClamp', 'click', () => { if (!sae) throw new Error('train an SAE first'); const f = +$('clF').value; if (!(f >= 0 && f < sae.m)) throw new Error('feature out of range'); commit(`SAE L${sae.layer} f${f} ${$('clMode').value} ${$('clV').value}`, () => R.sae.clamps.push({ f, mode: $('clMode').value, value: +$('clV').value })); });
+  // surgery
+  on('bSvd', 'click', showSvd);
+  on('bSvTop', 'click', () => weightEdit(`SVD keep top-${$('svK').value} ${matPath()}`, { kind: 'svd', path: matPath(), mode: 'topk', k: +$('svK').value }, matPath()));
+  on('bSvFlat', 'click', () => weightEdit(`SVD flatten ${matPath()}`, { kind: 'svd', path: matPath(), mode: 'flatten', k: +$('svK').value }, matPath()));
+  on('bSvDrop', 'click', () => weightEdit(`SVD drop ${matPath()}`, { kind: 'svd', path: matPath(), mode: 'drop', from: +$('svA').value, to: +$('svB').value }, matPath()));
+  on('bSvScale', 'click', () => weightEdit(`SVD scale ${matPath()}`, { kind: 'svd', path: matPath(), mode: 'scale', from: +$('svA').value, to: +$('svB').value, factor: +$('svF').value }, matPath()));
+  on('bLr', 'click', () => weightEdit(`low-rank ${matPath()}`, { kind: 'lowrank', path: matPath(), rank: +$('lrR').value, sigma: +$('lrS').value, seed: Date.now() % 1e6 }, matPath()));
+  on('bEl', 'click', () => { const t = $('elT').value, l = +$('smL').value, i = +$('elI').value, fn = $('elF').value, amt = +$('elA').value; let target;
+    if (t === 'matrix') target = { type: 'matrix', path: matPath() }; else if (t === 'head') { if (!(i >= 0 && i < H)) throw new Error('head 0..15'); target = { type: 'head', l, i }; } else if (t === 'neuron') { if (!(i >= 0 && i < ff)) throw new Error('neuron 0..1023'); target = { type: 'neuron', l, i }; }
+    else { const words = $('elWords').value.split(',').map((s) => s.trim()).filter(Boolean); if (!words.length) throw new Error('enter embed words'); target = { type: 'embed', word: words.join(','), toks: [...new Set(words.flatMap((w) => [tok.encode(' ' + w)[0], tok.encode(w)[0]]))] }; }
+    const e = { kind: 'elem', target, fn, amt, seed: Date.now() % 1e6 }; weightEdit(ed.label(e), e, t === 'matrix' ? matPath() : null); });
+  on('bQ', 'click', () => { const bits = +$('qB').value, layers = parseLayers($('qL').value), mats = $('qM').value.split(',').map((s) => s.trim()).filter((m) => MATS.includes(m)); if (!mats.length) throw new Error('no valid mats');
+    let err = 0, n = 0; for (const l of layers) for (const m of mats) { const { a, rows, cols } = getMat(M, `L${l}.${m}`); const c = Float32Array.from(a); err += quantize(c, rows, cols, bits) ** 2; n++; } // preview error on a copy
+    commit(`int${bits} quantize`, () => ed.push({ kind: 'quant', bits, layers, mats })); $('qInfo').textContent = `RMS weight error ≈ ${Math.sqrt(err / n).toExponential(2)}`; });
+  on('bIp', 'click', () => commit(`L${$('ipD').value} ← lerp L${$('ipS').value} t=${$('ipT').value}`, () => ed.push({ kind: 'interp', dst: +$('ipD').value, src: +$('ipS').value, t: +$('ipT').value })));
+  on('bLn', 'click', () => { const e = { kind: 'ln', which: $('lnW').value, l: +$('lnL').value, gScale: +$('lnG').value, bAdd: +$('lnB').value }; commit(ed.label(e), () => ed.push(e)); });
+  on('bWp', 'click', () => { const e = { kind: 'wpe', fn: $('wpF').value, amt: +$('wpA').value, n: 256, seed: Date.now() % 1e6 }; commit(ed.label(e), () => ed.push(e)); });
+  on('bRome', 'click', async () => { const l = +$('roL').value; $('roInfo').textContent = 'computing activation covariance on corpus…'; const C = await ensureCov(l); const prompt = $('roP').value, target = $('roT').value;
+    const before = tok.tokenStr(topK(logSoftmax(eng.logits(eng.run(tok.encode(prompt)).last.h)), 1)[0]);
+    const op = await computeRome(eng, tok, C, { prompt, subject: $('roS').value, target, layer: l }, ({ it, p }) => { prog('romeP', 0.3 + 0.7 * Math.min(1, it / 150)); $('roInfo').textContent = `optimising v* · iter ${it} · p(target) ${p.toFixed(3)}`; });
+    commit(ed.label({ kind: 'rome', l, subject: op.subject, target }), () => ed.push({ kind: 'rome', l, u: op.u, v: op.v, subject: op.subject, target, prompt }));
+    const after = tok.tokenStr(topK(logSoftmax(eng.logits(eng.run(tok.encode(prompt)).last.h)), 1)[0]); prog('romeP', 1);
+    $('roInfo').innerHTML = `${op.iters} iters · hook p=${op.p.toFixed(3)} · real rank-1 weight edit: top-1 ${esc(JSON.stringify(before))} → <b class="${after === target ? 'ok' : 'err'}">${esc(JSON.stringify(after))}</b>`; });
+  on('chP', 'input', () => ($('chV').textContent = $('chP').value + '%')); on('bChaos', 'click', () => commit(`chaos ${$('chP').value}%`, () => ed.push({ kind: 'chaos', pct: +$('chP').value, seed: Date.now() % 1e6 })));
+  on('smL', 'change', () => setSel({ l: +$('smL').value }));
+  // runtime
+  on('bProgReset', 'click', () => commit('reset program', () => (R.program = defaultRuntime().program))); on('hgL', 'change', renderHeadGrid);
+  on('bPos', 'click', () => commit(`pos scale ${$('psS').value} shift ${$('psH').value} freeze ${$('psF').value}`, () => (R.pos = { scale: +$('psS').value, shift: +$('psH').value, freeze: +$('psF').value })));
+  on('bNa', 'click', async () => { const m = $('naM').value; if (m === 'mean') await ensureStats(); const n = +$('naN').value; if (!(n >= 0 && n < ff)) throw new Error('neuron 0..1023'); commit(`L${$('naL').value}N${n} ${m}`, () => R.neuronAbl.push({ l: +$('naL').value, n, mode: m, value: +$('naV').value })); });
+  // ops
+  on('bReset', 'click', () => commit('reset everything', () => { R = defaultRuntime(); eng.R = R; ed.setEdits([]); }));
+  on('bSnapE', 'click', exportSnap); on('snapI', 'change', (e) => importSnap(e.target.files[0]));
+  on('bST', 'click', () => download('model.safetensors', toSafetensors(M), 'application/octet-stream'));
+  // 3D
+  for (const id of ['vzL', 'vzM', 'vzMode', 'vzDiff']) on(id, 'change', () => (id === 'vzL' ? setSel({ l: +$('vzL').value }) : refreshWeights()));
+  // keyboard
+  addEventListener('keydown', (e) => { const typing = /INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName);
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); palOpen(); return; }
+    if (!$('pal').classList.contains('hidden')) { if (e.key === 'Escape') $('pal').classList.add('hidden'); else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { palSel += e.key === 'ArrowDown' ? 1 : -1; palSel = Math.max(0, palSel); palRender(); e.preventDefault(); } else if (e.key === 'Enter') { const l = palRender(); $('pal').classList.add('hidden'); l[palSel] && guard(l[palSel][1])(); } return; }
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !typing) { e.preventDefault(); e.shiftKey ? redo() : undo(); }
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); generate(); } });
+  $('palIn').addEventListener('input', () => { palSel = 0; palRender(); });
+}
+
+// ───────── boot ─────────
+(async () => {
+  try {
+    const r = await loadModel(); W = r.W; tok = r.tok; M = cloneWeights(W); ed = new Editor(W, M); R = defaultRuntime(); eng = new Engine(M, R); engClean = new Engine(W, defaultRuntime());
+    buildUI(); viz = new Viz($('gl'), (s) => setSel(s)); wire(); caInputs(); afterChange(); setSel({ l: 0, h: 0 }); $('loader').style.display = 'none'; hud();
+    window.NEURALESE = { W, M, tok, ed, get R() { return R; }, eng, engClean, commit, generate, analyze, undo, redo, get stats() { return stats; }, mb: r.mb };
+    await generate();
+  } catch (e) { console.error(e); setLoad('✖ ' + e.message); }
+})();
