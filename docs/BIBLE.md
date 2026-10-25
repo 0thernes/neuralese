@@ -1,4 +1,4 @@
-# NEURALESE v5 — The Bible
+# NEURALESE — The Bible
 
 Reference manual for every tab and control. Also in the app: TOOLS › LEARN › Bible.
 
@@ -39,12 +39,17 @@ Reference manual for every tab and control. Also in the app: TOOLS › LEARN ›
 - [SCIENCE › GEOMETRY + LANDSCAPE](#science--geometry--landscape)
 - [VIEW › 3D MODES](#view--3d-modes)
 - [TOOLS › WEBGPU, ZOO, SHARE, CLI](#tools--webgpu-zoo-share-cli)
+- [RESEARCH › REPRO, STATS, LOG](#research--repro-stats-log)
+- [RESEARCH › ACDC + SCRUBBING](#research--acdc--scrubbing)
+- [RESEARCH › PROBES, DATA, EVAL](#research--probes-data-eval)
+- [RESEARCH › NOTEBOOK + REPORT](#research--notebook--report)
+- [Safety, ethics and limits](#safety-ethics-and-limits)
 
 ## Overview
 
 Neuralese is a browser laboratory for the real TinyStories-8M (GPT-Neo, 8 layers, d=256, 16 heads, 19.7 M parameters). Everything shown is computed from the live weights on your CPU in float32 JavaScript; nothing is mocked. You can edit weights (SURGERY), change the forward pass at runtime (RUNTIME, CONTROL, STEER), measure the consequences (EVALUATE group) and inspect internals (INTERPRET group). Every change goes through one undo/redo stack.
 
-Layout: top bar (version, HUD, theme), left 3D view, right dock with grouped tabs (drag the splitter to resize). Keyboard: Ctrl/⌘+Enter generate · Ctrl/⌘+Z / Shift+Z undo/redo · ` focus terminal · ? shortcuts · 1–7 jump to tab groups.
+Layout: top bar (version, HUD, theme), left 3D view, right dock with grouped tabs (drag the splitter to resize). Keyboard: Ctrl/⌘+Enter generate · Ctrl/⌘+Z / Shift+Z undo/redo · ` focus terminal · ? shortcuts · 1–9 jump to tab groups.
 
 ## RUN › GEN
 
@@ -185,3 +190,23 @@ Morphing views: layer stack, instanced weight voxel field (LOD), loss surface, r
 ## TOOLS › WEBGPU, ZOO, SHARE, CLI
 
 WEBGPU uploads the unembedding, verifies the GPU result against CPU and benchmarks both (tok/s). On software adapters the GPU path is slower; on real GPUs it may be faster. ZOO streams TinyStories-1M/3M by HTTP Range (F32 tensors only) and compares loss, stable rank and induction; DIFF compares orig, snapshot and current weights tensor by tensor. SHARE encodes the edits, runtime and prompt into a compressed #x= URL. `node cli.mjs` is a terminal tool on the same core (inspect, attribution, eigen, induction, landscape).
+
+## RESEARCH › REPRO, STATS, LOG
+
+REPRO hashes the original and current weights with SHA-256 (also shown in the top bar), downloads a manifest (version, model id + hash, edits, runtime, prompt, decoding, seed, environment) and replays one from the clean weights, checking the resulting hash bit for bit. Edit + undo restores weights exactly (unit-tested for every edit kind). STATS zero-ablates each head of a layer and compares per-document CE to the unablated model with a paired sign-flip permutation test, Cohen's d_z and a bootstrap CI, then applies Holm and Benjamini–Hochberg corrections; a second panel tests any two lists of numbers. LOG exports every logged run as JSONL and diffs two runs field by field; the lab-state file bundles edits, runtime, prompt, notebook, run log and user dataset.
+
+## RESEARCH › ACDC + SCRUBBING
+
+ACDC (node-level) treats the 128 heads (their z slice) and 8 MLPs (mlp_out) as nodes. Going from the last layer back, each node is replaced with its activation on the corrupt prompt; if the logit-difference metric moves by less than τ times the clean–corrupt gap, it stays replaced. The result lists the kept nodes and their faithfulness. Edge-level pruning, as in the original paper, is not implemented. Causal scrubbing-lite keeps your listed nodes clean, resamples all others from the corrupt prompt and reports faithfulness; scrubbing the ACDC circuit reproduces its faithfulness exactly (tested).
+
+## RESEARCH › PROBES, DATA, EVAL
+
+PROBES trains a softmax-regression probe on standardised residual vectors at tokens from your word lists (single-token words only). Train/test is split by word type, and a control task with random per-type labels gives selectivity. DATA swaps the built-in corpus for pasted or uploaded text (blank-line separated, max 500 docs); drill, gradients, geometry, landscape, neuron atlas, stats, probes and eval all use it, and it never leaves the browser. EVAL compares clean vs current on perplexity, 12 TinyStories cloze facts, distinct-1/2 and repeated 4-grams of greedy generations.
+
+## RESEARCH › NOTEBOOK + REPORT
+
+NOTEBOOK cells are async JavaScript bodies with lab, research, docs(n,T), print and plot in scope; cells persist in localStorage and export as Markdown or .ipynb (JSON, javascript kernel name). Cells run with full page privileges, which is why the CSP allows 'unsafe-eval'. REPORT builds a self-contained HTML file with the manifest, every RESEARCH result computed this session with its method text, and the charts as PNGs; print it to PDF from the browser.
+
+## Safety, ethics and limits
+
+TinyStories-8M is a tiny model trained on synthetic children's stories; findings may not transfer to larger models, and nothing here is evidence about frontier-model safety. Weight edits can make the model produce nonsense or unexpected text; outputs are not filtered. Uploaded datasets and notebook code stay in your browser, but notebook cells execute arbitrary JavaScript in the page — only run code you trust. Interpretability claims need controls: use corrupted baselines, control tasks, multiple-comparison correction and confidence intervals, and report negative results. The only network access is to huggingface.co for the public weights and tokenizer.
