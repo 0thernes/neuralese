@@ -1,4 +1,28 @@
-# NEURALESE v6: interpretability and weight-surgery lab (TinyStories-8M, 100% in-browser)
+# NEURALESE v7: interpretability and weight-surgery lab (TinyStories-8M, 100% in-browser)
+
+Live: https://0thernes.github.io/neuralese/ · Audit: [AUDIT.md](AUDIT.md)
+
+## What's new in v7 (new RESEARCH group: press 7)
+- **REPRO**: SHA-256 of the original and current weights (also in the top bar), a downloadable experiment manifest (version, model id + hash, edits, runtime, prompt, decoding, seed, environment), and replay that re-applies the edits from clean weights and checks the hash bit for bit.
+- **STATS**: per-head zero-ablation significance on per-document CE (paired sign-flip permutation test, Cohen's d_z, bootstrap CI, Holm + Benjamini–Hochberg), and a general two-sample/paired test. Verified against scipy and statsmodels.
+- **ACDC**: node-level ACDC-style circuit discovery (128 heads + 8 MLPs, τ slider, faithfulness) and causal scrubbing-lite for your own node hypotheses. Edge-level pruning is not implemented.
+- **PROBES**: softmax-regression probes on the residual stream from word lists, split by word type, with a Hewitt–Liang control task and selectivity, swept over layers.
+- **DATA**: upload or paste your own corpus. It stays in the browser, and the docs-based tools (drill, gradients, geometry, landscape, neuron atlas, stats, probes, eval) use it.
+- **EVAL**: a clean-vs-current scoreboard covering perplexity, 12 cloze facts, distinct-1/2 and repeated 4-grams.
+- **NOTEBOOK**: JavaScript cells against the lab API with inline plots, exportable as .md or .ipynb.
+- **REPORT**: a self-contained HTML report with methods, results, figures and the manifest. Print it to get a PDF.
+- **LOG**: JSONL export of the run log, a field-by-field diff of two runs, and full lab-state import/export.
+- **Hardening** (see AUDIT.md):
+  - Edit + undo is bitwise exact (fixed a drill restore bug).
+  - three.js is vendored and pinned, and a Content-Security-Policy is set.
+  - Weight downloads retry with backoff, and there is a retry button.
+  - Long computations are chunked.
+  - axe-core reports 0 WCAG 2 A/AA violations.
+  - Terminal: hash, manifest, stats, acdc, scrub, probe, evalh, dataset, report, state.
+- Learning: 19 new glossary terms, 5 Bible sections (including safety and ethics), and lessons 13–14 with quizzes.
+
+## Safety and ethics
+TinyStories-8M is a tiny model trained on synthetic children's stories, so findings may not transfer to larger models. Edited models produce unfiltered text. Notebook cells execute arbitrary JavaScript in the page, so only run code you trust. Uploaded data never leaves the browser. The only network access is to huggingface.co, for the public weights and tokenizer.
 
 ## What's new in v6
 - **SCIENCE › DRILL**: hierarchical inspector model → layer → sublayer → matrix → head/neuron → row/col → weight (paths like `L3.attn.q.H5.r2.w17`), with moments, sparsity, norms, full SVD metrics (effective/stable rank, condition number, Hill α), gradient norm, empirical Fisher, saliency, an analytic-vs-finite-difference check, zero-ablation ΔCE with token provenance, direct logit effect, and undoable edits at every level. The breadcrumb and the 3D selection stay in sync.
@@ -49,6 +73,7 @@ The app loads [roneneldan/TinyStories-8M](https://huggingface.co/roneneldan/Tiny
 | linalg.js | one-sided Jacobi SVD, Cholesky solve, PCA |
 
 ## Verification
+- v7: `npm test` runs **59 tests** in one go (about 100 s). New tests cover bitwise undo exactness for every edit kind, stats against scipy/statsmodels, the weights hash, ACDC/scrubbing consistency, probe selectivity, and the eval harness. `node smoke-v7.mjs <url>` covers every tab, every RESEARCH tool and terminal command, CSP violations, a leak test (500 tokens plus 8 tab cycles), long tasks, and a 390 px layout. `node tools/netfail.mjs` checks retry and failure handling. `node tools/a11y.mjs` runs an axe WCAG 2 A/AA audit of every tab. `npm run lint` runs eslint.
 - `node --test test/` runs 32 tests (18 against PyTorch references produced by `ref.py` (HF transformers): forward logits, logit lens, DLA, resid/head/path patching, SVD vs numpy, ROME flip, quantization ordering, SAE, decoding, and the safetensors round-trip; 7 audio tests; 7 v5 lab tests covering steering ops, schedules, labcore, the terminal, and learning-data integrity). v6 adds grad/science/zoo/drill/cli tests (52 total, PyTorch/HF-verified). `node smoke-v6.mjs <url>` (superset of v5) and `node smoke-v5.mjs <url>` opens every tab, runs every terminal command, and answers every quiz in headless Chrome.
 - `node smoke.mjs` runs a headless-Chrome end-to-end check of the UI.
 

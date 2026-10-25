@@ -1,17 +1,17 @@
 // NEURALESE v2 — UI wiring. All numerics live in engine/analysis/surgery/decode/sae/rome (unit-tested vs PyTorch).
-import { GPT2Tokenizer } from './tokenizer.js?v=6';
-import { CFG, buildWeights, parseSafetensors, cloneWeights, mulberry32 } from './model.js?v=6';
-import { Engine, defaultRuntime, logSoftmax, topK, SITES } from './engine.js?v=6';
-import { computeStats, actCovariance, fitTunedLens, lensGrid, dla, patchResid, patchHeads, pathPatchHeadsToLogits, ablationSweep, buildControlVector, vectorArithmetic, tokenStats } from './analysis.js?v=6';
-import { Editor, MATS, getMat, toSafetensors, quantize } from './surgery.js?v=6';
-import { defaultDecode, applyPenalties, filterDist, pick, contrastiveLogits, cfgLogits, beamSearch } from './decode.js?v=6';
-import { SAE } from './sae.js?v=6';
-import { computeRome } from './rome.js?v=6';
-import { CORPUS } from './corpus.js?v=6';
-import { heatmap, lines, bars, showTip, seqColor, divColor } from './charts.js?v=6';
-import { Viz } from './viz.js?v=6';
-import { AudioEngine, editKind, STYLES } from './audio.js?v=6';
-import { buildV5 } from './v5.js?v=6';
+import { GPT2Tokenizer } from './tokenizer.js?v=7';
+import { CFG, buildWeights, parseSafetensors, cloneWeights, mulberry32 } from './model.js?v=7';
+import { Engine, defaultRuntime, logSoftmax, topK, SITES } from './engine.js?v=7';
+import { computeStats, actCovariance, fitTunedLens, lensGrid, dla, patchResid, patchHeads, pathPatchHeadsToLogits, ablationSweep, buildControlVector, vectorArithmetic, tokenStats } from './analysis.js?v=7';
+import { Editor, MATS, getMat, toSafetensors, quantize } from './surgery.js?v=7';
+import { defaultDecode, applyPenalties, filterDist, pick, contrastiveLogits, cfgLogits, beamSearch } from './decode.js?v=7';
+import { SAE } from './sae.js?v=7';
+import { computeRome } from './rome.js?v=7';
+import { CORPUS } from './corpus.js?v=7';
+import { heatmap, lines, bars, showTip, seqColor, divColor } from './charts.js?v=7';
+import { Viz } from './viz.js?v=7';
+import { AudioEngine, editKind, STYLES } from './audio.js?v=7';
+import { buildV5 } from './v5.js?v=7';
 const audio = new AudioEngine();
 const { d, H, L, ff, V } = CFG;
 const $ = (id) => document.getElementById(id), $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -23,19 +23,25 @@ const guard = (fn) => async (...a) => { try { await fn(...a); } catch (e) { cons
 // ───────── loading (HTTP Range: only the fp32 tensors, skipping the bool attn.bias buffers) ─────────
 const REPO = 'https://huggingface.co/roneneldan/TinyStories-8M/resolve', ST_URL = `${REPO}/refs%2Fpr%2F1/model.safetensors`;
 const setLoad = (m, f) => { $('loadmsg').textContent = m; if (f != null) $('loadbar').style.width = (f * 100).toFixed(1) + '%'; };
-async function fetchRange(url, a, b, onp) {
-  const r = await fetch(url, { headers: { Range: `bytes=${a}-${b}` } }); if (!r.ok) throw new Error('HTTP ' + r.status);
+// network: up to 4 attempts with exponential backoff (0.5 s, 1 s, 2 s); 4xx other than 408/429 fail fast
+async function withRetry(what, fn, tries = 4) {
+  for (let k = 0; ; k++) { try { return await fn(); } catch (e) { if (k >= tries - 1 || e.fatal) throw new Error(`${what}: ${e.message}${k ? ` (after ${k + 1} attempts)` : ''}`); const ms = 500 * 2 ** k; setLoad(`${what}: ${e.message} — retrying in ${(ms / 1000).toFixed(1)} s (attempt ${k + 2}/${tries})`); await new Promise((r) => setTimeout(r, ms)); } }
+}
+const httpErr = (r) => { const e = new Error('HTTP ' + r.status); e.fatal = r.status >= 400 && r.status < 500 && r.status !== 408 && r.status !== 429; return e; };
+async function fetchRange(url, a, b, onp) { return withRetry(`bytes ${a}–${b}`, async () => {
+  const r = await fetch(url, { headers: { Range: `bytes=${a}-${b}` } }); if (!r.ok) throw httpErr(r);
   const total = b - a + 1, rd = r.body.getReader(), chunks = []; let got = 0;
   for (;;) { const { done, value } = await rd.read(); if (done) break; chunks.push(value); got += value.length; onp && onp(got / total); }
   const out = new Uint8Array(got); let o = 0; for (const c of chunks) { out.set(c, o); o += c.length; }
-  return r.status === 206 ? out.buffer : out.buffer.slice(a, b + 1);
-}
+  if (r.status === 206 && got !== total) throw new Error(`short read ${got}/${total} bytes`);
+  return r.status === 206 ? out.buffer : out.buffer.slice(a, b + 1); }); }
+const fetchText = (url, json) => withRetry(url.split('/').pop(), async () => { const r = await fetch(url); if (!r.ok) throw httpErr(r); return json ? r.json() : r.text(); });
 async function loadModel() {
   setLoad('reading safetensors header…', 0.01);
   const n = Number(new DataView(await fetchRange(ST_URL, 0, 7)).getBigUint64(0, true));
   const header = JSON.parse(new TextDecoder().decode(await fetchRange(ST_URL, 8, 8 + n - 1)));
   let end = 0; for (const v of Object.values(header)) if (v.dtype === 'F32') end = Math.max(end, v.data_offsets[1]);
-  const vocabP = fetch(`${REPO}/main/vocab.json`).then((r) => r.json()), mergesP = fetch(`${REPO}/main/merges.txt`).then((r) => r.text());
+  const vocabP = fetchText(`${REPO}/main/vocab.json`, true), mergesP = fetchText(`${REPO}/main/merges.txt`); vocabP.catch(() => {}); mergesP.catch(() => {});
   const data = await fetchRange(ST_URL, 8 + n, 8 + n + end - 1, (f) => setLoad(`streaming fp32 weights ${(f * end / 1e6).toFixed(1)} / ${(end / 1e6).toFixed(1)} MB`, f * 0.95));
   setLoad('building tensors + tokenizer…', 0.97);
   return { W: buildWeights(parseSafetensors(data, n, header)), tok: new GPT2Tokenizer(await vocabP, await mergesP), mb: end / 1e6 };
@@ -52,7 +58,7 @@ function commit(label, fn) { const before = snap(); fn(); S.undo.push({ label, s
 function undo() { const u = S.undo.pop(); if (!u) return; S.redo.push({ label: u.label, s: snap() }); restore(u.s); toast('↶ ' + u.label); audio.edit('undo'); }
 function redo() { const u = S.redo.pop(); if (!u) return; S.undo.push({ label: u.label, s: snap() }); restore(u.s); toast('↷ ' + u.label); audio.edit('undo'); }
 let regenT = null;
-function afterChange() { renderOps(); renderSteerList(); renderProgram(); renderHeadGrid(); refreshWeights(); hud(); clearTimeout(regenT); if ($('autoRegen').checked) regenT = setTimeout(() => generate(), 120); }
+let hashT; function afterChange() { clearTimeout(hashT); hashT = setTimeout(() => V5?.out?.hashes?.().catch(() => {}), 400); renderOps(); renderSteerList(); renderProgram(); renderHeadGrid(); refreshWeights(); hud(); clearTimeout(regenT); if ($('autoRegen').checked) regenT = setTimeout(() => generate(), 120); }
 async function ensureStats() {
   if (stats) return stats; const n = +$('statN').value;
   stats = await computeStats(W, CORPUS, n, (f) => prog('statP', f)); eng.stats = stats; engClean.stats = stats;
@@ -343,7 +349,7 @@ function weightEdit(label, e, path) { // records relative Frobenius change of th
 async function showSvd() {
   const path = matPath(); if (path === 'wte') throw new Error('wte SVD (50257×256) is too slow for the browser here; use a layer matrix or wpe'); $('svdInfo').textContent = 'running one-sided Jacobi SVD…'; await tick();
   const t0 = performance.now(), { a, rows, cols } = getMat(M, path), r = ed.svdOf(path, true), S2 = r.S; const tot = S2.reduce((x, y) => x + y * y, 0); let c = 0; const cum = S2.map((s) => (c += s * s) / tot);
-  const out = new Float32Array(rows * cols); (await import('./linalg.js?v=6')).svdReconstruct(r, Float64Array.from(S2), out); let e = 0; for (let i = 0; i < out.length; i++) e += (out[i] - a[i]) ** 2;
+  const out = new Float32Array(rows * cols); (await import('./linalg.js?v=7')).svdReconstruct(r, Float64Array.from(S2), out); let e = 0; for (let i = 0; i < out.length; i++) e += (out[i] - a[i]) ** 2;
   bars($('svdC'), Array.from(S2), { log: true, title: `σ spectrum ${path} (${rows}×${cols}, log) · hover for energy`, label: (i) => `σ${i} = ${S2[i].toPrecision(5)}  cum energy ${(cum[i] * 100).toFixed(2)}%`, onClick: (i) => ($('svK').value = i + 1) });
   $('svdInfo').textContent = `${S2.length} σ · ${r.sweeps} sweeps · ${(performance.now() - t0).toFixed(0)} ms · recon rel.err ${(Math.sqrt(e) / frob(a)).toExponential(2)} · 90% energy @ k=${cum.findIndex((x) => x >= 0.9) + 1}`;
 }
@@ -353,7 +359,7 @@ const parseLayers = (s) => { const out = new Set(); for (const p of s.split(',')
 function renderProgram() {
   const box = $('progList'); if (!box) return; box.innerHTML = '';
   R.program.forEach((s, i) => { const r = document.createElement('div'); r.className = 'r';
-    r.innerHTML = `<b>s${i}</b><select data-k="layer">${layerOpts(s.layer)}</select><label><input type="checkbox" data-k="attn" ${s.attn ? 'checked' : ''}/>attn</label><label><input type="checkbox" data-k="mlp" ${s.mlp ? 'checked' : ''}/>mlp</label><button data-k="up">↑</button><button data-k="dn">↓</button><button data-k="dup">dup</button><button data-k="del">✕</button>`;
+    r.innerHTML = `<b>s${i}</b><select data-k="layer" aria-label="program step ${i} layer">${layerOpts(s.layer)}</select><label><input type="checkbox" data-k="attn" ${s.attn ? 'checked' : ''}/>attn</label><label><input type="checkbox" data-k="mlp" ${s.mlp ? 'checked' : ''}/>mlp</label><button data-k="up">↑</button><button data-k="dn">↓</button><button data-k="dup">dup</button><button data-k="del">✕</button>`;
     r.querySelector('[data-k=layer]').onchange = (e) => commit(`slot ${i} ← L${e.target.value}`, () => (R.program[i].layer = +e.target.value));
     for (const k of ['attn', 'mlp']) r.querySelector(`[data-k=${k}]`).onchange = (e) => commit(`slot ${i} ${k} ${e.target.checked ? 'on' : 'skip'}`, () => (R.program[i][k] = e.target.checked));
     r.querySelector('[data-k=up]').onclick = () => i > 0 && commit(`swap s${i}↔s${i - 1}`, () => R.program.splice(i - 1, 2, R.program[i], R.program[i - 1]));
@@ -370,7 +376,7 @@ function renderProgram() {
 function renderHeadGrid() {
   const box = $('headGrid'); if (!box) return; const l = +$('hgL').value; box.innerHTML = '';
   for (let h = 0; h < H; h++) { const r = document.createElement('div'); r.className = 'r'; if (S.sel.l === l && S.sel.h === h) r.style.background = '#1a2a44';
-    r.innerHTML = `<b style="width:28px">H${h}</b><label>τ</label><input type="number" step="0.1" value="${R.headTemp[l][h]}"/><select>${opts([['', 'active'], 'zero', 'mean', 'resample'], R.headAbl[l][h] || '')}</select><button>select</button>`;
+    r.innerHTML = `<b style="width:28px">H${h}</b><label>τ</label><input type="number" step="0.1" value="${R.headTemp[l][h]}" aria-label="L${l}H${h} temperature"/><select aria-label="L${l}H${h} ablation">${opts([['', 'active'], 'zero', 'mean', 'resample'], R.headAbl[l][h] || '')}</select><button aria-label="select L${l}H${h}">select</button>`;
     r.querySelector('input').onchange = (e) => commit(`L${l}H${h} τ=${e.target.value}`, () => (R.headTemp[l][h] = +e.target.value));
     r.querySelector('select').onchange = guard(async (e) => { const v = e.target.value || null; if (v === 'mean' || v === 'resample') await ensureStats(); commit(`L${l}H${h} ${v || 'restore'}`, () => (R.headAbl[l][h] = v)); });
     r.querySelector('button').onclick = () => setSel({ l, h }); box.appendChild(r); }
@@ -513,12 +519,12 @@ function wire() {
   try {
     const r = await loadModel(); W = r.W; tok = r.tok; M = cloneWeights(W); ed = new Editor(W, M); R = defaultRuntime(); eng = new Engine(M, R); engClean = new Engine(W, defaultRuntime());
     buildUI(); viz = new Viz($('gl'), (s) => setSel(s)); wire(); caInputs(); afterChange(); setSel({ l: 0, h: 0 }); $('loader').style.display = 'none'; hud();
-    V5.mount({ viz, W: () => W, M: () => M, eng: () => eng, engClean: () => engClean, tok: () => tok, R: () => R, ed: () => ed, S: () => S, stats: () => stats, sae: () => sae, setSel, showTab, commit, weightEdit, download, generate, analyze, undo, redo, ensureStats, guard, toast, audio,
+    V5.mount({ viz, W: () => W, M: () => M, eng: () => eng, engClean: () => engClean, tok: () => tok, R: () => R, ed: () => ed, S: () => S, stats: () => stats, sae: () => sae, setSel, showTab, commit, weightEdit, download, generate, analyze, undo, redo, ensureStats, guard, toast, audio, decode: () => D, defaultRuntime,
       applyShared: (st) => commit('load shared experiment', () => { R = Object.assign(defaultRuntime(), st.R || {}); eng.R = R; ed.setEdits(st.edits || []); }),
       reset: () => commit('reset everything', () => { R = defaultRuntime(); eng.R = R; ed.setEdits([]); }), nextVecId: () => nextVec++,
       makeEngine: (w, r) => { const e = new Engine(w, r); e.stats = stats; e.sae = eng.sae; return e; } });
     window.NEURALESE = { v6: V5, v5: V5, viz, audio, W, M, tok, ed, get R() { return R; }, eng, engClean, commit, generate, analyze, undo, redo, get stats() { return stats; }, mb: r.mb };
     if (/#x=/.test(location.hash)) { try { await V5.out.shareLoad(location.hash); } catch (e) { toast('share link: ' + e.message); } }
     await generate();
-  } catch (e) { console.error(e); setLoad('✖ ' + e.message); }
+  } catch (e) { console.error(e); setLoad('✖ ' + e.message + ' — check your connection'); const b = $('loadRetry'); if (b) { b.classList.remove('hidden'); b.onclick = () => location.reload(); b.focus(); } }
 })();
