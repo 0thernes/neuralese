@@ -1,12 +1,14 @@
 {
  "name": "neuralese",
- "version": "1.0.0",
- "description": "NEURALESE v2: in-browser interpretability & weight-surgery lab for TinyStories-8M",
+ "version": "5.0.0",
+ "description": "NEURALESE v5: in-browser interpretability & weight-surgery lab for TinyStories-8M",
  "main": "index.js",
  "scripts": {
   "test": "node --test test/",
   "smoke": "node smoke.mjs http://localhost:8765/",
-  "ref": ".venv/bin/python ref.py"
+  "ref": ".venv/bin/python ref.py",
+  "smoke5": "node smoke-v5.mjs http://localhost:8765/",
+  "docs": "node tools/gendocs.mjs"
  },
  "keywords": [],
  "author": "",
