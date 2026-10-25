@@ -1,6 +1,6 @@
 # Course: TinyStories-8M from zero to interpretability research
 
-12 lessons, beginner → advanced. Each has a lecture, a diagram (in the app), a lab you run with the in-app terminal, and a quiz. Answers are at the end.
+14 lessons, beginner → advanced. Each has a lecture, a diagram (in the app), a lab you run with the in-app terminal, and a quiz. Answers are at the end.
 
 ## 1 · What a language model computes
 *Beginner · 15 min*
@@ -348,6 +348,69 @@ Open 3D MODES → circuit graph to see the strongest compositions; the loss surf
    b) identical weights
    c) zero loss
 
+## 13 · Statistics for interpretability
+*Research · 25 min*
+
+A single ablation number is an anecdote. **STATS** turns it into a test: for each head, per-document losses with and without the head form paired samples; a **sign-flip permutation test** asks how often random sign flips of the differences give a mean as large as observed. Report the **effect size** (Cohen's d_z) and a **bootstrap CI**, not just p.
+
+Testing 16 heads means 16 chances of a false positive. **Holm** controls the chance of *any* false positive; **Benjamini–Hochberg** controls the expected *fraction* of false discoveries. With 12 documents the smallest possible paired p is 2/4096 — tiny samples cap how significant anything can be.
+
+### Lab
+```
+stats 0 12 2000
+stats 7 12 2000
+```
+Compare layer 0 and layer 7: how many heads survive Holm vs BH? Do confidence intervals that exclude 0 match the corrected p-values?
+
+### Quiz
+1. A paired sign-flip permutation test assumes, under the null…
+   a) each per-document difference is equally likely to be positive or negative
+   b) the data are normal
+   c) the two models have equal weights
+2. Benjamini–Hochberg controls…
+   a) the expected false discovery rate
+   b) the probability of any false positive
+   c) the effect size
+3. Why report Cohen’s d next to p?
+   a) p depends on sample size; d measures magnitude
+   b) d replaces the test
+   c) p is always wrong
+
+## 14 · Circuits, probes and reproducible evals
+*Research · 35 min*
+
+**ACDC** automates circuit finding: replace components by their activations on a corrupt prompt, keep only those whose replacement moves the metric by more than τ of the clean–corrupt gap. Check the result with **faithfulness** and test your own hypotheses with **causal scrubbing**. Raising τ gives smaller, less faithful circuits.
+
+A **linear probe** asks whether a property is linearly decodable; the **control task** asks whether the probe could have memorised it anyway. Report **selectivity**. Decodable does not mean used — follow up with interventions.
+
+Finally make it reproducible: the **weights hash** and **manifest** pin exactly what was run, **EVAL** checks the edit did not silently break the model, and **REPORT** packages methods, numbers and figures.
+
+### Lab
+```
+acdc 0.02
+acdc 0.1
+scrub L6H9 L7H3 L7MLP
+probe all
+evalh 8
+hash
+manifest
+```
+Compare circuit size and faithfulness at τ = 0.02 and 0.1. Which layers make noun vs verb most decodable, and is selectivity high there?
+
+### Quiz
+1. Faithfulness of 100% means the circuit…
+   a) recovers the full clean–corrupt metric gap
+   b) contains every node
+   c) has zero loss
+2. High probe accuracy but low selectivity suggests…
+   a) the probe memorises word identities
+   b) the feature is causally used
+   c) the model is broken
+3. Two runs have identical weights if…
+   a) their SHA-256 weight hashes match
+   b) their perplexities match
+   c) they used the same prompt
+
 ## Answer key
 
 - **1 · What a language model computes**: 1b — The forward pass ends in 50 257 logits; softmax turns them into a distribution which a decoding rule turns into a token.; 2c — 50 257 × 256 ≈ 12.9 M of ≈19.7 M parameters are in wte (shared with the unembedding).; 3a — −ln 0.5 = ln 2 ≈ 0.693.
@@ -362,3 +425,5 @@ Open 3D MODES → circuit graph to see the strongest compositions; the loss surf
 - **10 · Rigour: evaluation, calibration, sweeps and tracking**: 1a — Expected calibration error.; 2a — W + 0·(M − W) = W.
 - **11 · Gradients, attribution and curvature**: 1a — Completeness axiom.; 2a — (a_corrupt − a_clean)·∂m/∂a.
 - **12 · Circuits and geometry**: 1a — Positive eigenvalues of the token→logit map.; 2a — CKA is invariant to orthogonal transforms and isotropic scaling.
+- **13 · Statistics for interpretability**: 1a — Symmetry of the paired differences around zero.; 2a — Holm controls the family-wise error rate; BH the FDR.; 3a — Large samples make tiny effects significant.
+- **14 · Circuits, probes and reproducible evals**: 1a — (m_circuit − m_corrupt)/(m_clean − m_corrupt).; 2a — The control task scores just as well.; 3a — The hash covers every bit of every tensor.

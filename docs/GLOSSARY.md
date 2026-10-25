@@ -1,4 +1,4 @@
-# Glossary (145 terms)
+# Glossary (164 terms)
 
 ### Ablation
 Removing a component's contribution (setting it to zero, its mean, or a resampled value) to measure how much the output depends on it.
@@ -718,3 +718,96 @@ Confidence interval from resampling the data with replacement and taking percent
 
 ### WebGPU
 The browser GPU compute API. Neuralese can run the 50257×256 unembedding as a WGSL matvec; it is verified against the CPU path to ~1e-7 relative error.
+
+### Permutation test
+Nonparametric significance test: recompute the statistic under random relabelings (or sign flips for paired data) allowed by the null hypothesis; the p-value is the fraction at least as extreme, (count+1)/(B+1).
+
+*See:* [Hypothesis test](#hypothesis-test), [p-value](#p-value)
+
+### Hypothesis test
+A procedure that decides whether data are surprising under a null hypothesis (e.g. 'ablating this head does not change loss'). STATS runs one per head.
+
+*See:* [Permutation test](#permutation-test), [p-value](#p-value)
+
+### p-value
+Probability, under the null hypothesis, of a statistic at least as extreme as observed. Not the probability that the null is true.
+
+*See:* [Hypothesis test](#hypothesis-test), [Multiple comparisons](#multiple-comparisons)
+
+### Effect size
+Magnitude of an effect independent of sample size. NEURALESE reports Cohen's d (pooled SD) and d_z (mean paired difference / SD of differences).
+
+*See:* [Cohen's d](#cohens-d)
+
+### Cohen's d
+Standardised mean difference: (mean A − mean B) / pooled SD; d_z is the paired version. Rough guide: 0.2 small, 0.5 medium, 0.8 large.
+
+*See:* [Effect size](#effect-size)
+
+### Multiple comparisons
+Testing many hypotheses at once inflates false positives; correct with Holm (family-wise error) or Benjamini–Hochberg (false discovery rate).
+
+*See:* [Holm correction](#holm-correction), [Benjamini–Hochberg](#benjaminihochberg)
+
+### Holm correction
+Step-down Bonferroni: sort p-values, multiply the k-th smallest by (m−k+1), enforce monotonicity. Controls the family-wise error rate.
+
+*See:* [Multiple comparisons](#multiple-comparisons)
+
+### Benjamini–Hochberg
+FDR control: q_(k) = min over j≥k of p_(j)·m/j. Less conservative than Holm; controls the expected proportion of false discoveries.
+
+*See:* [Multiple comparisons](#multiple-comparisons)
+
+### ACDC
+Automatic Circuit DisCovery (Conmy et al. 2023): greedily remove components whose replacement by corrupted activations changes the metric less than a threshold τ. NEURALESE implements a node-level (heads + MLPs) variant.
+
+*See:* [Faithfulness](#faithfulness), [Interchange intervention](#interchange-intervention)
+
+### Faithfulness
+How much of the clean-vs-corrupt metric gap a circuit recovers: (m_circuit − m_corrupt)/(m_clean − m_corrupt). 100% = fully explains; values above 100% mean the pruned parts were working against the behaviour.
+
+*See:* [ACDC](#acdc), [Causal scrubbing](#causal-scrubbing)
+
+### Interchange intervention
+Running the model on one input while replacing some activations with their values from another input; the basic move of activation patching, ACDC and causal scrubbing.
+
+*See:* [ACDC](#acdc), [Causal scrubbing](#causal-scrubbing)
+
+### Causal scrubbing
+Testing a hypothesis by resampling every activation the hypothesis says is irrelevant and checking that behaviour is preserved. NEURALESE's 'scrubbing-lite' resamples non-hypothesis nodes from one corrupt prompt.
+
+*See:* [Faithfulness](#faithfulness), [Interchange intervention](#interchange-intervention)
+
+### Linear probe
+A linear classifier trained on frozen activations to test whether a property is linearly decodable there. Decodable ≠ used by the model.
+
+*See:* [Control task](#control-task), [Selectivity](#selectivity)
+
+### Control task
+Hewitt & Liang (2019): the same probe trained on random per-word-type labels. Measures how much a probe can memorise rather than read off a feature.
+
+*See:* [Linear probe](#linear-probe), [Selectivity](#selectivity)
+
+### Selectivity
+Probe accuracy on the real task minus accuracy on the control task; high selectivity means the representation, not the probe's capacity, carries the information.
+
+*See:* [Control task](#control-task)
+
+### Distinct-n
+Fraction of n-grams in generated text that are unique; low values signal repetitive degenerate output.
+
+*See:* [Perplexity](#perplexity)
+
+### Weights hash
+SHA-256 over every fp32 tensor in a fixed order. Equal hashes mean bit-identical weights; NEURALESE shows it in the top bar and in manifests.
+
+*See:* [Experiment manifest](#experiment-manifest)
+
+### Experiment manifest
+JSON record of app version, model id and hash, edits, runtime interventions, prompt, decoding, seed and environment, sufficient to replay and verify an experiment.
+
+*See:* [Weights hash](#weights-hash)
+
+### Content Security Policy
+Browser policy restricting where a page may load scripts, styles and data from. NEURALESE allows scripts only from itself (plus its hashed import map) and network access only to Hugging Face.
