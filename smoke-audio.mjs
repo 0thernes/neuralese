@@ -1,0 +1,18 @@
+import puppeteer from 'puppeteer-core';
+const url = process.argv[2] || 'http://localhost:8765/', shot = process.argv[3] || '/workspace/neuralese-v3-audio';
+const b = await puppeteer.launch({ executablePath: '/usr/bin/google-chrome', headless: 'new', args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--no-sandbox'] });
+const p = await b.newPage(); await p.setViewport({ width: 1680, height: 1000 }); const errs = [];
+p.on('console', (m) => { if (m.type() === 'error') errs.push(m.text()); }); p.on('pageerror', (e) => errs.push(e.message));
+await p.goto(url); await p.waitForFunction(() => window.NEURALESE && window.NEURALESE_LAST, { timeout: 180000 });
+await p.mouse.click(800, 500); await p.evaluate(() => document.querySelector('[data-t=audio]').click());
+await p.waitForFunction(() => window.NEURALESE.audio.on, { timeout: 20000 });
+const st = {}; st.engine = await p.$eval('#auInfo', (e) => e.textContent);
+await p.evaluate(() => { document.getElementById('cmpOn').checked = true; document.getElementById('bGen').click(); });
+await p.waitForFunction(() => window.NEURALESE.audio.hist.ent.length >= 20, { timeout: 120000 });
+st.afterGen = await p.evaluate(() => { const a = window.NEURALESE.audio; return { tokens: a.hist.ent.length, mode: a.harm, kl: a.lastKL, level: a.level, ctx: a.ctx.state }; });
+for (const k of ['svd', 'ablate', 'rome', 'quant', 'chaos', 'steer', 'swap']) await p.evaluate((k) => document.querySelector(`[data-sfx=${k}]`).click(), k);
+await p.evaluate(() => document.querySelector('[data-anom=repetition_loop]').click()); await new Promise((r) => setTimeout(r, 200)); await p.screenshot({ path: shot + '-glitch.png' });
+await p.evaluate(() => window.NEURALESE.commit('int2 quantize test', () => {})); await new Promise((r) => setTimeout(r, 1500));
+await p.keyboard.press('m'); st.muted = await p.evaluate(() => window.NEURALESE.audio.muted); await p.keyboard.press('m');
+st.anomalies = await p.evaluate(() => window.NEURALESE.audio.events.map((e) => e.type)); st.state = await p.$eval('#auState', (e) => e.textContent);
+await p.screenshot({ path: shot + '.png' }); st.errors = errs; console.log(JSON.stringify(st, null, 1)); await b.close();
