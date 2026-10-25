@@ -56,3 +56,6 @@ body.dense{--f:11px}body.dense #out{left:360px}body.dense #dock2{display:block}
 :root[data-theme=light] #pal,:root[data-theme=light] #toast{background:#fff}:root[data-theme=light] .otext.clean{color:#475569}:root[data-theme=light] td,:root[data-theme=light] th{border-color:#e2e8f0}
 @media (max-width:900px){:root{--dockW:100vw}#out{display:none}#split{display:none}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+.crumbs{display:flex;flex-wrap:wrap;gap:2px;align-items:center;margin:4px 0}.crumb{padding:1px 6px;font-size:11px}.crumbs .sep{color:var(--m);margin:0 2px}
+.chips{display:flex;flex-wrap:wrap;gap:3px;max-height:140px;overflow:auto;margin:4px 0}.chip{padding:1px 5px;font-size:10px}
+table.kv td:first-child{color:var(--m);white-space:nowrap}

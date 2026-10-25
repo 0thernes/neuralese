@@ -1,4 +1,23 @@
-# NEURALESE v5: interpretability and weight-surgery lab (TinyStories-8M, 100% in-browser)
+# NEURALESE v6: interpretability and weight-surgery lab (TinyStories-8M, 100% in-browser)
+
+## What's new in v6
+- **SCIENCE › DRILL**: hierarchical inspector model → layer → sublayer → matrix → head/neuron → row/col → weight (paths like `L3.attn.q.H5.r2.w17`), with moments, sparsity, norms, full SVD metrics (effective/stable rank, condition number, Hill α), gradient norm, empirical Fisher, saliency, an analytic-vs-finite-difference check, zero-ablation ΔCE with token provenance, direct logit effect, and undoable edits at every level. The breadcrumb and the 3D selection stay in sync.
+- **SCIENCE › GRADIENTS**: an exact backward pass (verified against PyTorch autograd), grad×input, integrated gradients with a completeness check, attribution patching validated against activation patching of all 128 heads (Pearson r ≈ 0.99), Fisher diagonal, and the top Hessian eigenvalue from HVPs.
+- **SCIENCE › CIRCUITS / GEOMETRY / LANDSCAPE**:
+  - OV/QK eigenvalue copying scores, Q/K/V composition, and induction/previous-token scores with bootstrap CIs.
+  - CKA, TwoNN intrinsic dimension, anisotropy, logit-lens KL, and superposition interference.
+  - 1-D/2-D loss slices.
+- **VIEW › 3D MODES**: morphing layer stack, instanced voxel weight field (LOD), loss surface, residual manifold (PCA-3), attention graph, and circuit graph, with lighting, viridis/diverging metric colors, and camera presets with tweened transitions.
+- **TOOLS**:
+  - WebGPU unembedding matvec, verified against CPU (max relative error ~1e-7), with a tok/s benchmark for both.
+  - Model zoo (TinyStories 1M/3M/8M, streamed with HTTP Range) with a comparison table.
+  - Weight diff (orig/snapshot/current).
+  - Share URLs (`#x=` compressed edits + runtime + prompt).
+- **CLI**: `node cli.mjs [--model DIR] <command>` (or an interactive prompt) on the same core: gen, drill, attrib, atp, eigen, comp, induct, geom, superpos, land, hess, zoo, diff.
+- Charts redraw on theme switch. 22 new glossary terms, 6 Bible sections, and lessons 11–12 with quizzes.
+- **Honest findings**:
+  - TinyStories-8M has only weak random-token induction (max ≈ 0.05), confirmed with HF.
+  - On software (SwiftShader) WebGPU the GPU path is ~40× slower than CPU, so generation keeps the CPU path.
 
 ## What's new in v5
 - **28 tabs in 7 groups**: RUN (gen, steer, control, audio) · MODEL (arch, params, weights) · INTERPRET (analyze, attention, residual, circuit, neurons, embed, SAE, SAE dash) · INTERVENE (causal, surgery, runtime, sweep, ops) · EVALUATE (timeline, calibration, impact, profiler, runs) · VIEW (3D) · TOOLS (terminal, learn). Every chart exports PNG, SVG or CSV.
@@ -30,7 +49,7 @@ The app loads [roneneldan/TinyStories-8M](https://huggingface.co/roneneldan/Tiny
 | linalg.js | one-sided Jacobi SVD, Cholesky solve, PCA |
 
 ## Verification
-- `node --test test/` runs 32 tests (18 against PyTorch references produced by `ref.py` (HF transformers): forward logits, logit lens, DLA, resid/head/path patching, SVD vs numpy, ROME flip, quantization ordering, SAE, decoding, and the safetensors round-trip; 7 audio tests; 7 v5 lab tests covering steering ops, schedules, labcore, the terminal, and learning-data integrity). `node smoke-v5.mjs <url>` opens every tab, runs every terminal command, and answers every quiz in headless Chrome.
+- `node --test test/` runs 32 tests (18 against PyTorch references produced by `ref.py` (HF transformers): forward logits, logit lens, DLA, resid/head/path patching, SVD vs numpy, ROME flip, quantization ordering, SAE, decoding, and the safetensors round-trip; 7 audio tests; 7 v5 lab tests covering steering ops, schedules, labcore, the terminal, and learning-data integrity). v6 adds grad/science/zoo/drill/cli tests (52 total, PyTorch/HF-verified). `node smoke-v6.mjs <url>` (superset of v5) and `node smoke-v5.mjs <url>` opens every tab, runs every terminal command, and answers every quiz in headless Chrome.
 - `node smoke.mjs` runs a headless-Chrome end-to-end check of the UI.
 
 ## Repo layout
