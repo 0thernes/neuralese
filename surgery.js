@@ -1,6 +1,6 @@
 // Weight surgery: a replayable list of edit ops applied to a fresh copy of the original weights.
-import { CFG, copyWeightsInto, mulberry32, gauss } from './model.js';
-import { svd, svdReconstruct } from './linalg.js';
+import { CFG, copyWeightsInto, mulberry32, gauss } from './model.js?v=5';
+import { svd, svdReconstruct } from './linalg.js?v=5';
 const { d, ff, L } = CFG;
 export const MATS = ['q', 'k', 'v', 'o', 'fc', 'proj'];
 export const SHAPE = { q: [d, d], k: [d, d], v: [d, d], o: [d, d], fc: [ff, d], proj: [d, ff] };
