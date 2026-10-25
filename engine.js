@@ -1,6 +1,6 @@
 // NEURALESE engine: GPT-Neo forward pass with a full intervention/hook system.
 // Every runtime control lives in `R` (serialisable). Weight edits live in surgery.js.
-import { CFG, mulberry32 } from './model.js';
+import { CFG, mulberry32 } from './model.js?v=5';
 const { d, H, hd, L, ff, V } = CFG;
 export const SITES = ['resid_pre', 'z', 'attn_out', 'mlp_act', 'mlp_out', 'resid_post'];
 
@@ -14,6 +14,8 @@ export function defaultRuntime() {
     steer: [], // {id,name,site,vecs:[L][d],coef,sched:[L],mask:{kind,a,b},on}
     sae: { clamps: [] }, // {f, mode:'clamp'|'add'|'scale', value}
     neuronAbl: [], // {l, n, mode:'zero'|'mean'|'clamp', value}
+    logitBias: {}, // tokenId → additive logit bias (logit-space steering)
+    hSteer: [], // {vec:[d], coef, on} added to the post-ln_f vector h (unembedding-space steering)
     seed: 1234,
   };
 }
@@ -39,6 +41,9 @@ export function posIndex(P, t) {
   return Math.max(0, Math.min(2047, p));
 }
 
+// Time schedule multiplier for steering over generated steps g (g<0 = prompt token → 1).
+export function timeMul(ts, g) { if (!ts || ts.kind === 'const' || g < 0) return 1; const T = Math.max(1, ts.T || 1);
+  if (ts.kind === 'ramp') return Math.min(1, (g + 1) / T); if (ts.kind === 'decay') return Math.exp(-g / T); if (ts.kind === 'pulse') return g % T === 0 ? 1 : 0; if (ts.kind === 'window') return g < T ? 1 : 0; return 1; }
 export class Seq {
   constructor(n) { this.K = Array.from({ length: n }, () => []); this.V = Array.from({ length: n }, () => []); this.T = 0; this.ids = []; this.nPrompt = 0; }
   clone() { const s = new Seq(0); s.K = this.K.map((a) => a.slice()); s.V = this.V.map((a) => a.slice()); s.T = this.T; s.ids = this.ids.slice(); s.nPrompt = this.nPrompt; return s; }
@@ -48,13 +53,20 @@ export class Engine {
   constructor(W, R) { this.W = W; this.R = R || defaultRuntime(); this.stats = null; this.sae = null; }
   newSeq(nPrompt = 0) { const s = new Seq(this.R.program.length); s.nPrompt = nPrompt; return s; }
 
-  _steer(site, l, t, isGen, x) {
+  // Steering ops: add | addnorm (norm-preserving addition) | ablate (directional ablation, strength = |coef·sched|∈[0,1])
+  // | clamp (set projection onto v̂ to coef·sched). v.head restricts to one head's slice (sites z/q/k/v). v.tsched modulates over generated steps.
+  _steer(site, l, t, isGen, x, nPrompt = 0) {
     for (const v of this.R.steer) {
-      if (!v.on || v.site !== site) continue; const a = v.sched[l] * v.coef; if (!a) continue;
-      const m = v.mask || { kind: 'all' };
+      if (!v.on || v.site !== site || !v.sched[l]) continue; const m = v.mask || { kind: 'all' };
       if (m.kind === 'prompt' && isGen) continue; if (m.kind === 'gen' && !isGen) continue;
       if (m.kind === 'range' && (t < m.a || t > m.b)) continue;
-      const vec = v.vecs[l]; for (let i = 0; i < d; i++) x[i] += a * vec[i];
+      const a = v.sched[l] * v.coef * timeMul(v.tsched, isGen ? t - nPrompt : -1), op = v.op || 'add'; if (!a && op !== 'clamp') continue;
+      const vec = v.vecs[l], lo = v.head != null ? v.head * hd : 0, hi = v.head != null ? lo + hd : x.length;
+      if (op === 'add') { for (let i = lo; i < hi; i++) x[i] += a * vec[i]; continue; }
+      let vn = 0; for (let i = lo; i < hi; i++) vn += vec[i] * vec[i]; vn = Math.sqrt(vn) || 1; let pr = 0; for (let i = lo; i < hi; i++) pr += (x[i] * vec[i]) / vn;
+      if (op === 'addnorm') { let n0 = 0; for (let i = lo; i < hi; i++) n0 += x[i] * x[i]; for (let i = lo; i < hi; i++) x[i] += a * vec[i]; let n1 = 0; for (let i = lo; i < hi; i++) n1 += x[i] * x[i]; const s = Math.sqrt(n0 / (n1 || 1)); for (let i = lo; i < hi; i++) x[i] *= s; }
+      else if (op === 'ablate') { const s = Math.min(1, Math.abs(a)); for (let i = lo; i < hi; i++) x[i] -= s * pr * (vec[i] / vn); }
+      else if (op === 'clamp') { for (let i = lo; i < hi; i++) x[i] += (a - pr) * (vec[i] / vn); }
     }
   }
   _sae(l, x) {
@@ -82,11 +94,13 @@ export class Engine {
     for (let s = 0; s < R.program.length; s++) {
       const slot = R.program[s], l = slot.layer, P = W.layers[l];
       if (tr) tr.slotLayer[s] = l;
+      this._steer('resid_pre', l, t, isGen, x, seq.nPrompt);
       if (hook) hook('resid_pre', s, l, t, x);
       if (tr) tr.resid_pre[s] = x.slice();
       if (slot.attn) {
         layerNorm(x, P.ln1w, P.ln1b, h);
         const q = matvec(P.q, h, new Float32Array(d), d, d), k = matvec(P.k, h, new Float32Array(d), d, d), v = matvec(P.v, h, new Float32Array(d), d, d);
+        this._steer('q', l, t, isGen, q, seq.nPrompt); this._steer('k', l, t, isGen, k, seq.nPrompt); this._steer('v', l, t, isGen, v, seq.nPrompt);
         if (!seq.K[s]) { seq.K[s] = []; seq.V[s] = []; }
         seq.K[s].push(k); seq.V[s].push(v);
         const Ks = seq.K[s], Vs = seq.V[s], T = Ks.length, me = T - 1;
@@ -110,10 +124,11 @@ export class Engine {
           else if (ab === 'resample' && this.stats) { const src = this.stats.sampleZ(l, rng); for (let i = 0; i < hd; i++) z[off + i] = src[off + i]; }
           if (pats) pats.push(sc);
         }
+        this._steer('z', l, t, isGen, z, seq.nPrompt);
         if (hook) hook('z', s, l, t, z);
         if (tr) { tr.z[s] = z.slice(); tr.pattern[s] = pats; }
         const ao = matvec(P.o, z, new Float32Array(d), d, d, P.ob);
-        this._steer('attn_out', l, t, isGen, ao);
+        this._steer('attn_out', l, t, isGen, ao, seq.nPrompt);
         if (hook) hook('attn_out', s, l, t, ao);
         if (tr) tr.attn_out[s] = ao.slice();
         for (let i = 0; i < d; i++) x[i] += ao[i];
@@ -126,22 +141,25 @@ export class Engine {
         if (hook) hook('mlp_act', s, l, t, a);
         if (tr) tr.mlp_act[s] = a.slice();
         const mo = matvec(P.proj, a, new Float32Array(d), d, ff, P.projb);
-        this._steer('mlp_out', l, t, isGen, mo);
+        this._steer('mlp_out', l, t, isGen, mo, seq.nPrompt);
         if (hook) hook('mlp_out', s, l, t, mo);
         if (tr) tr.mlp_out[s] = mo.slice();
         for (let i = 0; i < d; i++) x[i] += mo[i];
       }
-      this._steer('resid_post', l, t, isGen, x);
+      this._steer('resid_post', l, t, isGen, x, seq.nPrompt);
       this._sae(l, x);
       if (hook) hook('resid_post', s, l, t, x);
       if (tr) tr.resid_post[s] = x.slice();
     }
     const st = layerNorm(x, W.lnfW, W.lnfB, h);
+    for (const v of R.hSteer || []) if (v.on !== false) for (let i = 0; i < d; i++) h[i] += v.coef * v.vec[i];
     if (tr) { tr.final = x.slice(); tr.lnf = st; tr.h = h.slice(); }
     seq.T++; seq.ids.push(tok);
     return { h, trace: tr, x };
   }
   logits(h) { if (this.gpu && this.gpu.ready && this.gpu.W === this.W) return this.gpu.unembedSync ? this.gpu.unembedSync(h) : matvec(this.W.wte, h, new Float32Array(V), V, d); return matvec(this.W.wte, h, new Float32Array(V), V, d); }
+  // logits used for sampling: unembedding + logit-space bias
+  outLogits(h) { const l = this.logits(h), B = this.R.logitBias || {}; for (const k in B) l[+k] += B[k]; return l; }
   logitOf(h, id) { let s = 0; const o = id * d; for (let j = 0; j < d; j++) s += this.W.wte[o + j] * h[j]; return s; }
   // unembed an arbitrary residual vector through ln_f
   lensLogits(x) { const h = new Float32Array(d); layerNorm(x, this.W.lnfW, this.W.lnfB, h); return this.logits(h); }
