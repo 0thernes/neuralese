@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>NEURALESE — weight hacking a tiny language model in 3D</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet" />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🧠</text></svg>" />
+<link rel="stylesheet" href="style.css" />
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
+</head>
+<body>
+<canvas id="gl"></canvas>
+<div id="loader"><div class="lt">NEURALESE</div><div class="ls" id="loadmsg">summoning TinyStories-8M from Hugging Face…</div><div class="bar"><div id="loadbar"></div></div></div>
+
+<header>
+  <div class="logo">NEURAL<span>ESE</span></div>
+  <div class="sub">live weight surgery on <a href="https://huggingface.co/roneneldan/TinyStories-8M" target="_blank">TinyStories-8M</a> · 8 layers · 16 heads · 1024 neurons/layer · running 100% in your browser</div>
+</header>
+
+<aside id="left" class="panel">
+  <h3>Prompt</h3>
+  <textarea id="prompt">Once upon a time, there was a little dog named Max. One day,</textarea>
+  <div class="row"><label>temperature <b id="tempv">0.7</b></label><input id="temp" type="range" min="0" max="2" step="0.05" value="0.7" /></div>
+  <div class="row"><label>tokens <b id="ntokv">80</b></label><input id="ntok" type="range" min="10" max="250" step="5" value="80" /></div>
+  <div class="row"><label>seed</label><input id="seed" type="number" value="42" class="num" /></div>
+  <div class="btns"><button id="gen" class="primary">▶ Generate</button><button id="stop">■ Stop</button></div>
+  <h3>Original <span class="pill g">clean</span></h3>
+  <div id="outA" class="out"></div>
+  <h3>Hacked <span class="pill m">modified</span> <span id="diverge" class="pill d"></span></h3>
+  <div id="outB" class="out"></div>
+</aside>
+
+<aside id="right" class="panel">
+  <h3>Inspector</h3>
+  <div id="insp" class="insp">Click a <b>head</b> (sphere), a <b>neuron</b> (grid cell) or a <b>layer</b> (slab) in the 3D view.</div>
+  <div class="row"><label>target</label>
+    <select id="tgtType"><option value="head">attention head</option><option value="neuron">MLP neuron</option><option value="layer">whole layer</option><option value="embed">embedding row (token)</option></select></div>
+  <div class="row3"><input id="tL" type="number" min="0" max="7" value="3" class="num" title="layer"/><input id="tI" type="number" min="0" max="1023" value="0" class="num" title="head / neuron index"/><input id="tTok" type="text" value=" happy" title="token for embedding row"/></div>
+  <div class="row"><label>amount <b id="amtv">3.0</b></label><input id="amt" type="range" min="-10" max="10" step="0.1" value="3" /></div>
+  <div class="btns g4"><button data-op="scale">× scale</button><button data-op="zero">∅ zero</button><button data-op="invert">± invert</button><button data-op="noise">≈ noise</button></div>
+  <div class="btns"><button id="ablate">⊘ toggle ablate head</button></div>
+
+  <h3>Steering vector</h3>
+  <div class="row3"><input id="stA" type="text" value=" dragon" title="+ direction word"/><span class="minus">−</span><input id="stB" type="text" value=" dog" title="− direction word"/></div>
+  <div class="row"><label>inject after layer <b id="stLv">2</b></label><input id="stL" type="range" min="0" max="7" step="1" value="2" /></div>
+  <div class="row"><label>strength <b id="stSv">0</b></label><input id="stS" type="range" min="-30" max="30" step="0.5" value="0" /></div>
+
+  <h3>Layer surgery</h3>
+  <div class="row3"><input id="swA" type="number" min="0" max="7" value="1" class="num"/><span class="minus">⇄</span><input id="swB" type="number" min="0" max="7" value="5" class="num"/></div>
+  <div class="btns"><button id="swap">swap layers</button><button id="shuffle">🎲 shuffle stack</button></div>
+  <div id="order" class="order"></div>
+
+  <h3>Chaos <b id="chaosv" class="chaos">0%</b></h3>
+  <input id="chaos" type="range" min="0" max="100" step="1" value="0" class="chaosr" />
+
+  <h3>Presets</h3>
+  <div class="btns g2"><button data-preset="lobotomy">🧠 lobotomy</button><button data-preset="mirror">🪞 mirror world</button><button data-preset="dragon">🐉 dragonfever</button><button data-preset="salad">🥗 word salad</button><button data-preset="sad">🌧 melancholia</button><button data-preset="stutter">🔁 stutter</button></div>
+
+  <h3>Edit log</h3>
+  <div id="log" class="log"></div>
+  <div class="btns"><button id="reset" class="danger">⟲ reset everything</button></div>
+</aside>
+
+<div id="hud"><span id="tokhud"></span><span id="speed"></span></div>
+<div id="tip"></div>
+<script type="module" src="app.js"></script>
+</body>
+</html>
