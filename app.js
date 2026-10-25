@@ -1,16 +1,17 @@
 // NEURALESE v2 — UI wiring. All numerics live in engine/analysis/surgery/decode/sae/rome (unit-tested vs PyTorch).
-import { GPT2Tokenizer } from './tokenizer.js';
-import { CFG, buildWeights, parseSafetensors, cloneWeights, mulberry32 } from './model.js';
-import { Engine, defaultRuntime, logSoftmax, topK, SITES } from './engine.js';
-import { computeStats, actCovariance, fitTunedLens, lensGrid, dla, patchResid, patchHeads, pathPatchHeadsToLogits, ablationSweep, buildControlVector, vectorArithmetic, tokenStats } from './analysis.js';
-import { Editor, MATS, getMat, toSafetensors, quantize } from './surgery.js';
-import { defaultDecode, applyPenalties, filterDist, pick, contrastiveLogits, cfgLogits, beamSearch } from './decode.js';
-import { SAE } from './sae.js';
-import { computeRome } from './rome.js';
-import { CORPUS } from './corpus.js';
-import { heatmap, lines, bars, showTip, seqColor, divColor } from './charts.js';
-import { Viz } from './viz.js?v=4';
-import { AudioEngine, editKind, STYLES } from './audio.js?v=4';
+import { GPT2Tokenizer } from './tokenizer.js?v=5';
+import { CFG, buildWeights, parseSafetensors, cloneWeights, mulberry32 } from './model.js?v=5';
+import { Engine, defaultRuntime, logSoftmax, topK, SITES } from './engine.js?v=5';
+import { computeStats, actCovariance, fitTunedLens, lensGrid, dla, patchResid, patchHeads, pathPatchHeadsToLogits, ablationSweep, buildControlVector, vectorArithmetic, tokenStats } from './analysis.js?v=5';
+import { Editor, MATS, getMat, toSafetensors, quantize } from './surgery.js?v=5';
+import { defaultDecode, applyPenalties, filterDist, pick, contrastiveLogits, cfgLogits, beamSearch } from './decode.js?v=5';
+import { SAE } from './sae.js?v=5';
+import { computeRome } from './rome.js?v=5';
+import { CORPUS } from './corpus.js?v=5';
+import { heatmap, lines, bars, showTip, seqColor, divColor } from './charts.js?v=5';
+import { Viz } from './viz.js?v=5';
+import { AudioEngine, editKind, STYLES } from './audio.js?v=5';
+import { buildV5 } from './v5.js?v=5';
 const audio = new AudioEngine();
 const { d, H, L, ff, V } = CFG;
 const $ = (id) => document.getElementById(id), $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -43,7 +44,7 @@ async function loadModel() {
 // ───────── state ─────────
 let W, M, tok, ed, R, eng, engClean, stats = null, sae = null, saeA = null, viz, cov = new Map();
 const D = defaultDecode(); D.n = 60;
-const S = { sel: { l: 0, h: 0, n: null, mat: 'q' }, undo: [], redo: [], gen: null, lastTraces: null, perf: { tps: 0, ms: 0 }, an: null, wmode: 'height', wdiff: false };
+const S = { timeline: [], sel: { l: 0, h: 0, n: null, mat: 'q' }, undo: [], redo: [], gen: null, lastTraces: null, perf: { tps: 0, ms: 0 }, an: null, wmode: 'height', wdiff: false };
 const snap = () => ({ edits: structuredClone(ed.edits.map(({ _err, ...e }) => e)), R: structuredClone(R) });
 function restore(s) { R = structuredClone(s.R); eng.R = R; ed.setEdits(structuredClone(s.edits)); afterChange(); }
 // every state-changing action goes through commit → undoable, then a full refresh of dependent views
@@ -164,12 +165,13 @@ P.audio = `
 <b>choir</b>: 8 quiet sines, gain ← ‖resid‖ of each layer; FM shimmer ← mean attention entropy.<br>
 <b>divergence</b>: KL(hacked‖clean) on the same context adds a consonant voice (5th → octave → octave+5th) above the pad.<br>
 <b>phenomena</b>: entropy collapse, repetition loop, superposition, residual explosion → soft two-note chime + small badge in the top bar.</div></fieldset>`;
+let V5 = null;
 function buildUI() {
-  const tabs = $('tabs'), panes = $('panes');
-  for (const [k, t] of Object.entries(TABS)) { const b = document.createElement('button'); b.textContent = t; b.dataset.t = k; b.onclick = () => showTab(k); tabs.appendChild(b); const p = document.createElement('div'); p.className = 'pane'; p.id = 'pane_' + k; p.innerHTML = P[k]; panes.appendChild(p); }
+  const tabs = $('tabs'), panes = $('panes'); V5 = buildV5(TABS, P);
+  for (const [k, t] of V5.order) { if (V5.groupStart[k]) { const g = document.createElement('span'); g.className = 'grp'; g.textContent = V5.groupStart[k]; tabs.appendChild(g); } const b = document.createElement('button'); b.textContent = t; b.dataset.t = k; b.onclick = () => showTab(k); b.setAttribute('role', 'tab'); b.title = V5.long[k] || t; tabs.appendChild(b); const p = document.createElement('div'); p.className = 'pane'; p.setAttribute('role', 'tabpanel'); p.id = 'pane_' + k; p.innerHTML = P[k]; panes.appendChild(p); }
   showTab('gen');
 }
-function showTab(k) { $$('#tabs button').forEach((b) => b.classList.toggle('on', b.dataset.t === k)); $$('.pane').forEach((p) => p.classList.toggle('on', p.id === 'pane_' + k)); }
+function showTab(k) { if (!$('pane_' + k)) throw new Error('no tab ' + k); V5 && V5.onShow(k); $$('#tabs button').forEach((b) => b.classList.toggle('on', b.dataset.t === k)); $$('.pane').forEach((p) => p.classList.toggle('on', p.id === 'pane_' + k)); }
 
 // ───────── generation ─────────
 function readDecode() {
@@ -194,7 +196,7 @@ async function generate() {
   if (D.mode === 'cfg' && D.neg) { const nids = tok.encode(D.neg); sN = eng.newSeq(nids.length); for (const id of nids) rN = eng.step(sN, id); }
   if (cmp) { sC = engClean.newSeq(ids.length); for (const id of ids) rC = engClean.step(sC, id); }
   // shadow clean model on the HACKED token stream → KL(hacked‖clean) at identical context, for the divergence beating
-  let sSh = null, rSh = null; const sonify = audio.on && !audio.muted; if (sonify && audio.vol.score > 0) { sSh = engClean.newSeq(ids.length); for (const id of ids) rSh = engClean.step(sSh, id); } audio.resetHistory();
+  let sSh = null, rSh = null; const sonify = audio.on && !audio.muted; if (sonify && audio.vol.score > 0) { sSh = engClean.newSeq(ids.length); for (const id of ids) rSh = engClean.step(sSh, id); } audio.resetHistory(); S.timeline = [];
   const rng = mulberry32(D.seed), rngC = mulberry32(D.seed); const gen = [], genC = []; let nTok = 0, tStart = performance.now(), cDone = !cmp, bDone = false;
   $('genInfo').textContent = `prompt ${ids.length} tok · ${(performance.now() - t0).toFixed(0)} ms`;
   if (D.mode === 'beam') {
@@ -206,14 +208,15 @@ async function generate() {
     if (!bDone) {
       let l;
       if (D.mode === 'contrastive') { const lH = eng.logits(r.h), lO = engClean.logits(rA.h); l = D.cdRole === 'clean' ? contrastiveLogits(lO, lH, D.cdAlpha, D.cdBeta) : contrastiveLogits(lH, lO, D.cdAlpha, D.cdBeta); }
-      else if (D.mode === 'cfg' && sN) l = cfgLogits(eng.logits(r.h), eng.logits(rN.h), D.cfg); else l = eng.logits(r.h);
-      const lpRaw = sonify ? logSoftmax(l) : null; applyPenalties(l, seq.ids, gen, D); const dist = filterDist(l, D), id = pick(dist, rng, D.mode === 'greedy');
+      else if (D.mode === 'cfg' && sN) l = cfgLogits(eng.logits(r.h), eng.logits(rN.h), D.cfg); else l = eng.outLogits(r.h);
+      const lpRaw = logSoftmax(l); applyPenalties(l, seq.ids, gen, D); const dist = filterDist(l, D), id = pick(dist, rng, D.mode === 'greedy');
       const kept = new Set(dist.ids), top = topK(dist.lp, 10).map((i) => [i, Math.exp(dist.lp[i]), kept.has(i)]), pc = dist.probs[dist.ids.indexOf(id)];
       const sp = tokSpan(id, '', () => `p(${JSON.stringify(tok.tokenStr(id))}) = ${pc.toFixed(4)}  (post-filter)\n` + top.map(([i, p, k]) => `${k ? '●' : '○'} ${JSON.stringify(tok.tokenStr(i)).padEnd(14)} ${p.toFixed(4)}`).join('\n'));
       sp.style.background = `rgba(244,114,182,${Math.min(0.55, -Math.log(pc + 1e-9) / 12)})`; sp._pos = seq.T; outB.appendChild(sp); gen.push(id);
       $('topk').innerHTML = top.map(([i, p, k]) => `<div class="${k ? '' : 'x'}">${esc(JSON.stringify(tok.tokenStr(i)))} ${(p * 100).toFixed(1)}%<i style="width:${(p * 100).toFixed(0)}%"></i></div>`).join('');
       if (sonify) { const tr0 = r.trace, rank = lpRaw ? (() => { let k = 0; const v = lpRaw[id]; for (let i = 0; i < lpRaw.length; i++) if (lpRaw[i] > v) k++; return k; })() : 0; let ent = 0; for (let i = 0; i < lpRaw.length; i++) { const q = Math.exp(lpRaw[i]); if (q > 1e-12) ent -= q * lpRaw[i]; }
         const t2 = topK(lpRaw, 2); audio.token({ id, text: tok.tokenStr(id), p: Math.exp(lpRaw[id]), rank, ent, norms: [tr0.embed, ...tr0.resid_post].map((v) => Math.hypot(...v)), pats: tr0.pattern.flat().filter(Boolean), lp: lpRaw, lpClean: rSh ? logSoftmax(engClean.logits(rSh.h)) : null, top2: t2.map((i) => Math.exp(lpRaw[i])), resid: tr0.final }); }
+      { let ent = 0, rk = 0; const v = lpRaw[id]; for (let i = 0; i < lpRaw.length; i++) { const q = Math.exp(lpRaw[i]); if (q > 1e-12) ent -= q * lpRaw[i]; if (lpRaw[i] > v) rk++; } const t2 = topK(lpRaw, 2); S.timeline.push({ id, p: Math.exp(v), p1: Math.exp(lpRaw[t2[0]]), p2: Math.exp(lpRaw[t2[1]]), ent, rank: rk }); }
       if (id === 50256) bDone = true;
       else { if (sSh) rSh = engClean.step(sSh, id); r = eng.step(seq, id, { trace: true }); traces.push(r.trace); if (sA) rA = engClean.step(sA, id); if (sN) rN = eng.step(sN, id); nTok++; }
     }
@@ -340,7 +343,7 @@ function weightEdit(label, e, path) { // records relative Frobenius change of th
 async function showSvd() {
   const path = matPath(); if (path === 'wte') throw new Error('wte SVD (50257×256) is too slow for the browser here; use a layer matrix or wpe'); $('svdInfo').textContent = 'running one-sided Jacobi SVD…'; await tick();
   const t0 = performance.now(), { a, rows, cols } = getMat(M, path), r = ed.svdOf(path, true), S2 = r.S; const tot = S2.reduce((x, y) => x + y * y, 0); let c = 0; const cum = S2.map((s) => (c += s * s) / tot);
-  const out = new Float32Array(rows * cols); (await import('./linalg.js')).svdReconstruct(r, Float64Array.from(S2), out); let e = 0; for (let i = 0; i < out.length; i++) e += (out[i] - a[i]) ** 2;
+  const out = new Float32Array(rows * cols); (await import('./linalg.js?v=5')).svdReconstruct(r, Float64Array.from(S2), out); let e = 0; for (let i = 0; i < out.length; i++) e += (out[i] - a[i]) ** 2;
   bars($('svdC'), Array.from(S2), { log: true, title: `σ spectrum ${path} (${rows}×${cols}, log) · hover for energy`, label: (i) => `σ${i} = ${S2[i].toPrecision(5)}  cum energy ${(cum[i] * 100).toFixed(2)}%`, onClick: (i) => ($('svK').value = i + 1) });
   $('svdInfo').textContent = `${S2.length} σ · ${r.sweeps} sweeps · ${(performance.now() - t0).toFixed(0)} ms · recon rel.err ${(Math.sqrt(e) / frob(a)).toExponential(2)} · 90% energy @ k=${cum.findIndex((x) => x >= 0.9) + 1}`;
 }
@@ -413,7 +416,7 @@ function refreshWeights() { if (!viz) return; const path = `L${$('vzL').value}.$
 // ───────── command palette ─────────
 const CMDS = () => [
   ['Generate', () => generate()], ['Toggle mute', () => $('auMute').click()], ['Start audio', () => $('auStart').click()], ['Stop generation', () => genId++], ['Undo', undo], ['Redo', redo], ['Toggle dense layout', () => document.body.classList.toggle('dense')],
-  ...Object.entries(TABS).map(([k, t]) => [`Go to ${t}`, () => showTab(k)]), ['Analyze input', () => $('bAn').click()], ['Compute corpus stats', () => $('bStats').click()],
+  ...Object.entries(TABS).map(([k, t]) => [`Go to ${t}`, () => showTab(k)]), ['Toggle light/dark theme', () => V5.toggleTheme()], ['Open terminal', () => showTab('term')], ['Open learning center', () => showTab('learn')], ['Analyze input', () => $('bAn').click()], ['Compute corpus stats', () => $('bStats').click()],
   ['Export snapshot', exportSnap], ['Download safetensors', () => $('bST').click()], ['Reset everything', () => $('bReset').click()], ['Resid patching', () => $('bPR').click()], ['Head patching', () => $('bPH').click()], ['Train SAE', () => $('bSae').click()], ['SVD spectrum of selected matrix', () => $('bSvd').click()],
   ...[...Array(L).keys()].map((l) => [`Select layer ${l}`, () => setSel({ l })]),
 ];
@@ -424,6 +427,7 @@ function palRender() { const q = $('palIn').value.toLowerCase(); const list = CM
 // ───────── wiring ─────────
 function wire() {
   const on = (id, ev, fn) => $(id).addEventListener(ev, guard(fn));
+  V5.wire({ on, guard });
   on('bGen', 'click', generate); on('bStop', 'click', () => genId++); on('bUndo', 'click', undo); on('bRedo', 'click', redo); on('bU2', 'click', undo); on('bR2', 'click', redo);
   on('bDense', 'click', () => document.body.classList.toggle('dense')); on('bPal', 'click', palOpen); on('readSel', 'change', readout);
   // steering
@@ -492,7 +496,7 @@ function wire() {
   $$('[data-anom]').forEach((b) => b.addEventListener('click', guard(async () => { await startAudio(); audio.anomaly(b.dataset.anom); })));
   audio.onAnomaly = (t) => { const b = $('anomBadge'); b.textContent = '◆ ' + t.replace('_', ' '); b.style.opacity = 1; clearTimeout(b._t); b._t = setTimeout(() => (b.style.opacity = 0), 4000); };
   setInterval(() => { if (!audio.on || !$('pane_audio').classList.contains('on')) return; const h = audio.hist, n = h.ent.length;
-    $('auState').textContent = `mode ${audio.harm.mode} · root ${['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'][audio.harm.root % 12]} · last entropy ${n ? h.ent[n - 1].toFixed(2) : '–'} nats · KL(hacked‖clean) ${audio.lastKL != null ? audio.lastKL.toFixed(4) : '–'} · level ${audio.level.toFixed(2)} · anomalies ${audio.events.length}`;
+    $('auState').textContent = `mode ${audio.harm.mode} · root ${['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'][audio.harm.root % 12]}${Math.floor(audio.harm.root / 12) - 1} (MIDI ${audio.harm.root}) · last entropy ${n ? h.ent[n - 1].toFixed(2) : '–'} nats · KL(hacked‖clean) ${audio.lastKL != null ? audio.lastKL.toFixed(4) : '–'} · level ${audio.level.toFixed(2)} · anomalies ${audio.events.length}`;
     const buf = new Uint8Array(audio.an.fftSize); audio.an.getByteTimeDomainData(buf); lines($('auScope'), [{ ys: Array.from(buf, (x) => x / 128 - 1), color: '#5eead4' }], { min: -1, max: 1, h: 80 }); }, 120);
   // keyboard
   addEventListener('keydown', (e) => { const typing = /INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName);
@@ -509,7 +513,10 @@ function wire() {
   try {
     const r = await loadModel(); W = r.W; tok = r.tok; M = cloneWeights(W); ed = new Editor(W, M); R = defaultRuntime(); eng = new Engine(M, R); engClean = new Engine(W, defaultRuntime());
     buildUI(); viz = new Viz($('gl'), (s) => setSel(s)); wire(); caInputs(); afterChange(); setSel({ l: 0, h: 0 }); $('loader').style.display = 'none'; hud();
-    window.NEURALESE = { audio, W, M, tok, ed, get R() { return R; }, eng, engClean, commit, generate, analyze, undo, redo, get stats() { return stats; }, mb: r.mb };
+    V5.mount({ viz, W: () => W, M: () => M, eng: () => eng, engClean: () => engClean, tok: () => tok, R: () => R, ed: () => ed, S: () => S, stats: () => stats, sae: () => sae, setSel, showTab, commit, weightEdit, download, generate, analyze, undo, redo, ensureStats, guard, toast, audio,
+      reset: () => commit('reset everything', () => { R = defaultRuntime(); eng.R = R; ed.setEdits([]); }), nextVecId: () => nextVec++,
+      makeEngine: (w, r) => { const e = new Engine(w, r); e.stats = stats; e.sae = eng.sae; return e; } });
+    window.NEURALESE = { v5: V5, viz, audio, W, M, tok, ed, get R() { return R; }, eng, engClean, commit, generate, analyze, undo, redo, get stats() { return stats; }, mb: r.mb };
     await generate();
   } catch (e) { console.error(e); setLoad('✖ ' + e.message); }
 })();
