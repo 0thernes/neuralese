@@ -1,7 +1,7 @@
 // Interpretability toolkit: corpus statistics, logit/tuned lens, DLA, activation & path patching, control vectors.
-import { CFG, mulberry32 } from './model.js';
-import { Engine, defaultRuntime, layerNorm, logSoftmax, topK, entropy } from './engine.js';
-import { cholSolve, pca1, dot } from './linalg.js';
+import { CFG, mulberry32 } from './model.js?v=5';
+import { Engine, defaultRuntime, layerNorm, logSoftmax, topK, entropy } from './engine.js?v=5';
+import { cholSolve, pca1, dot } from './linalg.js?v=5';
 const { d, H, hd, L, ff } = CFG;
 const tick = () => new Promise((r) => setTimeout(r, 0));
 
@@ -110,6 +110,7 @@ export function dla(eng, tr, target) {
     if (tr.z[s]) { const ao = new Float64Array(d); for (let i = 0; i < d; i++) { let v = P.ob[i]; const o = i * d; for (let j = 0; j < d; j++) v += P.o[o + j] * tr.z[s][j]; ao[i] = tr.attn_out[s][i] - v; } inside += c(ao); }
     if (tr.mlp_act[s]) { const mo = new Float64Array(d); for (let i = 0; i < d; i++) { let v = P.projb[i]; const o = i * ff; for (let j = 0; j < ff; j++) v += P.proj[o + j] * tr.mlp_act[s][j]; mo[i] = tr.mlp_out[s][i] - v; } inside += c(mo); } });
   res.other += inside;
+  for (const v of eng.R.hSteer || []) if (v.on !== false) { let s = 0; for (let i = 0; i < d; i++) s += v.coef * v.vec[i] * W.wte[target * d + i]; res.other += s; } // unembedding-space steering
   res.total = known + res.other + ub;
   res.heads.sort((a, b) => Math.abs(b.v) - Math.abs(a.v)); res.neurons.sort((a, b) => Math.abs(b.v) - Math.abs(a.v));
   return res;
