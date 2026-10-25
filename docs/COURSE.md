@@ -1,6 +1,6 @@
 # Course: TinyStories-8M from zero to interpretability research
 
-10 lessons, beginner → advanced. Each has a lecture, a diagram (in the app), a lab you run with the in-app terminal, and a quiz. Answers are at the end.
+12 lessons, beginner → advanced. Each has a lecture, a diagram (in the app), a lab you run with the in-app terminal, and a quiz. Answers are at the end.
 
 ## 1 · What a language model computes
 *Beginner · 15 min*
@@ -293,6 +293,61 @@ Open RUNS and choose the metric "ppl" to compare the two calibration runs; the s
    b) the fully edited weights
    c) zero weights
 
+## 11 · Gradients, attribution and curvature
+*Research · 30 min*
+
+The backward pass gives ∂m/∂(everything). **Gradient × input** is a first-order attribution; **integrated gradients** integrate the gradient along a path from a baseline and satisfy completeness (attributions sum to m(x) − m(x′)). **Attribution patching** estimates the effect of patching every head from one backward pass; always validate it against true activation patching, as GRADIENTS does (Pearson r).
+
+The **empirical Fisher** (mean squared gradient) and the **saliency** Σ|θ·g| rank parameters by local sensitivity; the top **Hessian eigenvalue** measures sharpness. The DRILL inspector checks the analytic directional derivative against a finite difference for any selection.
+
+### Lab
+```
+attrib gxi
+attrib ig play dance
+atp
+fisher 2
+drill L3.attn.q.H5
+```
+Compare the IG completeness error with grad×input, and the AtP scatter with the y = x line.
+
+### Quiz
+1. Integrated gradients attributions sum to…
+   a) m(x) − m(baseline)
+   b) zero
+   c) the gradient norm
+2. Attribution patching is…
+   a) a first-order Taylor estimate of activation patching
+   b) exact activation patching
+   c) a training method
+
+## 12 · Circuits and geometry
+*Research · 30 min*
+
+A head's **OV circuit** W_U·W_O·W_V·W_E maps tokens to logits; positive eigenvalues mean copying. **Composition scores** measure how much a later head reads (via Q, K or V) what an earlier head wrote. **Induction heads** attend to the token after an earlier copy of the current one; TinyStories-8M has strong previous-token heads but only weak induction, which is a real finding, not a bug.
+
+Representation geometry: **CKA** compares layers, **TwoNN** estimates intrinsic dimension, **anisotropy** measures a shared direction, **logit-lens KL** shows how far each layer is from the final prediction. Loss-landscape slices and **superposition** interference complete the picture.
+
+### Lab
+```
+eigen
+comp
+induct
+geom 2
+land 2d 3 q svd
+mode surface
+```
+Open 3D MODES → circuit graph to see the strongest compositions; the loss surface opens automatically after the 2-D slice.
+
+### Quiz
+1. A positive OV copying score means the head…
+   a) tends to increase the logit of the token it attends to
+   b) ignores the token
+   c) attends to the previous position
+2. CKA = 1 between two layers means…
+   a) identical representation geometry up to rotation and scale
+   b) identical weights
+   c) zero loss
+
 ## Answer key
 
 - **1 · What a language model computes**: 1b — The forward pass ends in 50 257 logits; softmax turns them into a distribution which a decoding rule turns into a token.; 2c — 50 257 × 256 ≈ 12.9 M of ≈19.7 M parameters are in wte (shared with the unembedding).; 3a — −ln 0.5 = ln 2 ≈ 0.693.
@@ -305,3 +360,5 @@ Open RUNS and choose the metric "ppl" to compare the two calibration runs; the s
 - **8 · Steering: additions, ablation, clamping, logit space**: 1b — Removes the component along û.; 2b — Specific effects must exceed generic damage.
 - **9 · Features: neurons, superposition and SAEs**: 1b — It explains polysemantic neurons.; 2a — Dead features waste dictionary capacity.
 - **10 · Rigour: evaluation, calibration, sweeps and tracking**: 1a — Expected calibration error.; 2a — W + 0·(M − W) = W.
+- **11 · Gradients, attribution and curvature**: 1a — Completeness axiom.; 2a — (a_corrupt − a_clean)·∂m/∂a.
+- **12 · Circuits and geometry**: 1a — Positive eigenvalues of the token→logit map.; 2a — CKA is invariant to orthogonal transforms and isotropic scaling.

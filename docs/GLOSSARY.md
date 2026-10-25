@@ -1,4 +1,4 @@
-# Glossary (129 terms)
+# Glossary (145 terms)
 
 ### Ablation
 Removing a component's contribution (setting it to zero, its mean, or a resampled value) to measure how much the output depends on it.
@@ -640,3 +640,81 @@ The RUNS tab: every evaluation, sweep and profile is logged with metrics for com
 Varying one parameter over a range and measuring metrics at each value.
 
 *See:* [Experiment tracker](#experiment-tracker)
+
+### Integrated gradients
+Attribution that averages gradients along a straight path from a baseline input to the real input and multiplies by (input − baseline). Satisfies completeness: attributions sum to m(x) − m(baseline).
+
+*See:* [Gradient × input](#gradient--input), [Attribution patching](#attribution-patching)
+
+### Gradient × input
+First-order attribution: the gradient of the metric with respect to an input embedding, dotted with that embedding.
+
+*See:* [Integrated gradients](#integrated-gradients)
+
+### Attribution patching
+AtP: a linear (first-order Taylor) estimate of activation patching, (a_corrupt − a_clean)·∂m/∂a, computed for every head from one forward and one backward pass.
+
+*See:* [Activation patching](#activation-patching), [Integrated gradients](#integrated-gradients)
+
+### Fisher information
+Here the empirical diagonal Fisher: the mean over documents of the squared loss gradient for each parameter. A local measure of how sensitive the loss is to that parameter.
+
+*See:* [Saliency](#saliency), [Hessian-vector product](#hessian-vector-product)
+
+### Saliency
+Σ|θ·∂L/∂θ| over a parameter set: a first-order estimate of the loss change if the set were zeroed.
+
+*See:* [Fisher information](#fisher-information), [Ablation](#ablation)
+
+### Hessian-vector product
+H·v, computed here by central differences of exact gradients; power iteration on HVPs gives the top Hessian eigenvalue (local sharpness).
+
+*See:* [Fisher information](#fisher-information)
+
+### Condition number
+σ_max / σ_min of a matrix; large values mean some input directions are nearly annihilated.
+
+*See:* [Effective rank](#effective-rank)
+
+### Heavy-tail exponent α
+Hill estimator of the power-law tail of the eigenvalue spectrum of WᵀW (top 50% of σ²). Lower α suggests more strongly trained correlations (Martin & Mahoney).
+
+*See:* [Stable rank](#stable-rank)
+
+### OV copying score
+Σ Re(λ)/Σ|λ| over the eigenvalues λ of W_U·W_O·W_V·W_E: positive means the head tends to copy the attended token to the output.
+
+*See:* [QK circuit](#qk-circuit), [Composition score](#composition-score)
+
+### CKA
+Centered kernel alignment (linear): a similarity of two representation matrices invariant to rotation and isotropic scaling; 1 = identical geometry.
+
+*See:* [Intrinsic dimension](#intrinsic-dimension)
+
+### Intrinsic dimension
+The TwoNN estimate of the dimension of the manifold the residual vectors lie on, from ratios of first and second nearest-neighbour distances.
+
+*See:* [CKA](#cka), [Anisotropy](#anisotropy)
+
+### Anisotropy
+Mean cosine similarity between random pairs of representation vectors; near 0 is isotropic, near 1 means all vectors share a dominant direction.
+
+*See:* [Intrinsic dimension](#intrinsic-dimension)
+
+### Logit-lens KL
+KL(final distribution ‖ distribution obtained by decoding an intermediate residual with the final LN + unembedding).
+
+*See:* [Logit lens](#logit-lens)
+
+### Loss landscape slice
+CE evaluated at θ + α·d₁ (+ β·d₂) for filter-normalised random or singular-vector directions d.
+
+*See:* [Hessian-vector product](#hessian-vector-product)
+
+### Bootstrap CI
+Confidence interval from resampling the data with replacement and taking percentiles of the recomputed statistic.
+
+*See:* [Experiment tracker](#experiment-tracker)
+
+### WebGPU
+The browser GPU compute API. Neuralese can run the 50257×256 unembedding as a WGSL matvec; it is verified against the CPU path to ~1e-7 relative error.

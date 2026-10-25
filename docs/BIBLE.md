@@ -33,6 +33,12 @@ Reference manual for every tab and control. Also in the app: TOOLS › LEARN ›
 - [TOOLS › LEARN](#tools--learn)
 - [Export](#export)
 - [Honest limits](#honest-limits)
+- [SCIENCE › DRILL](#science--drill)
+- [SCIENCE › GRADIENTS](#science--gradients)
+- [SCIENCE › CIRCUITS](#science--circuits)
+- [SCIENCE › GEOMETRY + LANDSCAPE](#science--geometry--landscape)
+- [VIEW › 3D MODES](#view--3d-modes)
+- [TOOLS › WEBGPU, ZOO, SHARE, CLI](#tools--webgpu-zoo-share-cli)
 
 ## Overview
 
@@ -154,4 +160,28 @@ Every chart has PNG export; SVG charts export SVG; charts with data export CSV. 
 
 ## Honest limits
 
-CPU float32 only (WebGPU not used); ~10–40 tok/s depending on the machine. The reference corpus is 40 stories sampled from the clean model, so perplexity is relative. Power-law fits on 256 eigenvalues are noisy. Rollout and DLA are approximations (rollout ignores MLPs; DLA freezes the LayerNorm scale). Head classes are scores, not labels.
+CPU float32 by default (optional WebGPU unembedding; the KV-cache step stays on CPU); ~10–40 tok/s depending on the machine. The reference corpus is 40 stories sampled from the clean model, so perplexity is relative. Power-law fits on 256 eigenvalues are noisy. Rollout and DLA are approximations (rollout ignores MLPs; DLA freezes the LayerNorm scale). Head classes are scores, not labels.
+
+## SCIENCE › DRILL
+
+Hierarchy model → layer → sublayer (ln1, attn, ln2, mlp) → matrix → head/neuron → row/column → single weight. Paths look like L3.attn.q.H5.r2.w17 and are shareable via the terminal (`drill <path>`). The inspector computes, for the exact index set: mean, std, skew, excess kurtosis, sparsity, L1/L2/L∞; for 2-D blocks the full SVD (spectral, Frobenius, nuclear norm, effective and stable rank, condition number, Hill α); loss gradient norm, empirical Fisher trace, saliency; the analytic directional derivative checked against a central finite difference; zero-ablation ΔCE and the tokens it moves most (provenance); and the direct logit effect of heads and neurons. Any level can be edited (scale, zero, noise, add, invert) as an undoable edit. Selecting a node syncs the 3D selection.
+
+## SCIENCE › GRADIENTS
+
+A hand-written reverse-mode backward pass for GPT-Neo (verified against PyTorch autograd: loss, weight gradients and input gradients agree to float32 precision). Gradient×input, integrated gradients (with the completeness check printed), attribution patching validated against true activation patching of all 128 heads (Pearson r reported; ~0.99 on the default prompt pair), empirical diagonal Fisher per matrix, and top Hessian eigenvalue by power iteration on finite-difference HVPs.
+
+## SCIENCE › CIRCUITS
+
+OV and QK eigenvalue scores for every head through the embedding, Q/K/V composition scores between all head pairs (also shown as a 3D circuit graph), and induction / previous-token scores on repeated random tokens with bootstrap CIs. Finding: TinyStories-8M has strong previous-token heads but only weak random-token induction (max ≈ 0.05–0.06, cross-checked with HF transformers).
+
+## SCIENCE › GEOMETRY + LANDSCAPE
+
+Per residual slot: linear CKA matrix, TwoNN intrinsic dimension, anisotropy and logit-lens KL with bootstrap CIs; neuron superposition geometry. LANDSCAPE evaluates 1-D/2-D loss slices along filter-normalised random or top-singular directions of one matrix and renders the 2-D grid as a 3D surface.
+
+## VIEW › 3D MODES
+
+Morphing views: layer stack, instanced weight voxel field (LOD), loss surface, residual manifold (PCA-3 of the residual stream at every layer), attention graph for one head and a circuit graph from composition scores. Camera presets with smooth transitions. Colors use viridis (sequential) and a blue-white-red diverging scale mapped to the metric.
+
+## TOOLS › WEBGPU, ZOO, SHARE, CLI
+
+WEBGPU uploads the unembedding, verifies the GPU result against CPU and benchmarks both (tok/s). On software adapters the GPU path is slower; on real GPUs it may be faster. ZOO streams TinyStories-1M/3M by HTTP Range (F32 tensors only) and compares loss, stable rank and induction; DIFF compares orig, snapshot and current weights tensor by tensor. SHARE encodes the edits, runtime and prompt into a compressed #x= URL. `node cli.mjs` is a terminal tool on the same core (inspect, attribution, eigen, induction, landscape).
