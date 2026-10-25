@@ -9,8 +9,8 @@ import { SAE } from './sae.js';
 import { computeRome } from './rome.js';
 import { CORPUS } from './corpus.js';
 import { heatmap, lines, bars, showTip, seqColor, divColor } from './charts.js';
-import { Viz } from './viz.js';
-import { AudioEngine, editKind, STYLES } from './audio.js';
+import { Viz } from './viz.js?v=4';
+import { AudioEngine, editKind, STYLES } from './audio.js?v=4';
 const audio = new AudioEngine();
 const { d, H, L, ff, V } = CFG;
 const $ = (id) => document.getElementById(id), $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -48,8 +48,8 @@ const snap = () => ({ edits: structuredClone(ed.edits.map(({ _err, ...e }) => e)
 function restore(s) { R = structuredClone(s.R); eng.R = R; ed.setEdits(structuredClone(s.edits)); afterChange(); }
 // every state-changing action goes through commit → undoable, then a full refresh of dependent views
 function commit(label, fn) { const before = snap(); fn(); S.undo.push({ label, s: before }); S.redo = []; afterChange(); toast('✔ ' + label); audio.edit(editKind(label), { bits: +((label.match(/int(\d)/) || [])[1] || 0), coef: R.steer.length ? R.steer[R.steer.length - 1].coef : 1 }); }
-function undo() { const u = S.undo.pop(); if (!u) return; S.redo.push({ label: u.label, s: snap() }); restore(u.s); toast('↶ ' + u.label); audio.edit('swap'); }
-function redo() { const u = S.redo.pop(); if (!u) return; S.undo.push({ label: u.label, s: snap() }); restore(u.s); toast('↷ ' + u.label); audio.edit('swap'); }
+function undo() { const u = S.undo.pop(); if (!u) return; S.redo.push({ label: u.label, s: snap() }); restore(u.s); toast('↶ ' + u.label); audio.edit('undo'); }
+function redo() { const u = S.redo.pop(); if (!u) return; S.undo.push({ label: u.label, s: snap() }); restore(u.s); toast('↷ ' + u.label); audio.edit('undo'); }
 let regenT = null;
 function afterChange() { renderOps(); renderSteerList(); renderProgram(); renderHeadGrid(); refreshWeights(); hud(); clearTimeout(regenT); if ($('autoRegen').checked) regenT = setTimeout(() => generate(), 120); }
 async function ensureStats() {
@@ -152,17 +152,18 @@ P.viz = `
 
 P.audio = `
 <fieldset><legend>engine</legend><div class="r"><button class="pri" id="auStart">▶ start audio</button><button id="auMute">mute (M)</button><span id="auInfo" class="sm">audio starts on your first click/key (browser autoplay policy)</span></div>
-<div class="r"><label>style</label><select id="auStyle">${opts(Object.entries(STYLES).map(([k, v]) => [k, v.name]), 'tannhauser')}</select><label>reverb size</label><input type="range" id="auRev" min="0.2" max="2.5" step="0.1" value="1"/></div>
-<div class="r"><label>BPM</label><input type="number" id="auBpm" value="84" min="30" max="200"/><label><input type="checkbox" id="auSync" checked/> sync token events to 16th grid</label><label><input type="checkbox" id="auVoice"/> machine whisper</label></div></fieldset>
+<div class="r"><label>style</label><select id="auStyle">${opts(Object.entries(STYLES).map(([k, v]) => [k, v.name]), 'lab')}</select><label>reverb size</label><input type="range" id="auRev" min="0.2" max="2.5" step="0.1" value="1"/></div>
+<div class="r"><label>BPM</label><input type="number" id="auBpm" value="96" min="30" max="200"/><label><input type="checkbox" id="auSync"/> quantize token notes to 8th-note grid</label></div></fieldset>
 <fieldset><legend>mixer</legend>${['master', 'score', 'tokens', 'choir', 'sfx'].map((k) => `<div class="r"><label style="width:60px">${k}</label><input type="range" min="0" max="1" step="0.01" value="${audio.vol[k]}" data-bus="${k}" style="flex:1"/></div>`).join('')}</fieldset>
 <fieldset><legend>live sonification state</legend><div id="auState" class="sm"></div><canvas class="ch" id="auScope"></canvas></fieldset>
-<fieldset><legend>edit SFX audition</legend><div class="r">${['svd', 'ablate', 'rome', 'quant', 'chaos', 'steer', 'swap'].map((k) => `<button data-sfx="${k}">${k}</button>`).join('')}</div><div class="r">${['entropy_collapse', 'repetition_loop', 'superposition', 'residual_explosion'].map((k) => `<button data-anom="${k}">${k}</button>`).join('')}</div></fieldset>
+<fieldset><legend>edit SFX audition</legend><div class="r">${['svd', 'ablate', 'rome', 'quant', 'chaos', 'steer', 'swap', 'undo'].map((k) => `<button data-sfx="${k}">${k}</button>`).join('')}</div><div class="r">${['entropy_collapse', 'repetition_loop', 'superposition', 'residual_explosion'].map((k) => `<button data-anom="${k}">${k}</button>`).join('')}</div></fieldset>
 <fieldset><legend>what drives what</legend><div class="sm">
-<b>score</b>: mode/root ← skew, kurtosis and argmax dim of the final residual (re-read every 8 tokens); filter, detune and brass swell ← next-token entropy.<br>
-<b>tokens</b>: pitch ← log p and logit rank, quantized to the mode; filter/Q/waveform ← residual-norm growth and variance across layers; pan ← attention centre of mass (left = BOS, right = self); glitch burst when −ln p &gt; 4.<br>
-<b>choir</b>: 8 formant voices, gain ← ‖resid‖ of each layer; FM index and grain density ← mean normalized attention entropy over all heads.<br>
-<b>divergence</b>: beating pair detuned by 6·ln(1+4·KL), where KL(hacked‖clean) is computed on the same context by a shadow clean model.<br>
-<b>phenomena</b>: entropy collapse, repetition loop, superposition (top-2 ≈ tied), residual explosion → anomaly sound + screen glitch.</div></fieldset>`;
+<b>harmony</b>: key ← argmax dim of the final residual, scale colour (pentatonic / ionian / lydian without #4) ← its kurtosis; re-read every 8 tokens. Pad = root·3rd·5th·6th only.<br>
+<b>tokens</b>: pitch ← log p and logit rank (scale tones only); brightness of pluck/bell ← residual-norm growth; pan ← attention centre of mass (left = BOS, right = self); improbable tokens (−ln p &gt; 4) add a soft bell an octave up. Rate-limited (min gap and polyphony cap per style).<br>
+<b>pad</b>: filter opening ← next-token entropy.<br>
+<b>choir</b>: 8 quiet sines, gain ← ‖resid‖ of each layer; FM shimmer ← mean attention entropy.<br>
+<b>divergence</b>: KL(hacked‖clean) on the same context adds a consonant voice (5th → octave → octave+5th) above the pad.<br>
+<b>phenomena</b>: entropy collapse, repetition loop, superposition, residual explosion → soft two-note chime + small badge in the top bar.</div></fieldset>`;
 function buildUI() {
   const tabs = $('tabs'), panes = $('panes');
   for (const [k, t] of Object.entries(TABS)) { const b = document.createElement('button'); b.textContent = t; b.dataset.t = k; b.onclick = () => showTab(k); tabs.appendChild(b); const p = document.createElement('div'); p.className = 'pane'; p.id = 'pane_' + k; p.innerHTML = P[k]; panes.appendChild(p); }
@@ -481,16 +482,15 @@ function wire() {
   // 3D
   for (const id of ['vzL', 'vzM', 'vzMode', 'vzDiff']) on(id, 'change', () => (id === 'vzL' ? setSel({ l: +$('vzL').value }) : refreshWeights()));
   // audio
-  const startAudio = guard(async () => { await audio.start(); $('auInfo').textContent = `running · ${audio.ctx.sampleRate} Hz · worklet ${audio.decim ? 'on' : 'off'} · base latency ${(audio.ctx.baseLatency * 1000 || 0).toFixed(1)} ms`; });
+  const startAudio = guard(async () => { await audio.start(); $('auInfo').textContent = `running · ${audio.ctx.sampleRate} Hz · base latency ${(audio.ctx.baseLatency * 1000 || 0).toFixed(1)} ms`; });
   addEventListener('pointerdown', startAudio, { once: true }); addEventListener('keydown', startAudio, { once: true }); on('auStart', 'click', startAudio);
   const mute = () => { audio.setMute(!audio.muted); $('auMute').textContent = audio.muted ? 'unmute (M)' : 'mute (M)'; toast(audio.muted ? '🔇 muted' : '🔊 audio on'); };
   on('auMute', 'click', mute); on('auStyle', 'change', () => { audio.style = $('auStyle').value; audio.applyStyle(); }); on('auRev', 'change', () => { audio.revSize = +$('auRev').value; audio.ctx && audio.makeIR(); });
-  on('auBpm', 'change', () => (audio.bpm = Math.max(30, Math.min(200, +$('auBpm').value)))); on('auSync', 'change', () => (audio.sync = $('auSync').checked)); on('auVoice', 'change', () => (audio.voice = $('auVoice').checked));
+  on('auBpm', 'change', () => (audio.bpm = Math.max(30, Math.min(200, +$('auBpm').value)))); on('auSync', 'change', () => (audio.sync = $('auSync').checked));
   $$('[data-bus]').forEach((el) => el.addEventListener('input', () => { audio.vol[el.dataset.bus] = +el.value; audio.applyVol(); }));
-  $$('[data-sfx]').forEach((b) => b.addEventListener('click', guard(async () => { await startAudio(); audio.edit(b.dataset.sfx, { bits: 2, coef: 1 }); })));
+  $$('[data-sfx]').forEach((b) => b.addEventListener('click', guard(async () => { await startAudio(); audio.edit(b.dataset.sfx); })));
   $$('[data-anom]').forEach((b) => b.addEventListener('click', guard(async () => { await startAudio(); audio.anomaly(b.dataset.anom); })));
-  audio.onAnomaly = (t) => { viz.glitch(1); toast('⚠ phenomenon: ' + t.replace('_', ' ')); };
-  viz.levelFn = () => audio.level;
+  audio.onAnomaly = (t) => { const b = $('anomBadge'); b.textContent = '◆ ' + t.replace('_', ' '); b.style.opacity = 1; clearTimeout(b._t); b._t = setTimeout(() => (b.style.opacity = 0), 4000); };
   setInterval(() => { if (!audio.on || !$('pane_audio').classList.contains('on')) return; const h = audio.hist, n = h.ent.length;
     $('auState').textContent = `mode ${audio.harm.mode} · root ${['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'][audio.harm.root % 12]} · last entropy ${n ? h.ent[n - 1].toFixed(2) : '–'} nats · KL(hacked‖clean) ${audio.lastKL != null ? audio.lastKL.toFixed(4) : '–'} · level ${audio.level.toFixed(2)} · anomalies ${audio.events.length}`;
     const buf = new Uint8Array(audio.an.fftSize); audio.an.getByteTimeDomainData(buf); lines($('auScope'), [{ ys: Array.from(buf, (x) => x / 128 - 1), color: '#5eead4' }], { min: -1, max: 1, h: 80 }); }, 120);
