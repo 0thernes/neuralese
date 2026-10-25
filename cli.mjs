@@ -56,7 +56,7 @@ async function run(ctx, line) { const [cmd, ...a] = split(line); const { W, tok 
         if (cmd === 'diff') { if (Wz.lnfW.length !== W.lnfW.length) return `cannot diff ${id} (d=${Wz.lnfW.length}) with 8M (d=${W.lnfW.length}): different shapes`; return weightDiff(W, Wz).slice(0, 12).map((x) => `${x.name} rel ${x.rel.toExponential(3)}`).join('\n'); }
         let ce = 0, nt = 0; for (const d0 of docs(4, 24)) { ce += G.grad(Wz, d0, { kind: 'ce' }).value * (d0.length - 1); nt += d0.length - 1; } out.push(`${id.padEnd(3)} d=${Wz.lnfW.length}  CE ${(ce / nt).toFixed(4)}  ppl ${Math.exp(ce / nt).toFixed(3)}`); }
       return out.join('\n'); }
-    case 'quit': case 'exit': process.exit(0);
+    case 'quit': case 'exit': return process.exit(0);
     default: throw new Error(`unknown command "${cmd}" — try help`);
   } }
 const ctx = await ensureModel();

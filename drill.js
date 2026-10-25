@@ -2,7 +2,7 @@
 // A node is a plain object; resolve() maps it to the exact parameter indices it denotes so stats, sensitivity, Fisher and edits
 // all act on the same set.  Weight layout: row-major [out][in]; head h owns q/k/v rows and o columns h·hd … h·hd+hd−1;
 // neuron n owns fc row n (+fcb[n]) and proj column n.
-import { CFG } from './model.js?v=6';
+import { CFG } from './model.js?v=7';
 const dims = (W) => W.cfg || CFG;
 export const SUB = { ln1: ['ln1w', 'ln1b'], attn: ['q', 'k', 'v', 'o', 'ob'], ln2: ['ln2w', 'ln2b'], mlp: ['fc', 'fcb', 'proj', 'projb'] };
 export const shapeOf = (W, key) => { const { d, ff } = dims(W); return { q: [d, d], k: [d, d], v: [d, d], o: [d, d], fc: [ff, d], proj: [d, ff], ob: [1, d], fcb: [1, ff], projb: [1, d], ln1w: [1, d], ln1b: [1, d], ln2w: [1, d], ln2b: [1, d] }[key]; };
@@ -45,6 +45,7 @@ export function resolve(W, n) {
 }
 export function gather(W, parts) { let n = 0; for (const p of parts) n += p.idx ? p.idx.length : W.layers[p.l][p.key].length; const out = new Float32Array(n); let o = 0;
   for (const p of parts) { const a = W.layers[p.l][p.key]; if (p.idx) for (const i of p.idx) out[o++] = a[i]; else { out.set(a, o); o += a.length; } } return out; }
+export function scatterSet(W, parts, vals) { let o = 0; for (const p of parts) { const a = W.layers[p.l][p.key]; if (p.idx) for (const i of p.idx) a[i] = vals[o++]; else for (let i = 0; i < a.length; i++) a[i] = vals[o++]; } }
 export function scatterAdd(W, parts, dirVals, s) { let o = 0; for (const p of parts) { const a = W.layers[p.l][p.key]; if (p.idx) for (const i of p.idx) a[i] += s * dirVals[o++]; else for (let i = 0; i < a.length; i++) a[i] += s * dirVals[o++]; } }
 export function gatherGrad(G, parts) { return gather(G, parts); }
 export function count(W, parts) { return parts.reduce((s, p) => s + (p.idx ? p.idx.length : W.layers[p.l][p.key].length), 0); }
@@ -58,8 +59,8 @@ export function fromPath(s) { const n = {}; if (!s || s === 'model') return n; f
   else if ((m = t.match(/^[HNi](\d+)$/))) n.unit = +m[1]; else if ((m = t.match(/^([rc])(\d+)$/))) { n.lineAxis = m[1]; n.line = +m[2]; } else if ((m = t.match(/^w(\d+)$/))) n.w = +m[1]; else throw new Error('bad path segment ' + t); } return n; }
 
 // ── inspector: everything measured on the same parameter set ──
-import { forward, logitsAt, grad } from './grad.js?v=6';
-import { moments, spectral } from './science.js?v=6';
+import { forward, logitsAt, grad } from './grad.js?v=7';
+import { moments, spectral } from './science.js?v=7';
 function tokenLosses(W, ids) { const A = forward(W, ids), out = []; for (let t = 0; t < ids.length - 1; t++) { const lg = logitsAt(W, A, t); let m = -Infinity; for (const x of lg) if (x > m) m = x; let z = 0; for (const x of lg) z += Math.exp(x - m); out.push(m + Math.log(z) - lg[ids[t + 1]]); } return out; }
 const mean = (a) => a.reduce((x, y) => x + y, 0) / (a.length || 1);
 export function inspect(W, n, docs, { eps = 1e-2, spectralMax = 300000, tok = null } = {}) {
@@ -69,13 +70,13 @@ export function inspect(W, n, docs, { eps = 1e-2, spectralMax = 300000, tok = nu
   let gsum = new Float64Array(N), g2 = new Float64Array(N), base = []; for (const ids of docs) { const r = grad(W, ids, { kind: 'ce' }, { weights: true }); const g = gather(r.G, parts); for (let i = 0; i < N; i++) { gsum[i] += g[i] / docs.length; g2[i] += g[i] * g[i] / docs.length; } base.push(r.value); }
   let gn = 0, fis = 0, sal = 0, gu = 0, tn = 0; for (let i = 0; i < N; i++) { gn += gsum[i] ** 2; fis += g2[i]; sal += Math.abs(theta[i] * gsum[i]); tn += theta[i] ** 2; } tn = Math.sqrt(tn);
   for (let i = 0; i < N; i++) gu += gsum[i] * theta[i] / (tn || 1);
-  const L0 = mean(base), lossAt = (s, dir) => { scatterAdd(W, parts, dir, s); try { return mean(docs.map((ids) => grad(W, ids, { kind: 'ce' }).value)); } finally { scatterAdd(W, parts, dir, -s); } };
+  const L0 = mean(base), lossAt = (s, dir) => { scatterAdd(W, parts, dir, s); try { return mean(docs.map((ids) => grad(W, ids, { kind: 'ce' }).value)); } finally { scatterSet(W, parts, theta); } };
   const u = theta.map((x) => x / (tn || 1)), step = eps * (tn / Math.sqrt(N) || 1) * Math.sqrt(N);
   const fd = tn ? (lossAt(step, u) - lossAt(-step, u)) / (2 * step) : 0;
   res.grad = { loss: L0, gradNorm: Math.sqrt(gn), fisherTrace: fis, fisherMean: fis / N, saliency: sal, dirDeriv: gu, finiteDiff: fd, fdStep: step, fdRelErr: Math.abs(fd - gu) / Math.max(1e-9, Math.abs(gu)) };
   // ablation (zero the set) + per-token provenance
   const tlBase = docs.map((ids) => tokenLosses(W, ids)), saved = theta.slice(); scatterAdd(W, parts, saved, -1);
-  let tlAbl; try { tlAbl = docs.map((ids) => tokenLosses(W, ids)); } finally { scatterAdd(W, parts, saved, 1); }
+  let tlAbl; try { tlAbl = docs.map((ids) => tokenLosses(W, ids)); } finally { scatterSet(W, parts, saved); }
   const deltas = []; docs.forEach((ids, di) => tlBase[di].forEach((b, t) => deltas.push({ doc: di, t, tok: ids[t + 1], ctx: ids[t], d: tlAbl[di][t] - b })));
   res.ablation = { dLoss: mean(deltas.map((x) => x.d)), maxUp: Math.max(...deltas.map((x) => x.d)), n: deltas.length };
   deltas.sort((a, b) => Math.abs(b.d) - Math.abs(a.d)); res.provenance = deltas.slice(0, 12).map((x) => ({ ...x, str: tok ? tok.tokenStr(x.tok) : String(x.tok), ctxStr: tok ? tok.tokenStr(x.ctx) : String(x.ctx) }));
