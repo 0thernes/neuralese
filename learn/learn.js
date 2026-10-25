@@ -1,7 +1,7 @@
 // Learning center UI: Bible, Glossary, Index, Course (lectures, diagrams, labs, quizzes). Progress in localStorage.
-import { GLOSSARY } from './glossary.js?v=6';
-import { BIBLE } from './bible.js?v=6';
-import { COURSE } from './course.js?v=6';
+import { GLOSSARY } from './glossary.js?v=7';
+import { BIBLE } from './bible.js?v=7';
+import { COURSE } from './course.js?v=7';
 export { GLOSSARY, BIBLE, COURSE };
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
@@ -23,7 +23,7 @@ export function buildIndex() {
 }
 export function search(q) { q = q.trim().toLowerCase(); if (!q) return []; return buildIndex().map((x) => ({ ...x, s: (x.key.toLowerCase().includes(q) ? 10 : 0) + (x.text.toLowerCase().includes(q) ? 1 : 0) })).filter((x) => x.s).sort((a, b) => b.s - a.s); }
 
-export const learnMarkup = ['LEARN', 'Learning center', `<div class="r lnav" role="tablist"><button data-lv="course" class="on">Course</button><button data-lv="bible">Bible</button><button data-lv="gloss">Glossary</button><button data-lv="index">Index</button><input id="lnQ" placeholder="search everything…" aria-label="search the learning center"/></div>
+export const learnMarkup = ['LEARN', 'Learning center', `<div class="r lnav" role="toolbar" aria-label="learning center sections"><button data-lv="course" class="on">Course</button><button data-lv="bible">Bible</button><button data-lv="gloss">Glossary</button><button data-lv="index">Index</button><input id="lnQ" placeholder="search everything…" aria-label="search the learning center"/></div>
 <div class="prog" id="lnProg" title="course progress"><i></i></div><div id="lnBody" class="learn"></div>`];
 
 export function mountLearn(A) {
