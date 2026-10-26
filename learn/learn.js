@@ -1,7 +1,7 @@
 // Learning center UI: Bible, Glossary, Index, Course (lectures, diagrams, labs, quizzes). Progress in localStorage.
-import { GLOSSARY } from './glossary.js?v=7';
-import { BIBLE } from './bible.js?v=7';
-import { COURSE } from './course.js?v=7';
+import { GLOSSARY } from './glossary.js?v=8';
+import { BIBLE } from './bible.js?v=8';
+import { COURSE } from './course.js?v=8';
 export { GLOSSARY, BIBLE, COURSE };
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
