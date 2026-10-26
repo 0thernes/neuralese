@@ -39,7 +39,7 @@ test('labcore pure functions', () => {
   const cm = C.cosineMatrix([[1, 0], [0, 1], [1, 1]]); assert.ok(Math.abs(cm[0][2] - Math.SQRT1_2) < 1e-9);
 });
 test('terminal: command table, completion, version', () => {
-  assert.equal(VERSION, '9.0.0'); assert.ok(Object.keys(COMMANDS).length >= 52); for (const k of ['drill', 'atp', 'eigen', 'induct', 'geom', 'land', 'mode', 'cam', 'gpu', 'zoo', 'diff', 'share', 'hash', 'manifest', 'stats', 'acdc', 'scrub', 'probe', 'evalh', 'dataset', 'report', 'state', 'qseed', 'claims', 'fsdist', 'typecheck']) assert.ok(COMMANDS[k], k);
+  assert.equal(VERSION, '10.0.0'); assert.ok(Object.keys(COMMANDS).length >= 52); for (const k of ['drill', 'atp', 'eigen', 'induct', 'geom', 'land', 'mode', 'cam', 'gpu', 'zoo', 'diff', 'share', 'hash', 'manifest', 'stats', 'acdc', 'scrub', 'probe', 'evalh', 'dataset', 'report', 'state', 'qseed', 'claims', 'fsdist', 'typecheck', 'qgtcheck', 'unify']) assert.ok(COMMANDS[k], k);
   assert.deepEqual(complete('ver'), ['version']); assert.ok(complete('sweep bl').includes('sweep blend')); assert.ok(complete('theme l').includes('theme light')); assert.ok(complete('tab ti').includes('tab timeline'));
 });
 test('learning center data: glossary ≥100 unique, cross-links resolve, labs use real commands', () => {

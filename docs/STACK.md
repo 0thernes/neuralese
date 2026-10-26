@@ -1,9 +1,9 @@
-# Stack — exact versions (v9.0.0, 2026-10-25)
+# Stack — exact versions (v10.0.0, 2026-10-25)
 
 ## Runtime (what the deployed page uses)
 | component | version | origin | license |
 |---|---|---|---|
-| NEURALESE app | 9.0.0 | this repo, plain ES2022 modules, no bundler, no framework | MIT |
+| NEURALESE app | 10.0.0 | this repo, plain ES2022 modules, no bundler, no framework | MIT |
 | Language model | `roneneldan/TinyStories-8M` @ `refs/pr/1` (safetensors, fp32; GPT-Neo, 8 layers, d = 256, V = 50 257) | Hugging Face, fetched at runtime | per model card |
 | Inference / gradients / analysis | hand-written JavaScript (`engine.js`, `grad.js`, `analysis.js`, …), Float32 CPU; optional WebGPU unembedding | this repo | MIT |
 | three.js | r160 (`site/vendor/three/three.module.min.js` + `addons/controls`), vendored and pinned | three.js authors | MIT |
@@ -27,7 +27,10 @@ Languages in the shipped page: JavaScript (ES modules), WebAssembly (compiled fr
 | axe-core | 4.14.0 (`npm i --no-save axe-core@4`) | accessibility audit (`tools/a11y.mjs`) |
 | ESLint | 9.39.5 (`npm run lint`) | lint |
 | Emscripten (emsdk) | 4.0.23 (`7a5d93b5`) | building the quantum_rng WASM |
-| gcc (native cross-check) | system gcc, glibc | native quantum_rng comparison (`TSOTCHKE.md`, cross-libm finding) |
+| gcc (native cross-check) | 14.2.0, glibc 2.41 | native quantum_rng; Eshkol Taylor kernels and AD tape harnesses (v10 b, d) |
+| musl-gcc | musl 1.2.5 (Debian musl-tools) | v10 (f) libm grid |
+| LLVM / clang | 21 (apt.llvm.org) | building `eshkol-run` @ `341ac81` for v10 (e) |
+| Moonlab QGT WASM | `qgt.c` + `matrix_math.c`, emscripten 4.0.23 → `moonlab_qgt.wasm` (sha256 `96d92eb7…9598`) | v10 (a), shipped in the page |
 | Python | 3.13.5 (`.venv`) | PyTorch reference scripts `ref*.py` |
 | PyTorch | 2.14.1+cpu | autograd references (`test/ref_*.json`) |
 | transformers | 5.20.2 | reference GPT-Neo forward |

@@ -1,4 +1,4 @@
-# Claims & Evidence (v9)
+# Claims & Evidence (v10)
 
 Each claim names the check that would **refute** it. Every row is executed by `test/tsotchke.test.mjs` (Node), and rows
 marked ● also run live in the browser (TSOTCHKE › CLAIMS, or `claims` in the terminal). Numbers are from the run on
@@ -25,12 +25,18 @@ marked ● also run live in the browser (TSOTCHKE › CLAIMS, or `claims` in the
 | C2g ● | QGTL's `qgt_geometric_compute_metric` is only diag(1 − \|ψ_i\|²) (an upstream limitation, recorded so a fix upstream would show up) | any entry deviates by ≥ 1e-6 | max deviation 4.5e-8 |
 | C6a ● | Eshkol's type layer (`dependent.cpp`, `hott_types.cpp`, WASM) accepts all 73 judgments of the live model graph: reshape paths Id_Nat(rows·cols, len), matmul compatibility, head split, residual adds, token bounds, Float32 <: Real, promotion to Float64 | any judgment rejected | 73/73 |
 | C6b ● | The same checker rejects broken graphs | a truncated `h3.fc`, ff = 1000, token 50257, or a non-Float32 tensor is accepted | each rejected; e.g. "Dimension mismatch: 262144 != 262143" (tests H1–H4) |
+| C1d ● | Eshkol's compiled Taylor kernels (`runtime_taylor.c`) equal `taylor.js` to order 15 | any of 44 cases differs by ≥ 1e-12 | worst 9.7e-16 (tan, k = 15) |
+| C2h ● | Moonlab's native `qgt_metric_at` equals our fidelity-angle Fubini–Study metric (QWZ) | \|Δg\| > 1e-6 at any k, m; or a 4× metric passes | ≈ 2e-8; 4× rejected |
+| C3e ● | The glibc/WASM QRNG difference is caused by libm, not SIMD | musl native ≠ WASM, or glibc SSE3 ≠ glibc scalar | musl (SSE3 and scalar) = WASM `52d659a0…`; glibc (both) `e5f60b0d…` |
+| C7a ● | Natural gradient beats Adam on the training loss but not on held-out loss (ln_f fine-tune, 8 eval seeds) | a 95% CI includes 0 | train Δ −0.166 [−0.232, −0.099]; held-out Δ +59.1 [18.5, 99.6] (train-selected) / +0.247 [0.155, 0.339] (held-out-selected). **Negative for NG on generalisation.** |
+| C8a ● | Eshkol's AD tape (`vm_autodiff.c`) and `grad.js` give the same full GPT-Neo backward pass | max \|Δg\| > 1e-5·max\|g\| | 1.19e-7 vs 0.425 (1320 gradients) |
+| C9a ● | `neurosym.js` reproduces a real `eshkol-run` trace of `neurosymbolic.esk` soft-unify | any of 58 values differs by ≥ 1e-12 | 2.2e-16 |
 
 ## Errata and caveats found while testing
 - **NIST cumulative-sums 10-bit example.** SP 800-22 rev1a prints P = 0.4116588 for ε = 1011010111. Our code and an
   independent scipy computation both give 0.4115847. We believe the printed value is a rounding erratum. The test uses
   the 100-bit example (0.219194), which matches exactly.
-- **Cross-libm determinism.** Native quantum_rng (glibc) and WASM (musl) give different bytes for the same seed. See TSOTCHKE.md.
+- **Cross-libm determinism (known result, v10).** Seeded quantum_rng output depends on the C math library: glibc 2.41 gives `e5f60b0d…`, musl 1.2.5 and WASM give `52d659a0…`, with or without SSE3 (C3e). Seeded streams are reproducible only within one libm.
 - **Fubini–Study floor.** With no edits, the measured angle is ~2e-7 rad, not 0. This is the float64 rounding floor of
   arccos near 1, and is expected.
 - **Not claimed:** quantum randomness, quantum speed-up, HoTT proofs (Eshkol's checker is gradual and has no univalence), tensor-logic semantics, or any capability of the
