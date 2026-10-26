@@ -1,4 +1,4 @@
-# Claims & Evidence (v8)
+# Claims & Evidence (v9)
 
 Each claim names the check that would **refute** it. Every row is executed by `test/tsotchke.test.mjs` (Node), and rows
 marked ● also run live in the browser (TSOTCHKE › CLAIMS, or `claims` in the terminal). Numbers are from the run on
@@ -21,6 +21,10 @@ marked ● also run live in the browser (TSOTCHKE › CLAIMS, or `claims` in the
 | C4 ● | `nist.js` matches the SP 800-22 rev1a worked examples | any p-value off by ≥ 5e-7 | 0.527089, 0.801252, 0.147232, 0.109599, 0.706438, 0.500798, 0.219194: all match |
 | C5a ● | edit ; undo ≡ identity | weights hash after undo ≠ before | bitwise equal |
 | C5b | Disjoint edits commute; overlapping non-linear ones do not | disjoint pair differs, or noise∘SVD = SVD∘noise | as claimed (the check is capable of failing) |
+| C2f ● | QGTL's own `qgt_geometric_measure_fidelity` (WASM) agrees with Moonlab | \|ΔF\| ≥ 2e-6 (synthetic) or ≥ 1e-5 (real 50 257-way distributions) | 8.4e-10 (synthetic); ≤ 1.1e-7 across prompt positions in Chrome |
+| C2g ● | QGTL's `qgt_geometric_compute_metric` is only diag(1 − \|ψ_i\|²) (an upstream limitation, recorded so a fix upstream would show up) | any entry deviates by ≥ 1e-6 | max deviation 4.5e-8 |
+| C6a ● | Eshkol's type layer (`dependent.cpp`, `hott_types.cpp`, WASM) accepts all 73 judgments of the live model graph: reshape paths Id_Nat(rows·cols, len), matmul compatibility, head split, residual adds, token bounds, Float32 <: Real, promotion to Float64 | any judgment rejected | 73/73 |
+| C6b ● | The same checker rejects broken graphs | a truncated `h3.fc`, ff = 1000, token 50257, or a non-Float32 tensor is accepted | each rejected; e.g. "Dimension mismatch: 262144 != 262143" (tests H1–H4) |
 
 ## Errata and caveats found while testing
 - **NIST cumulative-sums 10-bit example.** SP 800-22 rev1a prints P = 0.4116588 for ε = 1011010111. Our code and an
@@ -29,5 +33,5 @@ marked ● also run live in the browser (TSOTCHKE › CLAIMS, or `claims` in the
 - **Cross-libm determinism.** Native quantum_rng (glibc) and WASM (musl) give different bytes for the same seed. See TSOTCHKE.md.
 - **Fubini–Study floor.** With no edits, the measured angle is ~2e-7 rad, not 0. This is the float64 rounding floor of
   arccos near 1, and is expected.
-- **Not claimed:** quantum randomness, quantum speed-up, HoTT proofs, tensor-logic semantics, or any capability of the
+- **Not claimed:** quantum randomness, quantum speed-up, HoTT proofs (Eshkol's checker is gradual and has no univalence), tensor-logic semantics, or any capability of the
   Tsotchke projects beyond what is listed above.

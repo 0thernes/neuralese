@@ -34,11 +34,37 @@ AOT … JIT … bytecode VM" ([post](https://x.com/tsotchke/status/2105498951873
 ([post](https://x.com/tsotchke/status/2113635270159429726)); install via Homebrew ([post](https://x.com/tsotchke/status/2104425532754477163)).
 Performance claims ([post](https://x.com/tsotchke/status/2112197451545215016)) were **not** benchmarked by us.
 
-**HoTT and tensor logic.** The only HoTT reference we found in the repo is "HoTT-based gradual typing" in `docs/FAQ.md`
-(line 89). We found no implementation named "tensor logic". We therefore make **no** HoTT or tensor-logic claims for
-NEURALESE. The CLAIMS tab includes path-law property tests on the edit stack (edit;undo = identity, disjoint edits commute,
-overlapping non-linear edits do not). They are *inspired by* the path/groupoid view and are ordinary bitwise tests, not
-type-theoretic proofs.
+**HoTT and type theory — correction (v9).** v8 said the only HoTT reference was `docs/FAQ.md:89`. That was wrong. The
+Eshkol [README](https://github.com/tsotchke/eshkol/blob/341ac812ed600fd9d27c28e9509d66ab71363947/README.md) says "Built on Homotopy Type Theory foundations" (line 9) and lists a "HoTT type checker"
+(line 226), and HoTT also appears in `docs/README.md`, `docs/platform/*` and `docs/TEST_COVERAGE.md`. The same README
+(line 65) states that "no proof obligation is currently discharged by the compiler" and that `areEquivalent` is
+identity-only. So HoTT is a design foundation, not a discharged proof system. The type layer itself is real C++ code. Eshkol ships a real HoTT-flavoured type system in C++:
+- [`docs/breakdown/TYPE_SYSTEM.md`](https://github.com/tsotchke/eshkol/blob/341ac812ed600fd9d27c28e9509d66ab71363947/docs/breakdown/TYPE_SYSTEM.md): universe hierarchy U0 ⊂ U1 ⊂ U2 ⊂ UΩ, Π and Σ types, path types, subtyping, numeric promotion.
+- [`inc/eshkol/types/hott_types.h`](https://github.com/tsotchke/eshkol/blob/341ac812ed600fd9d27c28e9509d66ab71363947/inc/eshkol/types/hott_types.h), [`lib/types/hott_types.cpp`](https://github.com/tsotchke/eshkol/blob/341ac812ed600fd9d27c28e9509d66ab71363947/lib/types/hott_types.cpp): `TypeEnvironment` (universe levels, `isSubtype`, `promoteForArithmetic`).
+- [`lib/types/dependent.cpp`](https://github.com/tsotchke/eshkol/blob/341ac812ed600fd9d27c28e9509d66ab71363947/lib/types/dependent.cpp): `CTValue` (compile-time naturals with `mul`, i.e. type-level arithmetic) and `DimensionChecker` (`checkMatMulDimensions`, `checkDimensionsEqual`, `checkBounds`).
+- Homotopy-theory example programs: [`examples/mathematics_homotopy_colimits_grothendieck.esk`](https://github.com/tsotchke/eshkol/blob/341ac812ed600fd9d27c28e9509d66ab71363947/examples/mathematics_homotopy_colimits_grothendieck.esk), [`examples/mathematics_kan_complexes_horns.esk`](https://github.com/tsotchke/eshkol/blob/341ac812ed600fd9d27c28e9509d66ab71363947/examples/mathematics_kan_complexes_horns.esk).
+
+Honest scope, from Eshkol's own docs: the checker is *gradual* (it warns rather than rejects at compile time), and
+`FEATURE_MATRIX.md` (≈ line 845) plans to retire the "HoTT-inspired" label in favour of a Lean export. It does not
+implement univalence or higher inductive types. So we use it for what it is: a dependent-dimension and universe/subtype
+checker.
+
+**What we now run (v9).** We compiled `dependent.cpp`, `hott_types.cpp` and `type_relation.cpp` to WebAssembly
+(`wasm/build-eshkol-types.sh`, `wasm/eshkol_types_shim.c++`; sha256 `555920a7…26a7`). `site/tsotchke/types.js` asks
+Eshkol to decide 73 judgments about the live model: every weight's flat length equals rows·cols (a path/identity judgment
+`Id_Nat(rows·cols, len)` computed by `CTValue::mul`), every matmul in the graph (q/k/v/o, fc, proj, unembedding) is
+dimension-compatible, H·hd = d, residual adds match, prompt tokens are < V, `Float32 <: Real`, and the accumulator
+promotes to Float64. Every verdict string comes from Eshkol (e.g. "Dimension mismatch: 262144 != 262143"). Mutation
+tests show the same checker rejects a truncated `h3.fc`, a miswired MLP width, an out-of-vocabulary token and a
+non-Float32 tensor (test H4, live C6b).
+
+**Tensor logic.** A GitHub code search for "tensor logic" under `user:tsotchke` returns nothing (eshkol, moonlab, QGTL; `tensorcore` is Apple-Silicon GEMM kernels). The "Prolog-like logic engine" appears only in an X post. The nearest artifact is
+Eshkol's neurosymbolic library ([`lib/core/ml/neurosymbolic.esk`](https://github.com/tsotchke/eshkol/blob/341ac812ed600fd9d27c28e9509d66ab71363947/lib/core/ml/neurosymbolic.esk),
+[`docs/reference/stdlib/ml_neurosymbolic.md`](https://github.com/tsotchke/eshkol/blob/341ac812ed600fd9d27c28e9509d66ab71363947/docs/reference/stdlib/ml_neurosymbolic.md)): `soft-unify` = σ(⟨e_a, e_b⟩/√dim),
+`kb-attention`, `kb-retrieve`. We have not integrated it; we make no tensor-logic claim.
+
+**Edit-stack path laws.** The CLAIMS tab still includes property tests on the edit stack (edit;undo = identity, disjoint
+edits commute, overlapping non-linear edits do not). These are ordinary bitwise tests, not type-theoretic proofs.
 
 **What we use.** `site/tsotchke/taylor.js` ports the recurrences for exp, log, sin/cos, tan, constant power, sqrt,
 sinh/cosh/tanh, sigmoid, atan, asin, the Cauchy product and the quotient. We use it to compute the exact Taylor jet
@@ -75,7 +101,7 @@ upstream SHA-256 and the diff.
 ## QGTL (quantum_geometric_tensor)
 
 **What it is (verified).** A C library around the quantum geometric tensor. Its README defines
-Q_μν = ⟨∂μψ|∂νψ⟩ − ⟨∂μψ|ψ⟩⟨ψ|∂νψ⟩, whose real part is the Fubini–Study metric and whose imaginary part is (−½) the Berry
+Q_μν = ⟨∂μψ|∂νψ⟩ − ⟨∂μψ|ψ⟩⟨ψ|∂νψ⟩, whose real part is the Fubini–Study metric and whose imaginary part is, in our convention (the README does not state the factor), −½ times the Berry
 curvature. The implementation is in `src/quantum_geometric/core/quantum_geometric_metric.c`
 (`geometric_compute_fubini_study_element`). Version string 0.777 Beta.
 
@@ -88,7 +114,23 @@ falsifiable predictions, which we test:
 - Fubini–Study distance measured with Moonlab, s(ε)/ε, converges to √Fisher/2 (C2b).
 - Mean Fisher along a direction = g″(0) from the Eshkol-port jet = PyTorch autograd (C2c). These are three independent routes.
 
-**Not used.** The C library itself (native CPU/GPU/hardware targets; no browser build). We did not compile it.
+**The C library itself (v9: compiled and used).** Correction: v8 said we did not compile QGTL. We now compile its
+geometric-measure core to WebAssembly (`wasm/build-qgtl.sh`: [`qgt_context.c`](https://github.com/tsotchke/quantum_geometric_tensor/blob/770994aa8ddd858e6bb16eebb25250a7b9f67c96/src/quantum_geometric/core/qgt_context.c),
+`quantum_geometric_operations.c`, `memory_pool.c`, `quantum_geometric_hardware.c`, `quantum_geometric_error.c`,
+`quantum_geometric_logging.c`; 29.7 KB, sha256 `2c56f678…371d`). One link fix was needed: core calls
+`cleanup_memory_pool(MemoryPool*)` but never defines it (only `ai/quantum_llm_core.c` defines a same-named function for
+another type), so `wasm/qgtl_stubs.c` forwards it to core's own `destroy_memory_pool`.
+- **Used live:** `qgt_geometric_measure_fidelity` (|⟨ψ|φ⟩|²). In the Q-GEOMETRY tab every position is measured by both
+  Moonlab and QGTL. They agree to ≈1e-7 (QGTL stores amplitudes as single-precision `ComplexFloat`). Tests H5, H6, live C2f.
+- **Tested and documented as a limitation:** `qgt_geometric_compute_metric` returns only diag(1 − |ψ_i|²), which is not the
+  Fubini–Study metric of the state (the file calls these "simple implementations"). Test H7 / live C2g pins this behaviour.
+- **Tried and not used:** the tensor-network QGT (`compute_quantum_geometric_tensor` in
+  [`quantum_geometric_tensor_network.c`](https://github.com/tsotchke/quantum_geometric_tensor/blob/770994aa8ddd858e6bb16eebb25250a7b9f67c96/src/quantum_geometric/core/quantum_geometric_tensor_network.c)). We compiled
+  82 core files (11 GPU/OS-specific ones did not build under emcc). For a 1-qubit RY(0.7)·RZ(0.3) circuit the gate matrices
+  were correct, but `get_quantum_state` returned an all-zero state and `compute_shifted_states` failed with "Invalid tensor
+  network state", followed by an out-of-bounds trap. Reproducer: `wasm/qgtl_qgt_repro.c`. We did not rule out that a native
+  build behaves differently (a native link needs LAPACK and more modules). Also noted: upstream
+  `tests/test_quantum_geometric_minimal.c` compares a `bool` return against `NUMERICAL_SUCCESS`.
 
 ## quantum_rng
 
@@ -113,6 +155,24 @@ across them. Pin the WASM if you need replay.
 **Not done.** No hardware entropy and no claim of quantum randomness. Our SP 800-22 subset covers four tests (monobit,
 block frequency, runs, cumulative sums) and is not the full suite.
 
+## Searches (v9)
+- **Websites:** the live site is [tsotchke.org](https://tsotchke.org/technology/); [QGTL page](https://tsotchke.org/technology/qgtl.html)
+  describes it as the stack's foundation. Its performance figures (e.g. "10–1000× parameter efficiency") are marketing and unverified by us.
+  tsotchke.net is reachable and shows only "TSOTCHKE CORPORATION".
+- **X:** @tsotchke is protected for our account and `from:tsotchke` returns no results, so the v8 post links are the only
+  first-party posts we cite. Third-party posts mention Eshkol's knowledge base / global workspace and "Grothendieckian resonant
+  HoTT" ([LGr8tz](https://x.com/LGr8tz/status/2114527879853998110)) and Moonlab/QGTL ([0thernes_ai](https://x.com/0thernes_ai/status/2112965027603071230)).
+- **Papers:** web searches for Tsotchke on arXiv, Zenodo and ResearchGate found no paper. QGTL's README asks to be cited as
+  software (`@software{QGTL2026}`). The ResearchGate QGT paper that comes up ("When Less is More", Shokry, Santini, Vicentini 2025) is by other authors.
+- **Repos relevant to the next step, not integrated:** [libirrep](https://github.com/tsotchke/libirrep) (SO(3)/SU(2)/O(3)/SE(3)
+  representations for equivariant networks; an 8M-parameter text model has no rotation symmetry to test honestly),
+  [rosette-wire](https://github.com/tsotchke/rosette-wire) (verifiable replay across Eshkol and Moonlab).
+
+## Moonlab's native QGT (not yet used)
+Moonlab has its own Provost–Vallée QGT and Berry curvature in C (`src/algorithms/quantum_geometry/qgt.{h,c}`). 1.2.1 exposes
+VQE Berry curvature and natural gradient (ABI 0.7.0). NEURALESE uses Moonlab's state fidelity only. Mirrors:
+github.com/t-sotchke, org github.com/Tsotchke-Corporation (not inspected in depth).
+
 ## Other repositories seen (not integrated)
 
 libirrep, rosette-wire, spin_based_neural_network, classical_rng, tensorcore and others in
@@ -135,6 +195,6 @@ node smoke-v8.mjs http://localhost:8765/   # headless Chrome: claims, CSP, WASM 
 The repository is deployed through a text-only channel, so both WebAssembly binaries are committed as base64 text: `site/tsotchke/qrng.wasm.b64` and `site/vendor/moonlab/dist/moonlab.wasm.b64`. `site/tsotchke/wasmb64.js` decodes them and checks SHA-256 before instantiation. If the hash does not match, loading throws:
 
 - qrng.wasm: `a82a9b44efcdb5d0177c0eb6bc63b76910fefdc97482ce014d846dcd19fba86e` (reproducible with `wasm/build-qrng.sh`)
-- moonlab.wasm: `fef4f0192641af2299b097bb1ccb535cd76f2d5d10f731c5723fe6e3f71229c1`. This is the byte-identical upstream `@moonlab/quantum-core` binary. Check it with `base64 -d moonlab.wasm.b64 | sha256sum`.
+- moonlab.wasm: `fef4f0192641af2299b097bb1ccb535cd76f2d5d10f731c5723fe6e3f71229c1`. This is the byte-identical binary shipped in npm `@tsotchkecorp/moonlab@1.2.1` (the name of `bindings/javascript/packages/core/package.json` in the repo; the workspace root there is `moonlab-javascript`). Check it with `base64 -d moonlab.wasm.b64 | sha256sum`.
 
 Test C3z checks that both pins hold and that a changed pin gets rejected. The browser hands the verified bytes to the unmodified Emscripten glue through `wasmBinary`. In Node, the test materialises `dist/moonlab.wasm` from the verified base64 first.

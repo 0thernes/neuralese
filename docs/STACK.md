@@ -1,9 +1,9 @@
-# Stack — exact versions (v8.0.0, 2026-10-25)
+# Stack — exact versions (v9.0.0, 2026-10-25)
 
 ## Runtime (what the deployed page uses)
 | component | version | origin | license |
 |---|---|---|---|
-| NEURALESE app | 8.0.0 | this repo, plain ES2022 modules, no bundler, no framework | MIT |
+| NEURALESE app | 9.0.0 | this repo, plain ES2022 modules, no bundler, no framework | MIT |
 | Language model | `roneneldan/TinyStories-8M` @ `refs/pr/1` (safetensors, fp32; GPT-Neo, 8 layers, d = 256, V = 50 257) | Hugging Face, fetched at runtime | per model card |
 | Inference / gradients / analysis | hand-written JavaScript (`engine.js`, `grad.js`, `analysis.js`, …), Float32 CPU; optional WebGPU unembedding | this repo | MIT |
 | three.js | r160 (`site/vendor/three/three.module.min.js` + `addons/controls`), vendored and pinned | three.js authors | MIT |
@@ -11,10 +11,12 @@
 | **quantum_rng** (⚛ Tsotchke) | 1.1.0 @ `1a77e77`, compiled by us with emscripten 4.0.23 `-O2`: `qrng.wasm` 42 KB (sha256 `a82a9b44…6e`), `qrng.mjs` 10 KB | `site/tsotchke/`, built by `wasm/build-qrng.sh` | MIT |
 | **Eshkol Taylor recurrences** (⚛ Tsotchke) | port of `lib/core/taylor_recurrences.def` @ `341ac81` (Eshkol 1.3.6) | `site/tsotchke/taylor.js` | MIT |
 | **QGTL definition** (⚛ Tsotchke) | QGT / Fubini–Study metric @ `770994a` (v0.777 Beta) | `site/tsotchke/geometry.js` | MIT |
+| **Eshkol type layer** (⚛ Tsotchke) | `lib/types/{dependent,hott_types,type_relation}.cpp` @ `341ac81`, compiled by us (emscripten 4.0.23, C++17): `eshkol_types.wasm` (sha256 `555920a7…26a7`) | `site/tsotchke/types.js`, built by `wasm/build-eshkol-types.sh` | MIT |
+| **QGTL core** (⚛ Tsotchke) | 6 files of `src/quantum_geometric/core` @ `770994a`, compiled by us (emscripten 4.0.23 `-O2`): `qgtl.wasm` 29.7 KB (sha256 `2c56f678…371d`) | `site/tsotchke/qgtl.js`, built by `wasm/build-qgtl.sh` | MIT |
 | NIST SP 800-22 subset | our implementation of rev1a §2.1, 2.2, 2.3, 2.13 | `site/tsotchke/nist.js` | MIT |
 | Hosting | GitHub Pages (`gh-pages` branch), CSP `script-src 'self' <hash> 'unsafe-eval'` (`unsafe-eval` is needed for WebAssembly compilation) | | |
 
-Languages in the shipped page: JavaScript (ES modules), WebAssembly (compiled from C: quantum_rng, Moonlab), HTML, CSS.
+Languages in the shipped page: JavaScript (ES modules), WebAssembly (compiled from C: quantum_rng, Moonlab, QGTL; from C++: Eshkol type layer), HTML, CSS.
 
 ## Development and verification
 | tool | version | used for |
