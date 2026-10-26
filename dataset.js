@@ -1,5 +1,5 @@
 // shared dataset: built-in TinyStories-style corpus, or a user-uploaded corpus used by every docs-based tool.
-import { CORPUS } from './corpus.js?v=7';
+import { CORPUS } from './corpus.js?v=8';
 export const DS = { user: null, name: 'built-in corpus (40 docs)' };
 export const allDocs = () => DS.user || CORPUS;
 export const docs = (n, T = 24) => { const a = allDocs(); return a.slice(0, Math.max(1, Math.min(a.length, n))).map((x) => x.slice(0, T)); };
