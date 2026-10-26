@@ -163,4 +163,17 @@ Finally make it reproducible: the **weights hash** and **manifest** pin exactly 
     { q: 'Faithfulness of 100% means the circuit…', options: ['recovers the full clean–corrupt metric gap', 'contains every node', 'has zero loss'], a: 0, why: '(m_circuit − m_corrupt)/(m_clean − m_corrupt).' },
     { q: 'High probe accuracy but low selectivity suggests…', options: ['the probe memorises word identities', 'the feature is causally used', 'the model is broken'], a: 0, why: 'The control task scores just as well.' },
     { q: 'Two runs have identical weights if…', options: ['their SHA-256 weight hashes match', 'their perplexities match', 'they used the same prompt'], a: 0, why: 'The hash covers every bit of every tensor.' } ] },
+{ id: 'l15', level: 'Research', title: '15 · What frontier tests can and cannot show', minutes: 35,
+  lecture: `Big questions — is it conscious? does it know itself? can it improve itself? — only become science once they are **operationalised**: a measurable proxy, a **null model** that lacks the property, and a **threshold fixed before running** (pre-registration). FRONTIER does this for 14 hypotheses.
+
+What they *can* show: whether a proxy behaves differently in the trained model than in random or shuffled weights, or than in another model. What they *cannot* show: experience. A high perturbational-complexity score also comes from noise (random-init scores almost as high here); a switch-like dose–response follows from softmax saturation; a probe that detects an injected concept is a *probe's* ability, not the model's report. Introspection in Binder et al.'s sense needs **privileged** access — beating a different model given the same information — and the 8M model does not. A loop that keeps only edits passing a held-out test can lower loss a little, but it stalls when its proposals repeat; self-distillation helped here, contradicting our prediction, and we report that rather than explain it away.
+
+The lesson: report negatives, keep test data out of every decision, and treat any "it's conscious" headline about a tiny model as a category error.`,
+  diagram: svg(520, 120, `${box(10, 40, 110, 40, 'pre-register')}${arrow(120, 60, 150, 60)}${box(150, 40, 100, 40, 'run + nulls')}${arrow(250, 60, 280, 60)}${box(280, 40, 100, 40, 'score rule')}${arrow(380, 60, 410, 60)}${box(410, 40, 100, 40, 'report all')}`),
+  lab: ['frontier', 'scorecard', 'pci', 'grok 600', 'fclaims'],
+  labNotes: 'Which hypotheses failed? For PCI, compare trained vs random-init on your own prompt: is the difference meaningful? Does the live grokking run memorise before it generalises?',
+  quiz: [
+    { q: 'A trained model scores PCI 0.97 and a random-init model 0.96. This shows…', options: ['PCI here barely distinguishes structure from noise', 'the model is conscious', 'the random model is conscious'], a: 0, why: 'A proxy must beat its null by a meaningful margin.' },
+    { q: 'Privileged self-knowledge requires the model to predict its own behaviour…', options: ['better than another model given the same inputs', 'better than chance', 'with high confidence'], a: 0, why: 'Binder et al.’s cross-model baseline.' },
+    { q: 'Why must test documents never influence which edit is kept?', options: ['otherwise the test result is selection-biased', 'they are too short', 'it is slower'], a: 0, why: 'Select and test splits keep the reported gain honest.' } ] },
 ];
