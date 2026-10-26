@@ -2,7 +2,7 @@
 
 **What this is not.** Nothing here shows, or claims, that TinyStories-8M is conscious, sentient, introspective in a human sense, or superintelligent. Each module turns a frontier question into an *operational proxy* with an explicit definition, a *null model*, and a *pass/fail threshold that was frozen before any experiment ran*: [`PREREG-v11.md`](PREREG-v11.md), sha256 `8b923ab4…ddbec93`, committed to `main` at `2a2b3ef` (frozen 2026-10-26 00:16:32 PT). Every result file in `site/frontier/data/` cites that hash; `test/v11.test.mjs` re-scores each file against the frozen rule.
 
-**Scorecard: 14 pre-registered hypotheses — 12 decided: 5 supported (H1a, H2a, H4a, H4b, H5c), 7 not supported (H2b, H3a, H3b, H4c, H4d, H5a, H5b; H4c is a prediction falsified in the "good" direction). 2 pending (H6a, H6b): the P6 atlas run was still in progress when v11 shipped.**
+**Scorecard: 14 pre-registered hypotheses — 6 supported (H1a, H2a, H4a, H4b, H5c, H6a), 8 not supported (H2b, H3a, H3b, H4c, H4d, H5a, H5b, H6b; H4c is a prediction falsified in the "good" direction).**
 
 | test | hypothesis (frozen threshold) | result | verdict |
 |---|---|---|---|
@@ -18,8 +18,8 @@
 | P5 H5a | grokking: test ≥ 95% at ≥ 2× the step train hits 99% | train 99% at 1050; test reached only 0.62 by 6000 | **not supported** (partial, slow generalisation) |
 | P5 H5b | ≥ 80% Fourier-concentrated neurons after, ≤ 20% at init | 0.4% → 70.7% | **not supported** (strong rise, below bar) |
 | P5 H5c | weight decay 0 → test acc < 50% | 1.9% | **supported** |
-| P6 H6a | Spearman(AtP, exact) ≥ .5 for neurons and heads | running at ship time; started 2026-10-26 00:18 PT | **running / results pending** |
-| P6 H6b | top 1% neurons hold ≥ 25% of \|ΔCE\| | running at ship time; started 2026-10-26 00:18 PT | **running / results pending** |
+| P6 H6a | Spearman(AtP, exact) ≥ .5 for neurons and heads | ρ neurons 0.982, heads 0.560 | **supported** |
+| P6 H6b | top 1% neurons hold ≥ 25% of \|ΔCE\| | 5.8% | **not supported** |
 
 CIs are 95% document-bootstrap (2000 resamples), splits propose 0–13 / select 14–26 / test 27–39 of the 40-doc corpus.
 
@@ -39,10 +39,10 @@ CIs are 95% document-bootstrap (2000 resamples), splits propose 0–13 / select 
 - **P3** no privileged self-knowledge at 8M parameters: a 3M model's activations predict the 8M's uncertainty about as well as the 8M's own, and the 8M reads the 3M's entropy better than the 3M does. Injected-concept detection generalises above chance (AUC .70) but below the bar.
 - **P4** the "self-improvement" loop gains 0.005 nats from three gradient steps on 1 536 parameters and then stalls: proposals A/B are deterministic given θ, so once rejected they repeat. Self-distillation *helped* (−0.012 nats), contrary to our prediction; the most plausible reading is calibration of ln_f/gains to the in-distribution sampled text, not new knowledge — but we did not pre-register a test of that explanation, so it remains a hypothesis. TTT gave no reliable gain.
 - **P5** the network memorises by step 1050 and then generalises slowly to 62% test accuracy by 6000 steps; Fourier concentration rises from 0.4% to 71% of neurons. This is the grokking trajectory in progress, not a completed grok, under the pre-registered budget. Without weight decay it stays at chance (1.9%). An exploratory longer run was *not* performed for this release.
-- **P6** status: **running / results pending.** The exhaustive exact-ablation run (8320 units × 4 docs) was not finished when v11 shipped, so H6a and H6b have no verdict; they are neither supported nor refuted. `site/frontier/data/atlas.json` is a status-only file with no verdict fields, and test F7 skips until the real file lands. When the run finishes, its verdicts will be published unchanged against the frozen thresholds, whichever way they come out. Deviation D6: v11 shipped before P6 completed (scope unchanged, not reduced).
+- **P6** attribution patching (one forward + one backward pass) ranks the 8192 neurons almost exactly like exact ablation (Spearman ρ 0.982) but heads only moderately (ρ 0.560, just over the .5 bar): AtP is a first-order estimate and heads have larger, more nonlinear effects. Causal mass is spread out, not concentrated: the top 1% of neurons (82) hold only 5.8% of total |ΔCE| (bar 25%), so H6b fails. Exact run: 8320 units × 4 test docs × 48 targets, 8714 s on 6 CPU workers; baseline CE 1.507.
 
 ## Novelty assessment (cautious)
-Individually every method here is published (citations below). We did **not** run a systematic literature search for prior combinations, so novelty is unverified. What we are not aware of is the *combination*: a fully in-browser, pre-registered battery that applies consciousness-science indicator proxies, introspection tests with cross-model baselines, a gated self-improvement loop, a grokking replication and an exhaustive exact single-unit causal atlas (still running at release) to one released LM, with every result file hash-linked to a public pre-registration and live re-checkable in the page. That is a claim about packaging and rigour, not about a new phenomenon. Exhaustive exact ablation of every neuron of a small LM is feasible and has likely been done privately; we claim no priority.
+Individually every method here is published (citations below). We did **not** run a systematic literature search for prior combinations, so novelty is unverified. What we are not aware of is the *combination*: a fully in-browser, pre-registered battery that applies consciousness-science indicator proxies, introspection tests with cross-model baselines, a gated self-improvement loop, a grokking replication and an exhaustive exact single-unit causal atlas to one released LM, with every result file hash-linked to a public pre-registration and live re-checkable in the page. That is a claim about packaging and rigour, not about a new phenomenon. Exhaustive exact ablation of every neuron of a small LM is feasible and has likely been done privately; we claim no priority.
 
 ## Limits
 One tiny model; 40 short documents; 13 test docs (wide CIs); proxies borrowed from neuroscience whose validity even in brains is debated; the indicator framework assumes computational functionalism; random-init and shuffled nulls are not the only sensible nulls; the loop edits only 1 536 parameters; grokking used one seed and one budget.
@@ -53,7 +53,7 @@ One tiny model; 40 short documents; 13 test docs (wide CIs); proxies borrowed fr
 - **D3** `rsi-*.json` lacked the `prereg` hash field (runs started before the tool wrote it); added at copy time and marked `preregNote`.
 - **D4** PREREG P5 text says "lr 3e-3? decided by the first config"; the first config is lr 3e-3, which was used. Wording left unchanged in the frozen file.
 - **D5** Concept list: 32 single-token nouns chosen before P2/P3a ran (`site/frontier/data/concepts.json`); the prereg named the counts but not the words.
-- **D6** v11 shipped (2026-10-26 ~02:50 PT) while the P6 atlas was still running at the pre-registered full scope; H6a/H6b are reported as pending, not scored.
+- **D6** v11.0.0 shipped (2026-10-26 ~02:50 PT) showing P6 as "running / results pending"; the full-scope atlas had in fact finished at 02:43 PT, unnoticed. v11.0.1 publishes its verdicts unchanged against the frozen thresholds (H6a supported, H6b not). Scope was not reduced.
 
 ## Citations (each verified against arXiv or the DOI record, 2026-10-26)
 - Consciousness in Artificial Intelligence: Insights from the Science of Consciousness — Butlin, Long, Elmoznino, Bengio, Birch, Constant, Deane, Fleming, Frith, Ji, Kanai, Klein, Lindsay, Michel, Mudrik, Peters, Schwitzgebel, Simon, VanRullen — arXiv:2308.08708 (scorecard)

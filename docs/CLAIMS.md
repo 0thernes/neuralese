@@ -50,8 +50,8 @@ Verdict ● supported · ○ not supported. Details and caveats: [FRONTIER.md](F
 | H5a | grokking within 6000 steps | test 0.62 max | ○ |
 | H5b | ≥ 80% Fourier neurons | 70.7% | ○ |
 | H5c | wd=0 fails to generalise | 1.9% | ● |
-| H6a | AtP ranks units like exact ablation (ρ ≥ .5) | running at ship time; started 2026-10-26 00:18 PT | **running / results pending** |
-| H6b | top 1% neurons ≥ 25% of \|ΔCE\| | running at ship time; started 2026-10-26 00:18 PT | **running / results pending** |
+| H6a | AtP ranks units like exact ablation (ρ ≥ .5) | ρ neurons 0.982, heads 0.560 | ● |
+| H6b | top 1% neurons ≥ 25% of \|ΔCE\| | 5.8% | ○ |
 
 ## Errata and caveats found while testing
 - **NIST cumulative-sums 10-bit example.** SP 800-22 rev1a prints P = 0.4116588 for ε = 1011010111. Our code and an
