@@ -1,4 +1,4 @@
-# Glossary (176 terms)
+# Glossary (193 terms)
 
 ### Ablation
 Removing a component's contribution (setting it to zero, its mean, or a resampled value) to measure how much the output depends on it.
@@ -871,3 +871,88 @@ NIST's statistical test suite for random bit sequences. NEURALESE implements mon
 Developer of Eshkol, Moonlab, QGTL, quantum_rng and other MIT-licensed projects (github.com/tsotchke). Components using this work carry the ⚛ Powered by Tsotchke badge.
 
 *See:* [Eshkol](#eshkol), [Moonlab](#moonlab)
+
+### Pre-registration
+Writing down hypotheses, methods, nulls and pass/fail thresholds before running an experiment, and timestamping them (v11: a public commit) so results cannot quietly move the goalposts.
+
+*See:* [Null model](#null-model), [Negative result](#negative-result)
+
+### Null model
+A version of the system with the property of interest destroyed — random-init weights, shuffled weights, a smaller model, a random edit — run through the identical test. A result only counts if it beats the null.
+
+*See:* [Pre-registration](#pre-registration)
+
+### Negative result
+A pre-registered hypothesis the data did not support. Reported with the same prominence as positives; v11 has several.
+
+*See:* [Pre-registration](#pre-registration)
+
+### Consciousness indicators
+Butlin, Long et al.'s list of computational properties (recurrence, global workspace, metacognition, agency…) derived from scientific theories of consciousness. A heuristic for weighing evidence under computational functionalism, not a test.
+
+*See:* [Global workspace](#global-workspace), [PCI](#pci)
+
+### PCI
+Perturbational Complexity Index (Casali et al. 2013): perturb a system, binarise the spatiotemporal response and measure its Lempel–Ziv compressibility. v11 applies an analogue to the residual stream; high values can arise from noise, so nulls are essential.
+
+*See:* [Lempel–Ziv complexity](#lempelziv-complexity), [Consciousness indicators](#consciousness-indicators)
+
+### Lempel–Ziv complexity
+LZ76: the number of new phrases met when parsing a sequence left to right; normalised by n·log2(n)/H so random strings score ≈ 1.
+
+*See:* [PCI](#pci)
+
+### Ignition
+In global-workspace theory, a sudden non-linear, all-or-none amplification of a representation. v11 operationalises it as a Hill coefficient n ≥ 2 in the dose–response to concept injection.
+
+*See:* [Hill coefficient](#hill-coefficient), [Global workspace](#global-workspace)
+
+### Hill coefficient
+The exponent n in y = R·xⁿ/(Kⁿ + xⁿ). n = 1 is graded; n ≥ 2 is switch-like.
+
+*See:* [Ignition](#ignition)
+
+### Global workspace
+A theory (Baars; Dehaene & Changeux) in which specialised processors compete for a limited-capacity workspace whose contents are broadcast globally.
+
+*See:* [Ignition](#ignition), [Consciousness indicators](#consciousness-indicators)
+
+### Concept injection
+Adding a concept's direction (here its token embedding) into an activation and asking whether something downstream can detect it — the method of Lindsey's introspection experiments, scaled down.
+
+*See:* [Activation addition](#activation-addition), [Introspection (operational)](#introspection-operational)
+
+### Introspection (operational)
+Privileged access: a model predicts facts about its own behaviour better than an equally informed different model can (Binder et al. 2024). Not a claim about experience.
+
+*See:* [Concept injection](#concept-injection)
+
+### Recursive self-improvement loop
+A system proposing changes to itself, keeping those that pass a held-out test, and repeating. v11's loop edits 1 536 parameters with a select set for decisions and an untouched test set for reporting.
+
+*See:* [Test-time training](#test-time-training), [Self-distillation](#self-distillation)
+
+### Self-distillation
+Fine-tuning a model on its own (filtered) generations. Without new information it should not improve held-out loss, and can degrade it (model collapse, Shumailov et al.).
+
+*See:* [Recursive self-improvement loop](#recursive-self-improvement-loop)
+
+### Test-time training
+Briefly updating some parameters on the start of an input before predicting the rest (Sun et al. 2019).
+
+*See:* [Recursive self-improvement loop](#recursive-self-improvement-loop)
+
+### Grokking
+Delayed generalisation: test accuracy jumps long after training accuracy saturates (Power et al. 2022); linked to weight decay and Fourier-feature circuits in modular arithmetic (Nanda et al. 2023).
+
+*See:* [Fourier features](#fourier-features)
+
+### Fourier features
+In modular-addition networks, neurons whose input weights are dominated by one frequency k (cos/sin of 2πka/p); the mechanism by which grokked nets compute (a+b) mod p.
+
+*See:* [Grokking](#grokking)
+
+### Causal atlas
+v11's exhaustive table of the exact loss change from zero-ablating each of the 128 heads and 8 192 MLP neurons, compared with attribution patching.
+
+*See:* [Attribution patching](#attribution-patching), [Ablation](#ablation)

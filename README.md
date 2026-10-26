@@ -1,6 +1,10 @@
-# NEURALESE v10: interpretability and weight-surgery lab (TinyStories-8M, 100% in-browser) — ⚛ Powered by Tsotchke
+# NEURALESE v11: interpretability and weight-surgery lab (TinyStories-8M, 100% in-browser) — ⚛ Powered by Tsotchke
 
 Live: https://0thernes.github.io/neuralese/ · Audit: [AUDIT.md](AUDIT.md) · Tsotchke analysis: [docs/TSOTCHKE.md](docs/TSOTCHKE.md) · Claims & evidence: [docs/CLAIMS.md](docs/CLAIMS.md) · Stack and versions: [docs/STACK.md](docs/STACK.md)
+
+## What's new in v11 — FRONTIER, pre-registered
+
+A FRONTIER tab group runs 14 hypotheses about consciousness-science proxies (Butlin/Long indicator scorecard, PCI-style complexity, ignition), introspection (injected-concept detection, privileged self-prediction vs TinyStories-3M/1M), a gated self-improvement loop, self-distillation, test-time training, grokking with a Fourier check, and an exhaustive exact causal atlas (P6: still running at release, H6a/H6b results pending; 12 decided hypotheses: 5 supported, 7 not). Thresholds were frozen in [docs/PREREG-v11.md](docs/PREREG-v11.md) and committed before any run; several hypotheses failed and are reported as failures. Nothing here claims the model is conscious, sentient or superintelligent. Write-up: [docs/FRONTIER.md](docs/FRONTIER.md).
 
 ## What's new in v10 — cross-checks against Tsotchke's own code
 - Moonlab's native QGT (compiled to WASM) agrees with our Fubini–Study metric to ≈ 2e-8 (`qgtcheck` in the terminal).
