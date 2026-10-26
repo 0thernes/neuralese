@@ -1,18 +1,19 @@
 // v5 shell: grouped tabs, module install, theme, resizable dock, export bar, shortcuts, terminal + learning center.
-import { GROUPS, runs, exportFor, parseLayers, $, $$ } from './lab-ui.js?v=10';
-import * as LM from './lab-model.js?v=10';
-import * as LI from './lab-interpret.js?v=10';
-import * as LV from './lab-intervene.js?v=10';
-import * as LE from './lab-eval.js?v=10';
-import * as LS from './lab-science.js?v=10';
-import * as LR from './lab-research.js?v=10';
-import * as LT from './lab-tsotchke.js?v=10';
-import { installModes } from './viz3d.js?v=10';
-import { redrawAll } from './charts.js?v=10';
-import { makeTerminal, termMarkup, mountTerminal, VERSION } from './term.js?v=10';
-import { learnMarkup, mountLearn } from './learn/learn.js?v=10';
+import { GROUPS, runs, exportFor, parseLayers, $, $$ } from './lab-ui.js?v=11';
+import * as LM from './lab-model.js?v=11';
+import * as LI from './lab-interpret.js?v=11';
+import * as LV from './lab-intervene.js?v=11';
+import * as LE from './lab-eval.js?v=11';
+import * as LS from './lab-science.js?v=11';
+import * as LR from './lab-research.js?v=11';
+import * as LT from './lab-tsotchke.js?v=11';
+import * as LF from './lab-frontier.js?v=11';
+import { installModes } from './viz3d.js?v=11';
+import { redrawAll } from './charts.js?v=11';
+import { makeTerminal, termMarkup, mountTerminal, VERSION } from './term.js?v=11';
+import { learnMarkup, mountLearn } from './learn/learn.js?v=11';
 export { VERSION };
-const MODS = [LM, LI, LV, LE, LS, LR, LT];
+const MODS = [LM, LI, LV, LE, LS, LR, LT, LF];
 const AUTO = { arch: 'arch', params: 'params', timeline: 'timeline', runs: 'runs' }; // cheap views rendered on open
 export function buildV5(TABS, P) {
   const long = {};
@@ -24,7 +25,7 @@ export function buildV5(TABS, P) {
   for (const k of Object.keys(TABS)) if (!seen.has(k)) order.push([k, TABS[k]]);
   let api = null, out = {}, autoDone = new Set();
   const V = { order, groupStart, long, out, version: VERSION,
-    onShow(k) { if (!api) return; if (AUTO[k] && (k === 'timeline' || k === 'runs' || !autoDone.has(k))) { autoDone.add(k); try { out[AUTO[k]](); } catch (e) { console.warn(e); } } if (k === 'term') setTimeout(() => $('tmIn')?.focus(), 0); },
+    onShow(k) { if (!api) return; if (AUTO[k] && (k === 'timeline' || k === 'runs' || !autoDone.has(k))) { autoDone.add(k); try { out[AUTO[k]](); } catch (e) { console.warn(e); } } try { api.onTab?.(k); } catch (e) { console.warn(e); } if (k === 'term') setTimeout(() => $('tmIn')?.focus(), 0); },
     setTheme(t) { document.documentElement.dataset.theme = t; setTimeout(redrawAll, 0); try { localStorage.setItem('neuralese.theme', t); } catch { /* */ } (api?.viz || window.NEURALESE?.viz)?.setBg?.(t === 'light'); const b = $('bTheme'); if (b) b.textContent = t === 'light' ? '☾ dark' : '☀ light'; },
     toggleTheme() { V.setTheme(document.documentElement.dataset.theme === 'light' ? 'dark' : 'light'); },
     wire({ guard }) {
