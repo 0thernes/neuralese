@@ -1,5 +1,5 @@
 // Shared helpers for the v5 research tabs (markup builders, export, run tracker).
-import { CFG } from './model.js?v=9';
+import { CFG } from './model.js?v=10';
 export const { d, H, hd, L, ff, V } = CFG;
 export const $ = (id) => document.getElementById(id), $$ = (s, r = document) => [...r.querySelectorAll(s)];
 export const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
