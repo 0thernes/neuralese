@@ -1,16 +1,16 @@
 // v5 shell: grouped tabs, module install, theme, resizable dock, export bar, shortcuts, terminal + learning center.
-import { GROUPS, runs, exportFor, parseLayers, $, $$ } from './lab-ui.js?v=8';
-import * as LM from './lab-model.js?v=8';
-import * as LI from './lab-interpret.js?v=8';
-import * as LV from './lab-intervene.js?v=8';
-import * as LE from './lab-eval.js?v=8';
-import * as LS from './lab-science.js?v=8';
-import * as LR from './lab-research.js?v=8';
-import * as LT from './lab-tsotchke.js?v=8';
-import { installModes } from './viz3d.js?v=8';
-import { redrawAll } from './charts.js?v=8';
-import { makeTerminal, termMarkup, mountTerminal, VERSION } from './term.js?v=8';
-import { learnMarkup, mountLearn } from './learn/learn.js?v=8';
+import { GROUPS, runs, exportFor, parseLayers, $, $$ } from './lab-ui.js?v=9';
+import * as LM from './lab-model.js?v=9';
+import * as LI from './lab-interpret.js?v=9';
+import * as LV from './lab-intervene.js?v=9';
+import * as LE from './lab-eval.js?v=9';
+import * as LS from './lab-science.js?v=9';
+import * as LR from './lab-research.js?v=9';
+import * as LT from './lab-tsotchke.js?v=9';
+import { installModes } from './viz3d.js?v=9';
+import { redrawAll } from './charts.js?v=9';
+import { makeTerminal, termMarkup, mountTerminal, VERSION } from './term.js?v=9';
+import { learnMarkup, mountLearn } from './learn/learn.js?v=9';
 export { VERSION };
 const MODS = [LM, LI, LV, LE, LS, LR, LT];
 const AUTO = { arch: 'arch', params: 'params', timeline: 'timeline', runs: 'runs' }; // cheap views rendered on open
