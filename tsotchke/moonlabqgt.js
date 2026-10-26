@@ -5,8 +5,8 @@
 // metric g_μμ ≈ s²/δ² (geometry.js) — applied to the QWZ lower band, against Moonlab's own qgt_metric_at. Fail if > 1e-6.
 // Note on scope: Moonlab's QGT is defined for Bloch Hamiltonians H(k); NEURALESE's FS metric lives on softmax outputs.
 // What is shared, and what this tests, is the fidelity → angle → metric pipeline, not the model itself.
-import { wasmBytes } from './wasmb64.js?v=11';
-import { fsFromFidelity } from './geometry.js?v=11';
+import { wasmBytes } from './wasmb64.js?v=12';
+import { fsFromFidelity } from './geometry.js?v=12';
 export const SOURCE = { repo: 'tsotchke/moonlab', commit: 'cd3b2347e3739327548708073d7e4ac710cc6a6c', files: ['src/algorithms/quantum_geometry/qgt.c', 'src/utils/matrix_math.c'], license: 'MIT', toolchain: 'emscripten 4.0.23 -O2' };
 let M = null;
 export async function load() { if (M) return M; const f = (await import('./moonlab_qgt.mjs')).default; M = await f({ wasmBinary: await wasmBytes('moonlabQgt'), print: () => {}, printErr: () => {} }); return M; }
