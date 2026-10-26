@@ -1,4 +1,4 @@
-# Glossary (193 terms)
+# Glossary (206 terms)
 
 ### Ablation
 Removing a component's contribution (setting it to zero, its mean, or a resampled value) to measure how much the output depends on it.
@@ -956,3 +956,68 @@ In modular-addition networks, neurons whose input weights are dominated by one f
 v11's exhaustive table of the exact loss change from zero-ablating each of the 128 heads and 8 192 MLP neurons, compared with attribution patching.
 
 *See:* [Attribution patching](#attribution-patching), [Ablation](#ablation)
+
+### Sentence embedding
+A fixed-length vector for a whole sentence, here the mean of all-MiniLM-L6-v2 token states, L2-normalised (384-d), so cosine similarity measures semantic closeness. HUB › EMBED.
+
+*See:* [Embedding](#embedding), [Cosine similarity](#cosine-similarity), [PCA](#pca)
+
+### Model hub
+v12's HUB group: public ONNX models from the Hugging Face Hub run locally by transformers.js in a Web Worker. Nothing is uploaded; models are cached by the browser after the first download.
+
+*See:* [ONNX](#onnx), [Web Worker](#web-worker)
+
+### ONNX
+Open Neural Network Exchange, a portable graph format. The hub models are 8-bit-quantized ONNX exports run by ONNX Runtime Web (WASM, optionally WebGPU). The graph is a black box to the lab's white-box tools.
+
+*See:* [Quantization](#quantization), [WebGPU](#webgpu), [Model hub](#model-hub)
+
+### Web Worker
+A browser thread separate from the page. The hub runtime and the fine-tune run there so the UI stays responsive.
+
+*See:* [Model hub](#model-hub)
+
+### Speech recognition (ASR)
+Automatic speech recognition: audio to text. HUB › SPEECH uses whisper-tiny.en (39M params) on 16 kHz mono audio from the microphone or a file.
+
+*See:* [Word error rate](#word-error-rate), [Speech-to-speech](#speech-to-speech)
+
+### Text-to-speech (TTS)
+Text to audio. HUB › SPEECH uses Meta's MMS-TTS English VITS model (16 kHz); the waveform is stochastic, so two runs differ slightly.
+
+*See:* [Speech-to-speech](#speech-to-speech)
+
+### Speech-to-speech
+A chain ASR → text transform → TTS. The self-test closes the loop without a microphone: TTS speaks a known sentence and Whisper must transcribe it with WER ≤ 0.25.
+
+*See:* [Speech recognition (ASR)](#speech-recognition-asr), [Text-to-speech (TTS)](#text-to-speech-tts), [Word error rate](#word-error-rate)
+
+### Word error rate
+Word-level Levenshtein distance between reference and hypothesis divided by the number of reference words (case and punctuation ignored).
+
+*See:* [Speech recognition (ASR)](#speech-recognition-asr), [Character error rate](#character-error-rate)
+
+### Character error rate
+Character-level Levenshtein distance divided by the reference length; the OCR self-test threshold is 0.10.
+
+*See:* [OCR](#ocr), [Word error rate](#word-error-rate)
+
+### OCR
+Optical character recognition. HUB › VISION uses TrOCR-small-printed, which reads one line of printed text per image.
+
+*See:* [Character error rate](#character-error-rate)
+
+### CLIP
+Contrastive Language–Image Pre-training (Radford et al. 2021): image and text encoders trained so matching pairs have high cosine similarity, enabling zero-shot classification against any label list.
+
+*See:* [Cosine similarity](#cosine-similarity), [Model hub](#model-hub)
+
+### Parameter-efficient fine-tuning
+Training a small subset of parameters. v12 FINE-TUNE trains 1,536: ln_f gain/bias and the output gain of each layer-7 MLP neuron, with exact gradients and a held-out check.
+
+*See:* [Held-out set](#held-out-set), [Bootstrap CI](#bootstrap-ci)
+
+### Held-out set
+Data never used for training or for choosing anything; the only honest place to measure whether training helped. FINE-TUNE holds out every 3rd 32-token chunk.
+
+*See:* [Parameter-efficient fine-tuning](#parameter-efficient-fine-tuning)
