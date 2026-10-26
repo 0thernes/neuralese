@@ -7,7 +7,7 @@
 //                 eq / dot equal dimensions (residual adds, head split, q·k)      (checkDimensionsEqual)
 //                 bounds   token id < V                                           (checkBounds)
 //                 subtype  storage dtype <: Real; promotion of the accumulator    (TypeEnvironment, universe levels)
-import { wasmBytes } from './wasmb64.js?v=9';
+import { wasmBytes } from './wasmb64.js?v=10';
 export const SOURCE = { repo: 'tsotchke/eshkol', commit: '341ac812ed600fd9d27c28e9509d66ab71363947', files: ['lib/types/dependent.cpp', 'lib/types/hott_types.cpp', 'lib/types/type_relation.cpp'], license: 'MIT' };
 let M = null;
 export async function load() { if (M) return M; const f = (await import('./eshkol_types.mjs')).default; M = await f({ wasmBinary: await wasmBytes('eshkolTypes'), print: () => {}, printErr: () => {} }); return M; }
