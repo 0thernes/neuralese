@@ -4,8 +4,8 @@
 // which is drawn from crypto.getRandomValues (the browser/OS CSPRNG). It is NOT hardware quantum randomness, and the
 // CHSH value it reports demonstrates that the simulator implements quantum mechanics correctly — not that the bits are
 // quantum. In seeded mode the output is a pure function of the seed (upstream contract), which is what makes runs replayable.
-import { battery } from './nist.js?v=10';
-import { wasmBytes } from './wasmb64.js?v=10';
+import { battery } from './nist.js?v=11';
+import { wasmBytes } from './wasmb64.js?v=11';
 export const SOURCE = { repo: 'tsotchke/quantum_rng', commit: '1a77e77f803c63883349b658361c06401cd8ceb7', license: 'MIT', toolchain: 'emscripten 4.0.23 -O2' };
 let M = null;
 export async function load() { if (M) return M; const f = (await import('./qrng.mjs')).default; M = await f({ wasmBinary: await wasmBytes('qrng') }); return M; }
