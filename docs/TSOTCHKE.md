@@ -180,13 +180,57 @@ libirrep, rosette-wire, spin_based_neural_network, classical_rng, tensorcore and
 browser-usable artifact, or we found no honest mapping onto a language-model lab in the time available. The website
 `tsotchke.net` did not respond on 2026-10-25.
 
+## v10: deeper cross-checks against the Tsotchke code itself (2026-10-25, America/Los_Angeles)
+
+Each item below is a test that can fail, run against Tsotchke's own code compiled or executed unmodified, at commits
+Eshkol `341ac81`, Moonlab (`@tsotchkecorp/moonlab` 1.2.1 sources), quantum_rng `1a77e77`.
+
+| item | what is compared | result | test / claim |
+|---|---|---|---|
+| (a) Moonlab native QGT | Moonlab's `qgt_model_qwz` + `qgt_metric_at` / `qgt_curvature_at` (`src/algorithms/topology/qgt.c`, compiled to WASM: `moonlab_qgt.wasm`, sha256 `96d92eb7…9598`) vs our Fubini–Study metric s²/(4h²) from fidelity angles, on the QWZ lower band, m ∈ {1, −1, 3, 0.5} | max \|Δg\| ≈ 2e-8 (tol 1e-6); a 4× scaled metric is rejected; g is PSD and \|Ω\| ≤ 2√det g | A1–A3, C2h ●, `qgtcheck [m]` |
+| (b) Eshkol Taylor kernels | `runtime_taylor.c` lines 766–1177 extracted verbatim, built with gcc `-ffp-contract=off`, 44 cases to order 15 vs `taylor.js` | worst error 9.7e-16 (tan, k = 15); threshold 1e-12 | E1, C1d ● |
+| (c) Natural gradient vs Adam | see below | **mixed / partly negative** | C1, C7a ● |
+| (d) Eshkol AD, full backward pass | full GPT-Neo forward + mean cross-entropy recorded on Eshkol's `vm_autodiff.c` tape (unmodified, native), `ad_backward`, vs our `grad.js` on a tiny seeded model (d 8, 2 heads, 2 layers, V 13; 1320 gradients, 22 260 tape nodes) | max \|Δg\| 1.19e-7 vs max \|g\| 0.425 (tol 1e-5·max\|g\|); a mutated gradient is rejected | D1–D2, C8a ● |
+| (e) Soft-unify | `lib/core/ml/neurosymbolic.esk` run with a real `eshkol-run` (LLVM 21 build; upstream `tests/ml/neurosymbolic_test.esk` 8/8 pass) on a fixed script (`wasm/eshkol_neurosym/golden.esk`): embedding init, 200 SGD steps on cat≈feline / cat≉rock, kb-attention; vs our port `neurosym.js` | max \|Δ\| 2.2e-16 over 58 traced values; a wrong sigmoid derivative is caught | N1–N2, C9a ●, `unify a b …` |
+| (f) QRNG libm | native quantum_rng in a 2×2 grid {glibc 2.41, musl 1.2.5} × {SSE3, scalar} vs WASM | glibc → `e5f60b0d…` both ways; musl → `52d659a0…` both ways = WASM. **The C library's libm alone decides the bytes; SIMD does not.** | F1, C3e ● |
+
+### (c) Natural gradient (Fisher = 4 × Fubini–Study) vs Adam — reported as measured
+Setup (`tools/ngvsadam.mjs`): fine-tune only ln_f (512 parameters) of the real TinyStories-8M for 20 steps; 16 training
+and 32 held-out positions per story; NG uses conjugate gradient (8 iterations, damping 1e-3) on the empirical Fisher.
+Learning rates chosen on seeds {0, 1} from Adam {1e-3, 3e-3, 1e-2, 3e-2} and NG {0.1, 0.3, 1}; evaluated on seeds 2–9; t-based 95% CIs.
+
+| selection | train CE (NG / Adam) | Δ train [95% CI] | held-out CE (NG / Adam) | Δ held-out [95% CI] |
+|---|---|---|---|---|
+| lr picked on training loss (Adam 3e-2, NG 1) | 0.0002 / 0.166 | −0.166 [−0.232, −0.099] | 60.2 / 1.13 | **+59.1 [18.5, 99.6]** |
+| lr picked on held-out loss (Adam 1e-3, NG 0.1) | — | −1.09 [−1.36, −0.83] | 1.120 / 0.873 | **+0.247 [0.155, 0.339]** |
+
+Starting CE: training 1.259, held-out 0.8735. **Conclusion:** natural gradient is the stronger optimiser *of the training
+objective* (both CIs exclude 0), but it overfits 16 positions catastrophically, and Adam wins on held-out data under both
+selection rules. The best held-out result is essentially "don't fine-tune" (Adam at 1e-3 barely moves). We do not claim NG
+helps generalisation here. Raw data: `site/tsotchke/data/ngvsadam.json`, `ngvsadam-heldout.json`.
+
+### Caveats for v10
+- (a) Moonlab's QGT is for Bloch Hamiltonians, not for softmax distributions. The cross-check validates our shared
+  fidelity → angle → metric pipeline against Moonlab's independent implementation on a model where both apply; the
+  link to the language model is still the identity Fisher = 4·g_FS (C2b).
+- (b) The kernels were extracted, not linked against the full Eshkol runtime; the extraction is byte-for-byte (`wasm/eshkol_taylor/build.sh`).
+- (d) The AD check runs on a tiny seeded model (Eshkol's tape stores every scalar), not on the 8M model.
+- (e) `unify` in the terminal applies soft-unify to the model's raw tied embeddings. They were never trained for unification,
+  so scores near 0.5 are expected and mean nothing logical.
+
 ## Reproduce
 
 ```
 npm test                              # includes test/tsotchke.test.mjs (15 claims, PyTorch cross-checks, mutation tests)
 .venv/bin/python ref_taylor.py        # regenerates test/ref_taylor.json (torch 2.14.1, float64)
 wasm/build-qrng.sh                    # rebuilds the quantum_rng WASM (emscripten 4.0.23)
-node smoke-v8.mjs http://localhost:8765/   # headless Chrome: claims, CSP, WASM loading, golden bytes
+node smoke-v10.mjs http://localhost:8765/ local  # headless Chrome: 18 claims, CSP, WASM, terminal
+wasm/build-moonlab-qgt.sh             # (a) Moonlab qgt.c → WASM
+wasm/eshkol_taylor/build.sh           # (b) Eshkol Taylor kernels → golden JSON
+node tools/ngvsadam.mjs               # (c) NG vs Adam (SELECT=heldout for the second table)
+wasm/eshkol_ad/build.sh && node tools/eshkol-ad-crosscheck.mjs   # (d)
+wasm/eshkol_neurosym/run.sh           # (e) needs eshkol-run (LLVM 21)
+wasm/qrng_native/build.sh             # (f) glibc/musl × SSE3/scalar grid
 ```
 
 

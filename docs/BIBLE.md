@@ -48,6 +48,7 @@ Reference manual for every tab and control. Also in the app: TOOLS › LEARN ›
 - [TSOTCHKE › Q-GEOMETRY](#tsotchke--q-geometry)
 - [TSOTCHKE › TAYLOR](#tsotchke--taylor)
 - [TSOTCHKE › TYPES](#tsotchke--types)
+- [TSOTCHKE › v10 cross-checks](#tsotchke--v10-cross-checks)
 - [TSOTCHKE › CLAIMS (Claims & Evidence)](#tsotchke--claims-claims--evidence)
 - [Safety, ethics and limits](#safety-ethics-and-limits)
 
@@ -232,6 +233,10 @@ A JS port of Eshkol's Taylor recurrences propagates truncated power series (jets
 ## TSOTCHKE › TYPES
 
 Eshkol's own compile-time type layer (lib/types/dependent.cpp and hott_types.cpp, compiled to WebAssembly) decides 73 judgments about the live model graph. For each weight it checks that the flat length equals rows·cols, a path/identity judgment Id_Nat(rows·cols, len) computed by CTValue::mul. It also checks that every matmul is dimension-compatible (q, k, v, o, fc, proj, unembedding), that H·hd = d, that residual adds match, that prompt tokens are below V, and that Float32 <: Real in the universe hierarchy. Edits change values, not shapes, so every judgment should hold. The second button truncates h3.fc by one element, and Eshkol rejects exactly that node ("Dimension mismatch: 262144 != 262143"). Eshkol's checker is gradual and has no univalence, so this is dimension and type checking, not a HoTT proof.
+
+## TSOTCHKE › v10 cross-checks
+
+v10 checks NEURALESE against Tsotchke's own code, run unmodified. Moonlab's native qgt_metric_at, compiled to WASM, matches our Fubini–Study metric to about 2e-8 (terminal: qgtcheck m). Eshkol's compiled Taylor kernels match taylor.js to 9.7e-16, and Eshkol's AD tape reproduces our full GPT-Neo backward pass on a tiny model (1.2e-7). Eshkol's soft-unify from neurosymbolic.esk is ported and matches a real eshkol-run trace to 2.2e-16 (terminal: unify cat kitten rock — raw embeddings, so scores near 0.5 mean nothing logical). Negative result: natural gradient (Fisher = 4 × Fubini–Study) beats Adam on the training loss but loses on held-out loss, with 95% confidence intervals over 8 seeds. Known result: seeded quantum_rng bytes depend on libm (glibc vs musl), not on SIMD. All of these are live claims C1d, C2h, C3e, C7a, C8a, C9a.
 
 ## TSOTCHKE › CLAIMS (Claims & Evidence)
 
