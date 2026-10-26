@@ -1,10 +1,10 @@
 // v7 RESEARCH group: reproducibility (hashes, manifests, replay), hypothesis tests, ACDC-style circuit discovery + scrubbing,
 // linear probes with control tasks, user datasets, eval harness, notebook, report generator, structured log + lab-state files.
-import { lines, bars } from './charts.js?v=8';
-import { $, esc, fmt, opts, cv, tipq, prog, tick } from './lab-ui.js?v=8';
-import * as R from './research.js?v=8';
-import { cloneWeights } from './model.js?v=8';
-import { DS, docs, allDocs, setUserCorpus, clearUserCorpus } from './dataset.js?v=8';
+import { lines, bars } from './charts.js?v=9';
+import { $, esc, fmt, opts, cv, tipq, prog, tick } from './lab-ui.js?v=9';
+import * as R from './research.js?v=9';
+import { cloneWeights } from './model.js?v=9';
+import { DS, docs, allDocs, setUserCorpus, clearUserCorpus } from './dataset.js?v=9';
 const P = (id) => `<div class="prog" id="${id}"><i></i></div>`;
 const NBKEY = 'neuralese.notebook.v7', MODEL_ID = 'roneneldan/TinyStories-8M@refs/pr/1';
 const dl = (name, text, type = 'application/json') => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type })); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); };
