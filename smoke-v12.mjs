@@ -1,0 +1,32 @@
+// v12 smoke: HUB group — each tab renders, every model actually runs in the worker, each self-test meets its threshold,
+// the fine-tune improves held-out CE and applies as an undoable edit, version 12.0.0, no CSP violations or console errors.
+import puppeteer from 'puppeteer-core';
+const url = process.argv[2] || 'http://localhost:8765/', shots = process.argv[3] || '/workspace/neuralese-v12/local';
+const b = await puppeteer.launch({ executablePath: '/usr/bin/google-chrome', headless: 'new', protocolTimeout: 1800000, args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--no-sandbox', '--autoplay-policy=no-user-gesture-required'] });
+const p = await b.newPage(); await p.setViewport({ width: 1680, height: 1000 }); const errs = [], reqs = [];
+p.on('request', (r) => reqs.push([r.method(), r.url()]));
+p.on('console', (m) => { if (m.type() === 'error' && !/favicon/.test(m.text())) { errs.push(m.text()); console.log('[console.error]', m.text()); } }); p.on('pageerror', (e) => { errs.push(e.message); console.log('[pageerror]', e.message); });
+const T = Date.now(), log = (...a) => console.log(`[${((Date.now() - T) / 1000).toFixed(1)}s]`, ...a), S = { fail: [] }, sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+await p.evaluateOnNewDocument(() => { window.__csp = []; document.addEventListener('securitypolicyviolation', (e) => window.__csp.push(`${e.violatedDirective} ${e.blockedURI}`)); });
+await p.goto(url); await p.waitForFunction(() => window.NEURALESE && window.NEURALESE_LAST, { timeout: 240000 }); log('loaded');
+const check = async (name, fn, pred, arg) => { try { const r = await p.evaluate(fn, arg); const ok = pred(r); S[name] = r; log(name, ok ? 'OK' : 'FAIL', JSON.stringify(r).slice(0, 500)); if (!ok) S.fail.push(name); } catch (e) { S.fail.push(name + ': ' + e.message.slice(0, 300)); log(name, 'ERR', e.message.slice(0, 300)); } };
+const sh = async (k, f) => { await p.evaluate((x) => { document.documentElement.style.setProperty('--dockW', '880px'); window.NEURALESE.v5.api.showTab(x); }, k); await sleep(2000); await p.screenshot({ path: `${shots}-${f}.png` }); };
+const O = 'window.NEURALESE.v5.out';
+await check('version', () => document.getElementById('ver').textContent, (r) => r.startsWith('v12.0.0'));
+await check('tabs', () => [...document.querySelectorAll('#tabs button')].filter((x) => ['hub', 'hemb', 'hspeech', 'hvision', 'hgen', 'hft'].includes(x.dataset.t)).length, (r) => r === 6);
+await sh('hub', 'hub');
+await check('embedTest', () => window.NEURALESE.v5.out.embedTest(), (r) => r.pass);
+await check('embedMap', async () => { await window.NEURALESE.v5.api.showTab('hemb'); const r = await window.NEURALESE.v5.out.embed(); return { n: r.texts.length, dim: r.vecs[0].length, explained: r.explained, canvas: !!document.querySelector('#he3d canvas') }; }, (r) => r.n === 10 && r.dim === 384 && r.canvas); await sh('hemb', 'embed');
+await check('embedSearch', async () => (await window.NEURALESE.v5.out.embedSearch()).slice(0, 2).map((x) => x[1]), (r) => /cat|kitten/.test(r[0]));
+await check('s2sTest', () => window.NEURALESE.v5.out.s2sTest(), (r) => r.pass); await sh('hspeech', 'speech');
+await check('ocrTest', () => window.NEURALESE.v5.out.ocrTest(), (r) => r.pass);
+await check('clipTest', () => window.NEURALESE.v5.out.clipTest(), (r) => r.pass);
+await check('caption', async () => { const c = document.getElementById('hvCv'), g = c.getContext('2d'); c.width = 224; c.height = 224; g.fillStyle = '#3b82f6'; g.fillRect(0, 0, 224, 112); g.fillStyle = '#22c55e'; g.fillRect(0, 112, 224, 112); return window.NEURALESE.v5.out.caption(); }, (r) => typeof r === 'string' && r.trim().split(/\s+/).length >= 3); await sh('hvision', 'vision');
+await check('hgen', () => window.NEURALESE.v5.out.hgen('gen-distilgpt2', 'Once upon a time', 12), (r) => typeof r === 'string' && r.startsWith('Once upon a time') && r.length > 25); await sh('hgen', 'lmswap');
+await check('finetune', async () => { window.NEURALESE.v5.api.showTab('hft'); const r = await window.NEURALESE.v5.out.finetune(undefined, 3, 0.01); return { before: r.before, after: r.after, delta: r.delta, improved: r.improved, params: r.params }; }, (r) => r.improved && r.params === 1536);
+await check('ftApply', async () => { const n0 = window.NEURALESE.ed.edits.length; document.getElementById('hfApply').click(); await new Promise((r) => setTimeout(r, 500)); const e = window.NEURALESE.ed.edits.at(-1); const n1 = window.NEURALESE.ed.edits.length; window.NEURALESE.undo(); return { n0, n1, kind: e?.kind, after: window.NEURALESE.ed.edits.length }; }, (r) => r.n1 === r.n0 + 1 && r.kind === 'ft' && r.after === r.n0); await sh('hft', 'finetune');
+await p.evaluate(() => window.NEURALESE.v5.api.showTab('term')); await sleep(500);
+await check('term', async () => { const o = document.getElementById('tmOut'), i = document.getElementById('tmIn'); i.value = 'hub'; i.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); await new Promise((r) => setTimeout(r, 1500)); return o.textContent.slice(-3000); }, (r) => /all-MiniLM-L6-v2/.test(r));
+await check('network', (rs) => rs.filter(([m, u]) => m !== 'GET' || !/^(http:\/\/localhost|https:\/\/0thernes\.github\.io|https:\/\/huggingface\.co|https:\/\/[\w.-]*\.hf\.co|https:\/\/cdn\.jsdelivr\.net|data:|blob:)/.test(u)), (r) => r.length === 0, reqs); S.reqSummary = { total: reqs.length, hf: reqs.filter(([, u]) => /huggingface|hf\.co/.test(u)).length, jsdelivr: reqs.filter(([, u]) => /jsdelivr/.test(u)).length }; log('requests seen', JSON.stringify(S.reqSummary));
+S.csp = await p.evaluate(() => window.__csp); if (S.csp.length) S.fail.push('csp');
+S.errors = errs; console.log(JSON.stringify({ fail: S.fail, csp: S.csp, errors: errs })); await b.close(); process.exit(S.fail.length || errs.length ? 1 : 0);

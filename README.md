@@ -1,6 +1,15 @@
-# NEURALESE v11: interpretability and weight-surgery lab (TinyStories-8M, 100% in-browser) — ⚛ Powered by Tsotchke
+# NEURALESE v12: interpretability and weight-surgery lab (TinyStories-8M, 100% in-browser) — ⚛ Powered by Tsotchke
 
 Live: https://0thernes.github.io/neuralese/ · Audit: [AUDIT.md](AUDIT.md) · Tsotchke analysis: [docs/TSOTCHKE.md](docs/TSOTCHKE.md) · Claims & evidence: [docs/CLAIMS.md](docs/CLAIMS.md) · Stack and versions: [docs/STACK.md](docs/STACK.md)
+
+## What's new in v12 (HUB group, after VIEW in the tab bar)
+- **Model hub**: transformers.js 4.3.1 (pinned, SHA-256-checked) in a Web Worker; ONNX Runtime WASM pinned and SHA-256-checked. Eight public ONNX models, all local inference.
+- **EMBED**: all-MiniLM-L6-v2 sentence embeddings, nearest neighbours, semantic search, rotatable 3D PCA map.
+- **SPEECH**: Whisper tiny.en (mic or file), MMS-TTS with WAV export, speech-to-speech chain; round-trip self-test (WER 0 in our runs).
+- **VISION**: TrOCR single-line OCR (self-test CER 0), ViT-GPT2 captioning, CLIP zero-shot (self-test 98.8%).
+- **LM SWAP**: DistilGPT-2 / GPT-2, generation only. White-box swapping stays TinyStories 1M/3M/8M (TOOLS → ZOO).
+- **FINE-TUNE**: Adam on 1,536 parameters of TinyStories-8M on your text, held-out CE with bootstrap CI, apply as an undoable edit.
+- 100-item roadmap with status and acceptance tests: [docs/ROADMAP-v12.md](docs/ROADMAP-v12.md). Claims H1–H9: [docs/CLAIMS.md](docs/CLAIMS.md).
 
 ## What's new in v11 — FRONTIER, pre-registered
 
