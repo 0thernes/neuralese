@@ -47,6 +47,7 @@ Reference manual for every tab and control. Also in the app: TOOLS › LEARN ›
 - [TSOTCHKE › QRNG](#tsotchke--qrng)
 - [TSOTCHKE › Q-GEOMETRY](#tsotchke--q-geometry)
 - [TSOTCHKE › TAYLOR](#tsotchke--taylor)
+- [TSOTCHKE › TYPES](#tsotchke--types)
 - [TSOTCHKE › CLAIMS (Claims & Evidence)](#tsotchke--claims-claims--evidence)
 - [Safety, ethics and limits](#safety-ethics-and-limits)
 
@@ -222,11 +223,15 @@ Draw seed runs tsotchke/quantum_rng (WASM) seeded with 16 bytes from crypto.getR
 
 ## TSOTCHKE › Q-GEOMETRY
 
-Embeds each next-token distribution p as the real 16-qubit state ψ = √p and asks Moonlab for the fidelity F = |⟨ψ_clean|ψ_edit⟩|². The Fubini–Study angle arccos √F (0 to π/2 rad) is a true metric between the clean and the edited model's predictions at every prompt position. A direct JS sum cross-checks every fidelity (|ΔF| ~1e-16). With no edits the angle is ~2e-7 rad, the float64 floor of arccos near 1. The second panel tests a prediction of QGTL's metric: along a final-LayerNorm direction, s(ε)/ε → √Fisher/2 as ε → 0. Terminal: fsdist.
+Embeds each next-token distribution p as the real 16-qubit state ψ = √p and asks Moonlab for the fidelity F = |⟨ψ_clean|ψ_edit⟩|². The Fubini–Study angle arccos √F (0 to π/2 rad) is a true metric between the clean and the edited model's predictions at every prompt position. QGTL's own qgt_geometric_measure_fidelity, compiled to WebAssembly (v9), measures every position as well and agrees with Moonlab to ~1e-7 (single-precision amplitudes). A direct JS sum cross-checks every fidelity (|ΔF| ~1e-16). With no edits the angle is ~2e-7 rad, the float64 floor of arccos near 1. The second panel tests a prediction of QGTL's metric: along a final-LayerNorm direction, s(ε)/ε → √Fisher/2 as ε → 0. Terminal: fsdist.
 
 ## TSOTCHKE › TAYLOR
 
 A JS port of Eshkol's Taylor recurrences propagates truncated power series (jets) through exp, log, trig, powers and the softmax cross-entropy. The self-test compares every recurrence with closed-form derivatives and identities (errors ~1e-15). The jet panel expands the current model's mean CE along a random final-LayerNorm direction to order K in one pass, then compares the Taylor polynomial with the loss recomputed at several ε. Agreement within ε^(K+1) is a prediction that can visibly fail. The same jet is checked against PyTorch float64 autograd in the test suite.
+
+## TSOTCHKE › TYPES
+
+Eshkol's own compile-time type layer (lib/types/dependent.cpp and hott_types.cpp, compiled to WebAssembly) decides 73 judgments about the live model graph. For each weight it checks that the flat length equals rows·cols, a path/identity judgment Id_Nat(rows·cols, len) computed by CTValue::mul. It also checks that every matmul is dimension-compatible (q, k, v, o, fc, proj, unembedding), that H·hd = d, that residual adds match, that prompt tokens are below V, and that Float32 <: Real in the universe hierarchy. Edits change values, not shapes, so every judgment should hold. The second button truncates h3.fc by one element, and Eshkol rejects exactly that node ("Dimension mismatch: 262144 != 262143"). Eshkol's checker is gradual and has no univalence, so this is dimension and type checking, not a HoTT proof.
 
 ## TSOTCHKE › CLAIMS (Claims & Evidence)
 
