@@ -1,6 +1,14 @@
-# NEURALESE v9: interpretability and weight-surgery lab (TinyStories-8M, 100% in-browser) — ⚛ Powered by Tsotchke
+# NEURALESE v10: interpretability and weight-surgery lab (TinyStories-8M, 100% in-browser) — ⚛ Powered by Tsotchke
 
 Live: https://0thernes.github.io/neuralese/ · Audit: [AUDIT.md](AUDIT.md) · Tsotchke analysis: [docs/TSOTCHKE.md](docs/TSOTCHKE.md) · Claims & evidence: [docs/CLAIMS.md](docs/CLAIMS.md) · Stack and versions: [docs/STACK.md](docs/STACK.md)
+
+## What's new in v10 — cross-checks against Tsotchke's own code
+- Moonlab's native QGT (compiled to WASM) agrees with our Fubini–Study metric to ≈ 2e-8 (`qgtcheck` in the terminal).
+- Eshkol's compiled Taylor kernels agree with `taylor.js` to 9.7e-16; Eshkol's AD tape reproduces our full backward pass (1.2e-7).
+- Eshkol's soft-unify (`neurosymbolic.esk`) is ported and matches a real `eshkol-run` trace to 2.2e-16 (`unify a b` in the terminal).
+- **Negative result:** natural gradient beats Adam on training loss but loses on held-out loss (95% CIs, 8 seeds).
+- Known result: the QRNG byte difference between glibc and WASM comes from libm, not SIMD.
+- 18 live claims. Details in docs/TSOTCHKE.md and docs/CLAIMS.md.
 
 ## What's new in v9 — Eshkol types and QGTL run in the browser
 - **TYPES tab / `typecheck`:** Eshkol's own type layer (`lib/types/dependent.cpp`, `hott_types.cpp`), compiled to WebAssembly, checks 73 judgments about the live model graph. The same checker rejects deliberately broken graphs.
@@ -97,6 +105,7 @@ The app loads [roneneldan/TinyStories-8M](https://huggingface.co/roneneldan/Tiny
 | linalg.js | one-sided Jacobi SVD, Cholesky solve, PCA |
 
 ## Verification
+- v10: `npm test` runs **92 tests** (+10: `test/v10.test.mjs` A1–A3, C1, F1, N1–N2; `eshkol-taylor` E1; `eshkol-ad` D1–D2). `node smoke-v10.mjs <url> <prefix>` checks 18 claims, the terminal commands, CSP and console errors.
 - v9: `npm test` runs **82 tests** (+7 in `test/hott.test.mjs`: H1–H4 Eshkol type checks with mutations, H5–H7 QGTL). `node smoke-v9.mjs` adds TYPES and QGTL checks.
 - v8: `npm test` runs **75 tests** (59 earlier + 15 in `test/tsotchke.test.mjs`). `node smoke-v8.mjs` runs the TSOTCHKE group in headless Chrome: every live claim, WASM loading under the CSP, golden QRNG bytes, and FS angle after an edit.
 - v7: `npm test` runs **59 tests** in one go (about 100 s). New tests cover bitwise undo exactness for every edit kind, stats against scipy/statsmodels, the weights hash, ACDC/scrubbing consistency, probe selectivity, and the eval harness. `node smoke-v7.mjs <url>` covers every tab, every RESEARCH tool and terminal command, CSP violations, a leak test (500 tokens plus 8 tab cycles), long tasks, and a 390 px layout. `node tools/netfail.mjs` checks retry and failure handling. `node tools/a11y.mjs` runs an axe WCAG 2 A/AA audit of every tab. `npm run lint` runs eslint.
