@@ -1,0 +1,21 @@
+;; v10 (e): golden values from Eshkol's REAL lib/core/ml/neurosymbolic.esk (tsotchke/eshkol@341ac81), run with eshkol-run.
+;; Prints initial embeddings, soft-unify before/after the upstream test's contrastive schedule, the loss trace, and kb-attention.
+(require core.ml.neurosymbolic)
+(define (pv v) (let loop ((i 0)) (if (< i (vector-length v)) (begin (display (vector-ref v i)) (display " ") (loop (+ i 1))))) (newline))
+(define tbl (make-embedding-table 8))
+(display "init cat ") (pv (embed! tbl 'cat))
+(display "init feline ") (pv (embed! tbl 'feline))
+(display "init rock ") (pv (embed! tbl 'rock))
+(display "s0 ") (display (soft-unify tbl 'cat 'feline)) (newline)
+(display "loss ")
+(let loop ((i 0))
+  (if (< i 200)
+      (begin
+        (let ((l1 (soft-unify-train! tbl 'cat 'feline 1.0 0.5)) (l2 (soft-unify-train! tbl 'cat 'rock 0.0 0.5)))
+          (if (= (modulo i 20) 0) (begin (display l1) (display " ") (display l2) (display " "))))
+        (loop (+ i 1)))))
+(newline)
+(display "s-fel ") (display (soft-unify tbl 'cat 'feline)) (newline)
+(display "s-rock ") (display (soft-unify tbl 'cat 'rock)) (newline)
+(display "final cat ") (pv (embed! tbl 'cat))
+(display "kb ") (let loop ((a (kb-attention tbl (list 'feline 'rock 'water) 'cat))) (if (pair? a) (begin (display (car (car a))) (display " ") (display (cdr (car a))) (display " ") (loop (cdr a))))) (newline)
