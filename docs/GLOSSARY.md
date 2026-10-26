@@ -1,4 +1,4 @@
-# Glossary (164 terms)
+# Glossary (176 terms)
 
 ### Ablation
 Removing a component's contribution (setting it to zero, its mean, or a resampled value) to measure how much the output depends on it.
@@ -811,3 +811,63 @@ JSON record of app version, model id and hash, edits, runtime interventions, pro
 
 ### Content Security Policy
 Browser policy restricting where a page may load scripts, styles and data from. NEURALESE allows scripts only from itself (plus its hashed import map) and network access only to Hugging Face.
+
+### Taylor-mode AD
+Automatic differentiation that propagates a truncated power series (a jet) through every operation using recurrences, giving all derivatives up to order K along one direction in a single pass. NEURALESE ports Eshkol's recurrences.
+
+*See:* [Jet](#jet), [Eshkol](#eshkol)
+
+### Jet
+A truncated Taylor series c₀ + c₁ε + … + c_Kε^K of a quantity along a direction, with c_k = f^(k)(0)/k!.
+
+*See:* [Taylor-mode AD](#taylor-mode-ad)
+
+### Eshkol
+Tsotchke's compiled, differentiable Scheme-family language (C++/LLVM, MIT). NEURALESE uses a JS port of its Taylor recurrences, not the compiler.
+
+*See:* [Taylor-mode AD](#taylor-mode-ad), [Tsotchke](#tsotchke)
+
+### Moonlab
+Tsotchke's quantum circuit simulator (C → WebAssembly, MIT). NEURALESE uses its state fidelity, CHSH test and QWZ Chern numbers.
+
+*See:* [Fidelity](#fidelity), [CHSH inequality](#chsh-inequality)
+
+### Quantum geometric tensor
+Q_μν = ⟨∂μψ|∂νψ⟩ − ⟨∂μψ|ψ⟩⟨ψ|∂νψ⟩. Its real part is the Fubini–Study metric and its imaginary part gives Berry curvature. For a real state ψ = √p, the real part is ¼ of the Fisher information. Reference library: Tsotchke's QGTL.
+
+*See:* [Fubini–Study distance](#fubinistudy-distance), [Fisher information](#fisher-information)
+
+### Fubini–Study distance
+The angle arccos |⟨ψ|φ⟩| between two normalised states. For ψ = √p, φ = √q it equals arccos of the Bhattacharyya coefficient: a true metric in [0, π/2].
+
+*See:* [Fidelity](#fidelity), [Quantum geometric tensor](#quantum-geometric-tensor)
+
+### Fidelity
+|⟨ψ|φ⟩|² for pure states; for √p-embedded distributions it is the squared Bhattacharyya coefficient.
+
+*See:* [Fubini–Study distance](#fubinistudy-distance)
+
+### CHSH inequality
+A Bell inequality: local hidden-variable models obey |S| ≤ 2, and quantum mechanics reaches 2√2 (Tsirelson's bound). A simulator reaching 2√2 shows correct simulation, not physical non-locality.
+
+*See:* [Moonlab](#moonlab)
+
+### Chern number
+An integer topological invariant: the Berry curvature integrated over the Brillouin zone. NEURALESE checks Moonlab's Qi–Wu–Zhang values against an independent Fukui–Hatsugai–Suzuki lattice computation.
+
+*See:* [Quantum geometric tensor](#quantum-geometric-tensor)
+
+### SP 800-90B health tests
+NIST's continuous Repetition Count and Adaptive Proportion tests, which catch a stuck or heavily biased entropy source. quantum_rng implements them.
+
+*See:* [SP 800-22](#sp-800-22)
+
+### SP 800-22
+NIST's statistical test suite for random bit sequences. NEURALESE implements monobit, block frequency, runs and cumulative sums, verified against the document's worked examples.
+
+*See:* [SP 800-90B health tests](#sp-800-90b-health-tests)
+
+### Tsotchke
+Developer of Eshkol, Moonlab, QGTL, quantum_rng and other MIT-licensed projects (github.com/tsotchke). Components using this work carry the ⚛ Powered by Tsotchke badge.
+
+*See:* [Eshkol](#eshkol), [Moonlab](#moonlab)
