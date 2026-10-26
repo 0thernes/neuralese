@@ -1,0 +1,16 @@
+--- /tmp/chunk.orig	2026-10-25 21:21:13.367979475 -0700
++++ chunk-NLN6PXJW.mjs	2026-10-25 21:21:13.379979475 -0700
+@@ -5,10 +5,9 @@
+ };
+ 
+ // src/control-plane.ts
+-import net from "net";
+-import tls from "tls";
+-import fs from "fs";
+-import crypto from "crypto";
++// NEURALESE patch (see ../PATCHES.md): the four Node-only imports below are used solely by the Moonlab
++// control-plane TCP/TLS client, which NEURALESE never calls; static imports of Node built-ins break browser loading.
++const net = null, tls = null, fs = null, crypto = null;
+ var MOONLAB_CONTROL_OK = 0;
+ var MOONLAB_CONTROL_BAD_ARG = -400;
+ var MOONLAB_CONTROL_AUTH_REQUIRED = -401;
