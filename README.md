@@ -1,6 +1,24 @@
-# NEURALESE v7: interpretability and weight-surgery lab (TinyStories-8M, 100% in-browser)
+# NEURALESE v8: interpretability and weight-surgery lab (TinyStories-8M, 100% in-browser) — ⚛ Powered by Tsotchke
 
-Live: https://0thernes.github.io/neuralese/ · Audit: [AUDIT.md](AUDIT.md)
+Live: https://0thernes.github.io/neuralese/ · Audit: [AUDIT.md](AUDIT.md) · Tsotchke analysis: [docs/TSOTCHKE.md](docs/TSOTCHKE.md) · Claims & evidence: [docs/CLAIMS.md](docs/CLAIMS.md) · Stack and versions: [docs/STACK.md](docs/STACK.md)
+
+## What's new in v8 — the TSOTCHKE group (press 8)
+v8 adds components built on the MIT-licensed open-source work of [Tsotchke](https://github.com/tsotchke). Only these components carry the **⚛ Powered by Tsotchke** badge. Each claim comes with a check that could refute it.
+
+| tab | Tsotchke project (commit) | what it does here | evidence |
+|---|---|---|---|
+| **QRNG** | [quantum_rng](https://github.com/tsotchke/quantum_rng) 1.1.0 (`1a77e77`), compiled by us to WASM | research seeds with provenance, SP 800-90B health tests + SP 800-22 subset, simulated CHSH; `qseed apply` puts the seed into the manifest | deterministic and identical in Node and Chrome; health tests catch a stuck source; NIST worked examples reproduced |
+| **Q-GEOMETRY** | [Moonlab](https://github.com/tsotchke/moonlab) 1.2.1 (WASM) + [QGTL](https://github.com/tsotchke/quantum_geometric_tensor) metric (`770994a`) | Fubini–Study angle between clean and edited next-token distributions (ψ = √p, 16 qubits), and the QGT = Fisher/4 check | Moonlab fidelity = direct sum to 1e-16; s(ε)/ε → √Fisher/2; Fisher = jet g″ = PyTorch |
+| **TAYLOR** | [Eshkol](https://github.com/tsotchke/eshkol) 1.3.6 (`341ac81`), port of `taylor_recurrences.def` | exact Taylor jets of the loss along a weight direction, compared live with the true loss | closed forms to 5e-15; PyTorch float64 to ~1e-6 |
+| **CLAIMS** | all of the above | the Claims & Evidence page: every claim, what would refute it, and the result computed now | `test/tsotchke.test.mjs` (15 tests incl. mutation tests) |
+
+Honest limits:
+- quantum_rng is a *classical simulation*. Its randomness comes only from the `crypto.getRandomValues` seed, and its CHSH value shows the simulator is correct, not that the bits are quantum.
+- We make no HoTT or tensor-logic claims. The edit/undo path-law tests are ordinary bitwise tests.
+- Eshkol's compiler and the QGTL C library are not run in the browser.
+- Moonlab's ESM chunk carries a documented 4-line browser patch; its WASM is unmodified.
+
+See [docs/TSOTCHKE.md](docs/TSOTCHKE.md) for the per-repo findings and what was not usable.
 
 ## What's new in v7 (new RESEARCH group: press 7)
 - **REPRO**: SHA-256 of the original and current weights (also in the top bar), a downloadable experiment manifest (version, model id + hash, edits, runtime, prompt, decoding, seed, environment), and replay that re-applies the edits from clean weights and checks the hash bit for bit.
@@ -73,6 +91,7 @@ The app loads [roneneldan/TinyStories-8M](https://huggingface.co/roneneldan/Tiny
 | linalg.js | one-sided Jacobi SVD, Cholesky solve, PCA |
 
 ## Verification
+- v8: `npm test` runs **75 tests** (59 earlier + 15 in `test/tsotchke.test.mjs`). `node smoke-v8.mjs` runs the TSOTCHKE group in headless Chrome: every live claim, WASM loading under the CSP, golden QRNG bytes, and FS angle after an edit.
 - v7: `npm test` runs **59 tests** in one go (about 100 s). New tests cover bitwise undo exactness for every edit kind, stats against scipy/statsmodels, the weights hash, ACDC/scrubbing consistency, probe selectivity, and the eval harness. `node smoke-v7.mjs <url>` covers every tab, every RESEARCH tool and terminal command, CSP violations, a leak test (500 tokens plus 8 tab cycles), long tasks, and a 390 px layout. `node tools/netfail.mjs` checks retry and failure handling. `node tools/a11y.mjs` runs an axe WCAG 2 A/AA audit of every tab. `npm run lint` runs eslint.
 - `node --test test/` runs 32 tests (18 against PyTorch references produced by `ref.py` (HF transformers): forward logits, logit lens, DLA, resid/head/path patching, SVD vs numpy, ROME flip, quantization ordering, SAE, decoding, and the safetensors round-trip; 7 audio tests; 7 v5 lab tests covering steering ops, schedules, labcore, the terminal, and learning-data integrity). v6 adds grad/science/zoo/drill/cli tests (52 total, PyTorch/HF-verified). `node smoke-v6.mjs <url>` (superset of v5) and `node smoke-v5.mjs <url>` opens every tab, runs every terminal command, and answers every quiz in headless Chrome.
 - `node smoke.mjs` runs a headless-Chrome end-to-end check of the UI.
