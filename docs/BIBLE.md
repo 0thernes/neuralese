@@ -50,6 +50,7 @@ Reference manual for every tab and control. Also in the app: TOOLS › LEARN ›
 - [TSOTCHKE › TYPES](#tsotchke--types)
 - [TSOTCHKE › v10 cross-checks](#tsotchke--v10-cross-checks)
 - [TSOTCHKE › CLAIMS (Claims & Evidence)](#tsotchke--claims-claims--evidence)
+- [FRONTIER: consciousness proxies, introspection, self-improvement, grokking, causal atlas](#frontier-consciousness-proxies-introspection-self-improvement-grokking-causal-atlas)
 - [Safety, ethics and limits](#safety-ethics-and-limits)
 
 ## Overview
@@ -241,6 +242,10 @@ v10 checks NEURALESE against Tsotchke's own code, run unmodified. Moonlab's nati
 ## TSOTCHKE › CLAIMS (Claims & Evidence)
 
 Every claim made about a Tsotchke-powered component is listed with the observation that would refute it, and is checked now in your browser: recurrence accuracy, Moonlab fidelity vs direct sum, QWZ Chern numbers vs an independent lattice computation, Bell/CHSH, QRNG determinism (same golden bytes as Node), health tests detecting a stuck source, NIST worked examples, and edit/undo identity. The Node suite adds PyTorch cross-checks and mutation tests that show the checks can fail. Not claimed: quantum randomness, quantum speed-up, HoTT proofs or tensor-logic semantics. Terminal: claims.
+
+## FRONTIER: consciousness proxies, introspection, self-improvement, grokking, causal atlas
+
+The FRONTIER group (v11) runs 14 hypotheses that were frozen in docs/PREREG-v11.md before any experiment (sha256 checked live in F-CLAIMS). FRONTIER lists every hypothesis with its verdict; SCORECARD applies Butlin, Long et al.'s consciousness indicators (present / partial / absent / untestable, each justified); MIND shows the PCI-style perturbational-complexity test against random-init and shuffled nulls, the ignition dose–response (Hill fit) and two introspection tests (injected-concept detection; privileged self-prediction against TinyStories-3M and -1M); SELF-IMPROVE shows a propose/select/test loop with a random-edit control, self-distillation and test-time training; GROKKING shows the pre-registered modular-addition run with a Fourier check and lets you train the same network live; ATLAS shows exact ablation of all 128 heads and 8192 neurons against attribution patching. Several hypotheses failed and are reported as failures. None of these tests can show that the model is or is not conscious; they measure operational proxies. Status at release: the P6 causal atlas was still running, so H6a and H6b show as running / results pending; of the 12 decided hypotheses, 5 are supported and 7 are not. Terminal: frontier, scorecard, pci, grok [steps], fclaims.
 
 ## Safety, ethics and limits
 

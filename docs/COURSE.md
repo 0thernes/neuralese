@@ -1,6 +1,6 @@
 # Course: TinyStories-8M from zero to interpretability research
 
-14 lessons, beginner → advanced. Each has a lecture, a diagram (in the app), a lab you run with the in-app terminal, and a quiz. Answers are at the end.
+15 lessons, beginner → advanced. Each has a lecture, a diagram (in the app), a lab you run with the in-app terminal, and a quiz. Answers are at the end.
 
 ## 1 · What a language model computes
 *Beginner · 15 min*
@@ -411,6 +411,39 @@ Compare circuit size and faithfulness at τ = 0.02 and 0.1. Which layers make no
    b) their perplexities match
    c) they used the same prompt
 
+## 15 · What frontier tests can and cannot show
+*Research · 35 min*
+
+Big questions — is it conscious? does it know itself? can it improve itself? — only become science once they are **operationalised**: a measurable proxy, a **null model** that lacks the property, and a **threshold fixed before running** (pre-registration). FRONTIER does this for 14 hypotheses.
+
+What they *can* show: whether a proxy behaves differently in the trained model than in random or shuffled weights, or than in another model. What they *cannot* show: experience. A high perturbational-complexity score also comes from noise (random-init scores almost as high here); a switch-like dose–response follows from softmax saturation; a probe that detects an injected concept is a *probe's* ability, not the model's report. Introspection in Binder et al.'s sense needs **privileged** access — beating a different model given the same information — and the 8M model does not. A loop that keeps only edits passing a held-out test can lower loss a little, but it stalls when its proposals repeat; self-distillation helped here, contradicting our prediction, and we report that rather than explain it away.
+
+The lesson: report negatives, keep test data out of every decision, and treat any "it's conscious" headline about a tiny model as a category error.
+
+### Lab
+```
+frontier
+scorecard
+pci
+grok 600
+fclaims
+```
+Which hypotheses failed? For PCI, compare trained vs random-init on your own prompt: is the difference meaningful? Does the live grokking run memorise before it generalises?
+
+### Quiz
+1. A trained model scores PCI 0.97 and a random-init model 0.96. This shows…
+   a) PCI here barely distinguishes structure from noise
+   b) the model is conscious
+   c) the random model is conscious
+2. Privileged self-knowledge requires the model to predict its own behaviour…
+   a) better than another model given the same inputs
+   b) better than chance
+   c) with high confidence
+3. Why must test documents never influence which edit is kept?
+   a) otherwise the test result is selection-biased
+   b) they are too short
+   c) it is slower
+
 ## Answer key
 
 - **1 · What a language model computes**: 1b — The forward pass ends in 50 257 logits; softmax turns them into a distribution which a decoding rule turns into a token.; 2c — 50 257 × 256 ≈ 12.9 M of ≈19.7 M parameters are in wte (shared with the unembedding).; 3a — −ln 0.5 = ln 2 ≈ 0.693.
@@ -427,3 +460,4 @@ Compare circuit size and faithfulness at τ = 0.02 and 0.1. Which layers make no
 - **12 · Circuits and geometry**: 1a — Positive eigenvalues of the token→logit map.; 2a — CKA is invariant to orthogonal transforms and isotropic scaling.
 - **13 · Statistics for interpretability**: 1a — Symmetry of the paired differences around zero.; 2a — Holm controls the family-wise error rate; BH the FDR.; 3a — Large samples make tiny effects significant.
 - **14 · Circuits, probes and reproducible evals**: 1a — (m_circuit − m_corrupt)/(m_clean − m_corrupt).; 2a — The control task scores just as well.; 3a — The hash covers every bit of every tensor.
+- **15 · What frontier tests can and cannot show**: 1a — A proxy must beat its null by a meaningful margin.; 2a — Binder et al.’s cross-model baseline.; 3a — Select and test splits keep the reported gain honest.

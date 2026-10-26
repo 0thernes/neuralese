@@ -57,3 +57,6 @@ The repository is deployed through a text-only channel, so both WebAssembly bina
 - moonlab.wasm: `fef4f0192641af2299b097bb1ccb535cd76f2d5d10f731c5723fe6e3f71229c1`. This is the byte-identical upstream `@moonlab/quantum-core` binary. Check it with `base64 -d moonlab.wasm.b64 | sha256sum`.
 
 Test C3z checks that both pins hold and that a changed pin gets rejected. The browser hands the verified bytes to the unmodified Emscripten glue through `wasmBinary`. In Node, the test materialises `dist/moonlab.wasm` from the verified base64 first.
+
+## v11 FRONTIER
+`site/frontier/` (core.js stats/nulls/LZ76/exact t-test, mind.js PCI/ignition/probes/ridge, rsi.js self-edit loop with exact post-layer-7 gradient, grok.js modular-addition net, cites.js) · `site/lab-frontier.js` UI · `tools/frontier-{mind,rsi,grok,atlas}.mjs` offline runs (Node 20, worker_threads) · results in `site/frontier/data/*.json`, hash-linked to `docs/PREREG-v11.md` · tests `test/v11.test.mjs`.
