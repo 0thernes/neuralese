@@ -1,7 +1,7 @@
 // Interpretability toolkit: corpus statistics, logit/tuned lens, DLA, activation & path patching, control vectors.
-import { CFG, mulberry32 } from './model.js?v=10';
-import { Engine, defaultRuntime, layerNorm, logSoftmax, topK, entropy } from './engine.js?v=10';
-import { cholSolve, pca1, dot } from './linalg.js?v=10';
+import { CFG, mulberry32 } from './model.js?v=11';
+import { Engine, defaultRuntime, layerNorm, logSoftmax, topK, entropy } from './engine.js?v=11';
+import { cholSolve, pca1, dot } from './linalg.js?v=11';
 const { d, H, hd, L, ff } = CFG;
 const tick = () => new Promise((r) => setTimeout(r, 0));
 
