@@ -2,7 +2,7 @@
 // exact backward for every op (embeddings, LayerNorm, unscaled causal/local attention, GELU-tanh MLP, tied unembedding).
 // Computes gradients w.r.t. activations at every hook site and (optionally) every weight. Runtime interventions are NOT
 // applied here: gradients describe the current weight set M with the default forward pass.
-import { CFG } from './model.js?v=12';
+import { CFG } from './model.js?v=13';
 export const dims = (W) => W.cfg || CFG;
 const GC = 0.7978845608028654, GA = 0.044715;
 const gelu = (x) => 0.5 * x * (1 + Math.tanh(GC * (x + GA * x * x * x)));

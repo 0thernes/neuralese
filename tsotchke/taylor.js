@@ -80,3 +80,7 @@ export function eshkolDiff(G) { const F = { exp, log, sin, cos, tan, sqrt, sinh,
   for (const c of G.cases) { const u = new Jet(Float64Array.from(c.u)), w = c.w.length ? new Jet(Float64Array.from(c.w)) : null, got = (w ? F[c.op](u, w) : F[c.op](u)).c;
     for (let k = 0; k < G.n; k++) { const e = Math.abs(got[k] - c.s[k]) / Math.max(1, Math.abs(c.s[k])); per[c.op] = Math.max(per[c.op] ?? 0, e); if (e > worst.err) worst = { err: e, op: c.op, k, u0: c.u[0] }; } }
   return { worst, per, cases: G.cases.length, ok: worst.err < 1e-12 }; }
+
+// HTML rows of g^(k)(0) for a jet. Jet.c is a Float64Array, so TypedArray.map would coerce the HTML strings to NaN
+// (the v12.0 "NaNNaNNaN" display bug); Array.from gives an ordinary array of strings.
+export const derivRows = (j) => Array.from(j.c, (_, k) => `<tr><td>g${'′'.repeat(Math.min(k, 3))}${k > 3 ? '⁽' + k + '⁾' : ''}(0)</td><td>${j.deriv(k).toExponential(6)}</td></tr>`).join('');

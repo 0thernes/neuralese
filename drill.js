@@ -2,7 +2,7 @@
 // A node is a plain object; resolve() maps it to the exact parameter indices it denotes so stats, sensitivity, Fisher and edits
 // all act on the same set.  Weight layout: row-major [out][in]; head h owns q/k/v rows and o columns h·hd … h·hd+hd−1;
 // neuron n owns fc row n (+fcb[n]) and proj column n.
-import { CFG } from './model.js?v=12';
+import { CFG } from './model.js?v=13';
 const dims = (W) => W.cfg || CFG;
 export const SUB = { ln1: ['ln1w', 'ln1b'], attn: ['q', 'k', 'v', 'o', 'ob'], ln2: ['ln2w', 'ln2b'], mlp: ['fc', 'fcb', 'proj', 'projb'] };
 export const shapeOf = (W, key) => { const { d, ff } = dims(W); return { q: [d, d], k: [d, d], v: [d, d], o: [d, d], fc: [ff, d], proj: [d, ff], ob: [1, d], fcb: [1, ff], projb: [1, d], ln1w: [1, d], ln1b: [1, d], ln2w: [1, d], ln2b: [1, d] }[key]; };
@@ -59,8 +59,8 @@ export function fromPath(s) { const n = {}; if (!s || s === 'model') return n; f
   else if ((m = t.match(/^[HNi](\d+)$/))) n.unit = +m[1]; else if ((m = t.match(/^([rc])(\d+)$/))) { n.lineAxis = m[1]; n.line = +m[2]; } else if ((m = t.match(/^w(\d+)$/))) n.w = +m[1]; else throw new Error('bad path segment ' + t); } return n; }
 
 // ── inspector: everything measured on the same parameter set ──
-import { forward, logitsAt, grad } from './grad.js?v=12';
-import { moments, spectral } from './science.js?v=12';
+import { forward, logitsAt, grad } from './grad.js?v=13';
+import { moments, spectral } from './science.js?v=13';
 function tokenLosses(W, ids) { const A = forward(W, ids), out = []; for (let t = 0; t < ids.length - 1; t++) { const lg = logitsAt(W, A, t); let m = -Infinity; for (const x of lg) if (x > m) m = x; let z = 0; for (const x of lg) z += Math.exp(x - m); out.push(m + Math.log(z) - lg[ids[t + 1]]); } return out; }
 const mean = (a) => a.reduce((x, y) => x + y, 0) / (a.length || 1);
 export function inspect(W, n, docs, { eps = 1e-2, spectralMax = 300000, tok = null } = {}) {

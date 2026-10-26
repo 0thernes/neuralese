@@ -65,3 +65,8 @@ table.kv td:first-child{color:var(--m);white-space:nowrap}
 .tsk-badge:hover { background: #a78bfa22; }
 .tsk-t td { white-space: normal; vertical-align: top; } .tsk-t code { word-break: break-all; }
 .tsk-card { border-left: 2px solid #a78bfa; padding: 4px 8px; margin: 6px 0; } .tsk-card > div { margin-top: 2px; }
+
+.cstamp{font-size:10px;opacity:.7;margin:1px 0 4px}.cstamp.stale{color:var(--w);opacity:1}
+.prov{font-size:11px;padding:4px 8px;margin:0 0 6px;border-left:3px solid var(--m);background:#ffffff08}.prov-stored{border-color:var(--w)}.prov-mixed{border-color:#a78bfa}.prov-checks{border-color:var(--a)}.prov-sim{border-color:#60a5fa}
+#guide{position:fixed;left:12px;top:44px;z-index:30;max-width:340px;background:var(--p2);border:1px solid var(--a);border-radius:6px;padding:8px 10px;box-shadow:0 4px 18px #0008}#guide.hidden{display:none}
+fieldset{min-width:0;max-width:100%}#panes canvas{max-width:100%}

@@ -2,10 +2,10 @@
 // 3D map, speech recognition (mic + file), text-to-speech, a chained speech-to-speech demo, OCR, captioning, CLIP zero-shot,
 // swappable generation-only LMs, and parameter-efficient fine-tuning of the main TinyStories-8M model on your own text.
 // Every demo has a built-in self-test with a numeric pass threshold (see docs/ROADMAP-v12.md, docs/CLAIMS.md).
-import { lines } from './charts.js?v=12';
-import { $, esc, tipq } from './lab-ui.js?v=12';
-import { MODELS, TOOL_MATRIX, TFJS_VERSION, ORT_WASM, pca3, cosine, resample, wav, wer, TRANSFORMS, byKey, cer } from './hub/models.js?v=12';
-import { toEdit } from './hub/finetune.js?v=12';
+import { lines } from './charts.js?v=13';
+import { $, esc, tipq } from './lab-ui.js?v=13';
+import { MODELS, TOOL_MATRIX, TFJS_VERSION, ORT_WASM, pca3, cosine, resample, wav, wer, TRANSFORMS, byKey, cer } from './hub/models.js?v=13';
+import { toEdit } from './hub/finetune.js?v=13';
 const kv = (rows) => `<table class="kv">${rows.map(([a, b]) => `<tr><td>${a}</td><td>${b}</td></tr>`).join('')}</table>`;
 const ok = (b) => (b ? '<span class="good">✔ pass</span>' : '<span class="warn">✖ fail</span>');
 const st = (id) => `<div class="sm" id="${id}St" aria-live="polite"></div>`;
@@ -31,8 +31,8 @@ export const markup = {
 <fieldset><legend>OCR — TrOCR small printed ${tipq('TrOCR reads ONE line of printed text. Self-test: render a known string, OCR it, character error rate must be ≤ 0.10.')}</legend><div class="r"><button class="pri" id="hvOcr">read text</button><button id="hvOcrTest">self-test</button></div>${st('hvO')}<div id="hvOcrOut"></div></fieldset>
 <fieldset><legend>caption — ViT-GPT2</legend><div class="r"><button id="hvCap">caption image</button></div>${st('hvC')}<div id="hvCapOut"></div></fieldset>
 <fieldset><legend>zero-shot — CLIP ViT-B/32 ${tipq('Self-test: a drawn red circle must be classified as “a red circle” over the other labels.')}</legend><div class="r"><input id="hvLabels" value="a red circle, a blue square, a photo of a dog, a page of text" style="flex:1"/><button id="hvClip">classify</button><button id="hvClipTest">self-test</button></div>${st('hvZ')}<div id="hvClipOut"></div></fieldset>`],
-  hgen: ['LM SWAP', 'Generation-only LMs', `<fieldset><legend>swap the generator ${tipq('GPT-2 family models via ONNX: greedy generation only. They cannot be inspected by the white-box tools — those need weights in the JS engine. For a swappable white-box model use TOOLS → ZOO (TinyStories 1M/3M/8M).')}</legend>
-<div class="r"><select id="hgM">${MODELS.filter((m) => m.task === 'text-generation').map((m) => `<option value="${m.key}">${m.repo} (${m.mb} MB)</option>`).join('')}</select><label>tokens</label><input type="number" id="hgN" value="40" min="1" max="200" style="width:5em"/><button class="pri" id="hgGo">generate</button></div>
+  hgen: ['LM SWAP', 'Generation-only LMs', `<fieldset><legend>swap the generator ${tipq('GPT-2 family models via ONNX: greedy generation (default: repetition penalty 1.3 + no repeated 3-grams; tick “plain greedy” for raw argmax). They cannot be inspected by the white-box tools — those need weights in the JS engine. For a swappable white-box model use TOOLS → ZOO (TinyStories 1M/3M/8M).')}</legend>
+<div class="r"><select id="hgM">${MODELS.filter((m) => m.task === 'text-generation').map((m) => `<option value="${m.key}">${m.repo} (${m.mb} MB)</option>`).join('')}</select><label>tokens</label><input type="number" id="hgN" value="40" min="1" max="200" style="width:5em"/><label title="no repetition penalty: exactly the model's argmax at every step"><input type="checkbox" id="hgPlain"/> plain greedy</label><button class="pri" id="hgGo">generate</button></div>
 <textarea id="hgIn" rows="2" style="width:100%">Once upon a time, a little robot</textarea>${st('hg')}<div id="hgOut" class="otext"></div></fieldset>`],
   hft: ['FINE-TUNE', 'Fine-tune TinyStories-8M on your text', `<fieldset><legend>parameter-efficient fine-tune ${tipq('Trains 1,536 parameters — ln_f gain/bias and an output gain for each of the 1,024 layer-7 MLP neurons — with Adam on exact gradients, in a Web Worker. Your text is cut into 32-token chunks; every 3rd chunk is held out and never trained on. Pass = the 95% bootstrap CI of the held-out CE change is entirely below 0. ~10 s per step on a laptop CPU.')}</legend>
 <textarea id="hfIn" rows="6" style="width:100%">The robot named Zork beeped twice. Zork the robot loved to eat bolts and gears. Every morning Zork said beep boop to the sun. One day Zork met a cat named Fizz. Fizz did not like bolts, but Fizz liked Zork. Zork and Fizz played in the park all day. When the sun went down, Zork said beep boop to the moon. Fizz purred and fell asleep next to Zork. The next morning Zork beeped twice and Fizz woke up. They ate breakfast together: bolts for Zork and fish for Fizz. Zork the robot was happy. Fizz the cat was happy too.</textarea>
@@ -40,14 +40,15 @@ export const markup = {
 };
 // ---------- worker client ----------
 let W8 = null, seq = 0; const pend = new Map();
-function hub() { if (W8) return W8; W8 = new Worker(new URL('./hub/worker.js?v=12', import.meta.url), { type: 'module' });
+function hub() { if (W8) return W8; W8 = new Worker(new URL('./hub/worker.js?v=13', import.meta.url), { type: 'module' });
   W8.onmessage = (e) => { const p = pend.get(e.data.id); if (!p) return; if (e.data.evt) return p.on?.(e.data); pend.delete(e.data.id); e.data.ok ? p.res(e.data.result) : p.rej(new Error(e.data.error)); };
   W8.onerror = (e) => { for (const p of pend.values()) p.rej(new Error('hub worker failed: ' + (e.message || 'load error'))); pend.clear(); W8 = null; }; return W8; }
 const say = (id, s) => { const el = $(id + 'St'); if (el) el.textContent = s; };
 function call(op, key, input, opts = {}, sid = null, transfer = []) { const id = ++seq, dev = $('hubDev')?.value; return new Promise((res, rej) => {
   pend.set(id, { res, rej, on: (ev) => { const s = ev.stage === 'download' ? `downloading ${ev.file} ${((ev.progress || 0) * 100).toFixed(0)}%` : ev.stage === 'ort-wasm' ? (ev.progress ? 'runtime verified (SHA-256 ok)' : 'fetching runtime…') : ev.stage === 'ready' ? `model ready (${(ev.ms / 1000).toFixed(1)} s)` : ev.stage; if (sid) say(sid, `${byKey(key).repo}: ${s}`); const h = $('hubS_' + key); if (h) h.textContent = s; } });
   hub().postMessage({ id, op, key, input, opts: { device: dev, ...opts } }, transfer); }); }
-export const run = (key, input, opts, sid) => call('run', key, input, opts, sid).then((r) => { const h = $('hubS_' + key); if (h) h.textContent = 'loaded ✔'; return r; });
+// failures are surfaced in the status line (v12.0 left the last progress text, e.g. "config.json 100%", on screen)
+export const run = (key, input, opts, sid) => call('run', key, input, opts, sid).then((r) => { const h = $('hubS_' + key); if (h) h.textContent = 'loaded ✔'; return r; }, (e) => { const m = 'failed: ' + (e?.message || e); if (sid) say(sid, `${byKey(key).repo}: ${m}`); const h = $('hubS_' + key); if (h) h.textContent = m; throw e; });
 // ---------- audio helpers ----------
 let actx = null; const ac = () => (actx ||= new AudioContext());
 async function decodeTo16k(blob) { const buf = await ac().decodeAudioData(await blob.arrayBuffer()), ch = buf.numberOfChannels, n = buf.length, mono = new Float32Array(n); for (let c = 0; c < ch; c++) { const d = buf.getChannelData(c); for (let i = 0; i < n; i++) mono[i] += d[i] / ch; } return resample(mono, buf.sampleRate, 16000); }
@@ -76,16 +77,16 @@ export function install(A, out) {
   out.hubInfo = async () => { const e = $('hubEnv'); const s = `crossOriginIsolated: ${self.crossOriginIsolated} (threads ${self.crossOriginIsolated ? 'on' : 'off: single-threaded WASM'}) · WebGPU: ${navigator.gpu ? 'available' : 'not available'}`; if (e) e.textContent = s; return s; };
   for (const b of document.querySelectorAll('[data-hubload]')) b.addEventListener('click', A.guard(async () => { const k = b.dataset.hubload; $('hubS_' + k).textContent = 'loading…'; await call('load', k); $('hubS_' + k).textContent = 'loaded ✔'; }));
   // embeddings
-  out.embed = async (texts) => { const t = texts || $('heIn').value.split('\n').map((s) => s.trim()).filter(Boolean); if (t.length < 2) throw new Error('enter at least 2 lines'); say('he', 'embedding…'); const r = await run('embed', t, {}, 'he'), V = vecs(r);
+  out.hubEmbed = async (texts) => { const t = texts || $('heIn').value.split('\n').map((s) => s.trim()).filter(Boolean); if (t.length < 2) throw new Error('enter at least 2 lines'); say('he', 'embedding…'); const r = await run('embed', t, {}, 'he'), V = vecs(r);
     const P = t.length >= 3 ? pca3(V) : { coords: V.map((v) => [v[0], v[1], v[2]]), explained: [] }; const grp = t.map((_, i) => Math.floor(i / 2)); if ($('he3d')) await draw3d(P.coords, t, grp);
     const nn = t.map((s, i) => { let b = -1, bj = -1; for (let j = 0; j < t.length; j++) if (j !== i) { const c = cosine(V[i], V[j]); if (c > b) { b = c; bj = j; } } return [esc(s), `${esc(t[bj])} <span class="sm">(cos ${b.toFixed(3)})</span>`]; });
     if ($('heOut')) $('heOut').innerHTML = `<div class="sm">${t.length} × ${V[0].length}-d · ${r.ms.toFixed(0)} ms · PCA explained variance ${P.explained.map((x) => (100 * x).toFixed(1) + '%').join(' / ')}</div>` + kv([['<b>sentence</b>', '<b>nearest neighbour</b>'], ...nn]);
     say('he', 'done'); return { texts: t, vecs: V, ms: r.ms, explained: P.explained }; };
-  out.embedTest = async () => { const r = await out.embed(['A man is playing a guitar.', 'Someone is playing an acoustic guitar.', 'The stock market crashed today.']); const a = cosine(r.vecs[0], r.vecs[1]), b = cosine(r.vecs[0], r.vecs[2]), pass = a > b + 0.2;
+  out.embedTest = async () => { const r = await out.hubEmbed(['A man is playing a guitar.', 'Someone is playing an acoustic guitar.', 'The stock market crashed today.']); const a = cosine(r.vecs[0], r.vecs[1]), b = cosine(r.vecs[0], r.vecs[2]), pass = a > b + 0.2;
     $('heOut').insertAdjacentHTML('afterbegin', kv([['self-test: cos(paraphrase) vs cos(unrelated)', `${a.toFixed(3)} vs ${b.toFixed(3)}`], ['criterion', 'paraphrase ≥ unrelated + 0.20'], ['result', ok(pass)]])); keep('hub', 'embed self-test', { a, b, pass }); return { a, b, pass }; };
   out.embedSearch = async () => { const t = $('heIn').value.split('\n').map((s) => s.trim()).filter(Boolean), q = $('heQ').value; const r = await run('embed', [q, ...t], {}, 'he'), V = vecs(r); const s = t.map((x, i) => [cosine(V[0], V[i + 1]), x]).sort((a, b) => b[0] - a[0]);
     $('heOut').innerHTML = kv([['<b>query</b>', esc(q)], ...s.slice(0, 5).map(([c, x]) => [c.toFixed(3), esc(x)])]); return s; };
-  on('heGo', 'click', () => out.embed()); on('heTest', 'click', () => out.embedTest()); on('heSearch', 'click', () => out.embedSearch());
+  on('heGo', 'click', () => out.hubEmbed()); on('heTest', 'click', () => out.embedTest()); on('heSearch', 'click', () => out.embedSearch());
   // speech
   out.asr = async (pcm16, sid = 'hsA') => { say(sid, 'transcribing…'); const r = await run('asr', pcm16, {}, sid); say(sid, `${(pcm16.length / 16000).toFixed(1)} s audio · ${(r.ms / 1000).toFixed(1)} s`); return r.out.text.trim(); };
   out.tts = async (text, sid = 'hsT', doPlay = true) => { say(sid, 'synthesising…'); const r = await run('tts', text, {}, sid), a = r.out; say(sid, `${(a.audio.length / a.rate).toFixed(1)} s at ${a.rate} Hz · ${(r.ms / 1000).toFixed(1)} s`); if (doPlay) { try { play(a.audio, a.rate); } catch { /* no audio device */ } } out._lastTTS = a; return a; };
@@ -106,11 +107,14 @@ export function install(A, out) {
   out.clipTest = async () => { circle(); const L = ['a red circle', 'a blue square', 'a photo of a dog', 'a page of text'], r = await out.clip(L), pass = r[0].label === 'a red circle'; $('hvClipOut').innerHTML += kv([['criterion', 'top label = “a red circle”'], ['result', ok(pass)]]); keep('hub', 'CLIP self-test', { top: r[0].label, pass }); return { top: r[0], pass }; };
   on('hvOcr', 'click', () => out.ocr()); on('hvOcrTest', 'click', () => out.ocrTest()); on('hvCap', 'click', () => out.caption()); on('hvClip', 'click', () => out.clip()); on('hvClipTest', 'click', () => out.clipTest());
   // LM swap
-  out.hgen = async (key, prompt, n) => { key = key || $('hgM').value; prompt = prompt ?? $('hgIn').value; say('hg', 'generating…'); const r = await run(key, prompt, { n: n ?? +$('hgN').value }, 'hg'), t = r.out[0].generated_text; say('hg', `${byKey(key).repo} · ${(r.ms / 1000).toFixed(1)} s · greedy`); if ($('hgOut')) $('hgOut').textContent = t; return t; };
+  // decoding: greedy, by default with repetition penalty 1.3 + no repeated 3-grams (plain greedy GPT-2 often emits only "\n" after a full stop)
+  out.hgen = async (key, prompt, n, plain) => { key = key || $('hgM').value; prompt = prompt ?? $('hgIn').value; const pl = plain ?? $('hgPlain')?.checked ?? false, dec = pl ? { rp: 1, nr: 0 } : { rp: 1.3, nr: 3 }; say('hg', 'generating…');
+    const r = await run(key, prompt, { n: n ?? +$('hgN').value, ...dec }, 'hg'), t = r.out[0].generated_text, cont = t.startsWith(prompt) ? t.slice(prompt.length) : t, ws = !cont.trim();
+    say('hg', `${byKey(key).repo} · ${(r.ms / 1000).toFixed(1)} s · greedy${pl ? '' : ', repetition penalty 1.3, no repeated 3-grams'}${ws ? ' · ⚠ the model generated only whitespace/newlines — this is the model’s own greedy output, not a load error; try without "plain greedy" or a prompt that does not end in a full stop' : ''}`); if ($('hgOut')) $('hgOut').textContent = t; return t; };
   on('hgGo', 'click', () => out.hgen());
   // fine-tune
   let lastFT = null;
-  out.finetune = (text, steps, lr) => new Promise((res, rej) => { const ids = A.tok().encode(text ?? $('hfIn').value), W = A.W(); const w = new Worker(new URL('./hub/ft-worker.js?v=12', import.meta.url), { type: 'module' }); const curve = []; say('hf', `${ids.length} tokens · precomputing frozen activations…`); $('hfApply').disabled = true;
+  out.finetune = (text, steps, lr) => new Promise((res, rej) => { const ids = A.tok().encode(text ?? $('hfIn').value), W = A.W(); const w = new Worker(new URL('./hub/ft-worker.js?v=13', import.meta.url), { type: 'module' }); const curve = []; say('hf', `${ids.length} tokens · precomputing frozen activations…`); $('hfApply').disabled = true;
     w.onmessage = (e) => { if (e.data.evt) { curve.push(e.data.held); say('hf', `step ${e.data.step}: held-out CE ${e.data.held.toFixed(4)}`); lines($('hfCh'), [{ label: 'held-out CE', ys: curve }], { title: 'held-out cross-entropy per Adam step' }); return; } w.terminate(); if (!e.data.ok) return rej(new Error(e.data.error)); const r = e.data.result; lastFT = r;
       $('hfOut').innerHTML = kv([['trainable parameters', r.params], ['chunks train / held-out', `${r.trainChunks} / ${r.heldChunks} (${r.heldTokens} held-out targets)`], ['held-out CE before → after', `${r.before.toFixed(4)} → ${r.after.toFixed(4)}`], ['change, 95% bootstrap CI', `${r.delta.est.toFixed(4)} [${r.delta.lo.toFixed(4)}, ${r.delta.hi.toFixed(4)}]`], ['criterion', 'CI upper bound < 0'], ['result', ok(r.improved)], ['‖Δθ‖₂', r.editL2.toFixed(4)]]);
       $('hfApply').disabled = false; say('hf', 'done'); keep('finetune', `fine-tune ${r.curve.length - 1} steps`, { before: r.before, after: r.after, improved: r.improved }); res(r); };
@@ -120,7 +124,7 @@ export function install(A, out) {
   const auto = { hub: out.hubInfo }; A.onTab = ((prev) => (k) => { prev?.(k); if (auto[k]) auto[k](); })(A.onTab);
   A.ext = Object.assign(A.ext || {}, {
     hub: async () => MODELS.map((m) => `${m.key.padEnd(15)} ${m.repo.padEnd(34)} ${String(m.mb).padStart(4)} MB  ${m.what}`).join('\n') + '\n\n' + TOOL_MATRIX.map(([a, b]) => `${a}: ${b}`).join('\n'),
-    embed: async (a) => { A.showTab('hemb'); const t = a.join(' ').split('|').map((s) => s.trim()).filter(Boolean); const r = await out.embed(t); return r.texts.map((x, i) => `${i}: ${x}`).join('\n') + '\n' + r.vecs.map((v, i) => r.vecs.map((w) => cosine(v, w).toFixed(3)).join(' ')).join('\n'); },
+    embed: async (a) => { A.showTab('hemb'); const t = a.join(' ').split('|').map((s) => s.trim()).filter(Boolean); const r = await out.hubEmbed(t); return r.texts.map((x, i) => `${i}: ${x}`).join('\n') + '\n' + r.vecs.map((v, i) => r.vecs.map((w) => cosine(v, w).toFixed(3)).join(' ')).join('\n'); },
     tts: async (a) => { A.showTab('hspeech'); const r = await out.tts(a.join(' ') || 'hello'); return `spoke ${(r.audio.length / r.rate).toFixed(2)} s`; },
     s2s: async () => { A.showTab('hspeech'); const r = await out.s2sTest(); return `TTS "${r.ref}" → Whisper "${r.hyp}" · WER ${r.wer.toFixed(3)} ${r.pass ? 'PASS' : 'FAIL'}`; },
     ocrtest: async () => { A.showTab('hvision'); const r = await out.ocrTest(); return `rendered "${r.ref}" → read "${r.t}" · CER ${r.cer.toFixed(3)} ${r.pass ? 'PASS' : 'FAIL'}`; },

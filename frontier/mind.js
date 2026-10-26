@@ -1,7 +1,7 @@
 // v11 consciousness-science PROXIES (operational definitions only — see docs/FRONTIER.md for what they cannot show).
 // P1 perturbational complexity (PCI-analog, Casali et al. 2013), P2 ignition (global-workspace proxy, Dehaene & Changeux 2011),
 // P3a injection detection (after Lindsey 2025/2026), P3b self-prediction (Binder et al. 2024 cross-prediction).
-import { forward, logitsAt, rng, gauss, pciNorm, lse, mean } from './core.js?v=12';
+import { forward, logitsAt, rng, gauss, pciNorm, lse, mean } from './core.js?v=13';
 const dimOf = (W) => W.lnfW.length;
 const residPost = (A, l) => (l + 1 < A.layers.length ? A.layers[l + 1].xin : A.xf);
 const norm = (X, o, d) => { let s = 0; for (let i = 0; i < d; i++) s += X[o + i] ** 2; return Math.sqrt(s); };

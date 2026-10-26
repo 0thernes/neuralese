@@ -1,6 +1,6 @@
 // v11 P4: a closed self-improvement loop on TinyStories-8M. Editable θ = ln_f gain/bias (512) + output gains γ of the 1024
 // layer-7 MLP neurons. The frozen backbone is run once per document; everything after layer-7's MLP is recomputed exactly.
-import { forward, lse, mean, tLess, rng, gauss } from './core.js?v=12';
+import { forward, lse, mean, tLess, rng, gauss } from './core.js?v=13';
 export function precompute(W, ids) { const A = forward(W, ids), C = A.layers[A.layers.length - 1]; return { ids, T: ids.length, act: C.act, xf0: A.xf }; }
 export const theta0 = (W) => ({ g: Float64Array.from(W.lnfW), b: Float64Array.from(W.lnfB), gam: new Float64Array(W.layers[0].fcb.length).fill(1) });
 export const clone = (th) => ({ g: Float64Array.from(th.g), b: Float64Array.from(th.b), gam: Float64Array.from(th.gam) });

@@ -18,7 +18,7 @@ export const MODELS = [
   { key: 'caption', task: 'image-to-text', repo: 'Xenova/vit-gpt2-image-captioning', mb: 245, what: 'image captioning (ViT encoder + GPT-2 decoder)' },
   { key: 'clip', task: 'zero-shot-image-classification', repo: 'Xenova/clip-vit-base-patch32', mb: 153, what: 'zero-shot image classification (CLIP ViT-B/32)' },
   { key: 'gen-distilgpt2', task: 'text-generation', repo: 'Xenova/distilgpt2', mb: 84, what: 'text generation (DistilGPT-2, 82M) — generation only' },
-  { key: 'gen-gpt2', task: 'text-generation', repo: 'Xenova/gpt2', mb: 128, what: 'text generation (GPT-2 small, 124M) — generation only' },
+  { key: 'gen-gpt2', task: 'text-generation', repo: 'Xenova/gpt2', dtype: 'uint8', mb: 125, what: 'text generation (GPT-2 small, 124M) — generation only' },
 ];
 export const byKey = (k) => { const m = MODELS.find((x) => x.key === k); if (!m) throw new Error('unknown hub model ' + k); return m; };
 // Which lab tools work on which model (shown in the HUB tab; tested in test/v12.test.mjs).
