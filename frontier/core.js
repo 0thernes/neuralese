@@ -1,5 +1,5 @@
 // v11 FRONTIER shared core: null models, cross-entropy, statistics, LZ76 complexity. Pure ES module (Node + browser).
-import { forward, logitsAt } from '../grad.js?v=11';
+import { forward, logitsAt } from '../grad.js?v=12';
 export const SPLITS = { propose: [...Array(14).keys()], select: [...Array(13).keys()].map((i) => i + 14), test: [...Array(13).keys()].map((i) => i + 27) };
 export function rng(seed = 1) { let s = seed >>> 0 || 1; return () => { s ^= s << 13; s >>>= 0; s ^= s >>> 17; s ^= s << 5; s >>>= 0; return s / 4294967296; }; }
 export function gauss(r) { let u = 0; while (!u) u = r(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * r()); }

@@ -1,7 +1,7 @@
 // v11 P5: grokking on a + b mod p (Power et al. 2022; MLP construction after Gromov 2023), trainable in the browser.
 // Model: h = W1a[:, a] + W1b[:, b] (N hidden), φ(h) = h², logits = W2 φ(h) / N. Full-batch AdamW, cross-entropy.
 // Config list (the FIRST entry is the pre-registered one; see docs/PREREG-v11.md P5).
-import { rng, gauss } from './core.js?v=11';
+import { rng, gauss } from './core.js?v=12';
 export const CONFIGS = [{ p: 31, N: 256, lr: 3e-3, wd: 1.0, frac: 0.5, steps: 6000, seed: 1 }];
 export function init(cfg = CONFIGS[0]) { const { p, N, seed, frac } = cfg, r = rng(seed); const W1a = new Float64Array(N * p), W1b = new Float64Array(N * p), W2 = new Float64Array(p * N);
   for (let i = 0; i < W1a.length; i++) { W1a[i] = gauss(r); W1b[i] = gauss(r); } for (let i = 0; i < W2.length; i++) W2[i] = gauss(r);
