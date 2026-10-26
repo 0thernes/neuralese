@@ -1,11 +1,11 @@
 // INTERPRET group: attention grid/rollout/head classes, residual geometry, circuit graph, neuron atlas, embeddings, SAE dashboard.
-import * as C from './labcore.js?v=10';
-import { logSoftmax, topK, entropy } from './engine.js?v=10';
-import { dla } from './analysis.js?v=10';
-import { CORPUS } from './corpus.js?v=10';
-import { allDocs } from './dataset.js?v=10';
-import { heatmap, lines, bars, scatter, showTip, seqColor } from './charts.js?v=10';
-import { $, esc, fmt, opts, lOpts, XB, cv, tipq, pal, PAL, prog, svgEl, tick, tokId, canvasFit, d, H, L, ff, V } from './lab-ui.js?v=10';
+import * as C from './labcore.js?v=11';
+import { logSoftmax, topK, entropy } from './engine.js?v=11';
+import { dla } from './analysis.js?v=11';
+import { CORPUS } from './corpus.js?v=11';
+import { allDocs } from './dataset.js?v=11';
+import { heatmap, lines, bars, scatter, showTip, seqColor } from './charts.js?v=11';
+import { $, esc, fmt, opts, lOpts, XB, cv, tipq, pal, PAL, prog, svgEl, tick, tokId, canvasFit, d, H, L, ff, V } from './lab-ui.js?v=11';
 const IOI = 'When Mary and John went to the store, John gave a drink to';
 export const markup = {
   attn: ['ATTENTION', 'Attention patterns', `<fieldset><legend>input</legend><div class="r"><input id="xAP" style="flex:1" value="${IOI}"/><button class="pri" id="xA">run</button></div><div id="xAInfo" class="sm"></div></fieldset>
