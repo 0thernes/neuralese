@@ -1,17 +1,18 @@
 // v5 shell: grouped tabs, module install, theme, resizable dock, export bar, shortcuts, terminal + learning center.
-import { GROUPS, runs, exportFor, parseLayers, $, $$ } from './lab-ui.js?v=7';
-import * as LM from './lab-model.js?v=7';
-import * as LI from './lab-interpret.js?v=7';
-import * as LV from './lab-intervene.js?v=7';
-import * as LE from './lab-eval.js?v=7';
-import * as LS from './lab-science.js?v=7';
-import * as LR from './lab-research.js?v=7';
-import { installModes } from './viz3d.js?v=7';
-import { redrawAll } from './charts.js?v=7';
-import { makeTerminal, termMarkup, mountTerminal, VERSION } from './term.js?v=7';
-import { learnMarkup, mountLearn } from './learn/learn.js?v=7';
+import { GROUPS, runs, exportFor, parseLayers, $, $$ } from './lab-ui.js?v=8';
+import * as LM from './lab-model.js?v=8';
+import * as LI from './lab-interpret.js?v=8';
+import * as LV from './lab-intervene.js?v=8';
+import * as LE from './lab-eval.js?v=8';
+import * as LS from './lab-science.js?v=8';
+import * as LR from './lab-research.js?v=8';
+import * as LT from './lab-tsotchke.js?v=8';
+import { installModes } from './viz3d.js?v=8';
+import { redrawAll } from './charts.js?v=8';
+import { makeTerminal, termMarkup, mountTerminal, VERSION } from './term.js?v=8';
+import { learnMarkup, mountLearn } from './learn/learn.js?v=8';
 export { VERSION };
-const MODS = [LM, LI, LV, LE, LS, LR];
+const MODS = [LM, LI, LV, LE, LS, LR, LT];
 const AUTO = { arch: 'arch', params: 'params', timeline: 'timeline', runs: 'runs' }; // cheap views rendered on open
 export function buildV5(TABS, P) {
   const long = {};
@@ -36,12 +37,12 @@ export function buildV5(TABS, P) {
       const sp = $('split'), dock = $('dock'); if (sp && dock) { const w0 = +localStorage.getItem('neuralese.dockW') || 0; if (w0) document.documentElement.style.setProperty('--dockW', w0 + 'px');
         sp.addEventListener('pointerdown', (e) => { sp.setPointerCapture(e.pointerId); const mv = (ev) => { const w = Math.max(320, Math.min(innerWidth - 200, innerWidth - ev.clientX)); document.documentElement.style.setProperty('--dockW', w + 'px'); localStorage.setItem('neuralese.dockW', w); }; sp.onpointermove = mv; sp.onpointerup = () => (sp.onpointermove = null); });
         sp.addEventListener('keydown', (e) => { if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return; const cur = dock.getBoundingClientRect().width + (e.key === 'ArrowLeft' ? 30 : -30); document.documentElement.style.setProperty('--dockW', Math.max(320, cur) + 'px'); }); }
-      // shortcuts: ` terminal · ? help · 1–9 groups
+      // shortcuts: ` terminal · ? help · 1–9, 0 groups
       addEventListener('keydown', (e) => { if (/INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName) || e.ctrlKey || e.metaKey || e.altKey) return;
         if (e.key === '`') { e.preventDefault(); api.showTab('term'); }
         else if (e.key === '?') $('keys')?.classList.toggle('hidden');
         else if (e.key === 'Escape') $('keys')?.classList.add('hidden');
-        else if (/^[1-9]$/.test(e.key)) { const g = GROUPS[+e.key - 1]; if (g) api.showTab(g[1][0]); } });
+        else if (/^[0-9]$/.test(e.key)) { const g = GROUPS[e.key === '0' ? 9 : +e.key - 1]; if (g) api.showTab(g[1][0]); } });
     },
     // a11y: give every unlabelled form control an accessible name (from its preceding <label>, placeholder, title or id),
     // make scroll containers keyboard-focusable, and expose the splitter's value.

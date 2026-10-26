@@ -1,8 +1,9 @@
 // In-app terminal: a small, safe command language over the real app API (no eval). Shared by the batch runner.
-import { $, esc, MATS_OK } from './term-util.js?v=7';
-export const VERSION = '7.0.0';
-import { CMDS as SCI_CMDS } from './lab-science.js?v=7';
-import { CMDS as RES_CMDS } from './lab-research.js?v=7';
+import { $, esc, MATS_OK } from './term-util.js?v=8';
+export const VERSION = '8.0.0';
+import { CMDS as SCI_CMDS } from './lab-science.js?v=8';
+import { CMDS as RES_CMDS } from './lab-research.js?v=8';
+import { CMDS as TSK_CMDS } from './lab-tsotchke.js?v=8';
 const SET_KEYS = ['n', 'seed', 'temp', 'topk', 'topp', 'minp', 'typical', 'rep', 'freq', 'pres', 'mode'];
 export const COMMANDS = {
   help: ['help [cmd]', 'list commands or show usage of one'],
@@ -43,7 +44,7 @@ export const COMMANDS = {
 };
 export function complete(prefix) { const p = prefix.trimStart(); if (p.includes(' ')) { const [c, ...r] = p.split(/\s+/); const last = r[r.length - 1] || ''; const pool = c === 'tab' ? Object.keys(COMMANDS.tab[1].match(/\(([^)]*)\)/)[1].split(', ').reduce((a, k) => ((a[k] = 1), a), {})) : c === 'help' ? Object.keys(COMMANDS) : c === 'theme' ? ['dark', 'light'] : c === 'edit' ? ['chaos', 'quant', 'svd', 'scale', 'head', 'neuron', 'interp'] : c === 'sweep' ? ['blend', 'steer', 'htemp', 'neuron', 'lbias', 'window', 'hsteer'] : c === 'set' ? SET_KEYS : c === 'spectrum' && r.length === 2 ? MATS_OK : []; return pool.filter((k) => k.startsWith(last)).map((k) => [c, ...r.slice(0, -1), k].join(' ')); } return Object.keys(COMMANDS).filter((k) => k.startsWith(p)); }
 
-for (const [k, v] of Object.entries({ ...SCI_CMDS, ...RES_CMDS })) if (!COMMANDS[k]) COMMANDS[k] = v;
+for (const [k, v] of Object.entries({ ...SCI_CMDS, ...RES_CMDS, ...TSK_CMDS })) if (!COMMANDS[k]) COMMANDS[k] = v;
 export function makeTerminal(A, out) {
   const hist = JSON.parse(localStorage.getItem('neuralese.term.hist') || '[]');
   const num = (x, name, lo = -Infinity, hi = Infinity) => { const v = +x; if (x == null || x === '' || !isFinite(v) || v < lo || v > hi) throw new Error(`${name} must be a number in [${lo}, ${hi}]`); return v; };

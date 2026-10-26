@@ -59,3 +59,9 @@ body.dense{--f:11px}body.dense #out{left:360px}body.dense #dock2{display:block}
 .crumbs{display:flex;flex-wrap:wrap;gap:2px;align-items:center;margin:4px 0}.crumb{padding:1px 6px;font-size:11px}.crumbs .sep{color:var(--m);margin:0 2px}
 .chips{display:flex;flex-wrap:wrap;gap:3px;max-height:140px;overflow:auto;margin:4px 0}.chip{padding:1px 5px;font-size:10px}
 table.kv td:first-child{color:var(--m);white-space:nowrap}
+/* v8 Tsotchke-powered components */
+.good { color: #34d399; } .warn { color: #fbbf24; }
+.tsk-badge { display: inline-block; padding: 1px 7px; margin-right: 6px; border: 1px solid #a78bfa; border-radius: 9px; color: #c4b5fd; font-size: 11px; text-decoration: none; letter-spacing: .02em; }
+.tsk-badge:hover { background: #a78bfa22; }
+.tsk-t td { white-space: normal; vertical-align: top; } .tsk-t code { word-break: break-all; }
+.tsk-card { border-left: 2px solid #a78bfa; padding: 4px 8px; margin: 6px 0; } .tsk-card > div { margin-top: 2px; }
