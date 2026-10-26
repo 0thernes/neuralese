@@ -18,6 +18,6 @@ one, kept so Node treats `dist/moonlab.js` as CommonJS (used by the test suite).
 The repository is deployed through a text-only channel, so both WebAssembly binaries are committed as base64 text: `site/tsotchke/qrng.wasm.b64` and `site/vendor/moonlab/dist/moonlab.wasm.b64`. `site/tsotchke/wasmb64.js` decodes them and checks SHA-256 before instantiation. If the hash does not match, loading throws:
 
 - qrng.wasm: `a82a9b44efcdb5d0177c0eb6bc63b76910fefdc97482ce014d846dcd19fba86e` (reproducible with `wasm/build-qrng.sh`)
-- moonlab.wasm: `fef4f0192641af2299b097bb1ccb535cd76f2d5d10f731c5723fe6e3f71229c1`. This is the byte-identical upstream `@moonlab/quantum-core` binary. Check it with `base64 -d moonlab.wasm.b64 | sha256sum`.
+- moonlab.wasm: `fef4f0192641af2299b097bb1ccb535cd76f2d5d10f731c5723fe6e3f71229c1`. This is the byte-identical binary shipped in npm `@tsotchkecorp/moonlab@1.2.1` (the name of `bindings/javascript/packages/core/package.json` in the repo; the workspace root there is `moonlab-javascript`). Check it with `base64 -d moonlab.wasm.b64 | sha256sum`.
 
 Test C3z checks that both pins hold and that a changed pin gets rejected. The browser hands the verified bytes to the unmodified Emscripten glue through `wasmBinary`. In Node, the test materialises `dist/moonlab.wasm` from the verified base64 first.

@@ -1,8 +1,8 @@
 // 3D view: layer stack (heads, neurons, residual stream) + real weight matrix as height-field / point cloud.
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { CFG } from './model.js?v=8';
-import { getMat } from './surgery.js?v=8';
+import { CFG } from './model.js?v=9';
+import { getMat } from './surgery.js?v=9';
 const { L, H, ff, d } = CFG, GAP = 2.4;
 export class Viz {
   constructor(canvas, onPick) {
