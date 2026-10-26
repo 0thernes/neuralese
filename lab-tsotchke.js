@@ -3,19 +3,19 @@
 //   qgeom  : Moonlab (@tsotchkecorp/moonlab 1.2.1 WASM) state fidelity + the QGTL quantum-geometric-tensor metric
 //   taylor : a faithful JS port of Eshkol's Taylor-mode AD recurrences (lib/core/taylor_recurrences.def)
 //   claims : every claim, with a live check that can fail. Full write-up: docs/TSOTCHKE.md, docs/CLAIMS.md, docs/STACK.md.
-import { bars, lines } from './charts.js?v=10';
-import { $, esc, tipq, prog, tick } from './lab-ui.js?v=10';
-import { forward, grad } from './grad.js?v=10';
-import * as MQ from './tsotchke/moonlabqgt.js?v=10';
-import * as ADC from './tsotchke/adcheck.js?v=10';
-import * as NS from './tsotchke/neurosym.js?v=10';
-import * as T from './tsotchke/taylor.js?v=10';
-import * as N from './tsotchke/nist.js?v=10';
-import * as Q from './tsotchke/qrng.js?v=10';
-import * as G from './tsotchke/geometry.js?v=10';
-import * as TY from './tsotchke/types.js?v=10';
-import * as QG from './tsotchke/qgtl.js?v=10';
-import { CFG } from './model.js?v=10';
+import { bars, lines } from './charts.js?v=11';
+import { $, esc, tipq, prog, tick } from './lab-ui.js?v=11';
+import { forward, grad } from './grad.js?v=11';
+import * as MQ from './tsotchke/moonlabqgt.js?v=11';
+import * as ADC from './tsotchke/adcheck.js?v=11';
+import * as NS from './tsotchke/neurosym.js?v=11';
+import * as T from './tsotchke/taylor.js?v=11';
+import * as N from './tsotchke/nist.js?v=11';
+import * as Q from './tsotchke/qrng.js?v=11';
+import * as G from './tsotchke/geometry.js?v=11';
+import * as TY from './tsotchke/types.js?v=11';
+import * as QG from './tsotchke/qgtl.js?v=11';
+import { CFG } from './model.js?v=11';
 const GH = 'https://github.com/', DOCS = 'https://github.com/0thernes/neuralese/blob/main/docs/';
 export const BADGE = `<a class="tsk-badge" href="${GH}tsotchke" target="_blank" rel="noopener" title="This component runs code from, or a faithful attributed port of, Tsotchke’s MIT-licensed repositories">⚛ Powered by Tsotchke</a>`;
 export const USED = [
@@ -26,7 +26,7 @@ export const USED = [
   ['quantum_rng', 'tsotchke/quantum_rng', '1a77e77f803c63883349b658361c06401cd8ceb7', 'C · v1.1.0 · MIT', 'Compiled to WASM by us (emscripten 4.0.23): qrng_bytes, bell_test_chsh, SP 800-90B health tests', 'QRNG tab; C3a–C3e', 'It is a classical simulation: output is only as unpredictable as its seed (crypto.getRandomValues here). Its CHSH > 2 shows the simulator is correct, not that bits are quantum.'],
 ];
 export const CMDS = { qseed: ['qseed [apply]', 'draw a seed from tsotchke/quantum_rng (WASM) with provenance; "apply" sets the decoding seed'], claims: ['claims', 'run the live Claims & Evidence checks'], fsdist: ['fsdist', 'Fubini–Study angle (Moonlab + QGTL fidelity) clean vs current, per prompt position'], typecheck: ['typecheck', 'type-check the live model graph with Eshkol’s compile-time type layer (WASM)'], unify: ['unify <word> <word> …', 'Eshkol soft-unify (neurosymbolic.esk) on the live model’s token embeddings: sigmoid(⟨e_a,e_b⟩/√256) for each pair'], qgtcheck: ['qgtcheck [m]', 'Fubini–Study metric of the QWZ band: ours (fidelity→angle) vs Moonlab’s native qgt_metric_at (WASM)'] };
-const data = async (f) => (await fetch(new URL(`./tsotchke/data/${f}?v=10`, import.meta.url))).json();
+const data = async (f) => (await fetch(new URL(`./tsotchke/data/${f}?v=11`, import.meta.url))).json();
 const row = (cells) => `<tr>${cells.map((c) => `<td>${c}</td>`).join('')}</tr>`;
 export const markup = {
   tsk: ['TSOTCHKE', 'Tsotchke-powered components', `<fieldset><legend>${BADGE} what is used, at which commit, and how it is checked</legend>
@@ -98,14 +98,14 @@ export function install(A, out) {
     await chk('C2h', 'Our fidelity→Fubini–Study pipeline equals Moonlab’s native qgt_metric_at (compiled by us to WASM) on the QWZ band', 'max |Δg| > 1e-6 over 4 masses × 5 k-points', async () => { let m = 0; for (const ms of [1, -1, 3, 0.5]) m = Math.max(m, (await MQ.crossCheck(ms)).maxErr); return [m <= 1e-6, 'max |Δg| ' + m.toExponential(1)]; });
     await chk('C7a', 'grad.js’s full backward pass equals Eshkol’s reverse-mode tape (vm_autodiff.c) on all 1320 weights of a tiny GPT-Neo', 'max |Δg| > 1e-5·max|g| or |Δloss| ≥ 1e-5', async () => { const r = ADC.compare(grad, await data('eshkol_ad_golden.json')); return [r.ok, `max |Δg| ${r.err.toExponential(1)} / max|g| ${r.maxAbs.toFixed(3)}`]; });
     await chk('C8a', 'Natural gradient (Fisher = 4×FS) beats Adam on the training objective but loses on held-out text (8 seeds, 95% CI)', 'either paired-difference CI includes 0', async () => { const s = (await data('ngvsadam.json')).summary; return [s.train.ngMinusAdam.hi < 0 && s.heldout.ngMinusAdam.lo > 0, `train Δ ${s.train.ngMinusAdam.mean.toFixed(3)} [${s.train.ngMinusAdam.lo.toFixed(3)}, ${s.train.ngMinusAdam.hi.toFixed(3)}] · held-out Δ ${s.heldout.ngMinusAdam.mean.toFixed(2)} [${s.heldout.ngMinusAdam.lo.toFixed(2)}, ${s.heldout.ngMinusAdam.hi.toFixed(2)}] nats`]; });
-    await chk('C9a', 'Our port of Eshkol’s soft-unify (neurosymbolic.esk) reproduces a real eshkol-run trace: init, 200 training steps, kb-attention', 'any of 58 traced values differs by ≥ 1e-12', async () => { const r = NS.compareGolden(await (await fetch(new URL('./tsotchke/data/eshkol_neurosym_golden.txt?v=10', import.meta.url))).text()); return [r.ok, `max |Δ| ${r.err.toExponential(1)} over ${r.n} values · cat≈feline ${r.sFel.toFixed(4)} · cat≈rock ${r.sRock.toFixed(4)}`]; });
+    await chk('C9a', 'Our port of Eshkol’s soft-unify (neurosymbolic.esk) reproduces a real eshkol-run trace: init, 200 training steps, kb-attention', 'any of 58 traced values differs by ≥ 1e-12', async () => { const r = NS.compareGolden(await (await fetch(new URL('./tsotchke/data/eshkol_neurosym_golden.txt?v=11', import.meta.url))).text()); return [r.ok, `max |Δ| ${r.err.toExponential(1)} over ${r.n} values · cat≈feline ${r.sFel.toFixed(4)} · cat≈rock ${r.sRock.toFixed(4)}`]; });
     await chk('C6a', 'Eshkol’s type layer accepts every judgment of the live model graph', 'any judgment fails', async () => { const r = await TY.checkModel(A.M(), CFG); return [r.ok, `${r.n - r.failed.length}/${r.n}`]; });
     await chk('C6b', 'The same checker rejects a truncated weight (h3.fc missing one element)', 'truncated graph accepted', async () => { const W = A.M(), t = { ...W, layers: W.layers.slice() }; t.layers[3] = { ...W.layers[3], fc: W.layers[3].fc.subarray(1) }; const r = await TY.checkModel(t, CFG); return [!r.ok && r.failed[0]?.id === 'h3.fc', r.failed.map((x) => x.id + ': ' + x.msg).join('; ')]; });
     await chk('C3a', 'quantum_rng WASM is deterministic given its seed (same golden bytes as Node)', 'prefix ≠ 52d659a0 for seed "neuralese-v8"', async () => { const h = Q.hex(await Q.bytes(enc('neuralese-v8'), 8)); return [h.startsWith('52d659a0'), h]; });
     await chk('C3e', 'Known result: this WASM’s bytes equal a native musl build and differ from native glibc (libm, not SIMD, is the cause)', 'WASM ≠ musl golden, or = glibc golden', async () => { const L = await data('qrng_libm.json'), h = Q.hex(await Q.bytes(enc('neuralese-v8'), 64)); return [h === L.musl_scalar && h === L.musl_sse3 && h !== L.glibc_sse3, `wasm ${h.slice(0, 8)} · musl ${L.musl_scalar.slice(0, 8)} · glibc ${L.glibc_sse3.slice(0, 8)}`]; });
     await chk('C3b', 'SP 800-90B health tests pass on output and fail on a stuck source', 'output fails or zeros pass', async () => { const a = await Q.health(await Q.bytes(enc('h'), 100000)), b = await Q.health(new Uint8Array(2000)); return [a === 0 && b !== 0, `output ${a}, zeros ${b}`]; });
     await chk('C4', 'nist.js reproduces SP 800-22 worked examples', 'any p-value off by ≥ 5e-7', () => { const e = N.bitsFromString('1100100100001111110110101010001000100001011010001100001000110100110001001100011001100010100010111000'), got = [N.monobit(e).p, N.blockFrequency(e, 10).p, N.runs(e).p, N.cusum(e).p], want = [0.109599, 0.706438, 0.500798, 0.219194]; return [got.every((g, i) => Math.abs(g - want[i]) < 5e-7), got.map((g) => g.toFixed(6)).join(' ')]; });
-    await chk('C5a', 'Edit ; undo ≡ identity (bitwise weight hash)', 'hash after undo ≠ hash before', async () => { const R = await import('./research.js?v=10'), h0 = await R.weightsHash(A.M()), ed = A.ed(), saved = ed.edits.slice(); ed.push({ kind: 'elem', target: { type: 'head', l: 0, i: 0 }, fn: 'scale', amt: 3 }); const h1 = await R.weightsHash(A.M()); ed.setEdits(saved); const h2 = await R.weightsHash(A.M()); return [h0 === h2 && h1 !== h0, `${h0.slice(0, 12)} → ${h1.slice(0, 12)} → ${h2.slice(0, 12)}`]; });
+    await chk('C5a', 'Edit ; undo ≡ identity (bitwise weight hash)', 'hash after undo ≠ hash before', async () => { const R = await import('./research.js?v=11'), h0 = await R.weightsHash(A.M()), ed = A.ed(), saved = ed.edits.slice(); ed.push({ kind: 'elem', target: { type: 'head', l: 0, i: 0 }, fn: 'scale', amt: 3 }); const h1 = await R.weightsHash(A.M()); ed.setEdits(saved); const h2 = await R.weightsHash(A.M()); return [h0 === h2 && h1 !== h0, `${h0.slice(0, 12)} → ${h1.slice(0, 12)} → ${h2.slice(0, 12)}`]; });
     $('clOut').innerHTML = `<table class="tsk-t"><tr><th>id</th><th>result</th><th>claim · would be refuted by · evidence now</th></tr>${rs.map((r) => row([r.id, r.ok ? '<span class="good">✔ holds</span>' : '<span class="warn">✖ refuted</span>', `${esc(r.claim)}<br><span class="sm">refuted if: ${esc(r.refute)}</span><br><code>${esc(r.ev)}</code>`])).join('')}</table>`;
     keep('claims', `${rs.filter((r) => r.ok).length}/${rs.length} claims hold`, { pass: rs.filter((r) => r.ok).length, total: rs.length }); return rs; };
   on('clGo', 'click', () => out.claims());
