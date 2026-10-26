@@ -74,3 +74,9 @@ export function ceJetLnf(W, xPre, ids, v, K = 3) {
   }
   return new Jet(acc.c.map((x) => x / (T - 1)));
 }
+// v10: diff against Eshkol's REAL tr_* kernels (golden from wasm/eshkol_taylor/build.sh, data/eshkol_taylor_golden.json).
+// Error = |Δ| / max(1, |coefficient|). Returns the worst case and the per-op maximum.
+export function eshkolDiff(G) { const F = { exp, log, sin, cos, tan, sqrt, sinh, cosh, tanh, sigmoid, atan, asin, relu, mul, div }; let worst = { err: 0 }; const per = {};
+  for (const c of G.cases) { const u = new Jet(Float64Array.from(c.u)), w = c.w.length ? new Jet(Float64Array.from(c.w)) : null, got = (w ? F[c.op](u, w) : F[c.op](u)).c;
+    for (let k = 0; k < G.n; k++) { const e = Math.abs(got[k] - c.s[k]) / Math.max(1, Math.abs(c.s[k])); per[c.op] = Math.max(per[c.op] ?? 0, e); if (e > worst.err) worst = { err: e, op: c.op, k, u0: c.u[0] }; } }
+  return { worst, per, cases: G.cases.length, ok: worst.err < 1e-12 }; }
