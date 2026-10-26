@@ -1,5 +1,5 @@
 // Decoding: logit processors, samplers, contrastive decoding, CFG, beam search.
-import { logSoftmax, topK } from './engine.js?v=8';
+import { logSoftmax, topK } from './engine.js?v=9';
 export const defaultDecode = () => ({ mode: 'sample', temp: 0.7, topk: 50, topp: 1, minp: 0, typical: 1, rep: 1, freq: 0, pres: 0, bias: {}, beams: 4, lenpen: 1, cdAlpha: 0.1, cdBeta: 0.5, cfg: 1.5, neg: '', seed: 42, n: 80 });
 
 // HF-style repetition penalty + OpenAI-style frequency/presence penalties + additive logit bias. Mutates and returns l.
