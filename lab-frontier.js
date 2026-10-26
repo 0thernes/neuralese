@@ -2,14 +2,14 @@
 // atlas, all run as pre-registered tests against null models. Nothing here claims the model is conscious, sentient or
 // superintelligent: each tab measures an operational proxy, says what would refute it, and reports the result (negatives included).
 // Write-ups: docs/PREREG-v11.md (frozen before any run), docs/FRONTIER.md (methods, results, limits), docs/CLAIMS.md.
-import { bars, lines, scatter } from './charts.js?v=11';
-import { $, esc, tipq } from './lab-ui.js?v=11';
-import * as G from './frontier/grok.js?v=11';
-import * as C from './frontier/core.js?v=11';
-import * as M from './frontier/mind.js?v=11';
-import { CITES, link } from './frontier/cites.js?v=11';
+import { bars, lines, scatter } from './charts.js?v=12';
+import { $, esc, tipq } from './lab-ui.js?v=12';
+import * as G from './frontier/grok.js?v=12';
+import * as C from './frontier/core.js?v=12';
+import * as M from './frontier/mind.js?v=12';
+import { CITES, link } from './frontier/cites.js?v=12';
 const DOCS = 'https://github.com/0thernes/neuralese/blob/main/docs/';
-const data = async (f) => { const r = await fetch(new URL(`./frontier/data/${f}?v=11`, import.meta.url)); if (!r.ok) throw new Error(`frontier/data/${f}: HTTP ${r.status}`); return r.json(); };
+const data = async (f) => { const r = await fetch(new URL(`./frontier/data/${f}?v=12`, import.meta.url)); if (!r.ok) throw new Error(`frontier/data/${f}: HTTP ${r.status}`); return r.json(); };
 const yes = (b) => (b ? '<span class="good">✔ supported</span>' : '<span class="warn">✖ not supported</span>');
 const f3 = (x) => (x == null || !isFinite(x) ? '—' : Math.abs(x) < 1e-3 && x !== 0 ? x.toExponential(2) : x.toFixed(3));
 const ci = (c) => (c ? `${f3(c.est)} [${f3(c.lo)}, ${f3(c.hi)}]` : '—');
