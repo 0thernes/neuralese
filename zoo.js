@@ -1,6 +1,6 @@
 // Model zoo: other TinyStories GPT-Neo checkpoints (same tokenizer, same 8-layer local/global layout), loaded by HTTP Range
 // requests for only the F32 tensors (the BOOL causal-mask buffers in these files are skipped). Weights carry their own cfg.
-import { buildWeights } from './model.js?v=10';
+import { buildWeights } from './model.js?v=11';
 const HF = (m) => `https://huggingface.co/roneneldan/TinyStories-${m}/resolve/refs%2Fpr%2F1/model.safetensors`;
 export const ZOO = [
   { id: '1M', d: 64, url: HF('1M'), note: 'd=64 · 16 heads of 4 · ff 256 · 3.7M params (3.2M in embeddings)' },
