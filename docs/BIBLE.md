@@ -43,13 +43,18 @@ Reference manual for every tab and control. Also in the app: TOOLS › LEARN ›
 - [RESEARCH › ACDC + SCRUBBING](#research--acdc--scrubbing)
 - [RESEARCH › PROBES, DATA, EVAL](#research--probes-data-eval)
 - [RESEARCH › NOTEBOOK + REPORT](#research--notebook--report)
+- [TSOTCHKE › overview and attribution](#tsotchke--overview-and-attribution)
+- [TSOTCHKE › QRNG](#tsotchke--qrng)
+- [TSOTCHKE › Q-GEOMETRY](#tsotchke--q-geometry)
+- [TSOTCHKE › TAYLOR](#tsotchke--taylor)
+- [TSOTCHKE › CLAIMS (Claims & Evidence)](#tsotchke--claims-claims--evidence)
 - [Safety, ethics and limits](#safety-ethics-and-limits)
 
 ## Overview
 
 Neuralese is a browser laboratory for the real TinyStories-8M (GPT-Neo, 8 layers, d=256, 16 heads, 19.7 M parameters). Everything shown is computed from the live weights on your CPU in float32 JavaScript; nothing is mocked. You can edit weights (SURGERY), change the forward pass at runtime (RUNTIME, CONTROL, STEER), measure the consequences (EVALUATE group) and inspect internals (INTERPRET group). Every change goes through one undo/redo stack.
 
-Layout: top bar (version, HUD, theme), left 3D view, right dock with grouped tabs (drag the splitter to resize). Keyboard: Ctrl/⌘+Enter generate · Ctrl/⌘+Z / Shift+Z undo/redo · ` focus terminal · ? shortcuts · 1–9 jump to tab groups.
+Layout: top bar (version, HUD, theme), left 3D view, right dock with grouped tabs (drag the splitter to resize). Keyboard: Ctrl/⌘+Enter generate · Ctrl/⌘+Z / Shift+Z undo/redo · ` focus terminal · ? shortcuts · 1–9, 0 jump to tab groups.
 
 ## RUN › GEN
 
@@ -206,6 +211,26 @@ PROBES trains a softmax-regression probe on standardised residual vectors at tok
 ## RESEARCH › NOTEBOOK + REPORT
 
 NOTEBOOK cells are async JavaScript bodies with lab, research, docs(n,T), print and plot in scope; cells persist in localStorage and export as Markdown or .ipynb (JSON, javascript kernel name). Cells run with full page privileges, which is why the CSP allows 'unsafe-eval'. REPORT builds a self-contained HTML file with the manifest, every RESEARCH result computed this session with its method text, and the charts as PNGs; print it to PDF from the browser.
+
+## TSOTCHKE › overview and attribution
+
+The TSOTCHKE group (key 8) holds the components built on Tsotchke's MIT-licensed open-source work: Eshkol (Taylor-mode AD recurrences, ported to JS), Moonlab (quantum simulator, upstream WASM), QGTL (the quantum geometric tensor definition) and quantum_rng (compiled to WASM). The overview tab lists each project with the exact commit, license, what is used, where its evidence is, and what was not used and why. Only these tabs carry the ⚛ Powered by Tsotchke badge. The language model itself is ordinary TinyStories-8M in JavaScript; nothing here makes it a quantum model. Full write-up: docs/TSOTCHKE.md, docs/CLAIMS.md, docs/STACK.md.
+
+## TSOTCHKE › QRNG
+
+Draw seed runs tsotchke/quantum_rng (WASM) seeded with 16 bytes from crypto.getRandomValues, then the upstream NIST SP 800-90B health tests and our SP 800-22 subset (monobit, block frequency, runs, cumulative sums) on 64 KiB of the same stream. The provenance block (generator commit, entropy source, seed hex, test results) can be replayed by pasting the seed hex. 'use as decoding seed' writes the 32-bit seed into the generation seed, so it lands in the REPRO manifest. Honest label: this is a classical simulation of quantum measurement; the only real entropy is the browser CSPRNG seed. The CHSH panel shows S ≈ 2.83 > 2, which proves the simulator implements quantum mechanics correctly, not that the bits are quantum. Terminal: qseed, qseed apply.
+
+## TSOTCHKE › Q-GEOMETRY
+
+Embeds each next-token distribution p as the real 16-qubit state ψ = √p and asks Moonlab for the fidelity F = |⟨ψ_clean|ψ_edit⟩|². The Fubini–Study angle arccos √F (0 to π/2 rad) is a true metric between the clean and the edited model's predictions at every prompt position. A direct JS sum cross-checks every fidelity (|ΔF| ~1e-16). With no edits the angle is ~2e-7 rad, the float64 floor of arccos near 1. The second panel tests a prediction of QGTL's metric: along a final-LayerNorm direction, s(ε)/ε → √Fisher/2 as ε → 0. Terminal: fsdist.
+
+## TSOTCHKE › TAYLOR
+
+A JS port of Eshkol's Taylor recurrences propagates truncated power series (jets) through exp, log, trig, powers and the softmax cross-entropy. The self-test compares every recurrence with closed-form derivatives and identities (errors ~1e-15). The jet panel expands the current model's mean CE along a random final-LayerNorm direction to order K in one pass, then compares the Taylor polynomial with the loss recomputed at several ε. Agreement within ε^(K+1) is a prediction that can visibly fail. The same jet is checked against PyTorch float64 autograd in the test suite.
+
+## TSOTCHKE › CLAIMS (Claims & Evidence)
+
+Every claim made about a Tsotchke-powered component is listed with the observation that would refute it, and is checked now in your browser: recurrence accuracy, Moonlab fidelity vs direct sum, QWZ Chern numbers vs an independent lattice computation, Bell/CHSH, QRNG determinism (same golden bytes as Node), health tests detecting a stuck source, NIST worked examples, and edit/undo identity. The Node suite adds PyTorch cross-checks and mutation tests that show the checks can fail. Not claimed: quantum randomness, quantum speed-up, HoTT proofs or tensor-logic semantics. Terminal: claims.
 
 ## Safety, ethics and limits
 
