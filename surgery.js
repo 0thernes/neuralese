@@ -1,7 +1,7 @@
 // Weight surgery: a replayable list of edit ops applied to a fresh copy of the original weights.
-import { CFG, copyWeightsInto, mulberry32, gauss } from './model.js?v=11';
-import { svd, svdReconstruct } from './linalg.js?v=11';
-import { resolve, fromPath } from './drill.js?v=11';
+import { CFG, copyWeightsInto, mulberry32, gauss } from './model.js?v=12';
+import { svd, svdReconstruct } from './linalg.js?v=12';
+import { resolve, fromPath } from './drill.js?v=12';
 const { d, ff, L } = CFG;
 export const MATS = ['q', 'k', 'v', 'o', 'fc', 'proj'];
 export const SHAPE = { q: [d, d], k: [d, d], v: [d, d], o: [d, d], fc: [ff, d], proj: [d, ff] };
@@ -66,6 +66,7 @@ export class Editor {
         if (e.fn === 'zero') a.fill(0); else if (e.fn === 'scale') for (let i = 0; i < a.length; i++) a[i] *= e.amt;
         else if (e.fn === 'shuffle') { const n = Math.min(e.n || 256, 2048), perm = Array.from({ length: n }, (_, i) => i); for (let i = n - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [perm[i], perm[j]] = [perm[j], perm[i]]; } const src = O.wpe; for (let i = 0; i < n; i++) a.set(src.subarray(perm[i] * d, perm[i] * d + d), i * d); }
         else if (e.fn === 'noise') { const s = this.sd(O.wpe) * e.amt; for (let i = 0; i < a.length; i++) a[i] += s * gauss(rng); } break; }
+      case 'ft': { const P = W.layers[W.layers.length - 1].proj, ffn = e.gam.length, dd = e.g.length; for (let i = 0; i < dd; i++) { W.lnfW[i] = e.g[i]; W.lnfB[i] = e.b[i]; for (let n = 0; n < ffn; n++) P[i * ffn + n] *= e.gam[n]; } break; } // v12 fine-tune (ln_f + last-layer neuron gains)
       case 'chaos': { const s = (e.pct / 100) ** 1.6 * 1.2; W.layers.forEach((P, l) => { for (const k of MATS) { const a = P[k], sd = this.sd(O.layers[l][k]) * s; for (let i = 0; i < a.length; i++) a[i] += sd * gauss(rng); } }); break; }
       default: throw new Error('unknown edit ' + e.kind);
     }
@@ -80,6 +81,7 @@ export class Editor {
       case 'ln': return `${e.which === 'lnf' ? 'ln_f' : `L${e.l}.${e.which}`} γ×${e.gScale} β+${e.bAdd}`;
       case 'rome': return `ROME L${e.l}: "${e.subject}" → "${e.target}"`;
       case 'wpe': return `wpe ${e.fn}${e.amt != null ? ' ' + e.amt : ''}`;
+      case 'ft': return `fine-tune ln_f + L${e.layer ?? 7} gains (${e.steps} Adam steps, held-out CE ${e.before?.toFixed(3)} → ${e.after?.toFixed(3)})`;
       case 'chaos': return `chaos ${e.pct}%`;
     }
     return e.kind;
