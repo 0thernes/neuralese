@@ -7,7 +7,7 @@
 // Not used: QGTL's tensor-network QGT (compute_quantum_geometric_tensor): in our WASM build get_quantum_state returns an
 // all-zero state after gates are applied and the parameter-shift path fails ("Invalid tensor network state").
 // Reproducer: wasm/qgtl_qgt_repro.c. See docs/TSOTCHKE.md.
-import { wasmBytes } from './wasmb64.js?v=11';
+import { wasmBytes } from './wasmb64.js?v=12';
 export const SOURCE = { repo: 'tsotchke/quantum_geometric_tensor', commit: '770994aa8ddd858e6bb16eebb25250a7b9f67c96', license: 'MIT', toolchain: 'emscripten 4.0.23 -O2' };
 let M = null;
 export async function load() { if (M) return M; const f = (await import('./qgtl.mjs')).default; M = await f({ wasmBinary: await wasmBytes('qgtl'), print: () => {}, printErr: () => {} }); if (M._qgtl_init() !== 0) throw new Error('qgt_create_context failed'); return M; }
