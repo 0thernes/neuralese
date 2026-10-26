@@ -1,0 +1,12 @@
+# v12 progress (times PT)
+- 05:15 started; plan: vendor transformers.js, HUB group, ROADMAP, tests, deploy
+- 05:19 worker verified headless: TTS→ASR round-trip exact ('Hello world, this is a test.'), distilgpt2 gen OK
+- 05:33 lab-hub.js + hub/{models,worker,finetune,ft-worker}.js + surgery 'ft' edit + v=12 bump written; node FT: 6 steps held-out CE 4.634→4.030 CI[-0.724,-0.473], 10 s/step. Running smoke-v12 local.
+- 05:36 local smoke-v12: all checks pass (term regex window fixed); embed .808 vs -.069, S2S WER 0, OCR CER 0, CLIP .988, FT 3.794→3.646
+- 05:38 test/v12 10/10 pass; running full suite
+- 05:40 full npm test: 113 tests, 112 pass before lab.test version fix (fixed, 7/7); eslint vendor ignore
+- 05:43 docs: ROADMAP-v12 (100 items, 22 new shipped), STACK, CLAIMS v12 rows, bible hub, glossary +13 (206), gendocs; smoke adds embedSearch + network
+- 05:50 deploy blocker: GitHub secret scanning rejected vendored transformers.min.js (false positive: class name Mistral3ForConditionalGeneration read as Mistral key). Fix (no file edits): worker fetches transformers.js 4.3.1 from jsDelivr, verifies SHA-256 8d6716d9…e743, imports via blob URL. Tests 113/113, v12 10/10, local smoke all OK; docs updated.
+- 05:55 gh-pages: 45 files in 12 commits, hash-verified at commit 912c89f, then index.html (0db225a). main (flat layout): 55 files hash-verified at 51a4ca6, then index.html (eeac067).
+- 06:00 live smoke #1: all OK except hgen "network error" (HF download of distilgpt2); S2S WER 0.111 live (VITS TTS sampling is stochastic; pass threshold). Re-running.
+- 06:09 live smoke #2: ALL PASS (16 checks, 0 CSP, 0 errors); hgen OK, S2S WER 0. Screenshots /workspace/neuralese-v12/live2-*.png. DONE.
