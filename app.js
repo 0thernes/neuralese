@@ -1,17 +1,17 @@
 // NEURALESE v2 — UI wiring. All numerics live in engine/analysis/surgery/decode/sae/rome (unit-tested vs PyTorch).
-import { GPT2Tokenizer } from './tokenizer.js?v=9';
-import { CFG, buildWeights, parseSafetensors, cloneWeights, mulberry32 } from './model.js?v=9';
-import { Engine, defaultRuntime, logSoftmax, topK, SITES } from './engine.js?v=9';
-import { computeStats, actCovariance, fitTunedLens, lensGrid, dla, patchResid, patchHeads, pathPatchHeadsToLogits, ablationSweep, buildControlVector, vectorArithmetic, tokenStats } from './analysis.js?v=9';
-import { Editor, MATS, getMat, toSafetensors, quantize } from './surgery.js?v=9';
-import { defaultDecode, applyPenalties, filterDist, pick, contrastiveLogits, cfgLogits, beamSearch } from './decode.js?v=9';
-import { SAE } from './sae.js?v=9';
-import { computeRome } from './rome.js?v=9';
-import { CORPUS } from './corpus.js?v=9';
-import { heatmap, lines, bars, showTip, seqColor, divColor } from './charts.js?v=9';
-import { Viz } from './viz.js?v=9';
-import { AudioEngine, editKind, STYLES } from './audio.js?v=9';
-import { buildV5 } from './v5.js?v=9';
+import { GPT2Tokenizer } from './tokenizer.js?v=10';
+import { CFG, buildWeights, parseSafetensors, cloneWeights, mulberry32 } from './model.js?v=10';
+import { Engine, defaultRuntime, logSoftmax, topK, SITES } from './engine.js?v=10';
+import { computeStats, actCovariance, fitTunedLens, lensGrid, dla, patchResid, patchHeads, pathPatchHeadsToLogits, ablationSweep, buildControlVector, vectorArithmetic, tokenStats } from './analysis.js?v=10';
+import { Editor, MATS, getMat, toSafetensors, quantize } from './surgery.js?v=10';
+import { defaultDecode, applyPenalties, filterDist, pick, contrastiveLogits, cfgLogits, beamSearch } from './decode.js?v=10';
+import { SAE } from './sae.js?v=10';
+import { computeRome } from './rome.js?v=10';
+import { CORPUS } from './corpus.js?v=10';
+import { heatmap, lines, bars, showTip, seqColor, divColor } from './charts.js?v=10';
+import { Viz } from './viz.js?v=10';
+import { AudioEngine, editKind, STYLES } from './audio.js?v=10';
+import { buildV5 } from './v5.js?v=10';
 const audio = new AudioEngine();
 const { d, H, L, ff, V } = CFG;
 const $ = (id) => document.getElementById(id), $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -349,7 +349,7 @@ function weightEdit(label, e, path) { // records relative Frobenius change of th
 async function showSvd() {
   const path = matPath(); if (path === 'wte') throw new Error('wte SVD (50257×256) is too slow for the browser here; use a layer matrix or wpe'); $('svdInfo').textContent = 'running one-sided Jacobi SVD…'; await tick();
   const t0 = performance.now(), { a, rows, cols } = getMat(M, path), r = ed.svdOf(path, true), S2 = r.S; const tot = S2.reduce((x, y) => x + y * y, 0); let c = 0; const cum = S2.map((s) => (c += s * s) / tot);
-  const out = new Float32Array(rows * cols); (await import('./linalg.js?v=9')).svdReconstruct(r, Float64Array.from(S2), out); let e = 0; for (let i = 0; i < out.length; i++) e += (out[i] - a[i]) ** 2;
+  const out = new Float32Array(rows * cols); (await import('./linalg.js?v=10')).svdReconstruct(r, Float64Array.from(S2), out); let e = 0; for (let i = 0; i < out.length; i++) e += (out[i] - a[i]) ** 2;
   bars($('svdC'), Array.from(S2), { log: true, title: `σ spectrum ${path} (${rows}×${cols}, log) · hover for energy`, label: (i) => `σ${i} = ${S2[i].toPrecision(5)}  cum energy ${(cum[i] * 100).toFixed(2)}%`, onClick: (i) => ($('svK').value = i + 1) });
   $('svdInfo').textContent = `${S2.length} σ · ${r.sweeps} sweeps · ${(performance.now() - t0).toFixed(0)} ms · recon rel.err ${(Math.sqrt(e) / frob(a)).toExponential(2)} · 90% energy @ k=${cum.findIndex((x) => x >= 0.9) + 1}`;
 }
