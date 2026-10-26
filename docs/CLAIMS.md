@@ -32,6 +32,27 @@ marked ● also run live in the browser (TSOTCHKE › CLAIMS, or `claims` in the
 | C8a ● | Eshkol's AD tape (`vm_autodiff.c`) and `grad.js` give the same full GPT-Neo backward pass | max \|Δg\| > 1e-5·max\|g\| | 1.19e-7 vs 0.425 (1320 gradients) |
 | C9a ● | `neurosym.js` reproduces a real `eshkol-run` trace of `neurosymbolic.esk` soft-unify | any of 58 values differs by ≥ 1e-12 | 2.2e-16 |
 
+## v11 FRONTIER — pre-registered hypotheses (PREREG-v11.md, sha256 8b923ab4…, commit 2a2b3ef)
+
+Verdict ● supported · ○ not supported. Details and caveats: [FRONTIER.md](FRONTIER.md). Live: FRONTIER → F-CLAIMS; Node: `test/v11.test.mjs`.
+
+| id | claim (frozen threshold) | result | verdict |
+|---|---|---|---|
+| H1a | PCI(trained) > random-init and shuffled | +0.0069 [0.0010, 0.0131]; +0.100 [0.090, 0.110] | ● (negligible vs random-init) |
+| H2a | ignition: median Hill n ≥ 2 | 3.00 | ● |
+| H2b | sharper than random-init | +1.31 [−0.21, 2.65] | ○ |
+| H3a | injected-concept detection AUC ≥ .75, +.10 over null | .700 vs .533 | ○ |
+| H3b | privileged self-prediction vs 3M/1M | self−3M +0.031 [−0.003, 0.072] | ○ |
+| H4a | gated self-edit loop improves test CE | −0.0051 [−0.0076, −0.0027] | ● |
+| H4b | random control accepted ≤ 10% | 0/30 | ● |
+| H4c | self-distillation does not help | −0.0118 [−0.0154, −0.0085] | ○ (falsified) |
+| H4d | test-time training helps | −0.0012 [−0.0035, 0.0012] | ○ |
+| H5a | grokking within 6000 steps | test 0.62 max | ○ |
+| H5b | ≥ 80% Fourier neurons | 70.7% | ○ |
+| H5c | wd=0 fails to generalise | 1.9% | ● |
+| H6a | AtP ranks units like exact ablation (ρ ≥ .5) | running at ship time; started 2026-10-26 00:18 PT | **running / results pending** |
+| H6b | top 1% neurons ≥ 25% of \|ΔCE\| | running at ship time; started 2026-10-26 00:18 PT | **running / results pending** |
+
 ## Errata and caveats found while testing
 - **NIST cumulative-sums 10-bit example.** SP 800-22 rev1a prints P = 0.4116588 for ε = 1011010111. Our code and an
   independent scipy computation both give 0.4115847. We believe the printed value is a rounding erratum. The test uses

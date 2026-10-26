@@ -39,13 +39,13 @@ test('labcore pure functions', () => {
   const cm = C.cosineMatrix([[1, 0], [0, 1], [1, 1]]); assert.ok(Math.abs(cm[0][2] - Math.SQRT1_2) < 1e-9);
 });
 test('terminal: command table, completion, version', () => {
-  assert.equal(VERSION, '10.0.0'); assert.ok(Object.keys(COMMANDS).length >= 52); for (const k of ['drill', 'atp', 'eigen', 'induct', 'geom', 'land', 'mode', 'cam', 'gpu', 'zoo', 'diff', 'share', 'hash', 'manifest', 'stats', 'acdc', 'scrub', 'probe', 'evalh', 'dataset', 'report', 'state', 'qseed', 'claims', 'fsdist', 'typecheck', 'qgtcheck', 'unify']) assert.ok(COMMANDS[k], k);
+  assert.equal(VERSION, '11.0.0'); assert.ok(Object.keys(COMMANDS).length >= 52); for (const k of ['drill', 'atp', 'eigen', 'induct', 'geom', 'land', 'mode', 'cam', 'gpu', 'zoo', 'diff', 'share', 'hash', 'manifest', 'stats', 'acdc', 'scrub', 'probe', 'evalh', 'dataset', 'report', 'state', 'qseed', 'claims', 'fsdist', 'typecheck', 'qgtcheck', 'unify', 'frontier', 'scorecard', 'grok', 'pci', 'fclaims']) assert.ok(COMMANDS[k], k);
   assert.deepEqual(complete('ver'), ['version']); assert.ok(complete('sweep bl').includes('sweep blend')); assert.ok(complete('theme l').includes('theme light')); assert.ok(complete('tab ti').includes('tab timeline'));
 });
 test('learning center data: glossary ≥100 unique, cross-links resolve, labs use real commands', () => {
   assert.ok(GLOSSARY.length >= 100); const names = new Set(GLOSSARY.map((g) => g[0])); assert.equal(names.size, GLOSSARY.length);
   for (const [, , rel] of GLOSSARY) for (const r of rel) assert.ok(names.has(r), 'dangling ' + r);
-  assert.ok(BIBLE.length >= 25); assert.equal(COURSE.length, 14); assert.ok(BIBLE.length >= 41);
+  assert.ok(BIBLE.length >= 25); assert.equal(COURSE.length, 15); assert.ok(BIBLE.length >= 41);
   for (const l of COURSE) { for (const c of l.lab) assert.ok(COMMANDS[c.split(' ')[0]], `lesson ${l.id}: unknown command ${c}`); for (const q of l.quiz) assert.ok(q.a >= 0 && q.a < q.options.length); }
   const l = COURSE[0]; assert.ok(gradeQuiz(l, l.quiz.map((q) => q.a)).pass); assert.ok(!gradeQuiz(l, l.quiz.map(() => -1)).pass);
   assert.ok(search('induction').length >= 2); assert.ok(buildIndex().length === GLOSSARY.length + BIBLE.length + COURSE.length);
