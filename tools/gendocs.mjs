@@ -1,6 +1,6 @@
 // Generates docs/BIBLE.md, docs/GLOSSARY.md, docs/COURSE.md from the in-app learning data.
 import { writeFileSync, mkdirSync } from 'node:fs';
-const base = process.argv[2] || '../site/learn/';
+const base = process.argv[2] || '../learn/';
 const { GLOSSARY } = await import(new URL(base + 'glossary.js', import.meta.url));
 const { BIBLE } = await import(new URL(base + 'bible.js', import.meta.url));
 const { COURSE } = await import(new URL(base + 'course.js', import.meta.url));
