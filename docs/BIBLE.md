@@ -51,6 +51,7 @@ Reference manual for every tab and control. Also in the app: TOOLS › LEARN ›
 - [TSOTCHKE › v10 cross-checks](#tsotchke--v10-cross-checks)
 - [TSOTCHKE › CLAIMS (Claims & Evidence)](#tsotchke--claims-claims--evidence)
 - [FRONTIER: consciousness proxies, introspection, self-improvement, grokking, causal atlas](#frontier-consciousness-proxies-introspection-self-improvement-grokking-causal-atlas)
+- [HUB: model hub, embeddings, speech, vision, LM swap, fine-tuning (v12)](#hub-model-hub-embeddings-speech-vision-lm-swap-fine-tuning-v12)
 - [Safety, ethics and limits](#safety-ethics-and-limits)
 
 ## Overview
@@ -246,6 +247,10 @@ Every claim made about a Tsotchke-powered component is listed with the observati
 ## FRONTIER: consciousness proxies, introspection, self-improvement, grokking, causal atlas
 
 The FRONTIER group (v11) runs 14 hypotheses that were frozen in docs/PREREG-v11.md before any experiment (sha256 checked live in F-CLAIMS). FRONTIER lists every hypothesis with its verdict; SCORECARD applies Butlin, Long et al.'s consciousness indicators (present / partial / absent / untestable, each justified); MIND shows the PCI-style perturbational-complexity test against random-init and shuffled nulls, the ignition dose–response (Hill fit) and two introspection tests (injected-concept detection; privileged self-prediction against TinyStories-3M and -1M); SELF-IMPROVE shows a propose/select/test loop with a random-edit control, self-distillation and test-time training; GROKKING shows the pre-registered modular-addition run with a Fourier check and lets you train the same network live; ATLAS shows exact ablation of all 128 heads and 8192 neurons against attribution patching. Several hypotheses failed and are reported as failures. None of these tests can show that the model is or is not conscious; they measure operational proxies. Results: 6 of 14 hypotheses supported, 8 not (atlas: AtP ranks units like exact ablation, ρ .98 neurons / .56 heads; top 1% of neurons hold only 5.8% of the effect). Terminal: frontier, scorecard, pci, grok [steps], fclaims.
+
+## HUB: model hub, embeddings, speech, vision, LM swap, fine-tuning (v12)
+
+HUB runs public ONNX models from the Hugging Face Hub with transformers.js 4.3.1 (pinned and SHA-256-checked) in a Web Worker; the 28 MB ONNX Runtime WASM binary comes from jsDelivr at a pinned version and is SHA-256-checked before use. Everything runs locally; models download once (8-bit, 22–245 MB) and are cached. HUB lists the models, loads them, picks CPU (WASM) or WebGPU, and shows which lab tools work on which model: only the TinyStories zoo is white-box. EMBED: all-MiniLM-L6-v2 sentence embeddings, nearest neighbours, semantic search, and a rotatable 3D PCA map (Three.js); self-test: paraphrase cosine ≥ unrelated + 0.20. SPEECH: Whisper tiny.en from the microphone or a file, MMS-TTS with WAV download, and a speech-to-speech chain (record → Whisper → transform → TTS); self-test: TTS → Whisper word error rate ≤ 0.25. VISION: upload an image or render a test card; TrOCR reads one printed line (self-test CER ≤ 0.10), ViT-GPT2 captions, CLIP classifies zero-shot (self-test: a drawn red circle → “a red circle”). LM SWAP: DistilGPT-2 / GPT-2 greedy generation only — no activations. FINE-TUNE: Adam on 1,536 parameters of TinyStories-8M (ln_f + layer-7 neuron gains) on your text; every 3rd chunk is held out; pass = 95% bootstrap CI of held-out CE change below 0; “apply” adds an undoable, replayable weight edit. Terminal: hub, embed, tts, s2s, ocrtest, hgen. Roadmap of 100 items: docs/ROADMAP-v12.md.
 
 ## Safety, ethics and limits
 

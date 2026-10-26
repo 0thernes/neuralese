@@ -1,4 +1,4 @@
-# Claims & Evidence (v10)
+# Claims & Evidence (v10–v12)
 
 Each claim names the check that would **refute** it. Every row is executed by `test/tsotchke.test.mjs` (Node), and rows
 marked ● also run live in the browser (TSOTCHKE › CLAIMS, or `claims` in the terminal). Numbers are from the run on
@@ -52,6 +52,26 @@ Verdict ● supported · ○ not supported. Details and caveats: [FRONTIER.md](F
 | H5c | wd=0 fails to generalise | 1.9% | ● |
 | H6a | AtP ranks units like exact ablation (ρ ≥ .5) | ρ neurons 0.982, heads 0.560 | ● |
 | H6b | top 1% neurons ≥ 25% of \|ΔCE\| | 5.8% | ○ |
+
+## v12 HUB — model hub, modalities, fine-tuning
+
+Each row is checked by `test/v12.test.mjs` (Node) and/or `smoke-v12.mjs` (headless Chrome running the real models). ● = also a
+self-test button in the app. Numbers: local headless run, 2026-10-26 (PT); the live-site run is reported in V12_PROGRESS.md.
+
+| id | claim | refuted if | evidence |
+|---|---|---|---|
+| H1 ● | MiniLM embeddings separate a paraphrase from an unrelated sentence | cos(paraphrase) < cos(unrelated) + 0.20 | 0.808 vs −0.069 |
+| H2 ● | TTS → Whisper round trip preserves a known sentence | word error rate > 0.25 | “The quick brown fox jumps over the lazy dog.” → identical, WER 0 |
+| H3 ● | TrOCR reads a rendered printed line | character error rate > 0.10 | “NEURALESE LAB 2026” → identical, CER 0 |
+| H4 ● | CLIP classifies a drawn red circle correctly zero-shot | top label ≠ “a red circle” (4 labels) | 98.8% “a red circle” |
+| H5 | Captioning and GPT-2-family generation run locally | no caption ≥ 3 words / no continuation | caption “a blue and white photo of a blue and white wall” for a blue/green two-band image (a weak caption — the claim is only that it runs); DistilGPT-2 continues the prompt |
+| H6 ● | Fine-tuning 1,536 params of TinyStories-8M on user text lowers **held-out** CE | 95% bootstrap CI of held-out ΔCE includes 0 or is > 0 | Node, 6 steps: 4.634 → 4.030, Δ −0.604 [−0.724, −0.473]; test (3 steps) and browser (3 steps) also pass |
+| H7 | The fine-tune weight edit is exact and undoable | CE of edited weights ≠ CE of (θ on clean weights) by ≥ 1e-4, or undo does not restore ln_f bit-for-bit | equal to < 1e-4; undo bit-exact (V12-10) |
+| H8 | The runtime is pinned | the worker imports a transformers.js or runs an ORT binary whose SHA-256 ≠ pin | V12-2 (pins + verify-before-import in source); worker aborts on mismatch |
+| H9 | Only the TinyStories zoo is white-box | any HUB ONNX model exposes activations to the interpretability tools | by construction: HUB models return only pipeline outputs (TOOL_MATRIX in `site/hub/models.js`) |
+
+Caveat: the H6 text is repetitive and in-distribution for TinyStories; a held-out gain shows the 1,536-parameter adapter
+generalises to unseen chunks of the **same** text, not that the model learned new facts.
 
 ## Errata and caveats found while testing
 - **NIST cumulative-sums 10-bit example.** SP 800-22 rev1a prints P = 0.4116588 for ε = 1011010111. Our code and an

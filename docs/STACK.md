@@ -1,9 +1,9 @@
-# Stack — exact versions (v10.0.0, 2026-10-25)
+# Stack — exact versions (v12.0.0, 2026-10-26)
 
 ## Runtime (what the deployed page uses)
 | component | version | origin | license |
 |---|---|---|---|
-| NEURALESE app | 10.0.0 | this repo, plain ES2022 modules, no bundler, no framework | MIT |
+| NEURALESE app | 12.0.0 | this repo, plain ES2022 modules, no bundler, no framework | MIT |
 | Language model | `roneneldan/TinyStories-8M` @ `refs/pr/1` (safetensors, fp32; GPT-Neo, 8 layers, d = 256, V = 50 257) | Hugging Face, fetched at runtime | per model card |
 | Inference / gradients / analysis | hand-written JavaScript (`engine.js`, `grad.js`, `analysis.js`, …), Float32 CPU; optional WebGPU unembedding | this repo | MIT |
 | three.js | r160 (`site/vendor/three/three.module.min.js` + `addons/controls`), vendored and pinned | three.js authors | MIT |
@@ -14,7 +14,10 @@
 | **Eshkol type layer** (⚛ Tsotchke) | `lib/types/{dependent,hott_types,type_relation}.cpp` @ `341ac81`, compiled by us (emscripten 4.0.23, C++17): `eshkol_types.wasm` (sha256 `555920a7…26a7`) | `site/tsotchke/types.js`, built by `wasm/build-eshkol-types.sh` | MIT |
 | **QGTL core** (⚛ Tsotchke) | 6 files of `src/quantum_geometric/core` @ `770994a`, compiled by us (emscripten 4.0.23 `-O2`): `qgtl.wasm` 29.7 KB (sha256 `2c56f678…371d`) | `site/tsotchke/qgtl.js`, built by `wasm/build-qgtl.sh` | MIT |
 | NIST SP 800-22 subset | our implementation of rev1a §2.1, 2.2, 2.3, 2.13 | `site/tsotchke/nist.js` | MIT |
-| Hosting | GitHub Pages (`gh-pages` branch), CSP `script-src 'self' <hash> 'unsafe-eval'` (`unsafe-eval` is needed for WebAssembly compilation) | | |
+| **transformers.js** (v12 HUB) | `@huggingface/transformers` 4.3.1, `dist/transformers.min.js` fetched unmodified from jsDelivr at the pinned version, SHA-256 checked (`8d6716d9…e743`) before it is imported from a blob URL. It is not vendored because GitHub secret scanning flags the class name `Mistral3ForConditionalGeneration` in the minified file as a Mistral API key, a false positive. Also vendored: + `ort-wasm-simd-threaded.jsep.mjs` (sha256 `c2f80e91…2c99`) | `site/hub/vendor/`, run in a module Web Worker (`site/hub/worker.js`) | Apache-2.0 |
+| **ONNX Runtime Web** WASM (v12 HUB) | `onnxruntime-web@1.31.0-dev.20260914-8d85527a0`, `ort-wasm-simd-threaded.jsep.wasm` 28.35 MB, sha256 `62ff86b2…ac06`; too large to vendor, fetched from jsDelivr at the pinned version and hash-checked in the worker before it is used (`wasmBinary`) | cdn.jsdelivr.net | MIT |
+| Hub models (v12) | `Xenova/all-MiniLM-L6-v2`, `Xenova/whisper-tiny.en`, `Xenova/mms-tts-eng`, `Xenova/trocr-small-printed`, `Xenova/vit-gpt2-image-captioning`, `Xenova/clip-vit-base-patch32`, `Xenova/distilgpt2`, `Xenova/gpt2` — 8-bit (q8) ONNX, `main` revision, fetched at runtime and cached by the browser. Not hash-pinned (the Hub serves `main`); see ROADMAP-v12 item M7 | Hugging Face | per model card (Apache-2.0 / MIT / CC-BY-NC-4.0 for MMS-TTS) |
+| Hosting | GitHub Pages (`gh-pages` branch), CSP `script-src 'self' <hash> 'unsafe-eval'`, `connect-src` adds huggingface.co / *.hf.co / cdn.jsdelivr.net (`unsafe-eval` is needed for WebAssembly compilation) | | |
 
 Languages in the shipped page: JavaScript (ES modules), WebAssembly (compiled from C: quantum_rng, Moonlab, QGTL; from C++: Eshkol type layer), HTML, CSS.
 
