@@ -82,3 +82,7 @@ generalises to unseen chunks of the **same** text, not that the model learned ne
   arccos near 1, and is expected.
 - **Not claimed:** quantum randomness, quantum speed-up, HoTT proofs (Eshkol's checker is gradual and has no univalence), tensor-logic semantics, or any capability of the
   Tsotchke projects beyond what is listed above.
+
+
+## v12.1.0 labelling
+Panels that show stored author results (FRONTIER, SCORECARD, SELF-IMPROVE, ATLAS) now say so in a banner. MIND and GROKKING mark what is stored and what is a live run. The 19 F-CLAIMS checks are consistency checks that the stored outcomes load and score as reported: they do not rerun experiments, and they do not turn the 8 unsupported hypotheses into successes. QRNG, Q-GEOMETRY and the TSOTCHKE components are classical simulations on a CPU.

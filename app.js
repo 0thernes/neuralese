@@ -1,17 +1,18 @@
 // NEURALESE v2 — UI wiring. All numerics live in engine/analysis/surgery/decode/sae/rome (unit-tested vs PyTorch).
-import { GPT2Tokenizer } from './tokenizer.js?v=12';
-import { CFG, buildWeights, parseSafetensors, cloneWeights, mulberry32 } from './model.js?v=12';
-import { Engine, defaultRuntime, logSoftmax, topK, SITES } from './engine.js?v=12';
-import { computeStats, actCovariance, fitTunedLens, lensGrid, dla, patchResid, patchHeads, pathPatchHeadsToLogits, ablationSweep, buildControlVector, vectorArithmetic, tokenStats } from './analysis.js?v=12';
-import { Editor, MATS, getMat, toSafetensors, quantize } from './surgery.js?v=12';
-import { defaultDecode, applyPenalties, filterDist, pick, contrastiveLogits, cfgLogits, beamSearch } from './decode.js?v=12';
-import { SAE } from './sae.js?v=12';
-import { computeRome } from './rome.js?v=12';
-import { CORPUS } from './corpus.js?v=12';
-import { heatmap, lines, bars, showTip, seqColor, divColor } from './charts.js?v=12';
-import { Viz } from './viz.js?v=12';
-import { AudioEngine, editKind, STYLES } from './audio.js?v=12';
-import { buildV5 } from './v5.js?v=12';
+import { GPT2Tokenizer } from './tokenizer.js?v=13';
+import { CFG, buildWeights, parseSafetensors, cloneWeights, mulberry32 } from './model.js?v=13';
+import { Engine, defaultRuntime, logSoftmax, topK, SITES } from './engine.js?v=13';
+import { computeStats, actCovariance, fitTunedLens, lensGrid, dla, patchResid, patchHeads, pathPatchHeadsToLogits, ablationSweep, buildControlVector, vectorArithmetic, tokenStats } from './analysis.js?v=13';
+import { Editor, MATS, getMat, toSafetensors, quantize } from './surgery.js?v=13';
+import { defaultDecode, applyPenalties, filterDist, pick, contrastiveLogits, cfgLogits, beamSearch } from './decode.js?v=13';
+import { SAE } from './sae.js?v=13';
+import { computeRome } from './rome.js?v=13';
+import { CORPUS } from './corpus.js?v=13';
+import { heatmap, lines, bars, showTip, seqColor, divColor, markStale } from './charts.js?v=13';
+import { Viz } from './viz.js?v=13';
+import { AudioEngine, editKind, STYLES } from './audio.js?v=13';
+import { buildV5 } from './v5.js?v=13';
+import { vecToJSON as _v2j, vecFromJSON as _j2v } from './labcore.js?v=13';
 const audio = new AudioEngine();
 const { d, H, L, ff, V } = CFG;
 const $ = (id) => document.getElementById(id), $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -58,7 +59,7 @@ function commit(label, fn) { const before = snap(); fn(); S.undo.push({ label, s
 function undo() { const u = S.undo.pop(); if (!u) return; S.redo.push({ label: u.label, s: snap() }); restore(u.s); toast('↶ ' + u.label); audio.edit('undo'); }
 function redo() { const u = S.redo.pop(); if (!u) return; S.undo.push({ label: u.label, s: snap() }); restore(u.s); toast('↷ ' + u.label); audio.edit('undo'); }
 let regenT = null;
-let hashT; function afterChange() { clearTimeout(hashT); hashT = setTimeout(() => V5?.out?.hashes?.().catch(() => {}), 400); renderOps(); renderSteerList(); renderProgram(); renderHeadGrid(); refreshWeights(); hud(); clearTimeout(regenT); if ($('autoRegen').checked) regenT = setTimeout(() => generate(), 120); }
+let hashT; function afterChange() { markStale(); clearTimeout(hashT); hashT = setTimeout(() => V5?.out?.hashes?.().catch(() => {}), 400); renderOps(); renderSteerList(); renderProgram(); renderHeadGrid(); refreshWeights(); hud(); clearTimeout(regenT); if ($('autoRegen').checked) regenT = setTimeout(() => generate(), 120); }
 async function ensureStats() {
   if (stats) return stats; const n = +$('statN').value;
   stats = await computeStats(W, CORPUS, n, (f) => prog('statP', f)); eng.stats = stats; engClean.stats = stats;
@@ -69,7 +70,7 @@ async function ensureCov(l) { if (!cov.has(l)) { await ensureStats(); cov.set(l,
 const prog = (id, f) => { const e = $(id); if (e) e.firstElementChild.style.width = (f * 100).toFixed(0) + '%'; };
 function hud() {
   const mem = performance.memory ? `${(performance.memory.usedJSHeapSize / 1e6).toFixed(0)} MB heap` : 'heap n/a';
-  $('hud').innerHTML = `<span>TinyStories-8M · <b>${R.program.length}</b> slots</span><span><b>${S.perf.tps.toFixed(1)}</b> tok/s</span><span><b>${S.perf.ms.toFixed(1)}</b> ms/tok</span><span>${mem}</span><span>edits <b>${ed.edits.length}</b></span><span>steer <b>${R.steer.filter((v) => v.on).length}</b></span><span>stats <b>${stats ? stats.N : '–'}</b></span><span>SAE <b>${sae ? `L${sae.layer}×${sae.m}` : '–'}</b></span><span>backend <b>CPU/JS f32</b></span>`;
+  $('hud').innerHTML = `<span>TinyStories-8M · <b>${R.program.length}</b> slots</span><span><b>${S.perf.tps.toFixed(1)}</b> tok/s</span><span><b>${S.perf.ms.toFixed(1)}</b> ms/tok</span><span>${mem}</span><span>edits <b>${ed.edits.length}</b></span><span>steer <b>${R.steer.filter((v) => v.on).length}</b></span><span>stats <b>${stats ? stats.N : '–'}</b></span><span>SAE <b>${sae ? `L${sae.layer}×${sae.m}` : '–'}</b></span><span>backend <b>CPU/JS f32</b>${globalThis.NEURALESE_WEBGPU ? ` <span class="sm" title="WebGPU is enabled for the WEBGPU benchmark only; generation runs on CPU/JS">· WebGPU ${globalThis.NEURALESE_WEBGPU}</span>` : ''}</span>`;
 }
 
 // ───────── UI construction ─────────
@@ -154,7 +155,7 @@ P.ops = `
 <fieldset><legend>snapshot (edit diffs + runtime, not weights)</legend><div class="r"><button id="bSnapE">export .json</button><input type="file" id="snapI" accept=".json"/></div></fieldset>
 <fieldset><legend>weights</legend><div class="r"><button id="bST">download modified model.safetensors (HF names, F32)</button></div><div class="sm">Runtime interventions (program, steering, head temps, masks, SAE clamps) are not representable as weights and are kept in the snapshot.</div></fieldset>`;
 P.viz = `
-<fieldset><legend>weight-matrix view</legend><div class="r"><label>layer</label><select id="vzL">${layerOpts()}</select><label>mat</label><select id="vzM">${opts(MATS)}</select><select id="vzMode">${opts([['height', 'height-field'], ['points', 'point cloud']])}</select><label><input type="checkbox" id="vzDiff"/> diff vs original</label></div><div id="vzInfo" class="sm"></div></fieldset>
+<fieldset><legend>weight-matrix view</legend><div class="r"><label>layer</label><select id="vzL">${layerOpts()}</select><label>mat</label><select id="vzM">${opts(MATS)}</select><select id="vzMode">${opts([['height', 'height-field'], ['points', 'point cloud']])}</select><label><input type="checkbox" id="vzDiff"/> diff vs original</label><button id="vzFit" title="fit the 3D scene into the visible area">⤢ fit to view</button></div><div id="vzInfo" class="sm"></div></fieldset>
 <fieldset><legend>legend</legend><div class="sm">Slabs = layers. Spheres = heads (glow/size = ‖z<sub>h</sub>‖ at last token). Grid of points = 1024 MLP neurons (red +, blue −). Teal tube = residual stream (radius ∝ ‖x‖). Click a head, neuron or slab to select it everywhere.</div></fieldset>`;
 
 P.audio = `
@@ -270,8 +271,7 @@ function renderSteerList() {
   });
 }
 const download = (name, data, type = 'application/json') => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([data], { type })); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000); };
-const vecToJSON = (v) => ({ ...v, vecs: v.vecs.map((x) => Array.from(x, (y) => +y.toFixed(6))) });
-const vecFromJSON = (v) => ({ ...v, vecs: v.vecs.map((x) => Float32Array.from(x)) });
+const vecToJSON = _v2j, vecFromJSON = _j2v; // v12.1: lossless (was toFixed(6), which zeroed small components)
 
 // ───────── analysis ─────────
 const tstr = (id) => JSON.stringify(tok.tokenStr(id)).slice(1, -1);
@@ -349,7 +349,7 @@ function weightEdit(label, e, path) { // records relative Frobenius change of th
 async function showSvd() {
   const path = matPath(); if (path === 'wte') throw new Error('wte SVD (50257×256) is too slow for the browser here; use a layer matrix or wpe'); $('svdInfo').textContent = 'running one-sided Jacobi SVD…'; await tick();
   const t0 = performance.now(), { a, rows, cols } = getMat(M, path), r = ed.svdOf(path, true), S2 = r.S; const tot = S2.reduce((x, y) => x + y * y, 0); let c = 0; const cum = S2.map((s) => (c += s * s) / tot);
-  const out = new Float32Array(rows * cols); (await import('./linalg.js?v=12')).svdReconstruct(r, Float64Array.from(S2), out); let e = 0; for (let i = 0; i < out.length; i++) e += (out[i] - a[i]) ** 2;
+  const out = new Float32Array(rows * cols); (await import('./linalg.js?v=13')).svdReconstruct(r, Float64Array.from(S2), out); let e = 0; for (let i = 0; i < out.length; i++) e += (out[i] - a[i]) ** 2;
   bars($('svdC'), Array.from(S2), { log: true, title: `σ spectrum ${path} (${rows}×${cols}, log) · hover for energy`, label: (i) => `σ${i} = ${S2[i].toPrecision(5)}  cum energy ${(cum[i] * 100).toFixed(2)}%`, onClick: (i) => ($('svK').value = i + 1) });
   $('svdInfo').textContent = `${S2.length} σ · ${r.sweeps} sweeps · ${(performance.now() - t0).toFixed(0)} ms · recon rel.err ${(Math.sqrt(e) / frob(a)).toExponential(2)} · 90% energy @ k=${cum.findIndex((x) => x >= 0.9) + 1}`;
 }
@@ -490,7 +490,7 @@ function wire() {
   on('bSnapE', 'click', exportSnap); on('snapI', 'change', (e) => importSnap(e.target.files[0]));
   on('bST', 'click', () => download('model.safetensors', toSafetensors(M), 'application/octet-stream'));
   // 3D
-  for (const id of ['vzL', 'vzM', 'vzMode', 'vzDiff']) on(id, 'change', () => (id === 'vzL' ? setSel({ l: +$('vzL').value }) : refreshWeights()));
+  on('vzFit', 'click', () => viz?.fit?.()); for (const id of ['vzL', 'vzM', 'vzMode', 'vzDiff']) on(id, 'change', () => (id === 'vzL' ? setSel({ l: +$('vzL').value }) : refreshWeights()));
   // audio
   const startAudio = guard(async () => { await audio.start(); $('auInfo').textContent = `running · ${audio.ctx.sampleRate} Hz · base latency ${(audio.ctx.baseLatency * 1000 || 0).toFixed(1)} ms`; });
   addEventListener('pointerdown', startAudio, { once: true }); addEventListener('keydown', startAudio, { once: true }); on('auStart', 'click', startAudio);

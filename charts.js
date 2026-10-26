@@ -8,7 +8,7 @@ export function seqColor(v) { const x = Math.max(0, Math.min(1, v)); return `rgb
 function fit(cv, h) { const w = cv.clientWidth || 420; cv.width = w * devicePixelRatio; cv.height = h * devicePixelRatio; cv.style.height = h + 'px'; const c = cv.getContext('2d'); c.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0); return [c, w]; }
 // M: rows × cols numbers. opts: {rows,cols labels, diverging, max, label(i,j) -> tooltip, onClick(i,j), h}
 export function heatmap(cv, M, o = {}) {
-  cv._redraw = () => heatmap(cv, M, o);
+  stamp(cv); cv._redraw = () => { cv._inRedraw = true; try { heatmap(cv, M, o); } finally { cv._inRedraw = false; } };
   cv._csv = () => [['row', ...(o.cols || M[0].map((_, j) => j))].join(','), ...M.map((r, i) => [JSON.stringify(String(o.rows ? o.rows[i] : i)), ...Array.from(r, (v) => +(+v).toPrecision(6))].join(','))].join('\n');
   const R = M.length, C = M[0]?.length || 0, padL = o.padL ?? 34, padT = o.padT ?? 14; const h = o.h || Math.max(120, Math.min(420, R * 18 + padT + 4));
   const [c, w] = fit(cv, h); const cw = (w - padL - 2) / C, ch = (h - padT - 2) / R;
@@ -23,7 +23,7 @@ export function heatmap(cv, M, o = {}) {
 }
 // series: [{ys:[...], color, width, label}], xs labels optional
 export function lines(cv, series, o = {}) {
-  cv._redraw = () => lines(cv, series, o);
+  stamp(cv); cv._redraw = () => { cv._inRedraw = true; try { lines(cv, series, o); } finally { cv._inRedraw = false; } };
   cv._csv = () => { const n = Math.max(...series.map((s) => s.ys.length)); return ['x,' + series.map((s, i) => JSON.stringify(s.label || 's' + i)).join(','), ...Array.from({ length: n }, (_, i) => [JSON.stringify(String(o.xs ? o.xs[i] : i)), ...series.map((s) => s.ys[i] ?? '')].join(','))].join('\n'); };
   const h = o.h || 140, [c, w] = fit(cv, h), pad = 26; let lo = o.min ?? Infinity, hi = o.max ?? -Infinity;
   for (const s of series) for (const y of s.ys) if (isFinite(y)) { if (o.min == null) lo = Math.min(lo, y); if (o.max == null) hi = Math.max(hi, y); }
@@ -36,7 +36,7 @@ export function lines(cv, series, o = {}) {
   cv.onmouseleave = () => showTip(null, '');
 }
 export function bars(cv, ys, o = {}) {
-  cv._redraw = () => bars(cv, ys, o);
+  stamp(cv); cv._redraw = () => { cv._inRedraw = true; try { bars(cv, ys, o); } finally { cv._inRedraw = false; } };
   cv._csv = () => ['i,label,value', ...ys.map((y, i) => `${i},${JSON.stringify(o.label ? o.label(i) : String(i))},${y}`)].join('\n');
   const h = o.h || 110, [c, w] = fit(cv, h); const n = ys.length; let mx = o.max ?? Math.max(...ys.map(Math.abs)), lo = o.log ? Math.log10(Math.max(1e-12, Math.min(...ys.filter((y) => y > 0)))) : 0;
   c.fillStyle = BG(); c.fillRect(0, 0, w, h); const bw = (w - 4) / n;
@@ -48,7 +48,7 @@ export function bars(cv, ys, o = {}) {
 
 // scatter: pts [{x,y,c,r,label}], optional polylines [{pts:[[x,y]..], color}]
 export function scatter(cv, pts, o = {}) {
-  cv._redraw = () => scatter(cv, pts, o);
+  stamp(cv); cv._redraw = () => { cv._inRedraw = true; try { scatter(cv, pts, o); } finally { cv._inRedraw = false; } };
   const h = o.h || 260, [c, w] = fit(cv, h), pad = 8; let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
   for (const p of pts) { x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x); y0 = Math.min(y0, p.y); y1 = Math.max(y1, p.y); } if (!(x1 > x0)) x1 = x0 + 1; if (!(y1 > y0)) y1 = y0 + 1;
   const X = (x) => pad + ((x - x0) / (x1 - x0)) * (w - 2 * pad), Y = (y) => h - pad - ((y - y0) / (y1 - y0)) * (h - 2 * pad);
@@ -63,3 +63,10 @@ export function scatter(cv, pts, o = {}) {
 }
 
 export function redrawAll() { for (const c of document.querySelectorAll('canvas')) if (c._redraw && c.offsetParent) try { c._redraw(); } catch (e) { console.warn(e); } }
+
+// v12.1 freshness stamps: every chart records when it was computed and under which model state ("generation", bumped on
+// every weight/runtime edit). When the model changes, older charts are labelled stale instead of silently showing old results.
+let GEN = 0; export const modelGen = () => GEN;
+export function stampText(at, gen, cur) { const t = new Date(at).toTimeString().slice(0, 8); return gen === cur ? `computed ${t} · current model state` : `last run at ${t} · ⚠ model changed since (state #${gen} → #${cur}); rerun for the current state`; }
+function stamp(cv) { if (cv._inRedraw || typeof document === 'undefined') return; cv._at = Date.now(); cv._gen = GEN; let el = cv.nextElementSibling; if (!el || !el.classList?.contains('cstamp')) { el = document.createElement('div'); el.className = 'cstamp sm'; cv.after(el); } el.classList.remove('stale'); el.textContent = stampText(cv._at, GEN, GEN); }
+export function markStale() { GEN++; if (typeof document === 'undefined') return GEN; for (const c of document.querySelectorAll('canvas')) if (c._at && c.nextElementSibling?.classList?.contains('cstamp')) { const el = c.nextElementSibling, st = c._gen !== GEN; el.classList.toggle('stale', st); el.textContent = stampText(c._at, c._gen, GEN); } return GEN; }

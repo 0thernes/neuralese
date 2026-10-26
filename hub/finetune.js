@@ -3,8 +3,8 @@
 // on exact gradients (frontier/rsi.js, verified against finite differences in test/v11). The rest of the network is frozen,
 // so its activations are computed once per chunk. The user text is split into chunks; every 3rd chunk is HELD OUT and never
 // used for training; the held-out cross-entropy before vs after, with a paired bootstrap CI, is the acceptance test.
-import { precompute, theta0, evalSet, addTheta, flatTheta } from '../frontier/rsi.js?v=12';
-import { bootCI, mean } from '../frontier/core.js?v=12';
+import { precompute, theta0, evalSet, addTheta, flatTheta } from '../frontier/rsi.js?v=13';
+import { bootCI, mean } from '../frontier/core.js?v=13';
 export function chunks(ids, len = 48, minLen = 16) { const out = []; for (let i = 0; i + minLen <= ids.length; i += len) out.push(ids.slice(i, i + len)); return out; }
 export function split(cs, every = 5) { const train = [], held = []; cs.forEach((c, i) => ((i % every === every - 1) ? held : train).push(c)); return { train, held }; }
 export async function fineTune(W, ids, { steps = 6, lr = 1e-2, len = 32, maxChunks = 9, every: heldEvery = 3, onStep = null } = {}) {

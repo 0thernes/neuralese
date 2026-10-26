@@ -1,16 +1,16 @@
 // v6 SCIENCE group: drill-down inspector, gradients & attribution, head circuits, representation geometry, loss landscape;
 // VIEW: 3D modes; TOOLS: WebGPU, model zoo + diff, shareable experiment URLs. Every number is computed live from the current weights.
-import { CORPUS } from './corpus.js?v=12';
-import { docs as DSdocs } from './dataset.js?v=12';
-import { lines, bars, heatmap, scatter } from './charts.js?v=12';
-import { $, esc, fmt, opts, cv, tipq, prog, tick, lOpts, hOpts } from './lab-ui.js?v=12';
-import * as D from './drill.js?v=12';
-import * as G from './grad.js?v=12';
-import * as S from './science.js?v=12';
-import { svd } from './linalg.js?v=12';
-import { GPU, bench, cpuMatVec } from './gpu.js?v=12';
-import { ZOO, loadZoo, httpRange, weightDiff } from './zoo.js?v=12';
-import { cloneWeights } from './model.js?v=12';
+import { CORPUS } from './corpus.js?v=13';
+import { docs as DSdocs } from './dataset.js?v=13';
+import { lines, bars, heatmap, scatter } from './charts.js?v=13';
+import { $, esc, fmt, opts, cv, tipq, prog, tick, lOpts, hOpts } from './lab-ui.js?v=13';
+import * as D from './drill.js?v=13';
+import * as G from './grad.js?v=13';
+import * as S from './science.js?v=13';
+import { svd } from './linalg.js?v=13';
+import { GPU, bench, cpuMatVec } from './gpu.js?v=13';
+import { ZOO, loadZoo, httpRange, weightDiff } from './zoo.js?v=13';
+import { cloneWeights } from './model.js?v=13';
 const P = (id) => `<div class="prog" id="${id}"><i></i></div>`;
 const docsN = (n, T = 24) => DSdocs(n, T); // shared dataset (built-in or user corpus)
 const pearson = (a, b) => { const n = a.length, ma = a.reduce((s, x) => s + x, 0) / n, mb = b.reduce((s, x) => s + x, 0) / n; let ab = 0, aa = 0, bb = 0; for (let i = 0; i < n; i++) { ab += (a[i] - ma) * (b[i] - mb); aa += (a[i] - ma) ** 2; bb += (b[i] - mb) ** 2; } return ab / Math.sqrt(aa * bb || 1); };
@@ -35,10 +35,10 @@ ${cv('eCKA', 'linear CKA between residual slots (0 = embeddings … 8 = final)')
   land: ['LANDSCAPE', 'Loss landscape', `<fieldset><legend>loss slices L(θ + αu + βv) ${tipq('u, v are filter-normalized Gaussian directions (‖u‖ = ‖W‖ per matrix) or the top-2 rank-1 SVD components σ1·u1v1ᵀ, σ1·u2v2ᵀ. CE is the mean next-token loss on the chosen docs. Weights are restored exactly afterwards.')}</legend>
 <div class="r"><label>layer</label><select id="lL">${lOpts(7)}</select><label>matrix</label><select id="lK">${opts(MATK, 'fc')}</select><label>dir</label><select id="lD">${opts(['random', 'svd'])}</select><label>grid</label><input type="number" id="lN" value="9" style="width:4em"/><label>span</label><input id="lS" value="1" style="width:4em"/><label>docs</label><input type="number" id="lDo" value="1" style="width:4em"/></div>
 <div class="r"><button class="pri" id="l1">1-D slice</button><button id="l2">2-D surface (+3D)</button><span id="lInfo" class="sm"></span></div>${P('lP')}${cv('lC', 'loss along the slice')}</fieldset>`],
-  v3d: ['3D MODES', '3D modes & camera', `<fieldset><legend>morphing 3D views ${tipq('Each mode is built from live data: weight voxels from the current matrix, loss surface from the LANDSCAPE grid, residual manifold from PCA of real residuals, attention arcs from a real forward pass, circuit edges from composition scores.')}</legend><div class="r"><button id="m_stack">layer stack</button><button id="m_field">weight voxel field</button><button id="m_surface">loss surface</button><button id="m_manifold">residual manifold</button><button id="m_attn">attention graph</button><button id="m_circuit">circuit graph</button></div>
+  v3d: ['3D MODES', '3D modes & camera', `<fieldset><legend>morphing 3D views ${tipq('Each mode is built from live data: weight voxels from the current matrix, loss surface from the LANDSCAPE grid, residual manifold from PCA of real residuals, attention arcs from a real forward pass, circuit edges from composition scores.')}</legend><div class="r"><button id="m_stack">layer stack</button><button id="m_field">weight voxel field</button><button id="m_surface">loss surface</button><button id="m_manifold">residual manifold</button><button id="m_attn">attention graph</button><button id="m_circuit">circuit graph</button><button id="m_fit" title="re-frame the camera to fit the current geometry in the visible area (left of the dock)">⤢ fit to view</button></div>
 <div class="r"><label>matrix</label><select id="mL">${lOpts(3)}</select><select id="mK">${opts(MATK, 'q')}</select><label>attn head</label><select id="mH">${hOpts(5)}</select><input id="mP" style="flex:1" value="Lily and Tom went to the park. Lily gave the ball to"/></div>
 <div class="r"><label>camera</label>${['stack', 'top', 'side', 'front', 'iso'].map((p) => `<button id="c_${p}">${p}</button>`).join('')}</div><div id="mInfo" class="sm"></div></fieldset>`],
-  gpu: ['WEBGPU', 'WebGPU compute', `<fieldset><legend>WGSL matmul backend ${tipq('A compute shader computes y = W·x (one 64-thread workgroup per output row, tree reduction). Used for the 50257×d tied unembedding. Verified against the CPU result on random vectors; tokens/s measured for both paths.')}</legend><div class="r"><button class="pri" id="wInit">init + verify</button><button id="wB">benchmark</button><label><input type="checkbox" id="wUse"/> use GPU for unembedding in generation</label></div><div id="wInfo"></div></fieldset>`],
+  gpu: ['WEBGPU', 'WebGPU compute', `<fieldset><legend>WGSL matmul backend ${tipq('A compute shader computes y = W·x (one 64-thread workgroup per output row, tree reduction). Used for the 50257×d tied unembedding. Verified against the CPU result on random vectors; tokens/s measured for both paths.')}</legend><div class="r"><button class="pri" id="wInit">init + verify</button><button id="wB">benchmark</button><label title="Generation always runs on the CPU/JS f32 path (the HUD backend is accurate). WebGPU is used only by init/verify and the benchmark."><input type="checkbox" id="wUse"/> enable WebGPU for the benchmark (generation stays CPU/JS)</label></div><div id="wInfo"></div></fieldset>`],
   zoo: ['ZOO', 'Model zoo & diff', `<fieldset><legend>TinyStories family (≤ 100 MB each) ${tipq('Loaded by HTTP Range requests for just the F32 tensors from Hugging Face. Same tokenizer and 8-layer local/global layout; widths 64/128/256. Compared on identical tokens with the same code paths (grad.js forward, science.js).')}</legend><div class="r">${ZOO.map((z) => `<label><input type="checkbox" class="zSel" value="${z.id}" ${z.id !== '8M' ? 'checked' : ''}/> ${z.id}</label>`).join('')}<label>docs</label><input type="number" id="zN" value="4" style="width:4em"/><button class="pri" id="zGo">load + compare</button></div>${P('zP')}<div id="zInfo"></div>${cv('zL', 'per-layer stable rank of W_fc (mean over layers shown in table)')}</fieldset>
 <fieldset><legend>weight diff between two models ${tipq('Per-tensor ‖ΔW‖_F, relative change ‖ΔW‖/‖W‖, cosine, max |Δ| and changed fraction between A and B (same shapes).')}</legend><div class="r"><label>A</label><select id="zA">${opts([['orig', 'original 8M'], ['snap', 'snapshot'], ['cur', 'current (hacked)']], 'orig')}</select><label>B</label><select id="zB">${opts([['orig', 'original 8M'], ['snap', 'snapshot'], ['cur', 'current (hacked)']], 'cur')}</select><button id="zSnap">snapshot current</button><button class="pri" id="zD">diff</button></div><div id="zDInfo"></div>${cv('zDC', 'relative change per tensor (log10)')}</fieldset>`],
   share: ['SHARE', 'Shareable experiment URL', `<fieldset><legend>experiment link ${tipq('The URL hash holds a compressed JSON of weight edits, runtime interventions, prompt and the open tab. Opening it replays the exact edit list on the original weights.')}</legend><div class="r"><button class="pri" id="sMk">make link</button><button id="sCp">copy</button><button id="sLd">load from hash</button></div><textarea id="sOut" rows="3" readonly></textarea><div id="sInfo" class="sm"></div></fieldset>`],
@@ -167,7 +167,7 @@ ${row('∂L/∂(θ̂) analytic vs finite-diff', `${fmt(g.dirDeriv, 6)} vs ${fmt(
     else if (name === 'attn') { const ids = tok().encode($('mP').value), Af = G.forward(W, ids), l = +$('mL').value, h = +$('mH').value, T = ids.length; data = { att: Af.layers[l].att.slice(h * T * T, (h + 1) * T * T), T, labels: ids.map(tstr), layer: l, head: h }; }
     else if (name === 'circuit') { if (!cache.eig) await out.eigen(); if (!cache.comp) await out.comp(); data = { scores: cache.eig, comps: cache.comp }; }
     const r = A.viz.mode(name, data); $('mInfo').textContent = A.viz.info3d || r.mode; return A.viz.info3d || r.mode; };
-  for (const m of ['stack', 'field', 'surface', 'manifold', 'attn', 'circuit']) on('m_' + m, 'click', () => out.mode(m));
+  for (const m of ['stack', 'field', 'surface', 'manifold', 'attn', 'circuit']) on('m_' + m, 'click', () => out.mode(m)); out.fit = () => { A.viz.fit(); return A.viz.fitted; }; on('m_fit', 'click', () => out.fit());
   out.cam = (p) => A.viz.preset(p); for (const p of ['stack', 'top', 'side', 'front', 'iso']) on('c_' + p, 'click', () => out.cam(p));
   // ── WEBGPU ──
   out.gpuInit = async () => { const c = await GPU.create(); if (!c.ok) { $('wInfo').innerHTML = `<b>WebGPU unavailable:</b> ${esc(c.why)} — CPU path remains active.`; return { ok: false, why: c.why }; } gpu = c.gpu; const W = M(), d = W.lnfW.length; gpu.upload('wte', W.wte, W.wte.length / d, d); const err = await gpu.verify('wte', 3);
@@ -176,7 +176,7 @@ ${row('∂L/∂(θ̂) analytic vs finite-diff', `${fmt(g.dirDeriv, 6)} vs ${fmt(
     const b = await bench(gpu, A.eng(), M(), tok().encode('Once upon a time there was a little girl named Lily')); $('wInfo').innerHTML += `<table><tr><th>path</th><th>unembed ms</th><th>tok/s</th></tr><tr><td>CPU f32 JS</td><td>${b.cpuUnembedMs.toFixed(2)}</td><td>${b.cpuTokS.toFixed(1)}</td></tr><tr><td>WebGPU</td><td>${b.gpuUnembedMs.toFixed(2)} (batched ×16: ${b.gpuBatchedPerVecMs.toFixed(2)}/vec)</td><td>${b.gpuTokS.toFixed(1)}</td></tr></table><div class="sm">GPU time includes upload of x, dispatch, and read-back; on software adapters (SwiftShader) the GPU path is slower than CPU.</div>`;
     A.logRun({ kind: 'gpu', label: 'WebGPU bench', metrics: { cpu_tok_s: b.cpuTokS, gpu_tok_s: b.gpuTokS, err: cache.gpuErr } }); return b; };
   on('wInit', 'click', () => out.gpuInit()); on('wB', 'click', () => out.gpuBench());
-  on('wUse', 'change', async () => { const eng = A.eng(); if ($('wUse').checked) { if (!gpu) { const r = await out.gpuInit(); if (!r.ok) { $('wUse').checked = false; throw new Error('WebGPU unavailable'); } } A.toast('WebGPU ready and verified — used by the benchmark; generation keeps the CPU path (faster on this adapter)'); } void eng; });
+  on('wUse', 'change', async () => { const eng = A.eng(); if ($('wUse').checked) { if (!gpu) { const r = await out.gpuInit(); if (!r.ok) { $('wUse').checked = false; throw new Error('WebGPU unavailable'); } } A.toast('WebGPU ready and verified — benchmark only; generation stays on the CPU/JS f32 path'); } globalThis.NEURALESE_WEBGPU = $('wUse').checked ? 'verified (benchmark only)' : null; A.refresh?.(); void eng; });
   // ── ZOO + DIFF ──
   out.zoo = async (ids0) => { const sel = ids0 || [...document.querySelectorAll('.zSel:checked')].map((x) => x.value), docs = docsN(+$('zN').value || 4, 24), rows = []; cache.zoo = cache.zoo || {};
     for (const [i, id] of sel.entries()) { const z = ZOO.find((x) => x.id === id); if (!z) throw new Error('unknown zoo model ' + id); let W, meta = '';

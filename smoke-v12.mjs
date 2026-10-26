@@ -12,11 +12,11 @@ await p.goto(url); await p.waitForFunction(() => window.NEURALESE && window.NEUR
 const check = async (name, fn, pred, arg) => { try { const r = await p.evaluate(fn, arg); const ok = pred(r); S[name] = r; log(name, ok ? 'OK' : 'FAIL', JSON.stringify(r).slice(0, 500)); if (!ok) S.fail.push(name); } catch (e) { S.fail.push(name + ': ' + e.message.slice(0, 300)); log(name, 'ERR', e.message.slice(0, 300)); } };
 const sh = async (k, f) => { await p.evaluate((x) => { document.documentElement.style.setProperty('--dockW', '880px'); window.NEURALESE.v5.api.showTab(x); }, k); await sleep(2000); await p.screenshot({ path: `${shots}-${f}.png` }); };
 const O = 'window.NEURALESE.v5.out';
-await check('version', () => document.getElementById('ver').textContent, (r) => r.startsWith('v12.0.0'));
+await check('version', () => document.getElementById('ver').textContent, (r) => r.startsWith('v12.1.0'));
 await check('tabs', () => [...document.querySelectorAll('#tabs button')].filter((x) => ['hub', 'hemb', 'hspeech', 'hvision', 'hgen', 'hft'].includes(x.dataset.t)).length, (r) => r === 6);
 await sh('hub', 'hub');
 await check('embedTest', () => window.NEURALESE.v5.out.embedTest(), (r) => r.pass);
-await check('embedMap', async () => { await window.NEURALESE.v5.api.showTab('hemb'); const r = await window.NEURALESE.v5.out.embed(); return { n: r.texts.length, dim: r.vecs[0].length, explained: r.explained, canvas: !!document.querySelector('#he3d canvas') }; }, (r) => r.n === 10 && r.dim === 384 && r.canvas); await sh('hemb', 'embed');
+await check('embedMap', async () => { await window.NEURALESE.v5.api.showTab('hemb'); const r = await window.NEURALESE.v5.out.hubEmbed(); return { n: r.texts.length, dim: r.vecs[0].length, explained: r.explained, canvas: !!document.querySelector('#he3d canvas') }; }, (r) => r.n === 10 && r.dim === 384 && r.canvas); await sh('hemb', 'embed');
 await check('embedSearch', async () => (await window.NEURALESE.v5.out.embedSearch()).slice(0, 2).map((x) => x[1]), (r) => /cat|kitten/.test(r[0]));
 await check('s2sTest', () => window.NEURALESE.v5.out.s2sTest(), (r) => r.pass); await sh('hspeech', 'speech');
 await check('ocrTest', () => window.NEURALESE.v5.out.ocrTest(), (r) => r.pass);

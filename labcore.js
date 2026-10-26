@@ -1,7 +1,7 @@
 // NEURALESE lab core: pure, testable research computations behind every v5 visualization.
 // Everything here runs on the live weights / engine; nothing is precomputed or faked.
-import { CFG, mulberry32, cloneWeights } from './model.js?v=12';
-import { Engine, defaultRuntime, logSoftmax, layerNorm, entropy } from './engine.js?v=12';
+import { CFG, mulberry32, cloneWeights } from './model.js?v=13';
+import { Engine, defaultRuntime, logSoftmax, layerNorm, entropy } from './engine.js?v=13';
 const { d, H, hd, L, ff, V } = CFG;
 const tick = () => new Promise((r) => setTimeout(r, 0));
 
@@ -236,3 +236,17 @@ export function profile(eng, ids) {
 export const memoryInfo = () => (typeof performance !== 'undefined' && performance.memory ? { used: performance.memory.usedJSHeapSize, total: performance.memory.totalJSHeapSize, limit: performance.memory.jsHeapSizeLimit } : null);
 // Tiny CSV writer.
 export const toCSV = (rows, header) => [header ? header.join(',') : null, ...rows.map((r) => r.map((v) => (typeof v === 'string' ? JSON.stringify(v) : Number.isFinite(v) ? +v.toPrecision(8) : v)).join(','))].filter((x) => x != null).join('\n');
+
+// ───────── token resolution (v12.1) ─────────
+// One rule everywhere a text box names a single token: the string is encoded exactly as typed (a leading space matters
+// for GPT-2 BPE: " dog" and "dog" are different tokens) and the FIRST resulting id is used. The result reports the id,
+// its decoded string and whether the text spanned several tokens, so the UI can show what was actually used.
+export function resolveTok(tok, s) { const str = String(s ?? ''); if (!str.length) throw new Error('empty token'); const ids = tok.encode(str); if (!ids.length) throw new Error('empty token');
+  return { id: ids[0], ids, text: str, piece: tok.tokenStr(ids[0]), multi: ids.length > 1 }; }
+// Small effects must stay visible: fixed decimals for ordinary values, exponent form when |x| is tiny but non-zero.
+export const fmtSmall = (x, dp = 4) => (x === 0 || !Number.isFinite(x) ? String(x === 0 ? (0).toFixed(dp) : x) : Math.abs(x) < 10 ** -dp * 5 ? x.toExponential(2) : x.toFixed(dp));
+
+// v12.1: lossless steering-vector JSON. Every float32 is written as the shortest decimal that parses back to the same float32
+// bits, so export → import is bit-identical (the old toFixed(6) zeroed components below 5e-7).
+export const vecToJSON = (v) => ({ ...v, vecs: v.vecs.map((x) => Array.from(x, (y) => { for (let p = 6; p < 10; p++) { const s = +y.toPrecision(p); if (Math.fround(s) === y) return s; } return y; })) });
+export const vecFromJSON = (v) => ({ ...v, vecs: v.vecs.map((x) => Float32Array.from(x)) });

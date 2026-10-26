@@ -6,7 +6,7 @@
 // one quarter of the Fisher information (Berry curvature is identically 0 because ψ is real). These are standard facts
 // (e.g. Amari & Nagaoka 2000; Bengtsson & Życzkowski 2006); the fidelity itself is computed by Moonlab's WASM simulator.
 export const SOURCE = { qgtl: { repo: 'tsotchke/quantum_geometric_tensor', commit: '770994aa8ddd858e6bb16eebb25250a7b9f67c96' }, moonlab: { repo: 'tsotchke/moonlab', npm: '@tsotchkecorp/moonlab@1.2.1', commit: 'cd3b2347e3739327548708073d7e4ac710cc6a6c' } };
-import { wasmBytes } from './wasmb64.js?v=12';
+import { wasmBytes } from './wasmb64.js?v=13';
 export const NQ = 16, NA = 1 << NQ;
 export function softmax(l) { let m = -Infinity; for (const x of l) if (x > m) m = x; const p = new Float64Array(l.length); let s = 0; for (let i = 0; i < l.length; i++) { p[i] = Math.exp(l[i] - m); s += p[i]; } for (let i = 0; i < l.length; i++) p[i] /= s; return p; }
 export const bhatt = (p, q) => { let s = 0; for (let i = 0; i < p.length; i++) s += Math.sqrt(p[i] * q[i]); return s; };
@@ -17,7 +17,7 @@ let ML = null;
 // Browser: load the unmodified Emscripten glue, then wrap its factory so it instantiates the SHA-256-verified bytes
 // (Moonlab's own loader uses window.MoonlabModule when present). Node: Moonlab's server loader reads dist/moonlab.wasm,
 // which the test suite materialises from the same verified base64 (see test/tsotchke.test.mjs).
-export async function moonlab() { if (ML) return ML; const mod = await import('../vendor/moonlab/dist/index.mjs?v=12');
+export async function moonlab() { if (ML) return ML; const mod = await import('../vendor/moonlab/dist/index.mjs?v=13');
   if (typeof window !== 'undefined') { const bytes = await wasmBytes('moonlab'), js = new URL('../vendor/moonlab/dist/moonlab.js', import.meta.url).href;
     if (!window.MoonlabModule) await new Promise((res, rej) => { const s = document.createElement('script'); s.src = js; s.onload = res; s.onerror = () => rej(new Error('failed to load ' + js)); document.head.appendChild(s); });
     const F = window.MoonlabModule; if (!F.__neuralese) { window.MoonlabModule = Object.assign((cfg = {}) => F({ ...cfg, wasmBinary: bytes }), { __neuralese: true }); } await mod.preload({ jsPath: js }); }

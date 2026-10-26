@@ -1,24 +1,26 @@
 // v5 shell: grouped tabs, module install, theme, resizable dock, export bar, shortcuts, terminal + learning center.
-import { GROUPS, runs, exportFor, parseLayers, $, $$ } from './lab-ui.js?v=12';
-import * as LM from './lab-model.js?v=12';
-import * as LI from './lab-interpret.js?v=12';
-import * as LV from './lab-intervene.js?v=12';
-import * as LE from './lab-eval.js?v=12';
-import * as LS from './lab-science.js?v=12';
-import * as LR from './lab-research.js?v=12';
-import * as LT from './lab-tsotchke.js?v=12';
-import * as LF from './lab-frontier.js?v=12';
-import * as LH from './lab-hub.js?v=12';
-import { installModes } from './viz3d.js?v=12';
-import { redrawAll } from './charts.js?v=12';
-import { makeTerminal, termMarkup, mountTerminal, VERSION } from './term.js?v=12';
-import { learnMarkup, mountLearn } from './learn/learn.js?v=12';
+import { GROUPS, runs, exportFor, parseLayers, $, $$ } from './lab-ui.js?v=13';
+import * as LM from './lab-model.js?v=13';
+import * as LI from './lab-interpret.js?v=13';
+import * as LV from './lab-intervene.js?v=13';
+import * as LE from './lab-eval.js?v=13';
+import * as LS from './lab-science.js?v=13';
+import * as LR from './lab-research.js?v=13';
+import * as LT from './lab-tsotchke.js?v=13';
+import * as LF from './lab-frontier.js?v=13';
+import * as LH from './lab-hub.js?v=13';
+import { installModes } from './viz3d.js?v=13';
+import { redrawAll } from './charts.js?v=13';
+import { makeTerminal, termMarkup, mountTerminal, VERSION } from './term.js?v=13';
+import { learnMarkup, mountLearn } from './learn/learn.js?v=13';
+import { banner } from './provenance.js?v=13';
+import { installGuide } from './guide.js?v=13';
 export { VERSION };
 const MODS = [LM, LI, LV, LE, LS, LR, LT, LF, LH];
 const AUTO = { arch: 'arch', params: 'params', timeline: 'timeline', runs: 'runs' }; // cheap views rendered on open
 export function buildV5(TABS, P) {
   const long = {};
-  for (const m of MODS) for (const [k, [t, lt, html]] of Object.entries(m.markup)) { TABS[k] = t; long[k] = lt; P[k] = html; }
+  for (const m of MODS) for (const [k, [t, lt, html]] of Object.entries(m.markup)) { TABS[k] = t; long[k] = lt; P[k] = banner(k) + html; }
   for (const [k, [t, lt, html]] of [['term', termMarkup], ['learn', learnMarkup]]) { TABS[k] = t; long[k] = lt; P[k] = html; }
   TABS.ctrl = TABS.ctrl || 'CONTROL';
   const order = [], groupStart = {}, seen = new Set();
@@ -26,13 +28,14 @@ export function buildV5(TABS, P) {
   for (const k of Object.keys(TABS)) if (!seen.has(k)) order.push([k, TABS[k]]);
   let api = null, out = {}, autoDone = new Set();
   const V = { order, groupStart, long, out, version: VERSION,
-    onShow(k) { if (!api) return; if (AUTO[k] && (k === 'timeline' || k === 'runs' || !autoDone.has(k))) { autoDone.add(k); try { out[AUTO[k]](); } catch (e) { console.warn(e); } } try { api.onTab?.(k); } catch (e) { console.warn(e); } if (k === 'term') setTimeout(() => $('tmIn')?.focus(), 0); },
+    onShow(k) { if (!api) return; if (k === 'v3d' && $('mInfo') && api.viz) $('mInfo').textContent = api.viz.info3d || ''; if (AUTO[k] && (k === 'timeline' || k === 'runs' || !autoDone.has(k))) { autoDone.add(k); try { out[AUTO[k]](); } catch (e) { console.warn(e); } } try { api.onTab?.(k); } catch (e) { console.warn(e); } if (k === 'term') setTimeout(() => $('tmIn')?.focus(), 0); },
     setTheme(t) { document.documentElement.dataset.theme = t; setTimeout(redrawAll, 0); try { localStorage.setItem('neuralese.theme', t); } catch { /* */ } (api?.viz || window.NEURALESE?.viz)?.setBg?.(t === 'light'); const b = $('bTheme'); if (b) b.textContent = t === 'light' ? '☾ dark' : '☀ light'; },
     toggleTheme() { V.setTheme(document.documentElement.dataset.theme === 'light' ? 'dark' : 'light'); },
     wire({ guard }) {
       V.setTheme(localStorage.getItem('neuralese.theme') || 'dark');
       $('bTheme')?.addEventListener('click', V.toggleTheme);
       $('bKeys')?.addEventListener('click', () => $('keys')?.classList.toggle('hidden'));
+      try { const g = installGuide({ showTab: (k) => api.showTab(k) }); if (g) out.guide = g.open; } catch (e) { console.warn('guide', e); }
       // export bars: one delegated handler
       document.addEventListener('click', guard((e) => { const b = e.target.closest('.xb button'); if (!b) return; const id = b.parentElement.dataset.for; if (!exportFor(id, b.dataset.x)) throw new Error(`nothing to export as ${b.dataset.x} yet — render the chart first`); }));
       // resizable dock
@@ -56,7 +59,7 @@ export function buildV5(TABS, P) {
       api = { ...base, on: (id, ev, fn) => { const el = $(id); if (!el) throw new Error('missing element #' + id); el.addEventListener(ev, base.guard(fn)); },
         logRun: (r) => runs.add(r), runs: () => runs.all(), importRuns: (a) => runs.save(a.slice(-300)), appVersion: VERSION, parseLayers: (s) => [...parseLayers(s)], hasTab: (k) => !!$('pane_' + k), setTheme: V.setTheme,
         audioOn: async () => { await base.audio.start(); if (base.audio.muted) base.audio.setMute(false); }, audioMute: () => base.audio.setMute(true) };
-      if (base.viz && !base.viz.mode) installModes(base.viz);
+      if (base.viz && !base.viz.mode) { installModes(base.viz); setTimeout(() => base.viz.preset('stack', 0), 0); } // v12.1: fitted default framing
       for (const m of MODS) m.install(api, out);
       const T = makeTerminal(api, out); api.term = mountTerminal(api, T); V.exec = T.exec; V.term = api.term;
       V.learn = mountLearn(api); V.api = api; V.setTheme(document.documentElement.dataset.theme || 'dark');

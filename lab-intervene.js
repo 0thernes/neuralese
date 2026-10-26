@@ -1,15 +1,15 @@
 // INTERVENE/RUN extras: parameter sweeps, batch experiments, advanced steering controls (all act on the real engine).
-import * as C from './labcore.js?v=12';
-import { logSoftmax } from './engine.js?v=12';
-import { CORPUS } from './corpus.js?v=12';
-import { lines } from './charts.js?v=12';
-import { $, esc, opts, hOpts, cv, tipq, prog, tick, tokId, parseLayers, d, H, hd, L, ff } from './lab-ui.js?v=12';
+import * as C from './labcore.js?v=13';
+import { logSoftmax } from './engine.js?v=13';
+import { CORPUS } from './corpus.js?v=13';
+import { lines } from './charts.js?v=13';
+import { $, esc, opts, hOpts, cv, tipq, prog, tick, tokId, parseLayers, d, H, hd, L, ff } from './lab-ui.js?v=13';
 const PROMPT = 'Once upon a time, there was a little girl named Lily. She loved to';
 export const markup = {
   sweep: ['SWEEP', 'Sweeps & batch', `<fieldset><legend>parameter sweep ${tipq('Each point builds a fresh engine with that parameter value (weights blended or runtime cloned) and measures perplexity on corpus tokens, KL vs the clean model at the prompt end, and p(target).')}</legend>
-<div class="r"><label>parameter</label><select id="xWp">${opts([['blend', 'edit strength α (W + α·ΔW)'], ['steer', 'steering coef (arg = vector id)'], ['htemp', 'head temperature (arg = L,H)'], ['neuron', 'neuron clamp value (arg = L,N)'], ['lbias', 'logit bias (arg = token)'], ['window', 'attention window (arg = L)'], ['hsteer', 'unembed-space steer (arg = token)']])}</select><input id="xWa" placeholder="arg" style="width:90px"/></div>
+<div class="r"><label>parameter</label><select id="xWp">${opts([['blend', 'edit strength α (W + α·ΔW)'], ['steer', 'steering coef (arg = vector id)'], ['htemp', 'head temperature (arg = L,H)'], ['neuron', 'neuron clamp value (arg = L,N)'], ['lbias', 'logit bias (arg = token)'], ['window', 'attention window (arg = L)'], ['hsteer', 'unembed-space steer (arg = token)']])}</select><input id="xWa" placeholder="arg (token args: exact text, empty = target)" title="token args are encoded exactly as typed — a leading space matters" style="width:90px"/></div>
 <div class="r"><label>from</label><input type="number" id="xW0" value="0" step="0.1"/><label>to</label><input type="number" id="xW1" value="1.5" step="0.1"/><label>steps</label><input type="number" id="xWn" value="7"/><label>corpus tok</label><input type="number" id="xWc" value="48"/></div>
-<div class="r"><label>prompt</label><input id="xWP" style="flex:1" value="${PROMPT}"/><label>target</label><input id="xWt" value=" play" style="width:70px"/></div><div class="r"><button class="pri" id="xWgo">run sweep</button><button id="xWstop">stop</button><div class="prog" id="xWprog"><i></i></div></div>
+<div class="r"><label>prompt</label><input id="xWP" style="flex:1" value="${PROMPT}"/><label>target</label><input id="xWt" value=" play" style="width:70px"/></div><div id="xWres" class="sm"></div><div class="r"><button class="pri" id="xWgo">run sweep</button><button id="xWstop">stop</button><div class="prog" id="xWprog"><i></i></div></div>
 ${cv('xWppl', 'perplexity (corpus)')}${cv('xWkl', 'KL(variant‖clean) at prompt end')}${cv('xWpt', 'p(target)')}<div id="xWtab" class="scroll"></div></fieldset>
 <fieldset><legend>batch experiments ${tipq('One terminal command per line, executed in order. Results are logged in RUNS.')}</legend><textarea id="xBatch" rows="6" aria-label="batch script">reset
 calib 80
@@ -29,21 +29,25 @@ export function install(A, out) {
   const on = A.on, tstr = (id) => JSON.stringify(A.tok().tokenStr(id)).slice(1, -1);
   let stop = false;
   out.sweep = async (cfg = {}) => { const p = cfg.p || $('xWp').value, arg = String(cfg.arg ?? $('xWa').value), a0 = +(cfg.from ?? $('xW0').value), a1 = +(cfg.to ?? $('xW1').value), n = Math.max(2, Math.min(25, +(cfg.steps ?? $('xWn').value) || 7)), nc = Math.max(8, Math.min(400, +(cfg.corpus ?? $('xWc').value) || 48));
-    const tok = A.tok(), ids = tok.encode(cfg.prompt || $('xWP').value), tgt = tokId(tok, cfg.target || $('xWt').value), docs = CORPUS.slice(-8), Rb = A.R(), ec = A.engClean(), lpC = logSoftmax(ec.logits(ec.run(ids).last.h)), aa = arg.split(',').map((s) => s.trim()); stop = false;
+    const tok = A.tok(), ids = tok.encode(cfg.prompt || $('xWP').value), docs = CORPUS.slice(-8), Rb = A.R(), ec = A.engClean(), lpC = logSoftmax(ec.logits(ec.run(ids).last.h)), aa = arg.split(',').map((s) => s.trim()); stop = false;
+    // token-valued args (lbias, hsteer) are resolved WITHOUT trimming, same rule as the target box; an empty lbias arg means "bias the target token"
+    const tg = C.resolveTok(tok, cfg.target || $('xWt').value), tgt = tg.id, ta = p === 'lbias' || p === 'hsteer' ? (arg.length ? C.resolveTok(tok, arg) : p === 'lbias' ? tg : C.resolveTok(tok, ' happy')) : null;
+    const show = (r) => `"${esc(r.text)}" → id ${r.id} ${esc(JSON.stringify(r.piece))}${r.multi ? ` <b>(${r.ids.length} tokens: only the first is used)</b>` : ''}`;
+    $('xWres').innerHTML = `target ${show(tg)}${ta ? ` · ${p} token ${show(ta)}${p === 'lbias' && ta.id !== tg.id ? ' <b>≠ target: p(target) only moves indirectly</b>' : ''}` : ''}`;
     let scratch = null; const res = [];
     for (let i = 0; i < n && !stop; i++) { const v = a0 + ((a1 - a0) * i) / (n - 1); let Wx = A.M(); const R2 = structuredClone(Rb);
       if (p === 'blend') { scratch = C.blendWeights(A.W(), A.M(), v, scratch); Wx = scratch; }
       else if (p === 'steer') { const vec = R2.steer.find((s) => String(s.id) === aa[0]) || R2.steer[R2.steer.length - 1]; if (!vec) throw new Error('no steering vector to sweep'); vec.coef = v; vec.on = true; }
       else if (p === 'htemp') { const [l, h] = aa.map(Number); if (!(l >= 0 && l < L && h >= 0 && h < H)) throw new Error('arg must be L,H'); R2.headTemp[l][h] = v; }
       else if (p === 'neuron') { const [l, nn] = aa.map(Number); if (!(l >= 0 && l < L && nn >= 0 && nn < ff)) throw new Error('arg must be L,N'); R2.neuronAbl = R2.neuronAbl.filter((x) => !(x.l === l && x.n === nn)); R2.neuronAbl.push({ l, n: nn, mode: 'clamp', value: v }); }
-      else if (p === 'lbias') R2.logitBias = { ...(R2.logitBias || {}), [tokId(tok, aa[0] || ' dog')]: v };
+      else if (p === 'lbias') R2.logitBias = { ...(R2.logitBias || {}), [ta.id]: v };
       else if (p === 'window') { const l = +aa[0]; if (!(l >= 0 && l < L)) throw new Error('arg must be a layer'); R2.attnMask[l] = { ...R2.attnMask[l], window: Math.max(1, Math.round(v)) }; }
-      else if (p === 'hsteer') { const t = tokId(tok, aa[0] || ' happy'), u = Float32Array.from(C.embedOf(A.M(), t)), nu = Math.hypot(...u) || 1; R2.hSteer = [...(R2.hSteer || []), { vec: Array.from(u, (x) => x / nu), coef: v, on: true }]; }
+      else if (p === 'hsteer') { const t = ta.id, u = Float32Array.from(C.embedOf(A.M(), t)), nu = Math.hypot(...u) || 1; R2.hSteer = [...(R2.hSteer || []), { vec: Array.from(u, (x) => x / nu), coef: v, on: true }]; }
       else throw new Error('unknown sweep parameter ' + p);
       const e = A.makeEngine(Wx, R2), lp = logSoftmax(e.outLogits(e.run(ids).last.h)), cal = C.calibration(await C.evalCorpus(e, docs, nc));
-      res.push({ v, ppl: cal.ppl, kl: C.klLogits(lp, lpC), pt: Math.exp(lp[tgt]), acc: cal.acc }); prog('xWprog', (i + 1) / n); await tick(); }
+      res.push({ v, tgt, argTok: ta?.id, ppl: cal.ppl, kl: C.klLogits(lp, lpC), pt: Math.exp(lp[tgt]), acc: cal.acc }); prog('xWprog', (i + 1) / n); await tick(); }
     const xl = res.map((r) => r.v.toFixed(3)); lines($('xWppl'), [{ ys: res.map((r) => r.ppl), color: '#5eead4', label: 'ppl' }], { xs: xl }); lines($('xWkl'), [{ ys: res.map((r) => r.kl), color: '#f472b6', label: 'KL' }], { xs: xl, min: 0 }); lines($('xWpt'), [{ ys: res.map((r) => r.pt), color: '#fbbf24', label: 'p' }], { xs: xl, min: 0 });
-    $('xWtab').innerHTML = `<table><tr><th>${esc(p)}</th><th>ppl</th><th>KL</th><th>p(target)</th><th>acc</th></tr>${res.map((r) => `<tr><td>${r.v.toFixed(3)}</td><td>${r.ppl.toFixed(3)}</td><td>${r.kl.toExponential(2)}</td><td>${r.pt.toFixed(4)}</td><td>${(100 * r.acc).toFixed(1)}%</td></tr>`).join('')}</table>`;
+    $('xWtab').innerHTML = `<table><tr><th>${esc(p)}</th><th>ppl</th><th>KL</th><th>p(target)</th><th>acc</th></tr>${res.map((r) => `<tr><td>${r.v.toFixed(3)}</td><td>${C.fmtSmall(r.ppl, 3)}</td><td>${r.kl.toExponential(2)}</td><td>${C.fmtSmall(r.pt, 4)}</td><td>${(100 * r.acc).toFixed(1)}%</td></tr>`).join('')}</table>`;
     A.logRun({ kind: 'sweep', label: `sweep ${p}${arg ? ' ' + arg : ''} [${a0}..${a1}]`, metrics: { ppl_min: Math.min(...res.map((r) => r.ppl)), kl_max: Math.max(...res.map((r) => r.kl)) }, series: { x: res.map((r) => r.v), ppl: res.map((r) => r.ppl), kl: res.map((r) => r.kl), pt: res.map((r) => r.pt) } }); return res; };
   on('xWgo', 'click', () => out.sweep()); on('xWstop', 'click', () => (stop = true));
   out.batch = async (text) => { const ls = String(text ?? $('xBatch').value).split('\n').map((s) => s.trim()).filter((s) => s && !s.startsWith('#')); let i = 0; for (const ln of ls) { $('xBInfo').textContent = `${++i}/${ls.length}: ${ln}`; await A.term(ln); } $('xBInfo').textContent = `${ls.length} commands done`; return ls.length; };

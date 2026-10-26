@@ -1,0 +1,26 @@
+// v12.1 smoke at the audit viewport (1240x700): one check per audit fix, screenshots of each, no console errors.
+import puppeteer from 'puppeteer-core';
+import { writeFileSync } from 'node:fs';
+const url = process.argv[2] || 'http://localhost:8765/', shots = process.argv[3] || '/workspace/neuralese-v12.1/local';
+const b = await puppeteer.launch({ executablePath: '/usr/bin/google-chrome', headless: 'new', protocolTimeout: 1800000, args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--no-sandbox'] });
+const p = await b.newPage(); await p.setViewport({ width: 1240, height: 700 }); const errs = [];
+p.on('console', (m) => { if (m.type() === 'error' && !/favicon/.test(m.text())) { errs.push(m.text()); console.log('[console.error]', m.text()); } }); p.on('pageerror', (e) => { errs.push(e.message); console.log('[pageerror]', e.message); });
+const T = Date.now(), log = (...a) => console.log(`[${((Date.now() - T) / 1000).toFixed(1)}s]`, ...a), S = { fail: [] }, sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+await p.goto(url); await p.waitForFunction(() => window.NEURALESE && window.NEURALESE_LAST, { timeout: 240000 }); log('loaded');
+const check = async (name, fn, pred, arg) => { try { const r = await p.evaluate(fn, arg); const ok = pred(r); S[name] = r; log(name, ok ? 'OK' : 'FAIL', JSON.stringify(r).slice(0, 400)); if (!ok) S.fail.push(name); } catch (e) { log(name, 'ERROR', e.message); S.fail.push(name); } };
+const sh = async (k, f) => { await p.evaluate((x) => window.NEURALESE.v5.api.showTab(x), k); await sleep(1500); await p.screenshot({ path: `${shots}-${f}.png` }); };
+await check('version', () => document.getElementById('ver').textContent, (r) => r.startsWith('v12.1.0'));
+await sh('viz', '3d-default');
+await check('3dFit', () => { const v = window.NEURALESE.viz; v.fit(0); return { fitted: v.fitted, mode: v.mode3d }; }, (r) => r.fitted && r.mode === 'stack'); await sh('viz', '3d-fit');
+await check('3dModesInfo', async () => { window.NEURALESE.v5.api.showTab('v3d'); await new Promise((r) => setTimeout(r, 200)); return document.getElementById('mInfo').textContent; }, (r) => /^layer stack/.test(r)); await sh('v3d', '3dmodes');
+await check('taylor', async () => { window.NEURALESE.v5.api.showTab('taylor'); await window.NEURALESE.v5.out.taylorJet(1, 4); return document.getElementById('tyJOut').textContent.slice(0, 200); }, (r) => !/NaN/.test(r) && /e[+-]/.test(r)); await sh('taylor', 'taylor');
+await check('embedSearch', () => { window.NEURALESE.v5.api.showTab('embed'); window.NEURALESE.v5.out.embed(' dog'); return document.getElementById('xERes').textContent; }, (r) => /dog/.test(r) && r.split('·').length > 5); await sh('embed', 'embed-dog');
+await check('sweep', async () => { window.NEURALESE.v5.api.showTab('sweep'); const r = await window.NEURALESE.v5.out.sweep({ p: 'lbias', arg: '', from: -2, to: 2, steps: 3, corpus: 8 }); return { res: document.getElementById('xWres').textContent, r: JSON.stringify(r).slice(0, 300) }; }, (r) => /id \d+/.test(r.res)); await sh('sweep', 'sweep');
+await check('provenance', () => ['fx', 'fatlas', 'fclaims', 'qrng'].map((k) => document.querySelector(`#pane_${k} .prov`)?.dataset.prov), (r) => r.join() === 'stored,stored,checks,sim'); await sh('fatlas', 'atlas-stored'); await sh('qrng', 'qrng-sim');
+await check('guide', async () => { document.getElementById('bGuide').click(); await new Promise((r) => setTimeout(r, 300)); document.getElementById('gN').click(); return { tab: document.querySelector('#tabs button.on')?.dataset.t, text: document.getElementById('guide').textContent.slice(0, 60) }; }, (r) => r.tab === 'an' && /2\/10/.test(r.text)); await p.screenshot({ path: `${shots}-guide.png` });
+await p.evaluate(() => document.getElementById('gX').click());
+await check('staleStamp', async () => { const N = window.NEURALESE; N.v5.api.showTab('surg'); document.getElementById('bQ').click(); await new Promise((r) => setTimeout(r, 1500)); return [...document.querySelectorAll('.cstamp.stale')].length; }, (r) => r >= 1);
+await check('shareReplay', async () => { const N = window.NEURALESE, n = N.ed.edits.length, url = await N.v5.out.shareMake(); N.ed.setEdits?.([]); const st = await N.v5.out.shareLoad(new URL(url).hash); return { n, loaded: st.edits.length, now: N.ed.edits.length }; }, (r) => r.n >= 1 && r.loaded === r.n && r.now === r.n);
+await check('gpt2', async () => { window.NEURALESE.v5.api.showTab('hgen'); return window.NEURALESE.v5.out.hgen('gen-gpt2', 'The future of AI is', 12); }, (r) => typeof r === 'string' && r.trim().length > 'The future of AI is'.length + 5); await sh('hgen', 'gpt2');
+await check('distil', () => window.NEURALESE.v5.out.hgen('gen-distilgpt2', 'A robot met a dragon', 16), (r) => typeof r === 'string' && /\S/.test(r.slice('A robot met a dragon'.length)));
+S.errors = errs; writeFileSync(`${shots}-result.json`, JSON.stringify(S, null, 1)); console.log(JSON.stringify({ fail: S.fail, errors: errs })); await b.close(); process.exit(S.fail.length || errs.length ? 1 : 0);

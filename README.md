@@ -2,6 +2,19 @@
 
 Live: https://0thernes.github.io/neuralese/ · Audit: [AUDIT.md](AUDIT.md) · Tsotchke analysis: [docs/TSOTCHKE.md](docs/TSOTCHKE.md) · Claims & evidence: [docs/CLAIMS.md](docs/CLAIMS.md) · Stack and versions: [docs/STACK.md](docs/STACK.md)
 
+## v12.1.0: fixes from the 65-tab exploration audit (26 Oct 2026)
+- **TAYLOR**: the derivative summary showed `NaNNaN…` because `Float64Array.map` coerced HTML strings to NaN. It now renders numbers (`derivRows`).
+- **INTERPRET → EMBED**: the token-neighbour search was blank because HUB's `out.embed` overwrote it. HUB's function is now `out.hubEmbed`, and a test fails if two modules ever share an `out.*` name again.
+- **SWEEP**: target and token arguments are resolved exactly as typed (no trimming), and the resolved ids and pieces are shown under the inputs. Multi-token input is flagged. Small effects print in exponent form instead of being rounded to 0.0000.
+- **LM SWAP**: GPT-2 hung after `config.json 100%` because Xenova/gpt2 has no q8 ONNX file and the 404 was hidden. It now loads `uint8`, and load errors are shown. DistilGPT-2's newline-only output was real greedy behaviour. Generation now defaults to repetition penalty 1.3 with no-repeat 3-grams, a "plain greedy" checkbox turns that off, and a whitespace-only continuation is flagged. The GPU checkbox only enables WebGPU for the benchmark (generation stays CPU/JS), and the HUD now says so.
+- **3D**: a ⤢ fit-to-view button (3D and 3D MODES), and presets fit the camera to the area left visible by the dock and output panel. The 3D MODES text now matches the current mode.
+- **Charts**: every chart carries a "computed HH:MM:SS · current model state" stamp. After any weight or steering change it switches to "last run at … · ⚠ model changed since".
+- **Provenance banners**: FRONTIER, SCORECARD, SELF-IMPROVE and ATLAS are marked *stored author results*. MIND, GROKKING and CLAIMS are marked *stored + live*. F-CLAIMS is marked *live consistency checks (not reruns)*. TSOTCHKE, QRNG and Q-GEOMETRY are marked *classical simulation, no quantum hardware*.
+- **STEER export/import** is now bit-identical (the old `toFixed(6)` zeroed tiny components). The share-link make→load replay is verified in the smoke test.
+- **🧭 guide**: a 10-stop guided path through the 65 tabs.
+- **Layout**: at a narrow dock (1240×700), charts were stretched to about 3× the pane width. Fieldsets now shrink and canvases are capped to the pane.
+- Tests: `test/v121.test.mjs` (one per fix); browser smoke `smoke-v121.mjs` at 1240×700.
+
 ## What's new in v12 (HUB group, after VIEW in the tab bar)
 - **Model hub**: transformers.js 4.3.1 (pinned, SHA-256-checked) in a Web Worker; ONNX Runtime WASM pinned and SHA-256-checked. Eight public ONNX models, all local inference.
 - **EMBED**: all-MiniLM-L6-v2 sentence embeddings, nearest neighbours, semantic search, rotatable 3D PCA map.

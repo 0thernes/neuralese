@@ -5,18 +5,33 @@ const VIR = [[68, 1, 84], [72, 40, 120], [62, 74, 137], [49, 104, 142], [38, 130
 export function viridis(t) { t = Math.max(0, Math.min(1, t)) * (VIR.length - 1); const i = Math.min(VIR.length - 2, Math.floor(t)), f = t - i, a = VIR[i], b = VIR[i + 1]; return new THREE.Color((a[0] + f * (b[0] - a[0])) / 255, (a[1] + f * (b[1] - a[1])) / 255, (a[2] + f * (b[2] - a[2])) / 255); }
 export function diverge(x) { x = Math.max(-1, Math.min(1, x)); return x >= 0 ? new THREE.Color(0.95, 0.95 - 0.7 * x, 0.95 - 0.8 * x) : new THREE.Color(0.95 + 0.8 * x, 0.95 + 0.45 * x, 0.95); }
 const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
+export const STACK_INFO = 'layer stack: one slab per program slot (heads, MLP neurons, residual stream); live activations from the last forward pass.';
 export const PRESETS = { stack: [[-8, 10, 34], [4, 5, 0]], top: [[2, 46, 0.1], [2, 6, 0]], side: [[40, 9, 0], [2, 9, 0]], front: [[2, 9, 38], [2, 9, 0]], iso: [[26, 26, 26], [2, 6, 0]], field: [[4, 18, 22], [4, 0, 4]], surface: [[12, 14, 14], [0, 1, 0]], manifold: [[14, 10, 14], [0, 0, 0]], attn: [[0, 8, 20], [0, 0, 0]], circuit: [[-10, 12, 26], [8, 9, 0]] };
+// Camera distance so a bounding sphere of radius r fits the visible viewport (vertical fov in degrees, aspect = visible w/h).
+export function fitDistance(r, vfovDeg, aspect, margin = 1.15) { const v = (vfovDeg * Math.PI) / 360, h = Math.atan(Math.tan(v) * aspect); return (margin * r) / Math.sin(Math.min(v, h)); }
+// Visible 3D area = window minus the right-hand dock (and, when open, the bottom output panel).
+export function visibleRect(W, Hh, dockW, outH = 0) { const w = Math.max(160, W - dockW), h = Math.max(120, Hh - 34 - outH); return { w, h, aspect: w / h, offX: (W - w) / 2, offY: (34 - outH) / 2 }; }
 export function installModes(viz) {
   const s = viz.scene; s.add(new THREE.HemisphereLight(0x9fd8ff, 0x1a1030, 0.55)); const pl = new THREE.PointLight(0xf472b6, 40, 80); pl.position.set(-12, 18, 10); s.add(pl);
   const base = () => [...viz.heads.flat(), ...viz.neur, ...viz.slabs, ...viz.res, viz.sel, viz.wobj].filter(Boolean);
-  let group = null, anim = null, tween = null; viz.mode3d = 'stack'; viz.info3d = '';
+  let group = null, anim = null, tween = null; viz.mode3d = 'stack'; viz.info3d = STACK_INFO;
   const prevRender = viz.renderer.render.bind(viz.renderer);
   viz.renderer.render = (sc, cam) => { const t = performance.now(); if (tween) { const f = Math.min(1, (t - tween.t0) / tween.ms), e = ease(f); viz.cam.position.lerpVectors(tween.p0, tween.p1, e); viz.ctl.target.lerpVectors(tween.q0, tween.q1, e); if (group) group.scale.setScalar(0.001 + 0.999 * ease(Math.min(1, f * 1.4))); if (f >= 1) tween = null; } if (anim) anim(t); prevRender(sc, cam); };
-  viz.preset = (name, ms = 900) => { const p = PRESETS[name]; if (!p) throw new Error('unknown camera preset ' + name + ' (' + Object.keys(PRESETS).join(', ') + ')'); tween = { t0: performance.now(), ms, p0: viz.cam.position.clone(), p1: new THREE.Vector3(...p[0]), q0: viz.ctl.target.clone(), q1: new THREE.Vector3(...p[1]) }; return name; };
+  // v12.1: every preset keeps its viewing direction but its distance/centre are fitted to what is actually visible
+  // (the dock covers the right of the canvas; the view is offset so the scene is centred in the uncovered area).
+  const visibleObjs = () => (group ? [group] : base().filter((o) => o.visible));
+  const frame = () => { const W = innerWidth, Hh = innerHeight, cs = getComputedStyle(document.documentElement), dock = document.getElementById('dock'), dw = dock && getComputedStyle(dock).display !== 'none' ? dock.getBoundingClientRect().width : parseFloat(cs.getPropertyValue('--dockW')) || 0, o = document.getElementById('out'), oh = o && getComputedStyle(o).display !== 'none' ? o.getBoundingClientRect().height : 0, r = visibleRect(W, Hh, dw >= W ? 0 : dw, oh);
+    viz.cam.aspect = W / Hh; viz.cam.setViewOffset(W, Hh, r.offX, -r.offY, W, Hh); viz.cam.updateProjectionMatrix(); return r; };
+  viz.bounds = () => { const b = new THREE.Box3(); const sc = group ? group.scale.clone() : null; if (group) group.scale.setScalar(1); for (const o of visibleObjs()) { o.updateMatrixWorld(true); b.expandByObject(o); } if (sc) group.scale.copy(sc); return b; };
+  viz.preset = (name, ms = 900, fit = true) => { const p = PRESETS[name]; if (!p) throw new Error('unknown camera preset ' + name + ' (' + Object.keys(PRESETS).join(', ') + ')'); let p1 = new THREE.Vector3(...p[0]), q1 = new THREE.Vector3(...p[1]);
+    if (fit) { const r = frame(), b = viz.bounds(); if (!b.isEmpty()) { const sph = b.getBoundingSphere(new THREE.Sphere()), dir = p1.clone().sub(q1).normalize(); q1 = sph.center.clone(); p1 = q1.clone().add(dir.multiplyScalar(fitDistance(Math.max(sph.radius, 0.5), viz.cam.fov, r.aspect))); viz.fitted = { name, radius: sph.radius, dist: p1.distanceTo(q1), aspect: r.aspect }; } }
+    tween = { t0: performance.now(), ms, p0: viz.cam.position.clone(), p1, q0: viz.ctl.target.clone(), q1 }; return name; };
+  viz.fit = (ms = 600) => viz.preset(viz.mode3d === 'stack' ? 'stack' : viz.mode3d, ms, true);
+  addEventListener('resize', () => frame());
   const clear = () => { if (group) { s.remove(group); group.traverse((o) => { o.geometry?.dispose?.(); o.material?.dispose?.(); }); group = null; } anim = null; };
   const mat = (o = {}) => new THREE.MeshPhysicalMaterial({ roughness: 0.35, metalness: 0.15, clearcoat: 0.6, clearcoatRoughness: 0.2, ...o });
   viz.mode = (name, data = {}) => {
-    clear(); base().forEach((o) => (o.visible = name === 'stack')); if (name === 'stack') { viz.sel.visible = false; viz.mode3d = 'stack'; viz.preset('stack'); return { mode: 'stack' }; }
+    clear(); base().forEach((o) => (o.visible = name === 'stack')); if (name === 'stack') { viz.sel.visible = false; viz.mode3d = 'stack'; viz.info3d = STACK_INFO; viz.preset('stack'); return { mode: 'stack' }; }
     group = new THREE.Group(); group.scale.setScalar(0.001); s.add(group); let info;
     if (name === 'field') info = field(group, data); else if (name === 'surface') info = surface(group, data); else if (name === 'manifold') info = manifold(group, data); else if (name === 'attn') info = attnGraph(group, data); else if (name === 'circuit') info = circuit(group, data); else throw new Error('unknown 3D mode ' + name);
     viz.mode3d = name; viz.info3d = info.text || ''; viz.preset(name); return { mode: name, ...info };
