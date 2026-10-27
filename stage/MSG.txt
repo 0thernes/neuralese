@@ -1,0 +1,7 @@
+v13.0.0: Windows, Linux, Android and iOS apps; version 13.0.0; portable tests
+
+- desktop/: Electron (NSIS installer + portable .exe, AppImage + .deb)
+- capacitor.config.json: Android debug APK, iOS unsigned IPA + Simulator .app (generated in CI)
+- tools/build-www.mjs: app bundle = exact gh-pages file set; tools/fetch-model.mjs: SHA-256-pinned test weights
+- tests use repo-relative paths (no /workspace); test/v13.test.mjs packaging checks; 128/128
+- version 13.0.0 in package.json, term.js, index.html, README, STACK, RELEASE_NOTES; V13_PROGRESS.md
