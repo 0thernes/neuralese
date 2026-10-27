@@ -2,11 +2,11 @@
 
 Live: https://0thernes.github.io/neuralese/ · Audit: [AUDIT.md](AUDIT.md) · Tsotchke analysis: [docs/TSOTCHKE.md](docs/TSOTCHKE.md) · Claims & evidence: [docs/CLAIMS.md](docs/CLAIMS.md) · Stack and versions: [docs/STACK.md](docs/STACK.md)
 
-## v13.0.0: native apps (26 Oct 2026)
-- **Windows** (x64): `Neuralese-Setup-13.0.0-x64.exe` is an NSIS installer that lets you choose the install folder. `Neuralese-13.0.0-x64-portable.exe` runs without installing. Both are Electron builds and both are unsigned, so SmartScreen will warn ("More info → Run anyway").
-- **Linux** (x64): `Neuralese-13.0.0-x86_64.AppImage` (some distros need `libfuse2`) and `Neuralese-13.0.0-amd64.deb`.
-- **Android**: `Neuralese-13.0.0-debug.apk`, a Capacitor debug build you can sideload.
-- **iOS**: `Neuralese-13.0.0-unsigned.ipa` (re-sign with AltStore or Sideloadly) and `Neuralese-13.0.0-simulator.app.zip` (Xcode Simulator). Both are built on GitHub macOS runners with `CODE_SIGNING_ALLOWED=NO`. A signed .ipa is built only when the IOS_P12_BASE64, IOS_P12_PASSWORD, IOS_PROVISION_PROFILE_BASE64 and IOS_TEAM_ID secrets exist.
+## v13.0.x: native apps (26 Oct 2026; 13.0.1: Electron 42)
+- **Windows** (x64): `Neuralese-Setup-13.0.1-x64.exe` is an NSIS installer that lets you choose the install folder. `Neuralese-13.0.1-x64-portable.exe` runs without installing. Both are Electron builds and both are unsigned, so SmartScreen will warn ("More info → Run anyway").
+- **Linux** (x64): `Neuralese-13.0.1-x86_64.AppImage` (some distros need `libfuse2`) and `Neuralese-13.0.1-amd64.deb`.
+- **Android**: `Neuralese-13.0.1-debug.apk`, a Capacitor debug build you can sideload.
+- **iOS**: `Neuralese-13.0.1-unsigned.ipa` (re-sign with AltStore or Sideloadly) and `Neuralese-13.0.1-simulator.app.zip` (Xcode Simulator). Both are built on GitHub macOS runners with `CODE_SIGNING_ALLOWED=NO`. A signed .ipa is built only when the IOS_P12_BASE64, IOS_P12_PASSWORD, IOS_PROVISION_PROFILE_BASE64 and IOS_TEAM_ID secrets exist.
 - Every app ships the same file set as the gh-pages site (`tools/build-www.mjs`). As on the web, the TinyStories weights (~112 MB) and the HUB ONNX models stream from Hugging Face on first run, so the first launch needs internet.
 - The tests no longer depend on a box-specific path. `node tools/fetch-model.mjs` downloads the test weights into `model/` and checks them against pinned SHA-256s, then `node --test test/*.test.mjs` runs the suite (128 tests, including the new `test/v13.test.mjs` packaging checks).
 - CI (`.github/workflows/release.yml`) runs only on `v*` tags or by manual dispatch. It runs the tests, then the Windows, Linux, Android and iOS builds, then publishes one release.
