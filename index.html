@@ -5,16 +5,16 @@
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-kaEog0AsPo4/9apXRMvp5eF3zpfBg9ltlJNNm2KUPio=' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://cdn.jsdelivr.net https://huggingface.co https://*.huggingface.co https://*.hf.co; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'none'" />
 <meta name="referrer" content="no-referrer" />
-<title>NEURALESE v12.1 — interpretability &amp; weight-surgery lab (TinyStories-8M, in-browser)</title>
+<title>NEURALESE v13.0 — interpretability &amp; weight-surgery lab (TinyStories-8M, in-browser)</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🧠</text></svg>" />
 <link rel="stylesheet" href="style.css?v=13" />
 <script type="importmap">{"imports":{"three":"./vendor/three/three.module.min.js","three/addons/":"./vendor/three/addons/"}}</script>
 </head>
 <body>
 <canvas id="gl"></canvas>
-<div id="loader"><div class="lt">NEURALESE<span>v12.0</span></div><div class="ls" id="loadmsg">loading…</div><div class="bar" role="progressbar" aria-label="loading model"><div id="loadbar"></div></div><button id="loadRetry" class="hidden">retry</button></div>
+<div id="loader"><div class="lt">NEURALESE<span>v13.0</span></div><div class="ls" id="loadmsg">loading…</div><div class="bar" role="progressbar" aria-label="loading model"><div id="loadbar"></div></div><button id="loadRetry" class="hidden">retry</button></div>
 <header id="top">
-  <div class="logo">NEURAL<span>ESE</span><i>v12</i></div><span class="ver" id="ver" title="app version">v12.1.0 · build 2026-10-26.3</span>
+  <div class="logo">NEURAL<span>ESE</span><i>v13</i></div><span class="ver" id="ver" title="app version">v13.0.0 · build 2026-10-26.4</span>
   <div id="hud"></div><span id="wHash" class="sm" title="SHA-256 of the current weights — see RESEARCH → REPRO" style="white-space:nowrap;opacity:.7"></span><span id="anomBadge" style="opacity:0;transition:opacity .6s;font-size:11px;color:#7dd3fc;border:1px solid #1e3a5f;border-radius:3px;padding:1px 6px;margin-left:8px"></span>
   <div class="tb"><button id="bUndo" title="Undo (Ctrl+Z)">↶</button><button id="bRedo" title="Redo (Ctrl+Shift+Z)">↷</button><button id="bDense" title="Toggle dense/pro layout">▦ dense</button><button id="bTheme" title="Toggle light/dark theme" aria-label="toggle theme">☀ light</button><button id="bKeys" title="Keyboard shortcuts (?)">?</button><button id="bPal" title="Command palette (Ctrl+K)">⌘K</button></div>
 </header>
