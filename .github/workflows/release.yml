@@ -1,0 +1,140 @@
+name: release
+on:
+  workflow_dispatch:
+  push: { tags: ['v*'] }
+permissions: { contents: write }
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+env:
+  VER: 13.0.0
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with: { node-version: 24 }
+      - run: npm ci
+      - uses: actions/cache@v5
+        with: { path: model, key: tinystories-model-v1 }
+      - run: node tools/fetch-model.mjs
+      - run: node --test test/*.test.mjs
+
+  linux:
+    needs: test
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with: { node-version: 24 }
+      - run: npm ci
+      - run: cd desktop && npm ci && npm run dist:linux
+      - name: smoke-test the packaged app (Xvfb; streams TinyStories-8M from Hugging Face)
+        run: xvfb-run -a node desktop/smoke.cjs desktop/dist/linux-unpacked/neuralese
+      - run: cd desktop/dist && ls -la && sha256sum *.AppImage *.deb
+      - uses: actions/upload-artifact@v6
+        with:
+          name: linux
+          path: |
+            desktop/dist/Neuralese-${{ env.VER }}-x86_64.AppImage
+            desktop/dist/Neuralese-${{ env.VER }}-amd64.deb
+          if-no-files-found: error
+
+  windows:
+    needs: test
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with: { node-version: 24 }
+      - run: cd desktop && npm ci && npm run dist:win
+        shell: bash
+      - run: ls -la desktop/dist && sha256sum desktop/dist/*.exe
+        shell: bash
+      - uses: actions/upload-artifact@v6
+        with:
+          name: windows
+          path: |
+            desktop/dist/Neuralese-Setup-${{ env.VER }}-x64.exe
+            desktop/dist/Neuralese-${{ env.VER }}-x64-portable.exe
+          if-no-files-found: error
+
+  android:
+    needs: test
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with: { node-version: 24 }
+      - uses: actions/setup-java@v5
+        with: { distribution: temurin, java-version: 21 }
+      - run: npm ci && node tools/build-www.mjs
+      - run: npx cap add android
+      - run: sed -i "s/versionCode 1$/versionCode 13/; s/versionName \"1.0\"/versionName \"$VER\"/" android/app/build.gradle && grep -n version android/app/build.gradle
+      - run: cd android && chmod +x gradlew && ./gradlew assembleDebug --no-daemon
+      - run: cp android/app/build/outputs/apk/debug/app-debug.apk Neuralese-$VER-debug.apk && sha256sum Neuralese-$VER-debug.apk
+      - uses: actions/upload-artifact@v6
+        with: { name: android, path: 'Neuralese-${{ env.VER }}-debug.apk', if-no-files-found: error }
+
+  ios:
+    needs: test
+    runs-on: macos-latest
+    env:
+      HAS_SIGNING: ${{ secrets.IOS_P12_BASE64 != '' && secrets.IOS_P12_PASSWORD != '' && secrets.IOS_PROVISION_PROFILE_BASE64 != '' && secrets.IOS_TEAM_ID != '' }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with: { node-version: 24 }
+      - run: npm ci && node tools/build-www.mjs
+      - run: npx cap add ios
+      - run: if [ -f ios/App/Podfile ]; then cd ios/App && pod install; fi
+      - name: Build for iOS Simulator (unsigned)
+        run: |
+          xcodebuild -workspace ios/App/App.xcworkspace -scheme App -configuration Debug -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' -derivedDataPath build/sim MARKETING_VERSION=$VER CURRENT_PROJECT_VERSION=13 CODE_SIGNING_ALLOWED=NO build
+          cd build/sim/Build/Products/Debug-iphonesimulator && zip -qry "$GITHUB_WORKSPACE/Neuralese-$VER-simulator.app.zip" App.app
+      - name: Build for device (unsigned .ipa, re-sign with AltStore / Sideloadly)
+        run: |
+          xcodebuild -workspace ios/App/App.xcworkspace -scheme App -configuration Release -sdk iphoneos \
+            -destination 'generic/platform=iOS' -derivedDataPath build/dev MARKETING_VERSION=$VER CURRENT_PROJECT_VERSION=13 CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build
+          mkdir -p Payload && cp -R build/dev/Build/Products/Release-iphoneos/App.app Payload/ && zip -qry Neuralese-$VER-unsigned.ipa Payload
+      - name: Optional signed .ipa (only if all four IOS_* secrets exist)
+        if: env.HAS_SIGNING == 'true'
+        env:
+          P12: ${{ secrets.IOS_P12_BASE64 }}
+          P12_PW: ${{ secrets.IOS_P12_PASSWORD }}
+          PROFILE: ${{ secrets.IOS_PROVISION_PROFILE_BASE64 }}
+          TEAM: ${{ secrets.IOS_TEAM_ID }}
+        run: |
+          KC=$RUNNER_TEMP/b.keychain-db; security create-keychain -p x "$KC"; security set-keychain-settings -lut 21600 "$KC"; security unlock-keychain -p x "$KC"
+          echo "$P12" | base64 --decode > $RUNNER_TEMP/c.p12; security import $RUNNER_TEMP/c.p12 -P "$P12_PW" -A -t cert -f pkcs12 -k "$KC"; security list-keychain -d user -s "$KC"
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles; echo "$PROFILE" | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/nl.mobileprovision
+          xcodebuild -workspace ios/App/App.xcworkspace -scheme App -configuration Release -archivePath build/App.xcarchive DEVELOPMENT_TEAM="$TEAM" MARKETING_VERSION=$VER CURRENT_PROJECT_VERSION=13 archive
+          printf '<?xml version="1.0" encoding="UTF-8"?><plist version="1.0"><dict><key>method</key><string>development</string><key>teamID</key><string>%s</string></dict></plist>' "$TEAM" > eo.plist
+          xcodebuild -exportArchive -archivePath build/App.xcarchive -exportOptionsPlist eo.plist -exportPath build/signed && cp build/signed/*.ipa Neuralese-$VER-signed.ipa
+      - uses: actions/upload-artifact@v6
+        with:
+          name: ios
+          path: |
+            Neuralese-${{ env.VER }}-simulator.app.zip
+            Neuralese-${{ env.VER }}-unsigned.ipa
+            Neuralese-${{ env.VER }}-signed.ipa
+          if-no-files-found: warn
+
+  release:
+    needs: [linux, windows, android, ios]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/download-artifact@v7
+        with: { path: out, merge-multiple: true }
+      - run: ls -la out && cd out && sha256sum * | tee SHA256SUMS.txt
+      - uses: softprops/action-gh-release@v3
+        with:
+          tag_name: v13.0.0
+          name: Neuralese v13.0.0
+          target_commitish: ${{ github.sha }}
+          body_path: RELEASE_NOTES.md
+          fail_on_unmatched_files: false
+          files: out/*
