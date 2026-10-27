@@ -3,3 +3,5 @@
 - 21:00 tools/build-www.mjs gives exactly the gh-pages file set (108 files; diff-checked against origin/gh-pages). desktop/ is Electron with an app:// scheme. A local Linux AppImage (118 MB) and .deb (93 MB) were built. The packaged-app smoke under Xvfb loaded TinyStories-8M from HF and generated text.
 - 21:05 version 13.0.0 in package.json, term.js, index.html, tests, README, STACK. Added test/v13.test.mjs (4 checks), so the suite is now 128.
 - Plan: push release.yml + pages.yml to main via the connector. Then create the stage-v13 branch with unpack.yml and push the bundle to stage/parts1. unpack commits to main, tags v13.0.0 and dispatches release.yml and pages.yml.
+- 21:20 v13.0.0 released: all release.yml jobs passed. 8 assets downloaded, SHA256SUMS OK, released-AppImage smoke OK.
+- 23:45 v13.0.1: merged Dependabot #2 (Electron 42.11.16, puppeteer-core 25.16.0). Under Electron 42 the app smoke failed with no WebGL context, so I added enable-unsafe-swiftshader to desktop/main.cjs. Smoke OK. Versions are 13.0.1, release.yml VER=13.0.1, and the tag is github.ref_name.

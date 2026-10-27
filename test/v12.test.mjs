@@ -24,10 +24,10 @@ test('V12-2 runtime pins: transformers.js 4.3.1 and ORT wasm by version + SHA-25
   assert.equal(sha(S('hub/vendor/ort-wasm-simd-threaded.jsep.mjs')), 'c2f80e915e9df63289788a99d434d8c4e00e64e9c1f030f4b80b022458dd2c99');
   assert.match(ORT_WASM.sha256, /^[0-9a-f]{64}$/); assert.match(ORT_WASM.url, /^https:\/\/cdn\.jsdelivr\.net\/npm\/onnxruntime-web@1\.31\.0-dev\.20260914-8d85527a0\//);
   const w = S('hub/worker.js').toString(); assert.match(w, /SHA-256 mismatch/); assert.match(w, /wasmBinary = buf/); assert.match(w, /verified\(TFJS\.url, TFJS\.sha256/); assert.ok(!/from '\.\/vendor\/transformers/.test(w)); });
-test('V12-3 wiring: HUB group has 6 tabs, CSP allows workers from self and HF downloads, version 13.0.0', async () => {
-  const html = S('index.html').toString(); assert.match(html, /worker-src 'self' blob:/); assert.match(html, /connect-src[^;]*https:\/\/huggingface\.co/); assert.match(html, /v13\.0\.0/);
+test('V12-3 wiring: HUB group has 6 tabs, CSP allows workers from self and HF downloads, version 13.0.1', async () => {
+  const html = S('index.html').toString(); assert.match(html, /worker-src 'self' blob:/); assert.match(html, /connect-src[^;]*https:\/\/huggingface\.co/); assert.match(html, /v13\.0\.1/);
   const ui = S('lab-ui.js').toString(); assert.match(ui, /\['HUB', \['hub', 'hemb', 'hspeech', 'hvision', 'hgen', 'hft'\]\]/);
-  assert.match(S('term.js').toString(), /VERSION = '13\.0\.0'/); assert.ok(!/\?v=11/.test(S('lab-hub.js').toString())); });
+  assert.match(S('term.js').toString(), /VERSION = '13\.0\.1'/); assert.ok(!/\?v=11/.test(S('lab-hub.js').toString())); });
 test('V12-4 cosine, resample, WAV header', () => {
   assert.equal(cosine([1, 0], [0, 1]), 0); assert.ok(Math.abs(cosine([1, 2, 3], [2, 4, 6]) - 1) < 1e-12);
   const x = Float32Array.from({ length: 48000 }, (_, i) => Math.sin(2 * Math.PI * 440 * i / 48000)), y = resample(x, 48000, 16000); assert.equal(y.length, 16000);

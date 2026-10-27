@@ -4,6 +4,9 @@
 const { app, BrowserWindow, protocol, net, shell, Menu } = require('electron');
 const path = require('node:path'); const { pathToFileURL } = require('node:url');
 const ROOT = path.join(__dirname, 'www');
+// Electron 42 (Chromium 14x) no longer falls back to software WebGL automatically. Without this switch, machines with no usable GPU
+// (VMs, blocklisted drivers, CI/Xvfb) fail with "Error creating WebGL context" and the lab never loads. The app only renders its own bundled content.
+app.commandLine.appendSwitch('enable-unsafe-swiftshader');
 protocol.registerSchemesAsPrivileged([{ scheme: 'app', privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true, stream: true, allowServiceWorkers: true } }]);
 function win() {
   const w = new BrowserWindow({ width: 1400, height: 920, backgroundColor: '#0b0d10', title: app.getName(), webPreferences: { contextIsolation: true, sandbox: true, nodeIntegration: false } });

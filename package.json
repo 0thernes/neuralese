@@ -1,6 +1,6 @@
 {
  "name": "neuralese",
- "version": "13.0.0",
+ "version": "13.0.1",
  "description": "NEURALESE v13: in-browser interpretability & weight-surgery lab for TinyStories-8M, with Tsotchke-powered components (Eshkol, Moonlab, QGTL, quantum_rng)",
  "main": "index.js",
  "scripts": {

@@ -2,9 +2,9 @@
 import { test } from 'node:test'; import assert from 'node:assert/strict'; import fs from 'node:fs';
 import { wwwFiles, DIRS } from '../tools/build-www.mjs';
 const J = (f) => JSON.parse(fs.readFileSync(new URL('../' + f, import.meta.url), 'utf8')), S = (f) => fs.readFileSync(new URL('../' + f, import.meta.url), 'utf8');
-test('V13-1 version 13.0.0 in package.json, desktop/package.json, term.js and index.html', () => {
-  assert.equal(J('package.json').version, '13.0.0'); assert.equal(J('desktop/package.json').version, '13.0.0');
-  assert.match(S('term.js'), /VERSION = '13\.0\.0'/); assert.ok(S('index.html').includes('v13.0.0')); });
+test('V13-1 version 13.0.1 in package.json, desktop/package.json, term.js and index.html', () => {
+  assert.equal(J('package.json').version, '13.0.1'); assert.equal(J('desktop/package.json').version, '13.0.1');
+  assert.match(S('term.js'), /VERSION = '13\.0\.1'/); assert.ok(S('index.html').includes('v13.0.1')); });
 test('V13-2 www/ file set: every script index.html loads is shipped, dev files are not', () => {
   const f = wwwFiles(new URL('..', import.meta.url).pathname); for (const x of ['index.html', 'style.css', 'app.js', 'engine.js', ...DIRS]) assert.ok(f.includes(x), x);
   for (const x of ['eslint.config.js', 'test', 'model', 'node_modules', 'desktop', 'tools']) assert.ok(!f.includes(x), x);

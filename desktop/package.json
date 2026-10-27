@@ -1,7 +1,7 @@
 {
   "name": "neuralese-desktop",
   "productName": "Neuralese",
-  "version": "13.0.0",
+  "version": "13.0.1",
   "description": "Neuralese desktop app: in-browser interpretability and weight-surgery lab for TinyStories-8M",
   "homepage": "https://github.com/0thernes/neuralese",
   "author": { "name": "Alex Donahue", "email": "0thernes@users.noreply.github.com" },
