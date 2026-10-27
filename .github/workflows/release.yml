@@ -7,7 +7,7 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 env:
-  VER: 13.0.0
+  VER: 13.0.1
 jobs:
   test:
     runs-on: ubuntu-24.04
@@ -71,7 +71,7 @@ jobs:
         with: { distribution: temurin, java-version: 21 }
       - run: npm ci && node tools/build-www.mjs
       - run: npx cap add android
-      - run: sed -i "s/versionCode 1$/versionCode 13/; s/versionName \"1.0\"/versionName \"$VER\"/" android/app/build.gradle && grep -n version android/app/build.gradle
+      - run: sed -i "s/versionCode 1$/versionCode 14/; s/versionName \"1.0\"/versionName \"$VER\"/" android/app/build.gradle && grep -n version android/app/build.gradle
       - run: cd android && chmod +x gradlew && ./gradlew assembleDebug --no-daemon
       - run: cp android/app/build/outputs/apk/debug/app-debug.apk Neuralese-$VER-debug.apk && sha256sum Neuralese-$VER-debug.apk
       - uses: actions/upload-artifact@v6
@@ -92,12 +92,12 @@ jobs:
       - name: Build for iOS Simulator (unsigned)
         run: |
           xcodebuild -workspace ios/App/App.xcworkspace -scheme App -configuration Debug -sdk iphonesimulator \
-            -destination 'generic/platform=iOS Simulator' -derivedDataPath build/sim MARKETING_VERSION=$VER CURRENT_PROJECT_VERSION=13 CODE_SIGNING_ALLOWED=NO build
+            -destination 'generic/platform=iOS Simulator' -derivedDataPath build/sim MARKETING_VERSION=$VER CURRENT_PROJECT_VERSION=14 CODE_SIGNING_ALLOWED=NO build
           cd build/sim/Build/Products/Debug-iphonesimulator && zip -qry "$GITHUB_WORKSPACE/Neuralese-$VER-simulator.app.zip" App.app
       - name: Build for device (unsigned .ipa, re-sign with AltStore / Sideloadly)
         run: |
           xcodebuild -workspace ios/App/App.xcworkspace -scheme App -configuration Release -sdk iphoneos \
-            -destination 'generic/platform=iOS' -derivedDataPath build/dev MARKETING_VERSION=$VER CURRENT_PROJECT_VERSION=13 CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build
+            -destination 'generic/platform=iOS' -derivedDataPath build/dev MARKETING_VERSION=$VER CURRENT_PROJECT_VERSION=14 CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build
           mkdir -p Payload && cp -R build/dev/Build/Products/Release-iphoneos/App.app Payload/ && zip -qry Neuralese-$VER-unsigned.ipa Payload
       - name: Optional signed .ipa (only if all four IOS_* secrets exist)
         if: env.HAS_SIGNING == 'true'
@@ -110,7 +110,7 @@ jobs:
           KC=$RUNNER_TEMP/b.keychain-db; security create-keychain -p x "$KC"; security set-keychain-settings -lut 21600 "$KC"; security unlock-keychain -p x "$KC"
           echo "$P12" | base64 --decode > $RUNNER_TEMP/c.p12; security import $RUNNER_TEMP/c.p12 -P "$P12_PW" -A -t cert -f pkcs12 -k "$KC"; security list-keychain -d user -s "$KC"
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles; echo "$PROFILE" | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/nl.mobileprovision
-          xcodebuild -workspace ios/App/App.xcworkspace -scheme App -configuration Release -archivePath build/App.xcarchive DEVELOPMENT_TEAM="$TEAM" MARKETING_VERSION=$VER CURRENT_PROJECT_VERSION=13 archive
+          xcodebuild -workspace ios/App/App.xcworkspace -scheme App -configuration Release -archivePath build/App.xcarchive DEVELOPMENT_TEAM="$TEAM" MARKETING_VERSION=$VER CURRENT_PROJECT_VERSION=14 archive
           printf '<?xml version="1.0" encoding="UTF-8"?><plist version="1.0"><dict><key>method</key><string>development</string><key>teamID</key><string>%s</string></dict></plist>' "$TEAM" > eo.plist
           xcodebuild -exportArchive -archivePath build/App.xcarchive -exportOptionsPlist eo.plist -exportPath build/signed && cp build/signed/*.ipa Neuralese-$VER-signed.ipa
       - uses: actions/upload-artifact@v6
@@ -132,8 +132,8 @@ jobs:
       - run: ls -la out && cd out && sha256sum * | tee SHA256SUMS.txt
       - uses: softprops/action-gh-release@v3
         with:
-          tag_name: v13.0.0
-          name: Neuralese v13.0.0
+          tag_name: ${{ github.ref_name }}
+          name: Neuralese ${{ github.ref_name }}
           target_commitish: ${{ github.sha }}
           body_path: RELEASE_NOTES.md
           fail_on_unmatched_files: false
