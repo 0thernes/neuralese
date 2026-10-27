@@ -14,7 +14,7 @@ import { wasmBytes } from '../tsotchke/wasmb64.js';
 // Moonlab's Node loader reads dist/moonlab.wasm from disk; the repo stores it as SHA-256-pinned base64 text, so
 // materialise it (after the integrity check) if it is not already present.
 { const f = new URL('../vendor/moonlab/dist/moonlab.wasm', import.meta.url); if (!fs.existsSync(f)) fs.writeFileSync(f, await wasmBytes('moonlab')); }
-const buf = fs.readFileSync('/workspace/neuralese/model/model.safetensors'), n = Number(buf.readBigUInt64LE(0)), hdr = JSON.parse(buf.subarray(8, 8 + n).toString());
+const buf = fs.readFileSync('model/model.safetensors'), n = Number(buf.readBigUInt64LE(0)), hdr = JSON.parse(buf.subarray(8, 8 + n).toString());
 const W = buildWeights(parseSafetensors(buf.buffer.slice(buf.byteOffset + 8 + n), n, hdr));
 const REF = JSON.parse(fs.readFileSync(new URL('./ref_taylor.json', import.meta.url)));
 const v = Float64Array.from({ length: 256 }, (_, i) => Math.sin(i + 1) / 16), A = forward(W, REF.ids);

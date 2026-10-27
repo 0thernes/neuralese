@@ -1,0 +1,5 @@
+# v13.0.0 progress (native packaging). Times are PT.
+- 2026-10-26 20:40 working copy is a fresh clone of main ffdba38 in /tmp/nl. Tests pointed at /workspace/neuralese/{model,ref*.json}, so I made them repo-relative and added tools/fetch-model.mjs (SHA-256 pinned). Result: 124/124 with /workspace/neuralese hidden.
+- 21:00 tools/build-www.mjs gives exactly the gh-pages file set (108 files; diff-checked against origin/gh-pages). desktop/ is Electron with an app:// scheme. A local Linux AppImage (118 MB) and .deb (93 MB) were built. The packaged-app smoke under Xvfb loaded TinyStories-8M from HF and generated text.
+- 21:05 version 13.0.0 in package.json, term.js, index.html, tests, README, STACK. Added test/v13.test.mjs (4 checks), so the suite is now 128.
+- Plan: push release.yml + pages.yml to main via the connector. Then create the stage-v13 branch with unpack.yml and push the bundle to stage/parts1. unpack commits to main, tags v13.0.0 and dispatches release.yml and pages.yml.

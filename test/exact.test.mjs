@@ -6,7 +6,7 @@ import { Editor } from '../surgery.js';
 import { inspect, fromPath } from '../drill.js';
 import { lossSlice } from '../science.js';
 import { hvp } from '../grad.js';
-const buf = fs.readFileSync('/workspace/neuralese/model/model.safetensors'), n = Number(buf.readBigUInt64LE(0)), hdr = JSON.parse(buf.subarray(8, 8 + n).toString());
+const buf = fs.readFileSync('model/model.safetensors'), n = Number(buf.readBigUInt64LE(0)), hdr = JSON.parse(buf.subarray(8, 8 + n).toString());
 const W = buildWeights(parseSafetensors(buf.buffer.slice(buf.byteOffset + 8 + n), n, hdr));
 const tensors = (X) => [X.wte, X.wpe, X.lnfW, X.lnfB, ...X.layers.flatMap((P) => Object.keys(P).sort().map((k) => P[k]))];
 const bitEq = (A, B) => { const a = tensors(A), b = tensors(B); for (let t = 0; t < a.length; t++) { const x = new Uint32Array(a[t].buffer, a[t].byteOffset, a[t].length), y = new Uint32Array(b[t].buffer, b[t].byteOffset, b[t].length); for (let i = 0; i < x.length; i++) if (x[i] !== y[i]) return `tensor ${t} index ${i}`; } return true; };

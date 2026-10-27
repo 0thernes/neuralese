@@ -3,3 +3,11 @@ vendor/moonlab/dist/moonlab.wasm
 wasm/qrng.wasm
 wasm/qrng.mjs
 wasm/qrng.wasm.b64
+www/
+android/
+ios/
+desktop/node_modules/
+desktop/www/
+desktop/dist/
+model/
+node_modules/

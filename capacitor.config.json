@@ -1,0 +1,1 @@
+{ "appId": "io.github.othernes.neuralese", "appName": "Neuralese", "webDir": "www", "android": { "allowMixedContent": false }, "ios": { "contentInset": "always" } }

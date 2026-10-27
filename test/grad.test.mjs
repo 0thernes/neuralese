@@ -5,11 +5,11 @@ import { buildWeights, parseSafetensors } from '../model.js';
 import { GPT2Tokenizer } from '../tokenizer.js';
 import { Engine, defaultRuntime } from '../engine.js';
 import { forward, logitsAt, grad, gradXInput, integratedGradients, attributionPatching, activationPatchingHeads, hvp, _test } from '../grad.js';
-const M = '/workspace/neuralese/model/';
+const M = 'model/';
 const buf = fs.readFileSync(M + 'model.safetensors'); const n = Number(buf.readBigUInt64LE(0)); const hdr = JSON.parse(buf.subarray(8, 8 + n).toString());
 const W = buildWeights(parseSafetensors(buf.buffer.slice(buf.byteOffset + 8 + n), n, hdr));
 const tok = new GPT2Tokenizer(JSON.parse(fs.readFileSync(M + 'vocab.json')), fs.readFileSync(M + 'merges.txt', 'utf8'));
-const R = JSON.parse(fs.readFileSync('/workspace/neuralese/ref_grad.json'));
+const R = JSON.parse(fs.readFileSync('ref_grad.json'));
 const rel = (a, b) => Math.abs(a - b) / Math.max(1e-6, Math.abs(b));
 const norm = (a) => Math.sqrt(a.reduce((s, x) => s + x * x, 0));
 test('grad.js forward matches engine KV-cache forward', () => {

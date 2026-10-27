@@ -1,4 +1,7 @@
-# Stack — exact versions (v12.0.0, 2026-10-26)
+# Stack — exact versions (v13.0.0, 2026-10-26)
+
+v13 packaging: Electron ^38 + electron-builder ^26 (desktop/), Capacitor ^7.6.9 (Android/iOS, generated in CI).
+
 
 ## Runtime (what the deployed page uses)
 | component | version | origin | license |

@@ -9,7 +9,7 @@ import * as QG from '../tsotchke/qgtl.js';
 import * as G from '../tsotchke/geometry.js';
 import { wasmBytes } from '../tsotchke/wasmb64.js';
 { const f = new URL('../vendor/moonlab/dist/moonlab.wasm', import.meta.url); if (!fs.existsSync(f)) fs.writeFileSync(f, await wasmBytes('moonlab')); }
-const buf = fs.readFileSync('/workspace/neuralese/model/model.safetensors'), n = Number(buf.readBigUInt64LE(0)), hdr = JSON.parse(buf.subarray(8, 8 + n).toString());
+const buf = fs.readFileSync('model/model.safetensors'), n = Number(buf.readBigUInt64LE(0)), hdr = JSON.parse(buf.subarray(8, 8 + n).toString());
 const W = buildWeights(parseSafetensors(buf.buffer.slice(buf.byteOffset + 8 + n), n, hdr));
 
 test('H1 Eshkol DimensionChecker: matmul / reshape-path / bounds accept valid and reject invalid', async () => {

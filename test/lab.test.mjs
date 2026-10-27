@@ -39,7 +39,7 @@ test('labcore pure functions', () => {
   const cm = C.cosineMatrix([[1, 0], [0, 1], [1, 1]]); assert.ok(Math.abs(cm[0][2] - Math.SQRT1_2) < 1e-9);
 });
 test('terminal: command table, completion, version', () => {
-  assert.equal(VERSION, '12.1.0'); assert.ok(Object.keys(COMMANDS).length >= 52); for (const k of ['drill', 'atp', 'eigen', 'induct', 'geom', 'land', 'mode', 'cam', 'gpu', 'zoo', 'diff', 'share', 'hash', 'manifest', 'stats', 'acdc', 'scrub', 'probe', 'evalh', 'dataset', 'report', 'state', 'qseed', 'claims', 'fsdist', 'typecheck', 'qgtcheck', 'unify', 'frontier', 'scorecard', 'grok', 'pci', 'fclaims']) assert.ok(COMMANDS[k], k);
+  assert.equal(VERSION, '13.0.0'); assert.ok(Object.keys(COMMANDS).length >= 52); for (const k of ['drill', 'atp', 'eigen', 'induct', 'geom', 'land', 'mode', 'cam', 'gpu', 'zoo', 'diff', 'share', 'hash', 'manifest', 'stats', 'acdc', 'scrub', 'probe', 'evalh', 'dataset', 'report', 'state', 'qseed', 'claims', 'fsdist', 'typecheck', 'qgtcheck', 'unify', 'frontier', 'scorecard', 'grok', 'pci', 'fclaims']) assert.ok(COMMANDS[k], k);
   assert.deepEqual(complete('ver'), ['version']); assert.ok(complete('sweep bl').includes('sweep blend')); assert.ok(complete('theme l').includes('theme light')); assert.ok(complete('tab ti').includes('tab timeline'));
 });
 test('learning center data: glossary ≥100 unique, cross-links resolve, labs use real commands', () => {
@@ -51,7 +51,7 @@ test('learning center data: glossary ≥100 unique, cross-links resolve, labs us
   assert.ok(search('induction').length >= 2); assert.ok(buildIndex().length === GLOSSARY.length + BIBLE.length + COURSE.length);
   assert.ok(!md('<script>').includes('<script>'));
 });
-const MP = '/workspace/neuralese/model/model.safetensors';
+const MP = 'model/model.safetensors';
 test('model: logit bias, h-steer, blend of identical weights is identity', { skip: !fs.existsSync(MP) }, () => {
   const buf = fs.readFileSync(MP), ab = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength); const n = Number(new DataView(ab).getBigUint64(0, true)); const header = JSON.parse(new TextDecoder().decode(new Uint8Array(ab, 8, n)));
   const W = buildWeights(parseSafetensors(new Uint8Array(ab), n, header)), R = defaultRuntime(), e = new Engine(W, R), ids = [7454, 2402, 257, 640];

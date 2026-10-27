@@ -12,11 +12,11 @@ import { SAE } from '../sae.js';
 import { applyPenalties, filterDist, beamSearch, cfgLogits, contrastiveLogits } from '../decode.js';
 import { CORPUS } from '../corpus.js';
 
-const M = '/workspace/neuralese/model/';
+const M = 'model/';
 const buf = fs.readFileSync(M + 'model.safetensors'); const n = Number(buf.readBigUInt64LE(0)); const hdr = JSON.parse(buf.subarray(8, 8 + n).toString());
 const ORIG = buildWeights(parseSafetensors(buf.buffer.slice(buf.byteOffset + 8 + n), n, hdr));
 const tok = new GPT2Tokenizer(JSON.parse(fs.readFileSync(M + 'vocab.json')), fs.readFileSync(M + 'merges.txt', 'utf8'));
-const REF = JSON.parse(fs.readFileSync('/workspace/neuralese/ref.json'));
+const REF = JSON.parse(fs.readFileSync('ref.json'));
 const close = (a, b, tol, msg) => assert.ok(Math.abs(a - b) <= tol * Math.max(1, Math.abs(b)), `${msg}: ${a} vs ${b}`);
 const MOD = cloneWeights(ORIG); const ed = new Editor(ORIG, MOD);
 const clean = () => new Engine(ORIG, defaultRuntime());

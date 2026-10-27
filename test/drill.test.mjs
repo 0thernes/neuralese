@@ -4,7 +4,7 @@ import fs from 'fs';
 import { buildWeights, parseSafetensors } from '../model.js';
 import { CORPUS } from '../corpus.js';
 import * as D from '../drill.js';
-const M = '/workspace/neuralese/model/';
+const M = 'model/';
 const buf = fs.readFileSync(M + 'model.safetensors'); const n = Number(buf.readBigUInt64LE(0)); const hdr = JSON.parse(buf.subarray(8, 8 + n).toString());
 const W = buildWeights(parseSafetensors(buf.buffer.slice(buf.byteOffset + 8 + n), n, hdr));
 test('hierarchy: counts, paths and index resolution', () => {

@@ -6,7 +6,7 @@ import { GPT2Tokenizer } from '../tokenizer.js';
 import { Engine, defaultRuntime } from '../engine.js';
 import { CORPUS } from '../corpus.js';
 import * as R from '../research.js';
-const M = '/workspace/neuralese/model/', buf = fs.readFileSync(M + 'model.safetensors'), n = Number(buf.readBigUInt64LE(0)), hdr = JSON.parse(buf.subarray(8, 8 + n).toString());
+const M = 'model/', buf = fs.readFileSync(M + 'model.safetensors'), n = Number(buf.readBigUInt64LE(0)), hdr = JSON.parse(buf.subarray(8, 8 + n).toString());
 const W = buildWeights(parseSafetensors(buf.buffer.slice(buf.byteOffset + 8 + n), n, hdr)), tok = new GPT2Tokenizer(JSON.parse(fs.readFileSync(M + 'vocab.json')), fs.readFileSync(M + 'merges.txt', 'utf8'));
 const REF = JSON.parse(fs.readFileSync(new URL('./ref_stats.json', import.meta.url)));
 test('hypothesis tests match scipy / statsmodels', () => {

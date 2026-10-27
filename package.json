@@ -1,10 +1,10 @@
 {
  "name": "neuralese",
- "version": "9.0.0",
- "description": "NEURALESE v8: in-browser interpretability & weight-surgery lab for TinyStories-8M, with Tsotchke-powered components (Eshkol, Moonlab, QGTL, quantum_rng)",
+ "version": "13.0.0",
+ "description": "NEURALESE v13: in-browser interpretability & weight-surgery lab for TinyStories-8M, with Tsotchke-powered components (Eshkol, Moonlab, QGTL, quantum_rng)",
  "main": "index.js",
  "scripts": {
-  "test": "node --test test/",
+  "test": "node --test test/*.test.mjs",
   "smoke": "node smoke.mjs http://localhost:8765/",
   "ref": ".venv/bin/python ref.py",
   "smoke5": "node smoke-v5.mjs http://localhost:8765/",
@@ -14,13 +14,21 @@
   "wasm": "bash wasm/build-qrng.sh",
   "lint": "npx --yes eslint@9 site test tools",
   "cli": "node site/cli.mjs --model model",
-  "docs": "node tools/gendocs.mjs"
+  "docs": "node tools/gendocs.mjs",
+  "www": "node tools/build-www.mjs",
+  "fetch-model": "node tools/fetch-model.mjs"
  },
  "keywords": [],
- "author": "",
+ "author": "Alex Donahue",
  "license": "MIT",
  "type": "module",
  "dependencies": {
   "puppeteer-core": "^24.43.1"
+ },
+ "devDependencies": {
+  "@capacitor/android": "^7.6.9",
+  "@capacitor/cli": "^7.6.9",
+  "@capacitor/core": "^7.6.9",
+  "@capacitor/ios": "^7.6.9"
  }
 }

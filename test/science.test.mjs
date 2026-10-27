@@ -5,11 +5,11 @@ import { buildWeights, parseSafetensors } from '../model.js';
 import { GPT2Tokenizer } from '../tokenizer.js';
 import { CORPUS } from '../corpus.js';
 import * as S from '../science.js';
-const M = '/workspace/neuralese/model/';
+const M = 'model/';
 const buf = fs.readFileSync(M + 'model.safetensors'); const n = Number(buf.readBigUInt64LE(0)); const hdr = JSON.parse(buf.subarray(8, 8 + n).toString());
 const W = buildWeights(parseSafetensors(buf.buffer.slice(buf.byteOffset + 8 + n), n, hdr));
 const tok = new GPT2Tokenizer(JSON.parse(fs.readFileSync(M + 'vocab.json')), fs.readFileSync(M + 'merges.txt', 'utf8'));
-const R = JSON.parse(fs.readFileSync('/workspace/neuralese/ref_sci.json'));
+const R = JSON.parse(fs.readFileSync('ref_sci.json'));
 test('eig: trace/determinant identities and known spectrum', () => {
   const A = [4, 1, 2, 0, 3, -1, 1, 0, 2]; const e = S.eig(A, 3); const sum = e.reduce((s, [r]) => s + r, 0); assert.ok(Math.abs(sum - 9) < 1e-9);
   const rot = S.eig([0, -1, 1, 0], 2); assert.ok(Math.abs(Math.abs(rot[0][1]) - 1) < 1e-12 && Math.abs(rot[0][0]) < 1e-12);
