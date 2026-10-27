@@ -1,0 +1,29 @@
+name: unpack-stage
+on:
+  push:
+    branches: [stage-v13]
+    paths: ['stage/**']
+permissions: { contents: write, actions: write }
+concurrency:
+  group: unpack-stage
+  cancel-in-progress: false
+jobs:
+  unpack:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+        with: { ref: stage-v13, path: stage }
+      - uses: actions/checkout@v6
+        with: { ref: main, path: main }
+      - run: |
+          cd main
+          S=../stage/stage; test -f $S/SHA.txt -a -f $S/PARTS || exit 0
+          cat ../stage/$(cat $S/PARTS)/part.* > /tmp/s.b64
+          [ "$(sha256sum /tmp/s.b64 | cut -d' ' -f1)" = "$(cat $S/SHA.txt)" ] || { echo 'incomplete bundle, skipping'; exit 0; }
+          if [ -f $S/TAG ] && git ls-remote --exit-code --tags origin "$(cat $S/TAG)" >/dev/null; then echo "tag $(cat $S/TAG) already exists, skipping"; exit 0; fi
+          base64 -d /tmp/s.b64 | tar xz
+          git config user.name "Alex Donahue (via Grok Bot)"; git config user.email "0thernes@users.noreply.github.com"
+          git add -A && git commit -F $S/MSG.txt && git push origin main
+          for w in $(cat $S/PAGES 2>/dev/null); do gh workflow run "$w" --ref main; done
+          if [ -f $S/TAG ]; then T=$(cat $S/TAG); git tag "$T" && git push origin "$T"; sleep 5; for w in $(cat $S/WORKFLOWS); do gh workflow run "$w" --ref "$T"; done; fi
+        env: { GH_TOKEN: "${{ github.token }}" }
