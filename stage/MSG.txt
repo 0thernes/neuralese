@@ -1,7 +1,4 @@
-v13.0.0: Windows, Linux, Android and iOS apps; version 13.0.0; portable tests
+v13.0.1: Electron 42 + puppeteer-core 25 (Dependabot #2) + software-WebGL fallback, version 13.0.1
 
-- desktop/: Electron (NSIS installer + portable .exe, AppImage + .deb)
-- capacitor.config.json: Android debug APK, iOS unsigned IPA + Simulator .app (generated in CI)
-- tools/build-www.mjs: app bundle = exact gh-pages file set; tools/fetch-model.mjs: SHA-256-pinned test weights
-- tests use repo-relative paths (no /workspace); test/v13.test.mjs packaging checks; 128/128
-- version 13.0.0 in package.json, term.js, index.html, README, STACK, RELEASE_NOTES; V13_PROGRESS.md
+- desktop/main.cjs: enable-unsafe-swiftshader (Electron 42 dropped the automatic WebGL fallback; GPU-less machines stopped at 'Error creating WebGL context')
+- version 13.0.1 in package.json, desktop, term.js, index.html, tests (128/128), README, RELEASE_NOTES, V13_PROGRESS
