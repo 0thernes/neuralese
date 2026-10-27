@@ -1,6 +1,6 @@
 # NEURALESE v13: interpretability and weight-surgery lab (TinyStories-8M, 100% in-browser) — ⚛ Powered by Tsotchke
 
-Live: https://0thernes.github.io/neuralese/ · Audit: [AUDIT.md](AUDIT.md) · Tsotchke analysis: [docs/TSOTCHKE.md](docs/TSOTCHKE.md) · Claims & evidence: [docs/CLAIMS.md](docs/CLAIMS.md) · Stack and versions: [docs/STACK.md](docs/STACK.md)
+Live: https://0thernes.github.io/neuralese/ · **New here? [Beginner's guide to steering](docs/STEERING_GUIDE.md)** · Audit: [AUDIT.md](AUDIT.md) · Tsotchke analysis: [docs/TSOTCHKE.md](docs/TSOTCHKE.md) · Claims & evidence: [docs/CLAIMS.md](docs/CLAIMS.md) · Stack and versions: [docs/STACK.md](docs/STACK.md)
 
 ## v13.0.x: native apps (26 Oct 2026; 13.0.1: Electron 42)
 - **Windows** (x64): `Neuralese-Setup-13.0.1-x64.exe` is an NSIS installer that lets you choose the install folder. `Neuralese-13.0.1-x64-portable.exe` runs without installing. Both are Electron builds and both are unsigned, so SmartScreen will warn ("More info → Run anyway").
