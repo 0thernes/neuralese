@@ -13,7 +13,7 @@
     "dist:linux": "node prep.cjs && electron-builder --linux AppImage deb --x64 --publish never",
     "dist:win": "node prep.cjs && electron-builder --win nsis portable --x64 --publish never"
   },
-  "devDependencies": { "electron": "^38.0.0", "electron-builder": "^26.0.0" },
+  "devDependencies": { "electron": "^42.11.16", "electron-builder": "^26.0.0" },
   "build": {
     "appId": "io.github.othernes.neuralese",
     "productName": "Neuralese",
