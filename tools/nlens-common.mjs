@@ -7,7 +7,8 @@ export const sha256 = (b) => crypto.createHash('sha256').update(b).digest('hex')
 export const TS_VALID = { url: 'https://huggingface.co/datasets/roneneldan/TinyStories/resolve/main/TinyStories-valid.txt', sha256: '94e431816c4cce81ff71e4408ff8d3bda9a42e8d2663986697c3954288cb38b4' };
 export function loadModel(dir = 'model') {
   const b = fs.readFileSync(`${dir}/model.safetensors`); const n = Number(b.readBigUInt64LE(0)); const hdr = JSON.parse(b.subarray(8, 8 + n).toString());
-  return prepare(buildWeights(parseSafetensors(b.buffer.slice(b.byteOffset + 8 + n, b.byteOffset + b.length), n, hdr)), CFG);
+  const W = buildWeights(parseSafetensors(b.buffer.slice(b.byteOffset + 8 + n, b.byteOffset + b.length), n, hdr)), d = W.wte.length / 50257; // TinyStories zoo: cfg from embedding width
+  return prepare(W, d === CFG.d ? CFG : { ...CFG, d, hd: d / 16, ff: 4 * d });
 }
 export function tokenizer(dir = 'model') { return new GPT2Tokenizer(JSON.parse(fs.readFileSync(`${dir}/vocab.json`, 'utf8')), fs.readFileSync(`${dir}/merges.txt`, 'utf8')); }
 export async function corpusText(path = 'model/TinyStories-valid.txt') {

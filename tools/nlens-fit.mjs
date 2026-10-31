@@ -33,7 +33,7 @@ if (!isMainThread) {
   B.forEach(([lens, tgt, l], k) => { let num = 0, den = 0; for (let j = 0; j < dd; j++) { const a = half[0][k][j], b = half[1][k][j], m = (a * nh[0] + b * nh[1]) / (nh[0] + nh[1]); lensBuf[k * dd + j] = m; num += (a - b) ** 2; den += m * m; }
     (splitHalf[`${lens}.${tgt}`] ||= [])[l] = +Math.sqrt(num / den).toFixed(4); });
   const bin = Buffer.from(lensBuf.buffer); fs.writeFileSync(`${outDir}/lenses.f32`, bin);
-  const man = { format: 'neuralese-lens-v1', model: 'roneneldan/TinyStories-8M', d, L, blocks: B.map(([a, b, c]) => `${a}.${b}.L${c}`), dtype: 'float32', layout: 'row-major d×d per block; R: J[i][j]=∂h_final_i/∂h_j; S: K[i][j]=∂h_i/∂e_j',
+  const man = { format: 'neuralese-lens-v1', model: arg('name', 'roneneldan/TinyStories-8M'), d, L, blocks: B.map(([a, b, c]) => `${a}.${b}.L${c}`), dtype: 'float32', layout: 'row-major d×d per block; R: J[i][j]=∂h_final_i/∂h_j; S: K[i][j]=∂h_i/∂e_j',
     sha256: sha256(bin), bytes: bin.length, corpus: { ...TS_VALID, stories: docs.map((x) => x.story), T, skipFirst: 16 }, nDocs: docs.length, halves: nh, splitHalf,
     method: 'original Neuralese implementation of the neuron-lens R/S-lens method (prior art: stdlogits/neuron-lens; see docs/NEURON_LENS_METHOD.md)', fitSeconds: Math.round((Date.now() - t0) / 1000) };
   fs.writeFileSync(`${outDir}/manifest.json`, JSON.stringify(man, null, 1)); console.log('wrote', outDir, man.sha256, JSON.stringify(splitHalf));
