@@ -1,0 +1,245 @@
+{
+ "prereg_sha256": "7f8641976c350553d1fd0870b1d9ee7181bc518298bee60fc53b88e7eb7393a1",
+ "date": "2026-10-31T20:43:27.451Z",
+ "note": "R.out is the pre-registered lens; R.mid (which includes the layer-l MLP the head writes into) is exploratory.",
+ "tasks": {
+  "induction": {
+   "baseObjective": -10.4035,
+   "kept": [
+    "L7H2",
+    "L4H0",
+    "L1H14",
+    "L1H1",
+    "L1H12",
+    "L1H0",
+    "L6H0",
+    "L3H14",
+    "L3H13",
+    "L4H15",
+    "L7H0",
+    "L7H7",
+    "L7H9",
+    "L7H12",
+    "L5H13",
+    "L3H3",
+    "L7H1",
+    "L7H3",
+    "L2H10",
+    "L7H11",
+    "L7H6",
+    "L7H4",
+    "L7H14",
+    "L4H14",
+    "L0H1",
+    "L5H0",
+    "L7H15",
+    "L6H4",
+    "L0H15",
+    "L3H7",
+    "L3H10",
+    "L6H11",
+    "L2H0",
+    "L0H7",
+    "L3H12",
+    "L7H13",
+    "L1H11",
+    "L0H6",
+    "L2H1",
+    "L1H3",
+    "L1H6",
+    "L0H3"
+   ],
+   "topEffects": [
+    [
+     "L7H2",
+     0.7047
+    ],
+    [
+     "L4H0",
+     0.6501
+    ],
+    [
+     "L1H14",
+     0.5063
+    ],
+    [
+     "L1H1",
+     0.4828
+    ],
+    [
+     "L1H12",
+     0.478
+    ],
+    [
+     "L1H0",
+     0.3335
+    ],
+    [
+     "L6H0",
+     0.3271
+    ],
+    [
+     "L3H14",
+     0.2836
+    ],
+    [
+     "L3H13",
+     0.2556
+    ],
+    [
+     "L4H15",
+     0.2531
+    ]
+   ],
+   "lenses": {
+    "R.out": {
+     "recallTop20": 0.3095,
+     "auroc": 0.6298,
+     "pass": false
+    },
+    "R.mid": {
+     "recallTop20": 0.3333,
+     "auroc": 0.7193,
+     "pass": false
+    },
+    "logit": {
+     "recallTop20": 0.2619,
+     "auroc": 0.693,
+     "pass": false
+    }
+   }
+  },
+  "ioi": {
+   "baseObjective": 5.9302,
+   "kept": [
+    "L4H0",
+    "L7H7",
+    "L5H7",
+    "L6H11",
+    "L0H15",
+    "L1H0",
+    "L0H2",
+    "L1H1",
+    "L1H14",
+    "L6H14",
+    "L5H3",
+    "L2H14",
+    "L6H10",
+    "L3H1",
+    "L3H15",
+    "L2H3",
+    "L0H13",
+    "L0H12",
+    "L1H7",
+    "L0H10",
+    "L1H2",
+    "L0H7",
+    "L6H5",
+    "L2H15",
+    "L4H14",
+    "L5H4",
+    "L0H6",
+    "L6H15",
+    "L0H8",
+    "L3H9",
+    "L4H11",
+    "L0H14",
+    "L3H14",
+    "L3H4",
+    "L2H8",
+    "L3H7",
+    "L5H11",
+    "L6H8",
+    "L2H12",
+    "L6H2",
+    "L0H5",
+    "L1H11",
+    "L1H6",
+    "L3H8",
+    "L5H1",
+    "L5H12",
+    "L2H4",
+    "L5H10",
+    "L6H1",
+    "L6H7",
+    "L0H4",
+    "L4H1",
+    "L0H1",
+    "L3H11",
+    "L3H2",
+    "L1H3",
+    "L2H5",
+    "L4H10",
+    "L2H6",
+    "L1H15",
+    "L1H4",
+    "L6H6",
+    "L7H0",
+    "L7H6",
+    "L0H0"
+   ],
+   "topEffects": [
+    [
+     "L4H0",
+     6.2085
+    ],
+    [
+     "L7H7",
+     4.4144
+    ],
+    [
+     "L5H7",
+     4.393
+    ],
+    [
+     "L6H11",
+     2.4061
+    ],
+    [
+     "L0H15",
+     2.0197
+    ],
+    [
+     "L1H0",
+     1.8715
+    ],
+    [
+     "L0H2",
+     1.532
+    ],
+    [
+     "L1H1",
+     1.4597
+    ],
+    [
+     "L1H14",
+     1.1102
+    ],
+    [
+     "L6H14",
+     0.9151
+    ]
+   ],
+   "lenses": {
+    "R.out": {
+     "recallTop20": 0.1846,
+     "auroc": 0.4784,
+     "pass": false
+    },
+    "R.mid": {
+     "recallTop20": 0.1692,
+     "auroc": 0.4752,
+     "pass": false
+    },
+    "logit": {
+     "recallTop20": 0.1538,
+     "auroc": 0.4852,
+     "pass": false
+    }
+   }
+  }
+ },
+ "C3": {
+  "verdict": "not supported"
+ }
+}
