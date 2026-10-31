@@ -1,3 +1,27 @@
+# Neuralese v15.0.0: visual overhaul
+
+A front-end redesign. Models, maths and data are unchanged, and every provenance/honesty banner is kept.
+
+- **Design system:** a dark "research lab" look built from CSS tokens: surfaces, text, accent palette, type scale, spacing, radii, elevation, focus rings and motion. Inter and JetBrains Mono are self-hosted (variable WOFF2, SIL OFL licences in `vendor/fonts/`), with no font CDN. There is a matching light theme, and `prefers-reduced-motion` turns off all animation.
+- **Navigation:** the 72-tab wall is replaced by a grouped, collapsible sidebar.
+  - Live search (press `/`); tabs are labelled with their descriptive titles.
+  - A sticky pane header shows the group, the tab and its title.
+  - On phones the sidebar is a drawer behind ☰. The ⌘K command palette is restyled.
+- **Components:** panels are cards. Buttons, inputs, selects, checkboxes, radios and sliders, sticky-header tables, tooltips, toasts, chips and scrollbars are restyled. Charts that have not been rendered yet show an empty-state pattern, and there is a shimmer for busy elements.
+- **Charts (`charts.js`, rewritten, same API):**
+  - Crisp HiDPI rendering with nice-number ticks, gridlines, axes and legends.
+  - Hover crosshairs and markers; area fills and soft glow on lines; rounded gradient bars with hover; scatter plots with gridlines and glow.
+  - Heatmaps use perceptual colormaps (viridis and magma, plus a dark-centred blue→orange diverging map) and draw a colorbar.
+- **3D:**
+  - ACES tone mapping with key, rim and fill lights and a gradient backdrop.
+  - Additive glow halos on attention heads scale with ‖z_h‖, and MLP neurons are drawn as soft round points.
+  - Glass layer slabs with edge outlines, layer labels and a ground grid.
+  - Fit-to-view ignores the grid and accounts for the taller header. The heightfield uses the diverging palette.
+- **Tests:**
+  - `test/v15.test.mjs` adds 4 tests, for a total of 149.
+  - `smoke-v15.mjs` opens every tab at 1440×900, 1240×700 and 390×844. It asserts each pane and header renders, the page never overflows horizontally, and there are 0 console errors. It also checks the sidebar search and collapse, the mobile drawer and that the fonts load.
+- **Cache busting:** cache busters are now `?v=15`.
+
 # Neuralese v14.9.0
 
 All 14.x criteria were pre-registered in docs/PREREG-v14x.md (sha256 7f864197…93a1, pinned by test V14X-1) before any data. Results: docs/CLAIMS-v14x.md; failures: docs/REPORT-v14.md.

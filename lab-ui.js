@@ -1,5 +1,5 @@
 // Shared helpers for the v5 research tabs (markup builders, export, run tracker).
-import { CFG } from './model.js?v=14';
+import { CFG } from './model.js?v=15';
 export const { d, H, hd, L, ff, V } = CFG;
 export const $ = (id) => document.getElementById(id), $$ = (s, r = document) => [...r.querySelectorAll(s)];
 export const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
@@ -11,7 +11,7 @@ export const lOpts = (v = 0) => opts([...Array(L).keys()], v), hOpts = (v = 0) =
 export const XB = (id, kinds = 'png csv') => `<span class="xb" data-for="${id}">${kinds.split(' ').map((k) => `<button data-x="${k}" title="export ${k.toUpperCase()}">${k}</button>`).join('')}</span>`;
 export const cv = (id, title, kinds) => `<div class="chd"><span class="ct">${title}</span>${XB(id, kinds)}</div><canvas class="ch" id="${id}"></canvas>`;
 export const tipq = (t) => `<i class="q" tabindex="0" title="${esc(t)}">?</i>`;
-export const PAL = ['#5eead4', '#60a5fa', '#a78bfa', '#f472b6', '#fbbf24', '#fb923c', '#4ade80', '#e879f9'];
+export const PAL = ['#4fd8c4', '#8ea2ff', '#b794f6', '#f472b6', '#f5b94a', '#fb923c', '#4ade80', '#38bdf8'];
 export const pal = (l) => PAL[((l % 8) + 8) % 8];
 export const prog = (id, f) => { const e = $(id); if (e && e.firstElementChild) e.firstElementChild.style.width = (Math.max(0, Math.min(1, f)) * 100).toFixed(0) + '%'; };
 export function svgEl(box, w, h, inner) { box.innerHTML = `<svg class="chart" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="100%">${inner}</svg>`; return box.firstChild; }

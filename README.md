@@ -2,6 +2,13 @@
 
 Live: https://0thernes.github.io/neuralese/ · **New here? [Beginner's guide to steering](docs/STEERING_GUIDE.md)** · Audit: [AUDIT.md](AUDIT.md) · Tsotchke analysis: [docs/TSOTCHKE.md](docs/TSOTCHKE.md) · Claims & evidence: [docs/CLAIMS.md](docs/CLAIMS.md) · Stack and versions: [docs/STACK.md](docs/STACK.md)
 
+## v15.0.0: visual overhaul (31 Oct 2026)
+- **Navigation:** a grouped, searchable sidebar (press `/`) replaces the wall of 72 tabs; on phones it is a drawer.
+- **Design system:** self-hosted Inter and JetBrains Mono, card panels and restyled controls.
+- **Charts:** axes, gridlines, legends, hover crosshairs, and viridis/magma or diverging heatmaps with colorbars.
+- **3D:** a tone-mapped scene with glowing heads, soft neuron points and layer labels.
+- **Behaviour:** functionally identical to v14.9.0.
+
 ## v14.9.0: Neuron Lens 14.1 – 14.9 (31 Oct 2026)
 - **More models:** lenses for TinyStories-1M and 3M. The R.out lens beats the logit lens at every layer on all three models.
 - **New tests:** SAE features, head attribution, calibrated auto-labels, cross-model matching and a Taylor check of RelP, all pre-registered in `docs/PREREG-v14x.md`.

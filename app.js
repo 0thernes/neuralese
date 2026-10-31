@@ -1,18 +1,18 @@
 // NEURALESE v2 — UI wiring. All numerics live in engine/analysis/surgery/decode/sae/rome (unit-tested vs PyTorch).
-import { GPT2Tokenizer } from './tokenizer.js?v=14';
-import { CFG, buildWeights, parseSafetensors, cloneWeights, mulberry32 } from './model.js?v=14';
-import { Engine, defaultRuntime, logSoftmax, topK, SITES } from './engine.js?v=14';
-import { computeStats, actCovariance, fitTunedLens, lensGrid, dla, patchResid, patchHeads, pathPatchHeadsToLogits, ablationSweep, buildControlVector, vectorArithmetic, tokenStats } from './analysis.js?v=14';
-import { Editor, MATS, getMat, toSafetensors, quantize } from './surgery.js?v=14';
-import { defaultDecode, applyPenalties, filterDist, pick, contrastiveLogits, cfgLogits, beamSearch } from './decode.js?v=14';
-import { SAE } from './sae.js?v=14';
-import { computeRome } from './rome.js?v=14';
-import { CORPUS } from './corpus.js?v=14';
-import { heatmap, lines, bars, showTip, seqColor, divColor, markStale } from './charts.js?v=14';
-import { Viz } from './viz.js?v=14';
-import { AudioEngine, editKind, STYLES } from './audio.js?v=14';
-import { buildV5 } from './v5.js?v=14';
-import { vecToJSON as _v2j, vecFromJSON as _j2v } from './labcore.js?v=14';
+import { GPT2Tokenizer } from './tokenizer.js?v=15';
+import { CFG, buildWeights, parseSafetensors, cloneWeights, mulberry32 } from './model.js?v=15';
+import { Engine, defaultRuntime, logSoftmax, topK, SITES } from './engine.js?v=15';
+import { computeStats, actCovariance, fitTunedLens, lensGrid, dla, patchResid, patchHeads, pathPatchHeadsToLogits, ablationSweep, buildControlVector, vectorArithmetic, tokenStats } from './analysis.js?v=15';
+import { Editor, MATS, getMat, toSafetensors, quantize } from './surgery.js?v=15';
+import { defaultDecode, applyPenalties, filterDist, pick, contrastiveLogits, cfgLogits, beamSearch } from './decode.js?v=15';
+import { SAE } from './sae.js?v=15';
+import { computeRome } from './rome.js?v=15';
+import { CORPUS } from './corpus.js?v=15';
+import { heatmap, lines, bars, showTip, seqColor, divColor, markStale } from './charts.js?v=15';
+import { Viz } from './viz.js?v=15';
+import { AudioEngine, editKind, STYLES } from './audio.js?v=15';
+import { buildV5 } from './v5.js?v=15';
+import { vecToJSON as _v2j, vecFromJSON as _j2v } from './labcore.js?v=15';
 const audio = new AudioEngine();
 const { d, H, L, ff, V } = CFG;
 const $ = (id) => document.getElementById(id), $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -175,10 +175,20 @@ P.audio = `
 let V5 = null;
 function buildUI() {
   const tabs = $('tabs'), panes = $('panes'); V5 = buildV5(TABS, P);
-  for (const [k, t] of V5.order) { if (V5.groupStart[k]) { const g = document.createElement('span'); g.className = 'grp'; g.textContent = V5.groupStart[k]; tabs.appendChild(g); } const b = document.createElement('button'); b.textContent = t; b.dataset.t = k; b.onclick = () => showTab(k); b.setAttribute('role', 'tab'); b.title = V5.long[k] || t; tabs.appendChild(b); const p = document.createElement('div'); p.className = 'pane'; p.setAttribute('role', 'tabpanel'); p.id = 'pane_' + k; p.innerHTML = P[k]; panes.appendChild(p); }
+  // v15: grouped, searchable, collapsible sidebar instead of a wall of tabs
+  const srch = document.createElement('div'); srch.className = 'navsearch'; srch.innerHTML = `<input id="navQ" type="search" placeholder="Search ${V5.order.length} tabs…" aria-label="search tabs" autocomplete="off" /><kbd>/</kbd>`; tabs.appendChild(srch);
+  let sec = null; const GOF = {};
+  for (const [k, t] of V5.order) { if (V5.groupStart[k] || !sec) { sec = document.createElement('section'); sec.className = 'ng'; sec.dataset.g = V5.groupStart[k] || 'MORE'; const g = document.createElement('span'); g.className = 'grp'; g.setAttribute('role', 'button'); g.tabIndex = 0; g.textContent = sec.dataset.g; const sx = sec; g.onclick = () => sx.classList.toggle('shut'); g.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); sx.classList.toggle('shut'); } }; sec.appendChild(g); tabs.appendChild(sec); }
+    GOF[k] = sec.dataset.g; const b = document.createElement('button'); b.textContent = V5.long[k] && V5.long[k].length <= 34 ? V5.long[k] : t; b.dataset.short = t; b.dataset.t = k; b.onclick = () => { showTab(k); document.body.classList.remove('navopen'); }; b.setAttribute('role', 'tab'); b.title = V5.long[k] || t; sec.appendChild(b); const p = document.createElement('div'); p.className = 'pane'; p.setAttribute('role', 'tabpanel'); p.id = 'pane_' + k; p.innerHTML = P[k]; panes.appendChild(p); }
+  const ph = document.createElement('div'); ph.id = 'paneHead'; panes.prepend(ph); V5.groupOf = GOF;
+  const q = $('navQ'); q.addEventListener('input', () => { const v = q.value.trim().toLowerCase(); for (const s2 of $$('#tabs .ng')) { let any = false; for (const b of s2.querySelectorAll('button')) { const hit = !v || b.textContent.toLowerCase().includes(v) || b.title.toLowerCase().includes(v) || b.dataset.short.toLowerCase().includes(v) || s2.dataset.g.toLowerCase().includes(v); b.hidden = !hit; any = any || hit; } s2.hidden = !any; s2.classList.toggle('found', !!v); } });
+  q.addEventListener('keydown', (e) => { if (e.key === 'Enter') { const b = $$('#tabs button[data-t]').find((x) => !x.hidden && !x.closest('section').hidden); if (b) b.click(); } if (e.key === 'Escape') { q.value = ''; q.dispatchEvent(new Event('input')); q.blur(); } });
+  addEventListener('keydown', (e) => { if (e.key === '/' && !/INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName)) { e.preventDefault(); document.body.classList.add('navopen'); q.focus(); } });
+  $('bNav')?.addEventListener('click', () => document.body.classList.toggle('navopen'));
   showTab('gen');
 }
-function showTab(k) { if (!$('pane_' + k)) throw new Error('no tab ' + k); V5 && V5.onShow(k); $$('#tabs button').forEach((b) => b.classList.toggle('on', b.dataset.t === k)); $$('.pane').forEach((p) => p.classList.toggle('on', p.id === 'pane_' + k)); }
+function showTab(k) { if (!$('pane_' + k)) throw new Error('no tab ' + k); V5 && V5.onShow(k); $$('#tabs button').forEach((b) => { const on = b.dataset.t === k; b.classList.toggle('on', on); b.setAttribute('aria-selected', String(on)); if (on) { b.closest('section')?.classList.remove('shut'); b.scrollIntoView?.({ block: 'nearest' }); } }); $$('.pane').forEach((p) => p.classList.toggle('on', p.id === 'pane_' + k));
+  const ph = $('paneHead'); if (ph && V5) { const t = TABS[k] || k, lt = V5.long[k] || ''; ph.innerHTML = `<div class="phg">${esc(V5.groupOf?.[k] || '')}<span>${esc(t)}</span></div><h2>${esc(lt || t)}</h2>`; } $('panes')?.scrollTo?.(0, 0); }
 
 // ───────── generation ─────────
 function readDecode() {
@@ -349,7 +359,7 @@ function weightEdit(label, e, path) { // records relative Frobenius change of th
 async function showSvd() {
   const path = matPath(); if (path === 'wte') throw new Error('wte SVD (50257×256) is too slow for the browser here; use a layer matrix or wpe'); $('svdInfo').textContent = 'running one-sided Jacobi SVD…'; await tick();
   const t0 = performance.now(), { a, rows, cols } = getMat(M, path), r = ed.svdOf(path, true), S2 = r.S; const tot = S2.reduce((x, y) => x + y * y, 0); let c = 0; const cum = S2.map((s) => (c += s * s) / tot);
-  const out = new Float32Array(rows * cols); (await import('./linalg.js?v=14')).svdReconstruct(r, Float64Array.from(S2), out); let e = 0; for (let i = 0; i < out.length; i++) e += (out[i] - a[i]) ** 2;
+  const out = new Float32Array(rows * cols); (await import('./linalg.js?v=15')).svdReconstruct(r, Float64Array.from(S2), out); let e = 0; for (let i = 0; i < out.length; i++) e += (out[i] - a[i]) ** 2;
   bars($('svdC'), Array.from(S2), { log: true, title: `σ spectrum ${path} (${rows}×${cols}, log) · hover for energy`, label: (i) => `σ${i} = ${S2[i].toPrecision(5)}  cum energy ${(cum[i] * 100).toFixed(2)}%`, onClick: (i) => ($('svK').value = i + 1) });
   $('svdInfo').textContent = `${S2.length} σ · ${r.sweeps} sweeps · ${(performance.now() - t0).toFixed(0)} ms · recon rel.err ${(Math.sqrt(e) / frob(a)).toExponential(2)} · 90% energy @ k=${cum.findIndex((x) => x >= 0.9) + 1}`;
 }

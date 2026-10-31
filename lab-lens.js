@@ -1,10 +1,10 @@
 // v14 NEURON LENS group: browsable, searchable DB of every TinyStories-8M MLP neuron and attention head read through the fitted
 // R-lens / S-lens / mid-lenses (our own implementation of the neuron-lens method; prior art credited in docs/NEURON_LENS_METHOD.md), a rotating 3D atlas, pre-registered validation results,
 // an in-browser one-document refit, and an attributed CC BY 4.0 sample of the neuron-lens Qwen3-8B / Gemma-4-12B catalog.
-import * as NL from './neuronlens.js?v=14';
-import { bars, lines, showTip, seqColor } from './charts.js?v=14';
-import { $, esc, fmt, opts, lOpts, cv, tipq, pal, prog, canvasFit, chartBg, tick, d, H, L, ff, V } from './lab-ui.js?v=14';
-import { CFG } from './model.js?v=14';
+import * as NL from './neuronlens.js?v=15';
+import { bars, lines, showTip, seqColor } from './charts.js?v=15';
+import { $, esc, fmt, opts, lOpts, cv, tipq, pal, prog, canvasFit, chartBg, tick, d, H, L, ff, V } from './lab-ui.js?v=15';
+import { CFG } from './model.js?v=15';
 const BASE = 'lens/ts8m/', EXT = 'lens/ext/neuron-lens-sample.json';
 const READS = [['in_S', 'in·S (what drives it, S.mid)'], ['in_R', 'in·R (input read, R.mid)'], ['out_R', 'out·R (what it promotes, R.out)'], ['out_S', 'out·S (write footprint, S.out)'], ['out_logit', 'logit lens (baseline)'], ['out_R_neg', 'out·R suppressed'], ['drivers', 'exact drivers (measured)']];
 const HREADS = [['ov_R', 'OV copy (R)'], ['ov_S', 'OV copy (S)'], ['ov_R_neg', 'OV suppressed'], ['writes_R', 'mean write (R)'], ['qk_S', 'keys sought (QK·S)'], ['qk_self', 'self-seeking tokens']];
@@ -120,7 +120,7 @@ export function install(A, out) {
     $('nvInfo').innerHTML = `prereg ${VAL.prereg_sha256?.slice(0, 12) ?? '?'}… · lens ${VAL.lens_sha256?.slice(0, 12) ?? '?'}… · ran ${fmt(VAL.seconds / 60, 1)} min · file ${s.slice(0, 12)}…` + (VAL.verdicts ? '<br>' + Object.entries(VAL.verdicts).map(([k, v]) => `<b>${k}</b> ${v.pass ? '✓ supported' : '✗ not supported'} — ${esc(v.detail)}`).join('<br>') : ''); drawVal(); });
   on('nvM', 'change', drawVal);
   on('nrGo', 'click', async () => { const Z = await lensMats(), ids = A.tok().encode($('nrP').value); if (ids.length < NL.SKIP_FIRST + 4) throw new Error(`need ≥ ${NL.SKIP_FIRST + 4} tokens (SKIP_FIRST=${NL.SKIP_FIRST}); have ${ids.length}`);
-    const kinds = $('nrK').value.split(','), use = ids.slice(0, 48), wk = new Worker(new URL('./lens-worker.js?v=14', import.meta.url), { type: 'module' }); $('nrInfo').textContent = `fitting ${kinds.join('+')} on ${use.length} tokens (${use.length - 1 - NL.SKIP_FIRST} valid positions) in a worker…`;
+    const kinds = $('nrK').value.split(','), use = ids.slice(0, 48), wk = new Worker(new URL('./lens-worker.js?v=15', import.meta.url), { type: 'module' }); $('nrInfo').textContent = `fitting ${kinds.join('+')} on ${use.length} tokens (${use.length - 1 - NL.SKIP_FIRST} valid positions) in a worker…`;
     const res = await new Promise((ok, bad) => { wk.onmessage = (e) => { if (e.data.progress != null) prog('nrProg', e.data.progress); else if (e.data.error) bad(new Error(e.data.error)); else ok(e.data); }; wk.onerror = (e) => bad(new Error(e.message)); wk.postMessage({ W: A.W(), cfg: CFG, ids: use, kinds }); }); wk.terminate();
     const cos = (a, b) => { let s = 0, na = 0, nb = 0; for (let i = 0; i < a.length; i++) { s += a[i] * b[i]; na += a[i] * a[i]; nb += b[i] * b[i]; } return s / Math.sqrt(na * nb || 1); };
     const series = []; for (const k of kinds) for (const tg of ['out', 'mid']) series.push({ label: `${k}.${tg}`, color: ['#5eead4', '#60a5fa', '#a78bfa', '#f472b6'][series.length], ys: [...Array(L).keys()].map((l) => (res.res[k][tg][l] && Z[k][tg][l] ? cos(res.res[k][tg][l], Z[k][tg][l]) : NaN)) });

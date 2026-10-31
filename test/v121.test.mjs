@@ -79,9 +79,9 @@ test('A7 guided path: ten stops, every stop is a real tab, button wired', () => 
   assert.ok(S('v5.js').includes('installGuide('));
 });
 
-test('A8 cache busters are ?v=14 everywhere', () => {
+test('A8 cache busters are ?v=15 everywhere', () => {
   for (const f of ['index.html', 'app.js', 'v5.js', 'labcore.js']) { assert.ok(!/\?v=12\b/.test(S(f)), f); }
-  assert.ok(S('index.html').includes('v14.9.0'));
+  assert.ok(S('index.html').includes('v15.0.0'));
 });
 
 test('A9 narrow dock (1240x700): fieldsets may shrink, canvases never exceed the pane; 3D framing counts the fixed output panel', () => {
