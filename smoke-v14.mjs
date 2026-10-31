@@ -8,7 +8,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms)), fail = [], T = Date
 const check = async (name, fn, pred, arg) => { try { const r = await p.evaluate(fn, arg); const ok = pred(r); log(name, ok ? 'OK' : 'FAIL', JSON.stringify(r).slice(0, 300)); if (!ok) fail.push(name); } catch (e) { log(name, 'ERROR', e.message.slice(0, 300)); fail.push(name); } };
 const show = (k) => p.evaluate((x) => window.NEURALESE.v5.api.showTab(x), k);
 await p.goto(url); await p.waitForFunction(() => window.NEURALESE && window.NEURALESE_LAST, { timeout: 300000 }); log('loaded');
-await check('version', () => document.getElementById('ver').textContent, (r) => r.startsWith('v14.0.0'));
+await check('version', () => document.getElementById('ver').textContent, (r) => r.startsWith('v14.9.0'));
 await show('nlens');
 await check('dbLoad', async () => { document.getElementById('nlLoad').click(); for (let i = 0; i < 240 && !/✓/.test(document.getElementById('nlInfo').textContent); i++) await new Promise((r) => setTimeout(r, 500)); return document.getElementById('nlInfo').textContent; }, (r) => /✓ 8×1024 neurons/.test(r) && /sha256-verified/.test(r));
 await check('search', async () => { document.getElementById('nlQ').value = ' happy'; document.getElementById('nlGo').click(); await new Promise((r) => setTimeout(r, 800)); return document.getElementById('nlHits').textContent.slice(0, 200); }, (r) => /^\d+ hits/.test(r) && !/^0 hits/.test(r));
@@ -23,5 +23,13 @@ await p.screenshot({ path: `${shots}-refit.png` });
 await show('nlext');
 await check('catalog', async () => { document.getElementById('neLoad').click(); for (let i = 0; i < 60 && !document.getElementById('neList').children.length; i++) await new Promise((r) => setTimeout(r, 250)); return { info: document.getElementById('neInfo').textContent, n: document.getElementById('neList').children.length, attr: document.getElementById('neAttr').textContent.slice(0, 80) }; }, (r) => r.n > 100 && /a9lim/.test(r.attr));
 await sleep(500); await p.screenshot({ path: `${shots}-nlext.png` });
+// v14.7/14.8 NESTED group
+await show('nxlens');
+await check('nested lens', async () => { document.getElementById('nxLoad').click(); for (let i = 0; i < 120 && !/C7/.test(document.getElementById('nxRes').textContent); i++) await new Promise((r) => setTimeout(r, 250)); document.getElementById('nxRead').click(); for (let i = 0; i < 80 && !document.getElementById('nxOut').textContent; i++) await new Promise((r) => setTimeout(r, 250)); return { res: document.getElementById('nxRes').textContent.slice(-260), out: document.getElementById('nxOut').textContent.slice(0, 120) }; }, (r) => /C7 supported/.test(r.res) && /out·R/.test(r.out));
+await sleep(300); await p.screenshot({ path: `${shots}-nxlens.png` });
+await show('nslm');
+await check('nested slm frame', async () => { const f = document.querySelector('iframe[src*="nested/slm"]'); for (let i = 0; i < 160 && !(f.contentDocument && f.contentDocument.getElementById('c') && /KL/.test(f.contentDocument.getElementById('c').textContent)); i++) await new Promise((r) => setTimeout(r, 250)); return f.contentDocument.getElementById('c').textContent.slice(0, 200); }, (r) => /KL\(guest‖baked\)/.test(r));
+await sleep(300); await p.screenshot({ path: `${shots}-nslm.png` });
+for (const k of ['nriscv', 'nmoe']) { await show(k); await sleep(1500); }
 log('console errors', errs.length, errs.slice(0, 5)); await b.close();
 if (fail.length || errs.length) { console.log('SMOKE FAIL', fail); process.exit(1); } console.log('SMOKE OK');

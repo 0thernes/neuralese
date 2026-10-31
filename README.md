@@ -2,6 +2,17 @@
 
 Live: https://0thernes.github.io/neuralese/ · **New here? [Beginner's guide to steering](docs/STEERING_GUIDE.md)** · Audit: [AUDIT.md](AUDIT.md) · Tsotchke analysis: [docs/TSOTCHKE.md](docs/TSOTCHKE.md) · Claims & evidence: [docs/CLAIMS.md](docs/CLAIMS.md) · Stack and versions: [docs/STACK.md](docs/STACK.md)
 
+## v14.9.0: Neuron Lens 14.1 – 14.9 (31 Oct 2026)
+- **More models:** lenses for TinyStories-1M and 3M. The R.out lens beats the logit lens at every layer on all three models.
+- **New tests:** SAE features, head attribution, calibrated auto-labels, cross-model matching and a Taylor check of RelP, all pre-registered in `docs/PREREG-v14x.md`.
+- **Failures:** C3, C5, C6 and C8a failed and are listed in `docs/REPORT-v14.md`.
+- **New NESTED group:**
+  - a RISC-V CPU in transformer weights
+  - a language model baked into a language model (float32)
+  - a MoE inside a MoE
+  - lens results on the nested models
+- **In-browser fit:** the full TS-1M lens fit runs in-browser and matches the Node fit exactly.
+
 ## v14.0.0: Neuron Lens (31 Oct 2026)
 - Fitted R-, S- and mid-lenses for TinyStories-8M (`lens/ts8m/`, hash-pinned), with a neuron and attention-head database covering all 8×1024 neurons and 8×16 heads.
 - Three new tabs under INTERPRET:
