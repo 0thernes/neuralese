@@ -60,6 +60,8 @@ export function forward(M, ids, opts = {}) {
         for (let s = 0; s <= t; s++) { let a = 0; for (let e = 0; e < hd; e++) a += q[t * d + off + e] * k[s * d + off + e]; row[s] = a; if (a > mx) mx = a; }
         let Z = 0; for (let s = 0; s <= t; s++) { row[s] = Math.exp(row[s] - mx); Z += row[s]; } for (let s = 0; s <= t; s++) row[s] /= Z;
         for (let e = 0; e < hd; e++) { let a = 0; for (let s = 0; s <= t; s++) a += row[s] * v[s * d + off + e]; z[t * d + off + e] = a; } } }
+    if (opts.ablate && opts.ablate[l]) for (const hh of opts.ablate[l]) for (let t = 0; t < T; t++) z.fill(0, t * d + hh * hd, t * d + hh * hd + hd); // zero-ablate heads
+    if (opts.zs) opts.zs.push(z.slice());
     mm(z, P.oT, o, T, d, d); addBias(o, T, d, P.ob);
     for (let i = 0; i < T * d; i++) h[i] += o[i];
     const mid = opts.record ? h.slice() : null;

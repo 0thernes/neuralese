@@ -1,0 +1,34 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Neuralese · SLM inside an SLM</title>
+<link rel="stylesheet" href="../shared/lab.css"><style>main{grid-template-columns:1fr 1fr 1fr}#strip{height:150px}.col{font-size:12px}</style></head><body>
+<header><h1>A language model <b>baked into</b> another language model</h1>
+<div class="sub">The guest (1-layer char LM, TinyStories) is compiled into a single 96-wide host transformer: host lives in residual dims 0–63, guest in 64–95, one forward pass computes both. Compare against the guest run on its own, and against a same-size host that was <i>trained</i> to imitate the guest (mode embedding). Everything below runs live in your browser.</div></header>
+<main>
+<section class="card" style="grid-column:span 3"><h2>Context</h2><input id="txt" style="width:70%" value="Once upon a time, there was a little girl named Lily. She lo"> <span id="stat"></span></section>
+<section class="card" style="grid-column:span 3"><h2>Residual stream of the baked-in host at the last position</h2><canvas id="strip"></canvas><div class="note"><span style="color:var(--host)">■</span> host subspace (task: reversed text) <span style="color:var(--guest)">■</span> guest subspace (task: forward TinyStories). Bar height = |activation|.</div></section>
+<section class="card col"><h2>Guest, standalone</h2><div id="g"></div></section>
+<section class="card col"><h2>Guest readout of baked-in host</h2><div id="c"></div></section>
+<section class="card col"><h2>Trained emulator (mode=guest)</h2><div id="e"></div></section>
+</main>
+<script src="lm.js"></script><script>
+let M; const $ = id => document.getElementById(id);
+const show = c => c === ' ' ? '␠' : c === '\n' ? '⏎' : c;
+function topk(p, cls) { return p.map((v, i) => [v, i]).sort((a, b) => b[0] - a[0]).slice(0, 8).map(([v, i]) => `<div>${show(M.vocab[i])} <span class="bar ${cls}" style="width:${(v * 220).toFixed(0)}px"></span> ${(v * 100).toFixed(1)}%</div>`).join(''); }
+function run() {
+  const T = M.guest.cfg.T, s = $('txt').value, ids = [...s].slice(-T).map(ch => Math.max(0, M.vocab.indexOf(ch)));
+  const g = NLM.forward(M.guest, ids), c = NLM.forward(M.composite, ids, null, M.composite.out_g), e = NLM.forward(M.emu, ids, 1);
+  const pg = NLM.softmax(g.logits), pc = NLM.softmax(c.logits), pe = NLM.softmax(e.logits);
+  $("g").innerHTML = topk(pg, 'g'); $('c').innerHTML = topk(pc, 'g') + `<div class="note">KL(guest‖baked) = <span class="ok">${NLM.kl(pg, pc).toExponential(2)}</span> nats</div>`;
+  $('e').innerHTML = topk(pe, '') + `<div class="note">KL(guest‖emulator) = <span class="chg">${NLM.kl(pg, pe).toFixed(3)}</span> nats</div>`;
+  const cv = $('strip'), dpr = devicePixelRatio || 1, W = cv.clientWidth, H = 150; cv.width = W * dpr; cv.height = H * dpr; const x = cv.getContext('2d'); x.scale(dpr, dpr);
+  const r = c.resid, mx = Math.max(...r.map(Math.abs)), bw = W / r.length;
+  r.forEach((v, i) => { const h = Math.abs(v) / mx * (H - 20), col = i < M.composite.dH ? '#5aa9ff' : '#ff7ad9'; x.fillStyle = col; x.shadowColor = col; x.shadowBlur = 6; x.fillRect(i * bw + 1, H - 10 - h, bw - 2, h); });
+  $('stat').textContent = `${ids.length} chars of context`;
+}
+// v14.7: weights ship as one float32 binary (models.f32 + models.index.json, sha256-checked) instead of 6.2 MB of float64 JSON.
+async function loadF32() { const ix = await (await fetch('models.index.json')).json(), b = await (await fetch('models.f32')).arrayBuffer();
+  const h = [...new Uint8Array(await crypto.subtle.digest('SHA-256', b))].map((x) => x.toString(16).padStart(2, '0')).join(''); if (h !== ix.sha256) throw new Error('models.f32 sha256 mismatch');
+  const f = new Float32Array(b), arr = (e) => { const a = Array.from(f.subarray(e.off, e.off + e.shape.reduce((x, y) => x * y, 1))); return e.shape.length === 2 ? Array.from({ length: e.shape[0] }, (_, i) => a.slice(i * e.shape[1], (i + 1) * e.shape[1])) : a; };
+  const M = { vocab: ix.vocab }; for (const [k, m] of Object.entries(ix.models)) { const w = {}; for (const [n, e] of Object.entries(m.w)) w[n] = arr(e); M[k] = { cfg: m.cfg, w, dH: m.dH }; for (const hh of ['out_h', 'out_g']) if (m[hh]) M[k][hh] = { weight: arr(m[hh].weight), bias: arr(m[hh].bias) }; }
+  return M; }
+loadF32().then(j => { M = j; run(); $('txt').oninput = run; }).catch(e => { $('stat').textContent = 'load failed: ' + e.message; });
+</script></body></html>

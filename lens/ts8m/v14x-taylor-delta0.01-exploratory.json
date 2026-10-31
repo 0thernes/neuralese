@@ -1,0 +1,172 @@
+{
+ "prereg_sha256": "7f8641976c350553d1fd0870b1d9ee7181bc518298bee60fc53b88e7eb7393a1",
+ "date": "2026-10-31T20:24:31.089Z",
+ "delta": 0.01,
+ "eps": [
+  0.001,
+  0.01,
+  0.1
+ ],
+ "layers": [
+  {
+   "layer": 0,
+   "eps0.001": {
+    "eRelP": 0.731,
+    "eExact": 0.0381,
+    "second": 57.701,
+    "ratio": 0.0511
+   },
+   "eps0.01": {
+    "eRelP": 0.7305,
+    "eExact": 0.0036,
+    "second": 0.5454,
+    "ratio": 0.0049
+   },
+   "eps0.1": {
+    "eRelP": 0.731,
+    "eExact": 0.0122,
+    "second": 0.1924,
+    "ratio": 0.0167
+   }
+  },
+  {
+   "layer": 1,
+   "eps0.001": {
+    "eRelP": 0.6938,
+    "eExact": 0.0323,
+    "second": 53.9783,
+    "ratio": 0.0456
+   },
+   "eps0.01": {
+    "eRelP": 0.694,
+    "eExact": 0.0031,
+    "second": 0.5171,
+    "ratio": 0.0046
+   },
+   "eps0.1": {
+    "eRelP": 0.6945,
+    "eExact": 0.0122,
+    "second": 0.2153,
+    "ratio": 0.0179
+   }
+  },
+  {
+   "layer": 2,
+   "eps0.001": {
+    "eRelP": 0.6304,
+    "eExact": 0.0313,
+    "second": 49.9223,
+    "ratio": 0.0501
+   },
+   "eps0.01": {
+    "eRelP": 0.6296,
+    "eExact": 0.0029,
+    "second": 0.4574,
+    "ratio": 0.0045
+   },
+   "eps0.1": {
+    "eRelP": 0.6296,
+    "eExact": 0.0092,
+    "second": 0.139,
+    "ratio": 0.0144
+   }
+  },
+  {
+   "layer": 3,
+   "eps0.001": {
+    "eRelP": 0.5717,
+    "eExact": 0.0241,
+    "second": 45.8474,
+    "ratio": 0.0425
+   },
+   "eps0.01": {
+    "eRelP": 0.5716,
+    "eExact": 0.0023,
+    "second": 0.458,
+    "ratio": 0.0041
+   },
+   "eps0.1": {
+    "eRelP": 0.5723,
+    "eExact": 0.0099,
+    "second": 0.1919,
+    "ratio": 0.0173
+   }
+  },
+  {
+   "layer": 4,
+   "eps0.001": {
+    "eRelP": 0.5154,
+    "eExact": 0.0174,
+    "second": 41.4767,
+    "ratio": 0.0344
+   },
+   "eps0.01": {
+    "eRelP": 0.5154,
+    "eExact": 0.0019,
+    "second": 0.4274,
+    "ratio": 0.0036
+   },
+   "eps0.1": {
+    "eRelP": 0.515,
+    "eExact": 0.0104,
+    "second": 0.2359,
+    "ratio": 0.0195
+   }
+  },
+  {
+   "layer": 5,
+   "eps0.001": {
+    "eRelP": 0.4185,
+    "eExact": 0.0133,
+    "second": 30.0073,
+    "ratio": 0.0318
+   },
+   "eps0.01": {
+    "eRelP": 0.4184,
+    "eExact": 0.0014,
+    "second": 0.3325,
+    "ratio": 0.0034
+   },
+   "eps0.1": {
+    "eRelP": 0.4188,
+    "eExact": 0.0088,
+    "second": 0.1997,
+    "ratio": 0.0207
+   }
+  },
+  {
+   "layer": 6,
+   "eps0.001": {
+    "eRelP": 0.2936,
+    "eExact": 0.0094,
+    "second": 22.0583,
+    "ratio": 0.0309
+   },
+   "eps0.01": {
+    "eRelP": 0.2936,
+    "eExact": 0.0011,
+    "second": 0.2576,
+    "ratio": 0.0037
+   },
+   "eps0.1": {
+    "eRelP": 0.2944,
+    "eExact": 0.0071,
+    "second": 0.1696,
+    "ratio": 0.024
+   }
+  }
+ ],
+ "C6": {
+  "failingLayers": [
+   0,
+   1,
+   2,
+   3,
+   4,
+   5,
+   6
+  ],
+  "verdict": "not supported (RelP is not first-order accurate)"
+ },
+ "seconds": 441
+}

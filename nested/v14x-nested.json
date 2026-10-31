@@ -1,0 +1,85 @@
+{
+ "prereg_sha256": "7f8641976c350553d1fd0870b1d9ee7181bc518298bee60fc53b88e7eb7393a1",
+ "date": "2026-10-31T20:24:46.999Z",
+ "fidelity": {
+  "prompts": 20,
+  "maxKL": 2.426603451714348e-16,
+  "pass": true
+ },
+ "testA": {
+  "composite": {
+   "units": 384,
+   "dead": 0,
+   "R.out": {
+    "n": 384,
+    "medianR": 0.9801,
+    "tau99": 0.6196,
+    "passRate": 1,
+    "passCI": [
+     0.9901,
+     1
+    ],
+    "nullPassRate": 0.01,
+    "pass": true
+   },
+   "logit": {
+    "n": 384,
+    "medianR": 0.6761,
+    "tau99": 0.5317,
+    "passRate": 0.7422,
+    "passCI": [
+     0.6962,
+     0.7834
+    ],
+    "nullPassRate": 0.01,
+    "pass": true
+   }
+  },
+  "emulator_mode1": {
+   "units": 256,
+   "dead": 7,
+   "R.out": {
+    "n": 249,
+    "medianR": 0.9363,
+    "tau99": 0.6528,
+    "passRate": 0.9759,
+    "passCI": [
+     0.9484,
+     0.9889
+    ],
+    "nullPassRate": 0.01,
+    "pass": true
+   },
+   "logit": {
+    "n": 249,
+    "medianR": 0.5419,
+    "tau99": 0.5409,
+    "passRate": 0.506,
+    "passCI": [
+     0.4443,
+     0.5676
+    ],
+    "nullPassRate": 0.01,
+    "pass": true
+   }
+  }
+ },
+ "C7": {
+  "verdict": "supported"
+ },
+ "C8a": {
+  "medianOverlap": 0,
+  "tau99": 0.6702,
+  "maxGuestHostReadNorm": 0,
+  "verdict": "not supported"
+ },
+ "C8b": {
+  "medianOverlap": 0.888,
+  "tau99": 0.6367,
+  "lensCosineMode0vsMode1": 0.9238,
+  "verdict": "supported"
+ },
+ "fitDocs": 32,
+ "evalDocs": 8,
+ "seconds": 493
+}

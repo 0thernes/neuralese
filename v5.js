@@ -10,6 +10,7 @@ import * as LT from './lab-tsotchke.js?v=14';
 import * as LF from './lab-frontier.js?v=14';
 import * as LH from './lab-hub.js?v=14';
 import * as LN from './lab-lens.js?v=14';
+import * as LX from './lab-nested.js?v=14';
 import { installModes } from './viz3d.js?v=14';
 import { redrawAll } from './charts.js?v=14';
 import { makeTerminal, termMarkup, mountTerminal, VERSION } from './term.js?v=14';
@@ -17,7 +18,7 @@ import { learnMarkup, mountLearn } from './learn/learn.js?v=14';
 import { banner } from './provenance.js?v=14';
 import { installGuide } from './guide.js?v=14';
 export { VERSION };
-const MODS = [LM, LI, LN, LV, LE, LS, LR, LT, LF, LH];
+const MODS = [LM, LI, LN, LX, LV, LE, LS, LR, LT, LF, LH];
 const AUTO = { arch: 'arch', params: 'params', timeline: 'timeline', runs: 'runs' }; // cheap views rendered on open
 export function buildV5(TABS, P) {
   const long = {};

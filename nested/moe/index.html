@@ -1,0 +1,24 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Neuralese · MoE inside an MoE</title>
+<link rel="stylesheet" href="../shared/lab.css"><style>main{grid-template-columns:480px 1fr}#iso{height:420px}.ch{display:inline-block;width:15px;text-align:center;border-radius:3px;margin:1px 0}</style></head><body>
+<header><h1>Mixture of experts <b>made of</b> mixtures of experts</h1>
+<div class="sub">Each of 4 outer experts is itself a 4-expert MoE (top-1 → top-1, gate = p<sub>outer</sub>·p<sub>inner</sub>). Char-level LM on TinyStories, 2 layers. Routing shown here is precomputed from the trained seed-0 checkpoint.</div></header>
+<main>
+<section class="card"><h2>Expert lattice · token share</h2><canvas id="iso"></canvas><div class="note">Slab = layer; 4×4 grid = group (row) × inner expert (col); brightness = share of tokens.</div>
+<div style="margin-top:8px">layer <select id="lay"><option>0</option><option>1</option></select></div></section>
+<section class="card"><h2>Per-character routing</h2><div id="tok"></div><div class="note">Hue = outer group, lightness = inner expert.</div><h2 style="margin-top:14px">Val CE (nats/char), 3 seeds</h2><table id="sum"></table><h2 style="margin-top:14px">Inner specialization (selected layer)</h2><table id="spec"></table></section>
+</main>
+<script src="../shared/iso.js"></script><script>
+const $ = id => document.getElementById(id), HUE = [205, 320, 150, 40];
+fetch('routing.json').then(r => r.json()).then(R => {
+  const draw = () => {
+    const l = +$('lay').value;
+    $('tok').innerHTML = R.samples.map(s => '<div>' + [...s.text].map((c, i) => `<span class="ch" title="g${s.layers[l].g[i]} e${s.layers[l].e[i]} p=${s.layers[l].pg[i]}" style="background:hsl(${HUE[s.layers[l].g[i]]} 70% ${25 + 12 * s.layers[l].e[i]}%)">${c === ' ' ? '·' : c === '\n' ? '⏎' : c}</span>`).join('') + '</div>').join('');
+    const L = R.hier_s0_layers[l];
+    $('spec').innerHTML = '<tr><td>group</td><td>share</td><td>MI(inner;class) bits</td><td>inner util</td></tr>' + L.groups.map((g, i) => `<tr><td style="color:hsl(${HUE[i]} 80% 65%)">g${i}</td><td>${(L.outer_util[i] * 100).toFixed(1)}%</td><td>${g.MI == null ? '-' : g.MI.toFixed(3)}</td><td>${(g.inner_util || []).map(v => (v * 100).toFixed(0) + '%').join(' ')}</td></tr>`).join('');
+    Iso.draw($('iso'), R.hier_s0_layers.map((L, k) => ({ name: 'layer ' + k, cols: 4, color: k === l ? '#ff7ad9' : '#5aa9ff', cells: L.groups.flatMap((g, i) => (g.inner_util || [0, 0, 0, 0]).map(v => v * L.outer_util[i] * 4)) })), { active: l });
+  };
+  const by = {}; R.summary.forEach(s => (by[s.kind] = by[s.kind] || []).push(s.val_ce));
+  $('sum').innerHTML = Object.entries(by).map(([k, v]) => `<tr><td>${k}</td><td>${(v.reduce((a, b) => a + b) / v.length).toFixed(4)}</td><td class="note">${v.map(x => x.toFixed(4)).join(' / ')}</td></tr>`).join('');
+  $('lay').onchange = draw; draw();
+});
+</script></body></html>

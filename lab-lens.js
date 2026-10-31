@@ -101,11 +101,14 @@ export function install(A, out) {
     const ids = A.tok().encode($('nlSP').value).slice(-CFG.window), T = ids.length; if (T < 2) throw new Error('prompt too short');
     const { w } = NL.neuronDirs(S.M, l, n), a = +$('nlDose').value * Math.max(nr.act_max, 1e-3), vec = w.map((x) => x * a);
     const lp = (z) => { let mx = -Infinity; for (const x of z) if (x > mx) mx = x; let s = 0; for (const x of z) s += Math.exp(x - mx); const c = mx + Math.log(s); return z.map((x) => x - c); };
-    const b = lp(NL.forward(S.M, ids, { logits: true, logitRows: [T - 1] }).logits), s = lp(NL.forward(S.M, ids, { logits: true, logitRows: [T - 1], steer: { layer: l, vec, from: 0, to: T } }).logits);
-    const dl = s.map((x, i) => x - b[i]), keptIds = Object.keys(S.tok).map(Number); const top = NL.topK(dl, 10);
+    // v14.x weak-spot fix: average Δlog-prob over every position (not just the last), and rank only tokens in the DB vocabulary (frequent
+    // TinyStories tokens), so rare-token softmax noise cannot crowd the top-10. Same Δ definition as the pre-registered Test A.
+    const rows = [...Array(T).keys()].slice(Math.min(16, T >> 1)), V = CFG.V, B = NL.forward(S.M, ids, { logits: true, logitRows: rows }).logits, St = NL.forward(S.M, ids, { logits: true, logitRows: rows, steer: { layer: l, vec, from: 0, to: T } }).logits;
+    const dl = new Float32Array(V); rows.forEach((_, r) => { const b = lp(B.subarray(r * V, (r + 1) * V)), s = lp(St.subarray(r * V, (r + 1) * V)); for (let v = 0; v < V; v++) dl[v] += (s[v] - b[v]) / rows.length; });
+    const keptIds = Object.keys(S.tok).map(Number), mask = new Uint8Array(V); keptIds.forEach((v) => (mask[v] = 1)); const top = NL.topK(dl, 10, keptIds.length ? mask : null);
     const pred = nr.out_R[0], hitR = pred.filter((v) => top.includes(v)).length, hitLg = nr.out_logit[0].filter((v) => top.includes(v)).length;
     const rise = pred.filter((v) => dl[v] > 0).length;
-    $('nlSteerRes').innerHTML = `Δlog-prob at last position, dose ${$('nlDose').value}×act_max (${fmt(a, 2)}), ${keptIds.length ? '' : ''}current weights:<br>top-10 risers: ${chips([top, top.map((v) => dl[v])])}<br>out·R prediction overlap with actual top-10: <b>${hitR}/10</b> (logit lens: ${hitLg}/10) · ${rise}/10 out·R tokens rose. Single-prompt demo; the pre-registered statistics are in LENS VALID.`; });
+    $('nlSteerRes').innerHTML = `Δlog-prob averaged over ${rows.length} position${rows.length > 1 ? 's' : ''}, dose ${$('nlDose').value}×act_max (${fmt(a, 2)}), ranked over the ${keptIds.length} DB tokens, current weights:<br>top-10 risers: ${chips([top, top.map((v) => dl[v])])}<br>out·R prediction overlap with actual top-10: <b>${hitR}/10</b> (logit lens: ${hitLg}/10) · ${rise}/10 out·R tokens rose. Single-prompt demo; the pre-registered statistics are in LENS VALID.`; });
   // validation tab
   let VAL = null; const LENS_ORDER = ['R.out', 'R.mid', 'S.out', 'S.mid', 'logit', 'tuned', 'random', 'R.out[L-1]', 'S.out[L-1]'];
   function drawVal() { if (!VAL) return; const m = $('nvM').value, B = m.startsWith('B_'), key = B ? m.slice(2) : m, rows = B ? VAL.testB : VAL.testA, lenses = [...new Set(rows.map((r) => r.lens))].sort((a, b) => LENS_ORDER.indexOf(a) - LENS_ORDER.indexOf(b));

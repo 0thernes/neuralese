@@ -1,0 +1,77 @@
+{
+ "prereg_sha256": "7f8641976c350553d1fd0870b1d9ee7181bc518298bee60fc53b88e7eb7393a1",
+ "date": "2026-10-31T20:58:17.970Z",
+ "C1a": {
+  "ts1m": {
+   "layersBeatingLogit": 7,
+   "maxNullPassRate": 0.0109,
+   "verdict": "supported"
+  },
+  "ts3m": {
+   "layersBeatingLogit": 7,
+   "maxNullPassRate": 0.0109,
+   "verdict": "supported"
+  }
+ },
+ "C1c": {
+  "rows": [
+   {
+    "layer": 0,
+    "ciWidth24": 0.0733,
+    "ciWidth64": 0.0372,
+    "medianR64": 0.7807,
+    "logit64": 0.3179
+   },
+   {
+    "layer": 1,
+    "ciWidth24": 0.0483,
+    "ciWidth64": 0.0272,
+    "medianR64": 0.8039,
+    "logit64": 0.3914
+   },
+   {
+    "layer": 2,
+    "ciWidth24": 0.04,
+    "ciWidth64": 0.0284,
+    "medianR64": 0.8384,
+    "logit64": 0.3773
+   },
+   {
+    "layer": 3,
+    "ciWidth24": 0.0317,
+    "ciWidth64": 0.0209,
+    "medianR64": 0.8584,
+    "logit64": 0.4121
+   },
+   {
+    "layer": 4,
+    "ciWidth24": 0.0151,
+    "ciWidth64": 0.015,
+    "medianR64": 0.8913,
+    "logit64": 0.4708
+   },
+   {
+    "layer": 5,
+    "ciWidth24": 0.0232,
+    "ciWidth64": 0.0151,
+    "medianR64": 0.9147,
+    "logit64": 0.5396
+   },
+   {
+    "layer": 6,
+    "ciWidth24": 0.0159,
+    "ciWidth64": 0.0084,
+    "medianR64": 0.9549,
+    "logit64": 0.6459
+   }
+  ],
+  "narrower": 7,
+  "beats": 7,
+  "verdict": "supported"
+ },
+ "C2": {
+  "saePassRate": 1,
+  "neuronPassRateL3": 1,
+  "verdict": "supported"
+ }
+}

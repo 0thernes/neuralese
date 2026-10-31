@@ -1,0 +1,1093 @@
+{
+ "prereg_sha256": "7f8641976c350553d1fd0870b1d9ee7181bc518298bee60fc53b88e7eb7393a1",
+ "lens_sha256": "6a668f3e399b0a72f9bad883c86d9b6cb593d8d67c116755e0007a6d96157636",
+ "quick": false,
+ "kept": 7439,
+ "driverTokens": 3000,
+ "evalDocs": 16,
+ "seconds": 2759,
+ "testA": [
+  {
+   "layer": 0,
+   "lens": "logit",
+   "n": 64,
+   "medianR": 0.3179,
+   "medianR_CI": [
+    0.2855,
+    0.3504
+   ],
+   "tau99": 0.2108,
+   "passRate": 0.8125,
+   "passCI": [
+    0.7003,
+    0.8894
+   ],
+   "nullPassRate": 0.0102,
+   "top10Rise": 0.9844,
+   "top10RiseCI": [
+    0.9167,
+    0.9972
+   ],
+   "medianRiseNats": 0.43283
+  },
+  {
+   "layer": 0,
+   "lens": "tuned",
+   "n": 64,
+   "medianR": 0.2706,
+   "medianR_CI": [
+    0.2501,
+    0.3073
+   ],
+   "tau99": 0.2619,
+   "passRate": 0.5469,
+   "passCI": [
+    0.4257,
+    0.6627
+   ],
+   "nullPassRate": 0.0102,
+   "top10Rise": 0.9688,
+   "top10RiseCI": [
+    0.893,
+    0.9914
+   ],
+   "medianRiseNats": 0.34663
+  },
+  {
+   "layer": 0,
+   "lens": "R.mid",
+   "n": 64,
+   "medianR": 0.2378,
+   "medianR_CI": [
+    0.1788,
+    0.2781
+   ],
+   "tau99": 0.3115,
+   "passRate": 0.3281,
+   "passCI": [
+    0.2257,
+    0.45
+   ],
+   "nullPassRate": 0.0102,
+   "top10Rise": 0.9063,
+   "top10RiseCI": [
+    0.8102,
+    0.9563
+   ],
+   "medianRiseNats": 0.31061
+  },
+  {
+   "layer": 0,
+   "lens": "S.out",
+   "n": 64,
+   "medianR": 0.3639,
+   "medianR_CI": [
+    0.337,
+    0.3784
+   ],
+   "tau99": 0.2475,
+   "passRate": 0.8594,
+   "passCI": [
+    0.7538,
+    0.9242
+   ],
+   "nullPassRate": 0.0102,
+   "top10Rise": 0.9531,
+   "top10RiseCI": [
+    0.871,
+    0.9839
+   ],
+   "medianRiseNats": 0.45434
+  },
+  {
+   "layer": 0,
+   "lens": "S.mid",
+   "n": 64,
+   "medianR": 0.2684,
+   "medianR_CI": [
+    0.2357,
+    0.3026
+   ],
+   "tau99": 0.2344,
+   "passRate": 0.6406,
+   "passCI": [
+    0.5182,
+    0.7471
+   ],
+   "nullPassRate": 0.0102,
+   "top10Rise": 0.9375,
+   "top10RiseCI": [
+    0.85,
+    0.9754
+   ],
+   "medianRiseNats": 0.30371
+  },
+  {
+   "layer": 0,
+   "lens": "R.out",
+   "n": 64,
+   "medianR": 0.7807,
+   "medianR_CI": [
+    0.7571,
+    0.7943
+   ],
+   "tau99": 0.3073,
+   "passRate": 1,
+   "passCI": [
+    0.9434,
+    1
+   ],
+   "nullPassRate": 0.0102,
+   "top10Rise": 1,
+   "top10RiseCI": [
+    0.9434,
+    1
+   ],
+   "medianRiseNats": 0.96679
+  },
+  {
+   "layer": 1,
+   "lens": "logit",
+   "n": 64,
+   "medianR": 0.3914,
+   "medianR_CI": [
+    0.3628,
+    0.4261
+   ],
+   "tau99": 0.2242,
+   "passRate": 0.9219,
+   "passCI": [
+    0.8298,
+    0.9662
+   ],
+   "nullPassRate": 0.0102,
+   "top10Rise": 0.9688,
+   "top10RiseCI": [
+    0.893,
+    0.9914
+   ],
+   "medianRiseNats": 0.28683
+  },
+  {
+   "layer": 1,
+   "lens": "tuned",
+   "n": 64,
+   "medianR": 0.3302,
+   "medianR_CI": [
+    0.289,
+    0.3559
+   ],
+   "tau99": 0.2637,
+   "passRate": 0.75,
+   "passCI": [
+    0.6318,
+    0.8399
+   ],
+   "nullPassRate": 0.0102,
+   "top10Rise": 0.9844,
+   "top10RiseCI": [
+    0.9167,
+    0.9972
+   ],
+   "medianRiseNats": 0.32389
+  },
+  {
+   "layer": 1,
+   "lens": "R.mid",
+   "n": 64,
+   "medianR": 0.6741,
+   "medianR_CI": [
+    0.6599,
+    0.7014
+   ],
+   "tau99": 0.3035,
+   "passRate": 1,
+   "passCI": [
+    0.9434,
+    1
+   ],
+   "nullPassRate": 0.0102,
+   "top10Rise": 1,
+   "top10RiseCI": [
+    0.9434,
+    1
+   ],
+   "medianRiseNats": 0.62779
+  },
+  {
+   "layer": 1,
+   "lens": "S.out",
+   "n": 64,
+   "medianR": 0.3388,
+   "medianR_CI": [
+    0.3116,
+    0.3787
+   ],
+   "tau99": 0.2475,
+   "passRate": 0.8594,
+   "passCI": [
+    0.7538,
+    0.9242
+   ],
+   "nullPassRate": 0.0102,
+   "top10Rise": 0.9688,
+   "top10RiseCI": [
+    0.893,
+    0.9914
+   ],
+   "medianRiseNats": 0.29221
+  },
+  {
+   "layer": 1,
+   "lens": "S.mid",
+   "n": 64,
+   "medianR": 0.3503,
+   "medianR_CI": [
+    0.3312,
+    0.4068
+   ],
+   "tau99": 0.2525,
+   "passRate": 0.9063,
+   "passCI": [
+    0.8102,
+    0.9563
+   ],
+   "nullPassRate": 0.0102,
+   "top10Rise": 1,
+   "top10RiseCI": [
+    0.9434,
+    1
+   ],
+   "medianRiseNats": 0.31332
+  },
+  {
+   "layer": 1,
+   "lens": "R.out",
+   "n": 64,
+   "medianR": 0.8039,
+   "medianR_CI": [
+    0.7888,
+    0.816
+   ],
+   "tau99": 0.2955,
+   "passRate": 1,
+   "passCI": [
+    0.9434,
+    1
+   ],
+   "nullPassRate": 0.0102,
+   "top10Rise": 1,
+   "top10RiseCI": [
+    0.9434,
+    1
+   ],
+   "medianRiseNats": 0.75467
+  },
+  {
+   "layer": 2,
+   "lens": "logit",
+   "n": 64,
+   "medianR": 0.3773,
+   "medianR_CI": [
+    0.3633,
+    0.4013
+   ],
+   "tau99": 0.2018,
+   "passRate": 0.9688,
+   "passCI": [
+    0.893,
+    0.9914
+   ],
+   "nullPassRate": 0.0102,
+   "top10Rise": 0.9844,
+   "top10RiseCI": [
+    0.9167,
+    0.9972
+   ],
+   "medianRiseNats": 0.40897
+  },
+  {
+   "layer": 2,
+   "lens": "tuned",
+   "n": 64,
+   "medianR": 0.3537,
+   "medianR_CI": [
+    0.3203,
+    0.3902
+   ],
+   "tau99": 0.2579,
+   "passRate": 0.7813,
+   "passCI": [
+    0.6657,
+    0.865
+   ],
+   "nullPassRate": 0.0102,
+   "top10Rise": 0.9688,
+   "top10RiseCI": [
+    0.893,
+    0.9914
+   ],
+   "medianRiseNats": 0.4097
+  },
+  {
+   "layer": 2,
+   "lens": "R.mid",
+   "n": 64,
+   "medianR": 0.6849,
+   "medianR_CI": [
+    0.6555,
+    0.711
+   ],
+   "tau99": 0.2865,
+   "passRate": 1,
+   "passCI": [
+    0.9434,
+    1
+   ],
+   "nullPassRate": 0.0102,
+   "top10Rise": 1,
+   "top10RiseCI": [
+    0.9434,
+    1
+   ],
+   "medianRiseNats": 0.76655
+  },
+  {
+   "layer": 2,
+   "lens": "S.out",
+   "n": 64,
+   "medianR": 0.2913,
+   "medianR_CI": [
+    0.2577,
+    0.3287
+   ],
+   "tau99": 0.2394,
+   "passRate": 0.7188,
+   "passCI": [
+    0.5987,
+    0.8141
+   ],
+   "nullPassRate": 0.0102,
+   "top10Rise": 0.8906,
+   "top10RiseCI": [
+    0.791,
+    0.946
+   ],
+   "medianRiseNats": 0.30985
+  },
+  {
+   "layer": 2,
+   "lens": "S.mid",
+   "n": 64,
+   "medianR": 0.3123,
+   "medianR_CI": [
+    0.2689,
+    0.3279
+   ],
+   "tau99": 0.2349,
+   "passRate": 0.7656,
+   "passCI": [
+    0.6487,
+    0.8525
+   ],
+   "nullPassRate": 0.0102,
+   "top10Rise": 0.9375,
+   "top10RiseCI": [
+    0.85,
+    0.9754
+   ],
+   "medianRiseNats": 0.30158
+  },
+  {
+   "layer": 2,
+   "lens": "R.out",
+   "n": 64,
+   "medianR": 0.8384,
+   "medianR_CI": [
+    0.8236,
+    0.852
+   ],
+   "tau99": 0.2828,
+   "passRate": 1,
+   "passCI": [
+    0.9434,
+    1
+   ],
+   "nullPassRate": 0.0102,
+   "top10Rise": 1,
+   "top10RiseCI": [
+    0.9434,
+    1
+   ],
+   "medianRiseNats": 0.92218
+  },
+  {
+   "layer": 3,
+   "lens": "logit",
+   "n": 64,
+   "medianR": 0.4121,
+   "medianR_CI": [
+    0.3996,
+    0.4358
+   ],
+   "tau99": 0.233,
+   "passRate": 0.9688,
+   "passCI": [
+    0.893,
+    0.9914
+   ],
+   "nullPassRate": 0.0102,
+   "top10Rise": 0.9688,
+   "top10RiseCI": [
+    0.893,
+    0.9914
+   ],
+   "medianRiseNats": 0.48143
+  },
+  {
+   "layer": 3,
+   "lens": "tuned",
+   "n": 64,
+   "medianR": 0.4382,
+   "medianR_CI": [
+    0.3894,
+    0.4632
+   ],
+   "tau99": 0.2707,
+   "passRate": 0.9531,
+   "passCI": [
+    0.871,
+    0.9839
+   ],
+   "nullPassRate": 0.0102,
+   "top10Rise": 1,
+   "top10RiseCI": [
+    0.9434,
+    1
+   ],
+   "medianRiseNats": 0.50463
+  },
+  {
+   "layer": 3,
+   "lens": "R.mid",
+   "n": 64,
+   "medianR": 0.7209,
+   "medianR_CI": [
+    0.6928,
+    0.7361
+   ],
+   "tau99": 0.2889,
+   "passRate": 1,
+   "passCI": [
+    0.9434,
+    1
+   ],
+   "nullPassRate": 0.0102,
+   "top10Rise": 1,
+   "top10RiseCI": [
+    0.9434,
+    1
+   ],
+   "medianRiseNats": 0.8792
+  },
+  {
+   "layer": 3,
+   "lens": "S.out",
+   "n": 64,
+   "medianR": 0.325,
+   "medianR_CI": [
+    0.2952,
+    0.3406
+   ],
+   "tau99": 0.258,
+   "passRate": 0.6875,
+   "passCI": [
+    0.5661,
+    0.7877
+   ],
+   "nullPassRate": 0.0102,
+   "top10Rise": 0.8438,
+   "top10RiseCI": [
+    0.7357,
+    0.9129
+   ],
+   "medianRiseNats": 0.32356
+  },
+  {
+   "layer": 3,
+   "lens": "S.mid",
+   "n": 64,
+   "medianR": 0.321,
+   "medianR_CI": [
+    0.2974,
+    0.3507
+   ],
+   "tau99": 0.2493,
+   "passRate": 0.7969,
+   "passCI": [
+    0.6829,
+    0.8773
+   ],
+   "nullPassRate": 0.0102,
+   "top10Rise": 0.9375,
+   "top10RiseCI": [
+    0.85,
+    0.9754
+   ],
+   "medianRiseNats": 0.36673
+  },
+  {
+   "layer": 3,
+   "lens": "R.out",
+   "n": 64,
+   "medianR": 0.8584,
+   "medianR_CI": [
+    0.8507,
+    0.8716
+   ],
+   "tau99": 0.2958,
+   "passRate": 1,
+   "passCI": [
+    0.9434,
+    1
+   ],
+   "nullPassRate": 0.0102,
+   "top10Rise": 1,
+   "top10RiseCI": [
+    0.9434,
+    1
+   ],
+   "medianRiseNats": 1.0355
+  },
+  {
+   "layer": 4,
+   "lens": "logit",
+   "n": 64,
+   "medianR": 0.4708,
+   "medianR_CI": [
+    0.4412,
+    0.5048
+   ],
+   "tau99": 0.2336,
+   "passRate": 1,
+   "passCI": [
+    0.9434,
+    1
+   ],
+   "nullPassRate": 0.0102,
+   "top10Rise": 1,
+   "top10RiseCI": [
+    0.9434,
+    1
+   ],
+   "medianRiseNats": 0.70133
+  },
+  {
+   "layer": 4,
+   "lens": "tuned",
+   "n": 64,
+   "medianR": 0.4944,
+   "medianR_CI": [
+    0.4628,
+    0.527
+   ],
+   "tau99": 0.2703,
+   "passRate": 0.9688,
+   "passCI": [
+    0.893,
+    0.9914
+   ],
+   "nullPassRate": 0.0102,
+   "top10Rise": 1,
+   "top10RiseCI": [
+    0.9434,
+    1
+   ],
+   "medianRiseNats": 0.57765
+  },
+  {
+   "layer": 4,
+   "lens": "R.mid",
+   "n": 64,
+   "medianR": 0.763,
+   "medianR_CI": [
+    0.7468,
+    0.7816
+   ],
+   "tau99": 0.2843,
+   "passRate": 1,
+   "passCI": [
+    0.9434,
+    1
+   ],
+   "nullPassRate": 0.0102,
+   "top10Rise": 1,
+   "top10RiseCI": [
+    0.9434,
+    1
+   ],
+   "medianRiseNats": 1.01356
+  },
+  {
+   "layer": 4,
+   "lens": "S.out",
+   "n": 64,
+   "medianR": 0.3222,
+   "medianR_CI": [
+    0.2969,
+    0.3666
+   ],
+   "tau99": 0.2617,
+   "passRate": 0.6563,
+   "passCI": [
+    0.534,
+    0.7608
+   ],
+   "nullPassRate": 0.0102,
+   "top10Rise": 0.9531,
+   "top10RiseCI": [
+    0.871,
+    0.9839
+   ],
+   "medianRiseNats": 0.42041
+  },
+  {
+   "layer": 4,
+   "lens": "S.mid",
+   "n": 64,
+   "medianR": 0.304,
+   "medianR_CI": [
+    0.2828,
+    0.3633
+   ],
+   "tau99": 0.2637,
+   "passRate": 0.6875,
+   "passCI": [
+    0.5661,
+    0.7877
+   ],
+   "nullPassRate": 0.0102,
+   "top10Rise": 0.9219,
+   "top10RiseCI": [
+    0.8298,
+    0.9662
+   ],
+   "medianRiseNats": 0.3895
+  },
+  {
+   "layer": 4,
+   "lens": "R.out",
+   "n": 64,
+   "medianR": 0.8913,
+   "medianR_CI": [
+    0.8834,
+    0.8984
+   ],
+   "tau99": 0.2949,
+   "passRate": 1,
+   "passCI": [
+    0.9434,
+    1
+   ],
+   "nullPassRate": 0.0102,
+   "top10Rise": 1,
+   "top10RiseCI": [
+    0.9434,
+    1
+   ],
+   "medianRiseNats": 1.19679
+  },
+  {
+   "layer": 5,
+   "lens": "logit",
+   "n": 64,
+   "medianR": 0.5396,
+   "medianR_CI": [
+    0.5227,
+    0.561
+   ],
+   "tau99": 0.2179,
+   "passRate": 1,
+   "passCI": [
+    0.9434,
+    1
+   ],
+   "nullPassRate": 0.0102,
+   "top10Rise": 1,
+   "top10RiseCI": [
+    0.9434,
+    1
+   ],
+   "medianRiseNats": 0.9116
+  },
+  {
+   "layer": 5,
+   "lens": "tuned",
+   "n": 64,
+   "medianR": 0.5852,
+   "medianR_CI": [
+    0.5712,
+    0.6142
+   ],
+   "tau99": 0.2641,
+   "passRate": 1,
+   "passCI": [
+    0.9434,
+    1
+   ],
+   "nullPassRate": 0.0102,
+   "top10Rise": 1,
+   "top10RiseCI": [
+    0.9434,
+    1
+   ],
+   "medianRiseNats": 1.03609
+  },
+  {
+   "layer": 5,
+   "lens": "R.mid",
+   "n": 64,
+   "medianR": 0.7493,
+   "medianR_CI": [
+    0.7249,
+    0.7678
+   ],
+   "tau99": 0.2594,
+   "passRate": 1,
+   "passCI": [
+    0.9434,
+    1
+   ],
+   "nullPassRate": 0.0102,
+   "top10Rise": 1,
+   "top10RiseCI": [
+    0.9434,
+    1
+   ],
+   "medianRiseNats": 1.22446
+  },
+  {
+   "layer": 5,
+   "lens": "S.out",
+   "n": 64,
+   "medianR": 0.2886,
+   "medianR_CI": [
+    0.2535,
+    0.334
+   ],
+   "tau99": 0.2551,
+   "passRate": 0.5781,
+   "passCI": [
+    0.4561,
+    0.6913
+   ],
+   "nullPassRate": 0.0102,
+   "top10Rise": 0.8906,
+   "top10RiseCI": [
+    0.791,
+    0.946
+   ],
+   "medianRiseNats": 0.45094
+  },
+  {
+   "layer": 5,
+   "lens": "S.mid",
+   "n": 64,
+   "medianR": 0.2763,
+   "medianR_CI": [
+    0.259,
+    0.3191
+   ],
+   "tau99": 0.2579,
+   "passRate": 0.6094,
+   "passCI": [
+    0.4869,
+    0.7194
+   ],
+   "nullPassRate": 0.0102,
+   "top10Rise": 0.9531,
+   "top10RiseCI": [
+    0.871,
+    0.9839
+   ],
+   "medianRiseNats": 0.4528
+  },
+  {
+   "layer": 5,
+   "lens": "R.out",
+   "n": 64,
+   "medianR": 0.9147,
+   "medianR_CI": [
+    0.9031,
+    0.9182
+   ],
+   "tau99": 0.2518,
+   "passRate": 1,
+   "passCI": [
+    0.9434,
+    1
+   ],
+   "nullPassRate": 0.0102,
+   "top10Rise": 1,
+   "top10RiseCI": [
+    0.9434,
+    1
+   ],
+   "medianRiseNats": 1.4657
+  },
+  {
+   "layer": 6,
+   "lens": "logit",
+   "n": 64,
+   "medianR": 0.6459,
+   "medianR_CI": [
+    0.6336,
+    0.6676
+   ],
+   "tau99": 0.2382,
+   "passRate": 1,
+   "passCI": [
+    0.9434,
+    1
+   ],
+   "nullPassRate": 0.0102,
+   "top10Rise": 1,
+   "top10RiseCI": [
+    0.9434,
+    1
+   ],
+   "medianRiseNats": 1.86473
+  },
+  {
+   "layer": 6,
+   "lens": "tuned",
+   "n": 64,
+   "medianR": 0.6968,
+   "medianR_CI": [
+    0.6796,
+    0.725
+   ],
+   "tau99": 0.2796,
+   "passRate": 1,
+   "passCI": [
+    0.9434,
+    1
+   ],
+   "nullPassRate": 0.0102,
+   "top10Rise": 1,
+   "top10RiseCI": [
+    0.9434,
+    1
+   ],
+   "medianRiseNats": 1.89689
+  },
+  {
+   "layer": 6,
+   "lens": "R.mid",
+   "n": 64,
+   "medianR": 0.7305,
+   "medianR_CI": [
+    0.7259,
+    0.7602
+   ],
+   "tau99": 0.2801,
+   "passRate": 1,
+   "passCI": [
+    0.9434,
+    1
+   ],
+   "nullPassRate": 0.0102,
+   "top10Rise": 1,
+   "top10RiseCI": [
+    0.9434,
+    1
+   ],
+   "medianRiseNats": 2.08058
+  },
+  {
+   "layer": 6,
+   "lens": "S.out",
+   "n": 64,
+   "medianR": 0.204,
+   "medianR_CI": [
+    0.1694,
+    0.2488
+   ],
+   "tau99": 0.271,
+   "passRate": 0.2969,
+   "passCI": [
+    0.199,
+    0.4177
+   ],
+   "nullPassRate": 0.0102,
+   "top10Rise": 0.8438,
+   "top10RiseCI": [
+    0.7357,
+    0.9129
+   ],
+   "medianRiseNats": 0.47508
+  },
+  {
+   "layer": 6,
+   "lens": "S.mid",
+   "n": 64,
+   "medianR": 0.2264,
+   "medianR_CI": [
+    0.1934,
+    0.2655
+   ],
+   "tau99": 0.2641,
+   "passRate": 0.375,
+   "passCI": [
+    0.2667,
+    0.4975
+   ],
+   "nullPassRate": 0.0102,
+   "top10Rise": 0.9219,
+   "top10RiseCI": [
+    0.8298,
+    0.9662
+   ],
+   "medianRiseNats": 0.55252
+  },
+  {
+   "layer": 6,
+   "lens": "R.out",
+   "n": 64,
+   "medianR": 0.9549,
+   "medianR_CI": [
+    0.9503,
+    0.9587
+   ],
+   "tau99": 0.2868,
+   "passRate": 1,
+   "passCI": [
+    0.9434,
+    1
+   ],
+   "nullPassRate": 0.0102,
+   "top10Rise": 1,
+   "top10RiseCI": [
+    0.9434,
+    1
+   ],
+   "medianRiseNats": 2.69767
+  },
+  {
+   "layer": 7,
+   "lens": "logit",
+   "n": 64,
+   "medianR": 0.9945,
+   "medianR_CI": [
+    0.9935,
+    0.9961
+   ],
+   "tau99": 0.3212,
+   "passRate": 1,
+   "passCI": [
+    0.9434,
+    1
+   ],
+   "nullPassRate": 0.0102,
+   "top10Rise": 1,
+   "top10RiseCI": [
+    0.9434,
+    1
+   ],
+   "medianRiseNats": 3.34705
+  },
+  {
+   "layer": 7,
+   "lens": "tuned",
+   "n": 64,
+   "medianR": 0.9946,
+   "medianR_CI": [
+    0.9934,
+    0.996
+   ],
+   "tau99": 0.3213,
+   "passRate": 1,
+   "passCI": [
+    0.9434,
+    1
+   ],
+   "nullPassRate": 0.0102,
+   "top10Rise": 1,
+   "top10RiseCI": [
+    0.9434,
+    1
+   ],
+   "medianRiseNats": 3.34705
+  },
+  {
+   "layer": 7,
+   "lens": "R.mid",
+   "n": 64,
+   "medianR": 0.6875,
+   "medianR_CI": [
+    0.671,
+    0.7057
+   ],
+   "tau99": 0.3193,
+   "passRate": 1,
+   "passCI": [
+    0.9434,
+    1
+   ],
+   "nullPassRate": 0.0102,
+   "top10Rise": 1,
+   "top10RiseCI": [
+    0.9434,
+    1
+   ],
+   "medianRiseNats": 2.21653
+  },
+  {
+   "layer": 7,
+   "lens": "S.out",
+   "n": 64,
+   "medianR": 0.2408,
+   "medianR_CI": [
+    0.2077,
+    0.2615
+   ],
+   "tau99": 0.2508,
+   "passRate": 0.4375,
+   "passCI": [
+    0.3229,
+    0.5591
+   ],
+   "nullPassRate": 0.0102,
+   "top10Rise": 0.8438,
+   "top10RiseCI": [
+    0.7357,
+    0.9129
+   ],
+   "medianRiseNats": 0.59157
+  },
+  {
+   "layer": 7,
+   "lens": "S.mid",
+   "n": 64,
+   "medianR": 0.2169,
+   "medianR_CI": [
+    0.1644,
+    0.2387
+   ],
+   "tau99": 0.2556,
+   "passRate": 0.2969,
+   "passCI": [
+    0.199,
+    0.4177
+   ],
+   "nullPassRate": 0.0102,
+   "top10Rise": 0.875,
+   "top10RiseCI": [
+    0.7723,
+    0.9353
+   ],
+   "medianRiseNats": 0.63322
+  }
+ ],
+ "testB": []
+}
