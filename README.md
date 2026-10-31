@@ -1,6 +1,16 @@
-# NEURALESE v13: interpretability and weight-surgery lab (TinyStories-8M, 100% in-browser) — ⚛ Powered by Tsotchke
+# NEURALESE v14: interpretability and weight-surgery lab (TinyStories-8M, 100% in-browser) — ⚛ Powered by Tsotchke
 
 Live: https://0thernes.github.io/neuralese/ · **New here? [Beginner's guide to steering](docs/STEERING_GUIDE.md)** · Audit: [AUDIT.md](AUDIT.md) · Tsotchke analysis: [docs/TSOTCHKE.md](docs/TSOTCHKE.md) · Claims & evidence: [docs/CLAIMS.md](docs/CLAIMS.md) · Stack and versions: [docs/STACK.md](docs/STACK.md)
+
+## v14.0.0: Neuron Lens (31 Oct 2026)
+- Fitted R-, S- and mid-lenses for TinyStories-8M (`lens/ts8m/`, hash-pinned), with a neuron and attention-head database covering all 8×1024 neurons and 8×16 heads.
+- Three new tabs under INTERPRET:
+  - **NEURON LENS**: a searchable 3D atlas, neuron and head cards, and a live steer test.
+  - **LENS VALID**: the pre-registered validation, with CIs and the failures included.
+  - **LENS CATALOG**: an attributed CC BY 4.0 sample of the Qwen3-8B/Gemma data.
+- An in-browser refit runs in a Web Worker.
+- The method is prior art by @_a9lim and @treetowntree (stdlogits/neuron-lens), credited in `docs/NEURON_LENS_METHOD.md`. The code is an original implementation.
+- Results are in `docs/CLAIMS-v14.md`: R.out predicts steering better than the logit and tuned lenses (P1/P2 supported), and the mid-lens advantage does not reproduce at 8M (P3/P4 not supported). The roadmap is in `docs/ROADMAP-v14.md`.
 
 ## v13.0.x: native apps (26 Oct 2026; 13.0.1: Electron 42)
 - **Windows** (x64): `Neuralese-Setup-13.0.1-x64.exe` is an NSIS installer that lets you choose the install folder. `Neuralese-13.0.1-x64-portable.exe` runs without installing. Both are Electron builds and both are unsigned, so SmartScreen will warn ("More info → Run anyway").

@@ -7,7 +7,7 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 env:
-  VER: 13.0.1
+  VER: 14.0.0
 jobs:
   test:
     runs-on: ubuntu-24.04

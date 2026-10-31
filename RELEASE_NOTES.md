@@ -1,4 +1,12 @@
-# Neuralese v13.0.1
+# Neuralese v14.0.0
+
+## 14.0.0
+- Neuron Lens: original JS implementation of R/S/mid lenses (RelP tape, forward/reverse doc Jacobians) for TinyStories-8M; prior-art credit in docs/NEURON_LENS_METHOD.md.
+- lens/ts8m: lenses.f32 (sha256 6a668f3e…7636), validation.json, drivers.json, per-layer neuron/head DB with db-manifest sha256s.
+- New tabs NEURON LENS / LENS VALID / LENS CATALOG; Web Worker refit.
+- Pre-registered validation (docs/PREREG-v14.md + Amendment 1): P1, P2, P5 supported; P3, P4 not supported (docs/CLAIMS-v14.md).
+- Attributed CC BY 4.0 sample of stdlogits/neuron-lens dataset in lens/ext (no contexts).
+- ROADMAP-v14 for v14.1–v14.9.
 
 ## 13.0.1
 - Electron 38 → 42.11.16 and puppeteer-core 24 → 25.16.0 (Dependabot security updates, PR #2).

@@ -1,0 +1,25 @@
+{
+ "format": "neuralese-neuron-lens-db-v1",
+ "model": "roneneldan/TinyStories-8M",
+ "lens_sha256": "6a668f3e399b0a72f9bad883c86d9b6cb593d8d67c116755e0007a6d96157636",
+ "kept": 7439,
+ "topK": 10,
+ "layers": 8,
+ "neurons": 1024,
+ "heads": 16,
+ "files": {
+  "db/L0.json": "ce7020d935ee0df167f3249cebc456a7c681250deddf74d9d4a4a634a18ae9e9",
+  "db/L1.json": "11f25bce1e900daceaf5fb206602cabe020a6d8a5e610b3dce02c9ed0c375938",
+  "db/L2.json": "33a68db95187d502b71d6d3666ff276298871c7c003eafebdbc81f7ba6835b1a",
+  "db/L3.json": "f1e2565fc347a8d6b93988c0fe28abdb73f142122a5e891a58b026d0207de77e",
+  "db/L4.json": "299f9bca864ad97fcf33478173de2d1518963617c7fcd209f52ef8a0100cad69",
+  "db/L5.json": "7cf2244bca0ea14e9227406a7359fad4e07248fbedd12aedde496a6ab12cf0f8",
+  "db/L6.json": "31c0ca81d4bec31e831fd9db7ea180894d0835f645098e35ef1c7cab30e97e09",
+  "db/L7.json": "4142ea9741a3549deb473de7bcaf01e1c8df7dc00705a6525be6c0c8b76d5657",
+  "db/tokens.json": "466a9d360bdb2856ad82688ec2e99ec4ea4e16b30f16e4331514476aa6af9b52"
+ },
+ "fields": {
+  "neuron": "in_S=S.mid read of the input direction; in_R=R.mid read; out_R=R.out read of the write (L7: logit lens); out_S=S.out footprint of the write; out_logit=logit lens; out_R_neg=most suppressed; drivers=exact drivers; ctx=top firing [context, token] over 64 stories (21200..)",
+  "head": "ov_R/ov_S=diagonal-z copy reads (R.mid / S.mid); writes_R=R.mid read of the head's frequency-weighted mean write; qk_S=key tokens under the mean query; qk_self=tokens that seek themselves; attn_*=measured attention mass on previous/first/self token over 64 stories"
+ }
+}

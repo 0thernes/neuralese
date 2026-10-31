@@ -2,7 +2,7 @@
 // (index.html, style.css, README.md, cli.mjs, every root *.js except eslint.config.js, and frontier/ hub/ learn/ tsotchke/ vendor/).
 // Used by the gh-pages deploy, the Electron desktop builds and the Capacitor Android/iOS builds. Usage: node tools/build-www.mjs [outDir]
 import fs from 'node:fs'; import path from 'node:path';
-export const DIRS = ['frontier', 'hub', 'learn', 'tsotchke', 'vendor'];
+export const DIRS = ['frontier', 'hub', 'learn', 'lens', 'tsotchke', 'vendor'];
 export function wwwFiles(root = '.') { return [...fs.readdirSync(root).filter((f) => (/\.js$/.test(f) && f !== 'eslint.config.js') || ['index.html', 'style.css', 'README.md', 'cli.mjs'].includes(f)).sort(), ...DIRS]; }
 if (import.meta.url === `file://${process.argv[1]}`) {
   const out = process.argv[2] || 'www'; fs.rmSync(out, { recursive: true, force: true }); fs.mkdirSync(out, { recursive: true });
