@@ -70,3 +70,4 @@ table.kv td:first-child{color:var(--m);white-space:nowrap}
 .prov{font-size:11px;padding:4px 8px;margin:0 0 6px;border-left:3px solid var(--m);background:#ffffff08}.prov-stored{border-color:var(--w)}.prov-mixed{border-color:#a78bfa}.prov-checks{border-color:var(--a)}.prov-sim{border-color:#60a5fa}
 #guide{position:fixed;left:12px;top:44px;z-index:30;max-width:340px;background:var(--p2);border:1px solid var(--a);border-radius:6px;padding:8px 10px;box-shadow:0 4px 18px #0008}#guide.hidden{display:none}
 fieldset{min-width:0;max-width:100%}#panes canvas{max-width:100%}
+.chip.neg{color:#fb7185}.chip.hot{color:#fbbf24}#nlCard table td{vertical-align:top;padding:2px 0}#nlCard .chip,#nlHits .chip,#nlSteerRes .chip{display:inline-block;margin:1px;border:1px solid var(--b);border-radius:4px}#nlHits a{margin-right:4px}

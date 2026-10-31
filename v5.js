@@ -1,22 +1,23 @@
 // v5 shell: grouped tabs, module install, theme, resizable dock, export bar, shortcuts, terminal + learning center.
-import { GROUPS, runs, exportFor, parseLayers, $, $$ } from './lab-ui.js?v=13';
-import * as LM from './lab-model.js?v=13';
-import * as LI from './lab-interpret.js?v=13';
-import * as LV from './lab-intervene.js?v=13';
-import * as LE from './lab-eval.js?v=13';
-import * as LS from './lab-science.js?v=13';
-import * as LR from './lab-research.js?v=13';
-import * as LT from './lab-tsotchke.js?v=13';
-import * as LF from './lab-frontier.js?v=13';
-import * as LH from './lab-hub.js?v=13';
-import { installModes } from './viz3d.js?v=13';
-import { redrawAll } from './charts.js?v=13';
-import { makeTerminal, termMarkup, mountTerminal, VERSION } from './term.js?v=13';
-import { learnMarkup, mountLearn } from './learn/learn.js?v=13';
-import { banner } from './provenance.js?v=13';
-import { installGuide } from './guide.js?v=13';
+import { GROUPS, runs, exportFor, parseLayers, $, $$ } from './lab-ui.js?v=14';
+import * as LM from './lab-model.js?v=14';
+import * as LI from './lab-interpret.js?v=14';
+import * as LV from './lab-intervene.js?v=14';
+import * as LE from './lab-eval.js?v=14';
+import * as LS from './lab-science.js?v=14';
+import * as LR from './lab-research.js?v=14';
+import * as LT from './lab-tsotchke.js?v=14';
+import * as LF from './lab-frontier.js?v=14';
+import * as LH from './lab-hub.js?v=14';
+import * as LN from './lab-lens.js?v=14';
+import { installModes } from './viz3d.js?v=14';
+import { redrawAll } from './charts.js?v=14';
+import { makeTerminal, termMarkup, mountTerminal, VERSION } from './term.js?v=14';
+import { learnMarkup, mountLearn } from './learn/learn.js?v=14';
+import { banner } from './provenance.js?v=14';
+import { installGuide } from './guide.js?v=14';
 export { VERSION };
-const MODS = [LM, LI, LV, LE, LS, LR, LT, LF, LH];
+const MODS = [LM, LI, LN, LV, LE, LS, LR, LT, LF, LH];
 const AUTO = { arch: 'arch', params: 'params', timeline: 'timeline', runs: 'runs' }; // cheap views rendered on open
 export function buildV5(TABS, P) {
   const long = {};

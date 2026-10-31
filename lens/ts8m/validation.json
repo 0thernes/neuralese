@@ -1,0 +1,1623 @@
+{
+ "prereg_sha256": "299a8ec6d99a59644e5322f2f0dfaf76a847f6baefe8152896a2f46511243590",
+ "lens_sha256": "6a668f3e399b0a72f9bad883c86d9b6cb593d8d67c116755e0007a6d96157636",
+ "quick": false,
+ "kept": 7439,
+ "driverTokens": 3000,
+ "evalDocs": 16,
+ "seconds": 1676,
+ "testA": [
+  {
+   "layer": 0,
+   "lens": "logit",
+   "n": 24,
+   "medianR": 0.2956,
+   "medianR_CI": [
+    0.2461,
+    0.3504
+   ],
+   "tau99": 0.1978,
+   "passRate": 0.9167,
+   "passCI": [
+    0.7415,
+    0.9768
+   ],
+   "nullPassRate": 0.0109,
+   "top10Rise": 0.9583,
+   "top10RiseCI": [
+    0.7976,
+    0.9926
+   ],
+   "medianRiseNats": 0.35334
+  },
+  {
+   "layer": 0,
+   "lens": "tuned",
+   "n": 24,
+   "medianR": 0.2737,
+   "medianR_CI": [
+    0.2224,
+    0.3028
+   ],
+   "tau99": 0.2863,
+   "passRate": 0.4167,
+   "passCI": [
+    0.2447,
+    0.6117
+   ],
+   "nullPassRate": 0.0109,
+   "top10Rise": 1,
+   "top10RiseCI": [
+    0.862,
+    1
+   ],
+   "medianRiseNats": 0.34663
+  },
+  {
+   "layer": 0,
+   "lens": "R.mid",
+   "n": 24,
+   "medianR": 0.2487,
+   "medianR_CI": [
+    0.1403,
+    0.4255
+   ],
+   "tau99": 0.3153,
+   "passRate": 0.4167,
+   "passCI": [
+    0.2447,
+    0.6117
+   ],
+   "nullPassRate": 0.0109,
+   "top10Rise": 0.7917,
+   "top10RiseCI": [
+    0.5953,
+    0.9076
+   ],
+   "medianRiseNats": 0.32244
+  },
+  {
+   "layer": 0,
+   "lens": "S.out",
+   "n": 24,
+   "medianR": 0.3467,
+   "medianR_CI": [
+    0.2942,
+    0.406
+   ],
+   "tau99": 0.2351,
+   "passRate": 0.875,
+   "passCI": [
+    0.69,
+    0.9566
+   ],
+   "nullPassRate": 0.0109,
+   "top10Rise": 0.875,
+   "top10RiseCI": [
+    0.69,
+    0.9566
+   ],
+   "medianRiseNats": 0.37609
+  },
+  {
+   "layer": 0,
+   "lens": "S.mid",
+   "n": 24,
+   "medianR": 0.2375,
+   "medianR_CI": [
+    0.2144,
+    0.2969
+   ],
+   "tau99": 0.2151,
+   "passRate": 0.625,
+   "passCI": [
+    0.4271,
+    0.7884
+   ],
+   "nullPassRate": 0.0109,
+   "top10Rise": 0.875,
+   "top10RiseCI": [
+    0.69,
+    0.9566
+   ],
+   "medianRiseNats": 0.26398
+  },
+  {
+   "layer": 0,
+   "lens": "R.out",
+   "n": 24,
+   "medianR": 0.7943,
+   "medianR_CI": [
+    0.73,
+    0.8033
+   ],
+   "tau99": 0.2783,
+   "passRate": 1,
+   "passCI": [
+    0.862,
+    1
+   ],
+   "nullPassRate": 0.0109,
+   "top10Rise": 1,
+   "top10RiseCI": [
+    0.862,
+    1
+   ],
+   "medianRiseNats": 0.90172
+  },
+  {
+   "layer": 1,
+   "lens": "logit",
+   "n": 24,
+   "medianR": 0.3914,
+   "medianR_CI": [
+    0.307,
+    0.4289
+   ],
+   "tau99": 0.1975,
+   "passRate": 0.9583,
+   "passCI": [
+    0.7976,
+    0.9926
+   ],
+   "nullPassRate": 0.0109,
+   "top10Rise": 1,
+   "top10RiseCI": [
+    0.862,
+    1
+   ],
+   "medianRiseNats": 0.28683
+  },
+  {
+   "layer": 1,
+   "lens": "tuned",
+   "n": 24,
+   "medianR": 0.3185,
+   "medianR_CI": [
+    0.2825,
+    0.3621
+   ],
+   "tau99": 0.2603,
+   "passRate": 0.75,
+   "passCI": [
+    0.551,
+    0.88
+   ],
+   "nullPassRate": 0.0109,
+   "top10Rise": 1,
+   "top10RiseCI": [
+    0.862,
+    1
+   ],
+   "medianRiseNats": 0.3205
+  },
+  {
+   "layer": 1,
+   "lens": "R.mid",
+   "n": 24,
+   "medianR": 0.6726,
+   "medianR_CI": [
+    0.635,
+    0.6994
+   ],
+   "tau99": 0.2924,
+   "passRate": 1,
+   "passCI": [
+    0.862,
+    1
+   ],
+   "nullPassRate": 0.0109,
+   "top10Rise": 1,
+   "top10RiseCI": [
+    0.862,
+    1
+   ],
+   "medianRiseNats": 0.62453
+  },
+  {
+   "layer": 1,
+   "lens": "S.out",
+   "n": 24,
+   "medianR": 0.3388,
+   "medianR_CI": [
+    0.2903,
+    0.3904
+   ],
+   "tau99": 0.2445,
+   "passRate": 0.875,
+   "passCI": [
+    0.69,
+    0.9566
+   ],
+   "nullPassRate": 0.0109,
+   "top10Rise": 1,
+   "top10RiseCI": [
+    0.862,
+    1
+   ],
+   "medianRiseNats": 0.27628
+  },
+  {
+   "layer": 1,
+   "lens": "S.mid",
+   "n": 24,
+   "medianR": 0.3938,
+   "medianR_CI": [
+    0.3023,
+    0.4324
+   ],
+   "tau99": 0.2581,
+   "passRate": 0.7083,
+   "passCI": [
+    0.5083,
+    0.8509
+   ],
+   "nullPassRate": 0.0109,
+   "top10Rise": 1,
+   "top10RiseCI": [
+    0.862,
+    1
+   ],
+   "medianRiseNats": 0.31332
+  },
+  {
+   "layer": 1,
+   "lens": "R.out",
+   "n": 24,
+   "medianR": 0.8012,
+   "medianR_CI": [
+    0.7824,
+    0.8307
+   ],
+   "tau99": 0.2881,
+   "passRate": 1,
+   "passCI": [
+    0.862,
+    1
+   ],
+   "nullPassRate": 0.0109,
+   "top10Rise": 1,
+   "top10RiseCI": [
+    0.862,
+    1
+   ],
+   "medianRiseNats": 0.75007
+  },
+  {
+   "layer": 2,
+   "lens": "logit",
+   "n": 24,
+   "medianR": 0.3675,
+   "medianR_CI": [
+    0.3404,
+    0.4383
+   ],
+   "tau99": 0.17,
+   "passRate": 1,
+   "passCI": [
+    0.862,
+    1
+   ],
+   "nullPassRate": 0.0109,
+   "top10Rise": 1,
+   "top10RiseCI": [
+    0.862,
+    1
+   ],
+   "medianRiseNats": 0.40218
+  },
+  {
+   "layer": 2,
+   "lens": "tuned",
+   "n": 24,
+   "medianR": 0.3741,
+   "medianR_CI": [
+    0.3269,
+    0.3973
+   ],
+   "tau99": 0.2481,
+   "passRate": 0.7917,
+   "passCI": [
+    0.5953,
+    0.9076
+   ],
+   "nullPassRate": 0.0109,
+   "top10Rise": 0.9583,
+   "top10RiseCI": [
+    0.7976,
+    0.9926
+   ],
+   "medianRiseNats": 0.41092
+  },
+  {
+   "layer": 2,
+   "lens": "R.mid",
+   "n": 24,
+   "medianR": 0.6721,
+   "medianR_CI": [
+    0.6313,
+    0.7227
+   ],
+   "tau99": 0.279,
+   "passRate": 1,
+   "passCI": [
+    0.862,
+    1
+   ],
+   "nullPassRate": 0.0109,
+   "top10Rise": 1,
+   "top10RiseCI": [
+    0.862,
+    1
+   ],
+   "medianRiseNats": 0.71977
+  },
+  {
+   "layer": 2,
+   "lens": "S.out",
+   "n": 24,
+   "medianR": 0.2717,
+   "medianR_CI": [
+    0.2152,
+    0.3645
+   ],
+   "tau99": 0.2148,
+   "passRate": 0.7083,
+   "passCI": [
+    0.5083,
+    0.8509
+   ],
+   "nullPassRate": 0.0109,
+   "top10Rise": 0.9583,
+   "top10RiseCI": [
+    0.7976,
+    0.9926
+   ],
+   "medianRiseNats": 0.30985
+  },
+  {
+   "layer": 2,
+   "lens": "S.mid",
+   "n": 24,
+   "medianR": 0.2834,
+   "medianR_CI": [
+    0.2193,
+    0.3682
+   ],
+   "tau99": 0.206,
+   "passRate": 0.75,
+   "passCI": [
+    0.551,
+    0.88
+   ],
+   "nullPassRate": 0.0109,
+   "top10Rise": 1,
+   "top10RiseCI": [
+    0.862,
+    1
+   ],
+   "medianRiseNats": 0.34534
+  },
+  {
+   "layer": 2,
+   "lens": "R.out",
+   "n": 24,
+   "medianR": 0.8333,
+   "medianR_CI": [
+    0.8225,
+    0.8625
+   ],
+   "tau99": 0.2669,
+   "passRate": 1,
+   "passCI": [
+    0.862,
+    1
+   ],
+   "nullPassRate": 0.0109,
+   "top10Rise": 1,
+   "top10RiseCI": [
+    0.862,
+    1
+   ],
+   "medianRiseNats": 0.86592
+  },
+  {
+   "layer": 3,
+   "lens": "logit",
+   "n": 24,
+   "medianR": 0.3953,
+   "medianR_CI": [
+    0.3519,
+    0.4367
+   ],
+   "tau99": 0.2182,
+   "passRate": 0.9583,
+   "passCI": [
+    0.7976,
+    0.9926
+   ],
+   "nullPassRate": 0.0109,
+   "top10Rise": 1,
+   "top10RiseCI": [
+    0.862,
+    1
+   ],
+   "medianRiseNats": 0.50771
+  },
+  {
+   "layer": 3,
+   "lens": "tuned",
+   "n": 24,
+   "medianR": 0.4165,
+   "medianR_CI": [
+    0.3598,
+    0.4506
+   ],
+   "tau99": 0.2618,
+   "passRate": 1,
+   "passCI": [
+    0.862,
+    1
+   ],
+   "nullPassRate": 0.0109,
+   "top10Rise": 1,
+   "top10RiseCI": [
+    0.862,
+    1
+   ],
+   "medianRiseNats": 0.52232
+  },
+  {
+   "layer": 3,
+   "lens": "R.mid",
+   "n": 24,
+   "medianR": 0.6959,
+   "medianR_CI": [
+    0.6839,
+    0.7315
+   ],
+   "tau99": 0.3033,
+   "passRate": 1,
+   "passCI": [
+    0.862,
+    1
+   ],
+   "nullPassRate": 0.0109,
+   "top10Rise": 1,
+   "top10RiseCI": [
+    0.862,
+    1
+   ],
+   "medianRiseNats": 0.8904
+  },
+  {
+   "layer": 3,
+   "lens": "S.out",
+   "n": 24,
+   "medianR": 0.3266,
+   "medianR_CI": [
+    0.2952,
+    0.3586
+   ],
+   "tau99": 0.2524,
+   "passRate": 0.75,
+   "passCI": [
+    0.551,
+    0.88
+   ],
+   "nullPassRate": 0.0109,
+   "top10Rise": 0.8333,
+   "top10RiseCI": [
+    0.6415,
+    0.9332
+   ],
+   "medianRiseNats": 0.33416
+  },
+  {
+   "layer": 3,
+   "lens": "S.mid",
+   "n": 24,
+   "medianR": 0.3348,
+   "medianR_CI": [
+    0.2728,
+    0.3731
+   ],
+   "tau99": 0.2532,
+   "passRate": 0.75,
+   "passCI": [
+    0.551,
+    0.88
+   ],
+   "nullPassRate": 0.0109,
+   "top10Rise": 0.9167,
+   "top10RiseCI": [
+    0.7415,
+    0.9768
+   ],
+   "medianRiseNats": 0.39667
+  },
+  {
+   "layer": 3,
+   "lens": "R.out",
+   "n": 24,
+   "medianR": 0.8526,
+   "medianR_CI": [
+    0.8399,
+    0.8716
+   ],
+   "tau99": 0.3201,
+   "passRate": 1,
+   "passCI": [
+    0.862,
+    1
+   ],
+   "nullPassRate": 0.0109,
+   "top10Rise": 1,
+   "top10RiseCI": [
+    0.862,
+    1
+   ],
+   "medianRiseNats": 1.08194
+  },
+  {
+   "layer": 4,
+   "lens": "logit",
+   "n": 24,
+   "medianR": 0.4577,
+   "medianR_CI": [
+    0.429,
+    0.5088
+   ],
+   "tau99": 0.2366,
+   "passRate": 1,
+   "passCI": [
+    0.862,
+    1
+   ],
+   "nullPassRate": 0.0109,
+   "top10Rise": 1,
+   "top10RiseCI": [
+    0.862,
+    1
+   ],
+   "medianRiseNats": 0.57547
+  },
+  {
+   "layer": 4,
+   "lens": "tuned",
+   "n": 24,
+   "medianR": 0.4944,
+   "medianR_CI": [
+    0.4548,
+    0.5258
+   ],
+   "tau99": 0.2483,
+   "passRate": 0.9583,
+   "passCI": [
+    0.7976,
+    0.9926
+   ],
+   "nullPassRate": 0.0109,
+   "top10Rise": 1,
+   "top10RiseCI": [
+    0.862,
+    1
+   ],
+   "medianRiseNats": 0.58538
+  },
+  {
+   "layer": 4,
+   "lens": "R.mid",
+   "n": 24,
+   "medianR": 0.7624,
+   "medianR_CI": [
+    0.7294,
+    0.7783
+   ],
+   "tau99": 0.2705,
+   "passRate": 1,
+   "passCI": [
+    0.862,
+    1
+   ],
+   "nullPassRate": 0.0109,
+   "top10Rise": 1,
+   "top10RiseCI": [
+    0.862,
+    1
+   ],
+   "medianRiseNats": 1.08252
+  },
+  {
+   "layer": 4,
+   "lens": "S.out",
+   "n": 24,
+   "medianR": 0.317,
+   "medianR_CI": [
+    0.2474,
+    0.3784
+   ],
+   "tau99": 0.2617,
+   "passRate": 0.5833,
+   "passCI": [
+    0.3883,
+    0.7553
+   ],
+   "nullPassRate": 0.0109,
+   "top10Rise": 0.9583,
+   "top10RiseCI": [
+    0.7976,
+    0.9926
+   ],
+   "medianRiseNats": 0.40559
+  },
+  {
+   "layer": 4,
+   "lens": "S.mid",
+   "n": 24,
+   "medianR": 0.3009,
+   "medianR_CI": [
+    0.258,
+    0.3512
+   ],
+   "tau99": 0.2893,
+   "passRate": 0.5833,
+   "passCI": [
+    0.3883,
+    0.7553
+   ],
+   "nullPassRate": 0.0109,
+   "top10Rise": 0.9167,
+   "top10RiseCI": [
+    0.7415,
+    0.9768
+   ],
+   "medianRiseNats": 0.38576
+  },
+  {
+   "layer": 4,
+   "lens": "R.out",
+   "n": 24,
+   "medianR": 0.8939,
+   "medianR_CI": [
+    0.8831,
+    0.8982
+   ],
+   "tau99": 0.2637,
+   "passRate": 1,
+   "passCI": [
+    0.862,
+    1
+   ],
+   "nullPassRate": 0.0109,
+   "top10Rise": 1,
+   "top10RiseCI": [
+    0.862,
+    1
+   ],
+   "medianRiseNats": 1.20247
+  },
+  {
+   "layer": 5,
+   "lens": "logit",
+   "n": 24,
+   "medianR": 0.5702,
+   "medianR_CI": [
+    0.5179,
+    0.6001
+   ],
+   "tau99": 0.2151,
+   "passRate": 1,
+   "passCI": [
+    0.862,
+    1
+   ],
+   "nullPassRate": 0.0109,
+   "top10Rise": 1,
+   "top10RiseCI": [
+    0.862,
+    1
+   ],
+   "medianRiseNats": 0.8845
+  },
+  {
+   "layer": 5,
+   "lens": "tuned",
+   "n": 24,
+   "medianR": 0.604,
+   "medianR_CI": [
+    0.5712,
+    0.646
+   ],
+   "tau99": 0.2468,
+   "passRate": 1,
+   "passCI": [
+    0.862,
+    1
+   ],
+   "nullPassRate": 0.0109,
+   "top10Rise": 1,
+   "top10RiseCI": [
+    0.862,
+    1
+   ],
+   "medianRiseNats": 1.04861
+  },
+  {
+   "layer": 5,
+   "lens": "R.mid",
+   "n": 24,
+   "medianR": 0.7544,
+   "medianR_CI": [
+    0.6863,
+    0.7705
+   ],
+   "tau99": 0.2332,
+   "passRate": 1,
+   "passCI": [
+    0.862,
+    1
+   ],
+   "nullPassRate": 0.0109,
+   "top10Rise": 1,
+   "top10RiseCI": [
+    0.862,
+    1
+   ],
+   "medianRiseNats": 1.19627
+  },
+  {
+   "layer": 5,
+   "lens": "S.out",
+   "n": 24,
+   "medianR": 0.2784,
+   "medianR_CI": [
+    0.2363,
+    0.3373
+   ],
+   "tau99": 0.2777,
+   "passRate": 0.5,
+   "passCI": [
+    0.3143,
+    0.6857
+   ],
+   "nullPassRate": 0.0109,
+   "top10Rise": 0.9167,
+   "top10RiseCI": [
+    0.7415,
+    0.9768
+   ],
+   "medianRiseNats": 0.45094
+  },
+  {
+   "layer": 5,
+   "lens": "S.mid",
+   "n": 24,
+   "medianR": 0.2763,
+   "medianR_CI": [
+    0.2186,
+    0.3258
+   ],
+   "tau99": 0.256,
+   "passRate": 0.625,
+   "passCI": [
+    0.4271,
+    0.7884
+   ],
+   "nullPassRate": 0.0109,
+   "top10Rise": 0.9583,
+   "top10RiseCI": [
+    0.7976,
+    0.9926
+   ],
+   "medianRiseNats": 0.37313
+  },
+  {
+   "layer": 5,
+   "lens": "R.out",
+   "n": 24,
+   "medianR": 0.91,
+   "medianR_CI": [
+    0.9004,
+    0.9236
+   ],
+   "tau99": 0.2372,
+   "passRate": 1,
+   "passCI": [
+    0.862,
+    1
+   ],
+   "nullPassRate": 0.0109,
+   "top10Rise": 1,
+   "top10RiseCI": [
+    0.862,
+    1
+   ],
+   "medianRiseNats": 1.47088
+  },
+  {
+   "layer": 6,
+   "lens": "logit",
+   "n": 24,
+   "medianR": 0.651,
+   "medianR_CI": [
+    0.618,
+    0.6811
+   ],
+   "tau99": 0.2251,
+   "passRate": 1,
+   "passCI": [
+    0.862,
+    1
+   ],
+   "nullPassRate": 0.0109,
+   "top10Rise": 1,
+   "top10RiseCI": [
+    0.862,
+    1
+   ],
+   "medianRiseNats": 2.02306
+  },
+  {
+   "layer": 6,
+   "lens": "tuned",
+   "n": 24,
+   "medianR": 0.7002,
+   "medianR_CI": [
+    0.6751,
+    0.7348
+   ],
+   "tau99": 0.2561,
+   "passRate": 1,
+   "passCI": [
+    0.862,
+    1
+   ],
+   "nullPassRate": 0.0109,
+   "top10Rise": 1,
+   "top10RiseCI": [
+    0.862,
+    1
+   ],
+   "medianRiseNats": 2.1733
+  },
+  {
+   "layer": 6,
+   "lens": "R.mid",
+   "n": 24,
+   "medianR": 0.7266,
+   "medianR_CI": [
+    0.7165,
+    0.7657
+   ],
+   "tau99": 0.2714,
+   "passRate": 1,
+   "passCI": [
+    0.862,
+    1
+   ],
+   "nullPassRate": 0.0109,
+   "top10Rise": 1,
+   "top10RiseCI": [
+    0.862,
+    1
+   ],
+   "medianRiseNats": 2.26597
+  },
+  {
+   "layer": 6,
+   "lens": "S.out",
+   "n": 24,
+   "medianR": 0.2128,
+   "medianR_CI": [
+    0.1825,
+    0.2795
+   ],
+   "tau99": 0.2487,
+   "passRate": 0.3333,
+   "passCI": [
+    0.1797,
+    0.5329
+   ],
+   "nullPassRate": 0.0109,
+   "top10Rise": 0.8333,
+   "top10RiseCI": [
+    0.6415,
+    0.9332
+   ],
+   "medianRiseNats": 0.38208
+  },
+  {
+   "layer": 6,
+   "lens": "S.mid",
+   "n": 24,
+   "medianR": 0.2371,
+   "medianR_CI": [
+    0.2057,
+    0.2638
+   ],
+   "tau99": 0.257,
+   "passRate": 0.3333,
+   "passCI": [
+    0.1797,
+    0.5329
+   ],
+   "nullPassRate": 0.0109,
+   "top10Rise": 0.9583,
+   "top10RiseCI": [
+    0.7976,
+    0.9926
+   ],
+   "medianRiseNats": 0.54087
+  },
+  {
+   "layer": 6,
+   "lens": "R.out",
+   "n": 24,
+   "medianR": 0.9565,
+   "medianR_CI": [
+    0.9428,
+    0.9587
+   ],
+   "tau99": 0.255,
+   "passRate": 1,
+   "passCI": [
+    0.862,
+    1
+   ],
+   "nullPassRate": 0.0109,
+   "top10Rise": 1,
+   "top10RiseCI": [
+    0.862,
+    1
+   ],
+   "medianRiseNats": 3.00834
+  },
+  {
+   "layer": 7,
+   "lens": "logit",
+   "n": 24,
+   "medianR": 0.9934,
+   "medianR_CI": [
+    0.9913,
+    0.9961
+   ],
+   "tau99": 0.3162,
+   "passRate": 1,
+   "passCI": [
+    0.862,
+    1
+   ],
+   "nullPassRate": 0.0109,
+   "top10Rise": 1,
+   "top10RiseCI": [
+    0.862,
+    1
+   ],
+   "medianRiseNats": 3.72974
+  },
+  {
+   "layer": 7,
+   "lens": "tuned",
+   "n": 24,
+   "medianR": 0.9934,
+   "medianR_CI": [
+    0.9913,
+    0.9961
+   ],
+   "tau99": 0.3163,
+   "passRate": 1,
+   "passCI": [
+    0.862,
+    1
+   ],
+   "nullPassRate": 0.0109,
+   "top10Rise": 1,
+   "top10RiseCI": [
+    0.862,
+    1
+   ],
+   "medianRiseNats": 3.72974
+  },
+  {
+   "layer": 7,
+   "lens": "R.mid",
+   "n": 24,
+   "medianR": 0.6875,
+   "medianR_CI": [
+    0.6546,
+    0.722
+   ],
+   "tau99": 0.3527,
+   "passRate": 1,
+   "passCI": [
+    0.862,
+    1
+   ],
+   "nullPassRate": 0.0109,
+   "top10Rise": 1,
+   "top10RiseCI": [
+    0.862,
+    1
+   ],
+   "medianRiseNats": 2.2201
+  },
+  {
+   "layer": 7,
+   "lens": "S.out",
+   "n": 24,
+   "medianR": 0.2552,
+   "medianR_CI": [
+    0.2077,
+    0.2915
+   ],
+   "tau99": 0.2765,
+   "passRate": 0.375,
+   "passCI": [
+    0.2116,
+    0.5729
+   ],
+   "nullPassRate": 0.0109,
+   "top10Rise": 0.875,
+   "top10RiseCI": [
+    0.69,
+    0.9566
+   ],
+   "medianRiseNats": 0.92404
+  },
+  {
+   "layer": 7,
+   "lens": "S.mid",
+   "n": 24,
+   "medianR": 0.2354,
+   "medianR_CI": [
+    0.1644,
+    0.2906
+   ],
+   "tau99": 0.305,
+   "passRate": 0.25,
+   "passCI": [
+    0.12,
+    0.449
+   ],
+   "nullPassRate": 0.0109,
+   "top10Rise": 0.875,
+   "top10RiseCI": [
+    0.69,
+    0.9566
+   ],
+   "medianRiseNats": 0.79011
+  }
+ ],
+ "testB": [
+  {
+   "layer": 0,
+   "lens": "S.mid",
+   "n": 1024,
+   "medianRho": 0.7964,
+   "tau99": 0.2819,
+   "passRate": 0.9922,
+   "passCI": [
+    0.9847,
+    0.996
+   ],
+   "nullPassRate": 0.01
+  },
+  {
+   "layer": 0,
+   "lens": "R.mid",
+   "n": 1024,
+   "medianRho": 0.2242,
+   "tau99": 0.2556,
+   "passRate": 0.3779,
+   "passCI": [
+    0.3487,
+    0.408
+   ],
+   "nullPassRate": 0.01
+  },
+  {
+   "layer": 0,
+   "lens": "logit",
+   "n": 1024,
+   "medianRho": 0.9475,
+   "tau99": 0.2815,
+   "passRate": 0.9932,
+   "passCI": [
+    0.986,
+    0.9967
+   ],
+   "nullPassRate": 0.01
+  },
+  {
+   "layer": 0,
+   "lens": "S.out[L-1]",
+   "n": 1024,
+   "medianRho": 0.95,
+   "tau99": 0.2804,
+   "passRate": 0.9932,
+   "passCI": [
+    0.986,
+    0.9967
+   ],
+   "nullPassRate": 0.01
+  },
+  {
+   "layer": 1,
+   "lens": "S.mid",
+   "n": 1024,
+   "medianRho": 0.5339,
+   "tau99": 0.2488,
+   "passRate": 0.709,
+   "passCI": [
+    0.6804,
+    0.736
+   ],
+   "nullPassRate": 0.01
+  },
+  {
+   "layer": 1,
+   "lens": "R.mid",
+   "n": 1024,
+   "medianRho": 0.134,
+   "tau99": 0.1865,
+   "passRate": 0.3711,
+   "passCI": [
+    0.342,
+    0.4011
+   ],
+   "nullPassRate": 0.01
+  },
+  {
+   "layer": 1,
+   "lens": "logit",
+   "n": 1024,
+   "medianRho": 0.2056,
+   "tau99": 0.2398,
+   "passRate": 0.4238,
+   "passCI": [
+    0.3939,
+    0.4543
+   ],
+   "nullPassRate": 0.01
+  },
+  {
+   "layer": 1,
+   "lens": "S.out[L-1]",
+   "n": 1024,
+   "medianRho": 0.6016,
+   "tau99": 0.2639,
+   "passRate": 0.7188,
+   "passCI": [
+    0.6904,
+    0.7454
+   ],
+   "nullPassRate": 0.01
+  },
+  {
+   "layer": 1,
+   "lens": "R.out[L-1]",
+   "n": 1024,
+   "medianRho": 0.1385,
+   "tau99": 0.1909,
+   "passRate": 0.3652,
+   "passCI": [
+    0.3363,
+    0.3952
+   ],
+   "nullPassRate": 0.01
+  },
+  {
+   "layer": 2,
+   "lens": "S.mid",
+   "n": 1024,
+   "medianRho": 0.4796,
+   "tau99": 0.2356,
+   "passRate": 0.7383,
+   "passCI": [
+    0.7105,
+    0.7643
+   ],
+   "nullPassRate": 0.01
+  },
+  {
+   "layer": 2,
+   "lens": "R.mid",
+   "n": 1024,
+   "medianRho": 0.1453,
+   "tau99": 0.2064,
+   "passRate": 0.3271,
+   "passCI": [
+    0.2991,
+    0.3565
+   ],
+   "nullPassRate": 0.01
+  },
+  {
+   "layer": 2,
+   "lens": "logit",
+   "n": 1024,
+   "medianRho": 0.1653,
+   "tau99": 0.2511,
+   "passRate": 0.2559,
+   "passCI": [
+    0.2301,
+    0.2835
+   ],
+   "nullPassRate": 0.01
+  },
+  {
+   "layer": 2,
+   "lens": "S.out[L-1]",
+   "n": 1024,
+   "medianRho": 0.5135,
+   "tau99": 0.2399,
+   "passRate": 0.7441,
+   "passCI": [
+    0.7165,
+    0.7699
+   ],
+   "nullPassRate": 0.01
+  },
+  {
+   "layer": 2,
+   "lens": "R.out[L-1]",
+   "n": 1024,
+   "medianRho": 0.1425,
+   "tau99": 0.2079,
+   "passRate": 0.3047,
+   "passCI": [
+    0.2773,
+    0.3336
+   ],
+   "nullPassRate": 0.01
+  },
+  {
+   "layer": 3,
+   "lens": "S.mid",
+   "n": 1024,
+   "medianRho": 0.4848,
+   "tau99": 0.2783,
+   "passRate": 0.7793,
+   "passCI": [
+    0.7529,
+    0.8036
+   ],
+   "nullPassRate": 0.01
+  },
+  {
+   "layer": 3,
+   "lens": "R.mid",
+   "n": 1024,
+   "medianRho": 0.1622,
+   "tau99": 0.2056,
+   "passRate": 0.3506,
+   "passCI": [
+    0.322,
+    0.3803
+   ],
+   "nullPassRate": 0.01
+  },
+  {
+   "layer": 3,
+   "lens": "logit",
+   "n": 1024,
+   "medianRho": 0.137,
+   "tau99": 0.22,
+   "passRate": 0.2822,
+   "passCI": [
+    0.2555,
+    0.3106
+   ],
+   "nullPassRate": 0.01
+  },
+  {
+   "layer": 3,
+   "lens": "S.out[L-1]",
+   "n": 1024,
+   "medianRho": 0.5052,
+   "tau99": 0.2909,
+   "passRate": 0.7793,
+   "passCI": [
+    0.7529,
+    0.8036
+   ],
+   "nullPassRate": 0.01
+  },
+  {
+   "layer": 3,
+   "lens": "R.out[L-1]",
+   "n": 1024,
+   "medianRho": 0.1689,
+   "tau99": 0.2126,
+   "passRate": 0.373,
+   "passCI": [
+    0.344,
+    0.4031
+   ],
+   "nullPassRate": 0.01
+  },
+  {
+   "layer": 4,
+   "lens": "S.mid",
+   "n": 1024,
+   "medianRho": 0.4764,
+   "tau99": 0.3041,
+   "passRate": 0.7959,
+   "passCI": [
+    0.7701,
+    0.8195
+   ],
+   "nullPassRate": 0.01
+  },
+  {
+   "layer": 4,
+   "lens": "R.mid",
+   "n": 1024,
+   "medianRho": 0.1715,
+   "tau99": 0.2261,
+   "passRate": 0.333,
+   "passCI": [
+    0.3048,
+    0.3625
+   ],
+   "nullPassRate": 0.01
+  },
+  {
+   "layer": 4,
+   "lens": "logit",
+   "n": 1024,
+   "medianRho": 0.1469,
+   "tau99": 0.2674,
+   "passRate": 0.1572,
+   "passCI": [
+    0.1362,
+    0.1808
+   ],
+   "nullPassRate": 0.01
+  },
+  {
+   "layer": 4,
+   "lens": "S.out[L-1]",
+   "n": 1024,
+   "medianRho": 0.4958,
+   "tau99": 0.2941,
+   "passRate": 0.8105,
+   "passCI": [
+    0.7854,
+    0.8334
+   ],
+   "nullPassRate": 0.01
+  },
+  {
+   "layer": 4,
+   "lens": "R.out[L-1]",
+   "n": 1024,
+   "medianRho": 0.1748,
+   "tau99": 0.2384,
+   "passRate": 0.293,
+   "passCI": [
+    0.2659,
+    0.3216
+   ],
+   "nullPassRate": 0.01
+  },
+  {
+   "layer": 5,
+   "lens": "S.mid",
+   "n": 1024,
+   "medianRho": 0.421,
+   "tau99": 0.3145,
+   "passRate": 0.708,
+   "passCI": [
+    0.6794,
+    0.735
+   ],
+   "nullPassRate": 0.01
+  },
+  {
+   "layer": 5,
+   "lens": "R.mid",
+   "n": 1024,
+   "medianRho": 0.1441,
+   "tau99": 0.2286,
+   "passRate": 0.2646,
+   "passCI": [
+    0.2385,
+    0.2925
+   ],
+   "nullPassRate": 0.01
+  },
+  {
+   "layer": 5,
+   "lens": "logit",
+   "n": 1024,
+   "medianRho": 0.0917,
+   "tau99": 0.2863,
+   "passRate": 0.0635,
+   "passCI": [
+    0.0501,
+    0.0801
+   ],
+   "nullPassRate": 0.01
+  },
+  {
+   "layer": 5,
+   "lens": "S.out[L-1]",
+   "n": 1024,
+   "medianRho": 0.4245,
+   "tau99": 0.3187,
+   "passRate": 0.6875,
+   "passCI": [
+    0.6585,
+    0.7151
+   ],
+   "nullPassRate": 0.01
+  },
+  {
+   "layer": 5,
+   "lens": "R.out[L-1]",
+   "n": 1024,
+   "medianRho": 0.1348,
+   "tau99": 0.2356,
+   "passRate": 0.2178,
+   "passCI": [
+    0.1936,
+    0.2441
+   ],
+   "nullPassRate": 0.01
+  },
+  {
+   "layer": 6,
+   "lens": "S.mid",
+   "n": 1024,
+   "medianRho": 0.3989,
+   "tau99": 0.3066,
+   "passRate": 0.6904,
+   "passCI": [
+    0.6614,
+    0.718
+   ],
+   "nullPassRate": 0.01
+  },
+  {
+   "layer": 6,
+   "lens": "R.mid",
+   "n": 1024,
+   "medianRho": 0.1797,
+   "tau99": 0.2701,
+   "passRate": 0.2412,
+   "passCI": [
+    0.216,
+    0.2684
+   ],
+   "nullPassRate": 0.01
+  },
+  {
+   "layer": 6,
+   "lens": "logit",
+   "n": 1024,
+   "medianRho": 0.0794,
+   "tau99": 0.2818,
+   "passRate": 0.0752,
+   "passCI": [
+    0.0606,
+    0.093
+   ],
+   "nullPassRate": 0.01
+  },
+  {
+   "layer": 6,
+   "lens": "S.out[L-1]",
+   "n": 1024,
+   "medianRho": 0.4016,
+   "tau99": 0.325,
+   "passRate": 0.6641,
+   "passCI": [
+    0.6346,
+    0.6923
+   ],
+   "nullPassRate": 0.01
+  },
+  {
+   "layer": 6,
+   "lens": "R.out[L-1]",
+   "n": 1024,
+   "medianRho": 0.1476,
+   "tau99": 0.2556,
+   "passRate": 0.2188,
+   "passCI": [
+    0.1945,
+    0.2451
+   ],
+   "nullPassRate": 0.01
+  },
+  {
+   "layer": 7,
+   "lens": "S.mid",
+   "n": 1024,
+   "medianRho": 0.3667,
+   "tau99": 0.2899,
+   "passRate": 0.6582,
+   "passCI": [
+    0.6286,
+    0.6866
+   ],
+   "nullPassRate": 0.01
+  },
+  {
+   "layer": 7,
+   "lens": "R.mid",
+   "n": 1024,
+   "medianRho": 0.0747,
+   "tau99": 0.3083,
+   "passRate": 0.085,
+   "passCI": [
+    0.0694,
+    0.1036
+   ],
+   "nullPassRate": 0.01
+  },
+  {
+   "layer": 7,
+   "lens": "logit",
+   "n": 1024,
+   "medianRho": 0.1048,
+   "tau99": 0.3088,
+   "passRate": 0.0957,
+   "passCI": [
+    0.0792,
+    0.1153
+   ],
+   "nullPassRate": 0.01
+  },
+  {
+   "layer": 7,
+   "lens": "S.out[L-1]",
+   "n": 1024,
+   "medianRho": 0.3414,
+   "tau99": 0.3182,
+   "passRate": 0.5439,
+   "passCI": [
+    0.5133,
+    0.5742
+   ],
+   "nullPassRate": 0.01
+  },
+  {
+   "layer": 7,
+   "lens": "R.out[L-1]",
+   "n": 1024,
+   "medianRho": 0.1799,
+   "tau99": 0.289,
+   "passRate": 0.3037,
+   "passCI": [
+    0.2763,
+    0.3326
+   ],
+   "nullPassRate": 0.01
+  }
+ ],
+ "verdicts": {
+  "P1": {
+   "pass": true,
+   "detail": "R.out median r > logit lens at 7/7 layers (0,1,2,3,4,5,6)"
+  },
+  "P2": {
+   "pass": true,
+   "detail": "R.out top-10 rise ≥ 0.90 at 6/6 layers (1,2,3,4,5,6)"
+  },
+  "P3": {
+   "pass": false,
+   "detail": "ρ S.mid vs R.mid: L0 0.7964 vs 0.2242, L1 0.5339 vs 0.134, L7 0.3667 vs 0.0747"
+  },
+  "P4": {
+   "pass": false,
+   "detail": "S.mid > S.out[L−1] at 1/7 layers (7); R.mid > R.out[L−1] at 3/7 layers (2,5,6)"
+  },
+  "P5": {
+   "pass": true,
+   "detail": "all of R.mid, S.out, S.mid, R.out, S.out[L-1], R.out[L-1] have pass-rate CI lower bound > 0.01 at a majority of layers"
+  }
+ }
+}
