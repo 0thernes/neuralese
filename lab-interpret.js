@@ -1,15 +1,15 @@
 // INTERPRET group: attention grid/rollout/head classes, residual geometry, circuit graph, neuron atlas, embeddings, SAE dashboard.
-import * as C from './labcore.js?v=15';
-import { logSoftmax, topK, entropy } from './engine.js?v=15';
-import { dla } from './analysis.js?v=15';
-import { CORPUS } from './corpus.js?v=15';
-import { allDocs } from './dataset.js?v=15';
-import { heatmap, lines, bars, scatter, showTip, seqColor } from './charts.js?v=15';
-import { $, esc, fmt, opts, lOpts, XB, cv, tipq, pal, PAL, prog, svgEl, tick, tokId, canvasFit, d, H, L, ff, V } from './lab-ui.js?v=15';
+import * as C from './labcore.js?v=151';
+import { logSoftmax, topK, entropy } from './engine.js?v=151';
+import { dla } from './analysis.js?v=151';
+import { CORPUS } from './corpus.js?v=151';
+import { allDocs } from './dataset.js?v=151';
+import { heatmap, lines, bars, scatter, showTip, seqColor, arcs, heatStrip } from './charts.js?v=151';
+import { $, esc, fmt, opts, lOpts, XB, cv, tipq, pal, PAL, prog, svgEl, tick, tokId, canvasFit, d, H, L, ff, V } from './lab-ui.js?v=151';
 const IOI = 'When Mary and John went to the store, John gave a drink to';
 export const markup = {
   attn: ['ATTENTION', 'Attention patterns', `<fieldset><legend>input</legend><div class="r"><input id="xAP" style="flex:1" value="${IOI}"/><button class="pri" id="xA">run</button></div><div id="xAInfo" class="sm"></div></fieldset>
-<fieldset><legend>all heads (rows = slots, cols = heads) — click a tile</legend>${cv('xAGrid', 'attention patterns')}${cv('xAOne', 'selected head (query × key)')}</fieldset>
+<fieldset><legend>all heads (rows = slots, cols = heads) — click a tile</legend>${cv('xAGrid', 'attention patterns')}${cv('xAOne', 'selected head (query × key)')}${cv('xAArc', 'selected head — arc diagram (hover a token)')}${cv('xAStrip', 'attention received per token (selected head, mean over queries)')}</fieldset>
 <fieldset><legend>rollout &amp; flow ${tipq('Abnar & Zuidema (2020) rollout: per slot Â = ½·mean_h(A) + ½·I, multiplied through the stack. Approximates how much each input token can reach each position.')}</legend>${cv('xARoll', 'attention rollout (query × key)')}${cv('xAFlow', 'last-token rollout per source token')}</fieldset>
 <fieldset><legend>head classification ${tipq('prev = mean attn(t→t−1) on the text; induction = attn(n+i → i+1) and duplicate = attn(n+i → i) on a repeated random-token sequence; sink = attn(t→0). Label = argmax if ≥0.3, else diffuse (normalised entropy >0.7) or mixed.')}</legend><div class="r"><label>metric</label><select id="xHSm">${opts(['label', 'prev', 'induction', 'duplicate', 'sink', 'entropy'])}</select><button id="xHS">score heads</button></div>${cv('xHSC', 'head scores (slots × heads)')}<div id="xHSLeg" class="sm"></div></fieldset>`],
   resid: ['RESIDUAL', 'Residual stream', `<fieldset><legend>input</legend><div class="r"><input id="xRP" style="flex:1" value="Once upon a time, there was a little girl named Lily. She loved to"/><button class="pri" id="xR">run</button></div></fieldset>
@@ -30,7 +30,8 @@ export function install(A, out) {
   // ATTENTION
   let AT = null;
   const drawOne = (s, h) => { const T = AT.ids.length, M = Array.from({ length: T }, (_, q) => Array.from({ length: T }, (_, k) => AT.tr[q].pattern[s]?.[h]?.[k] ?? 0)), lab = AT.ids.map(tstr);
-    heatmap($('xAOne'), M, { rows: lab, cols: lab, diverging: false, max: 1, padL: 70, label: (i, j) => `slot ${s} H${h}: "${lab[i]}" → "${lab[j]}" = ${M[i][j].toFixed(4)}` }); };
+    heatmap($('xAOne'), M, { rows: lab, cols: lab, diverging: false, max: 1, padL: 70, label: (i, j) => `slot ${s} H${h}: "${lab[i]}" → "${lab[j]}" = ${M[i][j].toFixed(4)}`, sync: 'atok' });
+    arcs($('xAArc'), lab, M, { sync: 'atok', title: `slot ${s} · head ${h}` }); heatStrip($('xAStrip'), lab, lab.map((_, k) => M.reduce((a, r) => a + r[k], 0) / Math.max(1, T - k)), { sync: 'atok', name: 'mean attention received' }); };
   out.attn = () => { const eng = A.eng(), ids = A.tok().encode($('xAP').value).slice(0, 48); if (ids.length < 2) throw new Error('need at least 2 tokens'); const tr = eng.run(ids, { trace: true }).traces, slots = eng.R.program.length, T = ids.length; AT = { ids, tr };
     const cvs = $('xAGrid'), w0 = cvs.clientWidth || 420, tile = Math.max(6, Math.floor((w0 - 20) / H)), [c, w] = canvasFit(cvs, tile * slots + 4); c.fillStyle = '#000'; c.fillRect(0, 0, w, tile * slots + 4);
     const cell = (tile - 2) / T; for (let s = 0; s < slots; s++) for (let h = 0; h < H; h++) { const x0 = 18 + h * tile, y0 = s * tile; for (let q = 0; q < T; q++) for (let k = 0; k <= q; k++) { const v = tr[q].pattern[s]?.[h]?.[k] ?? 0; if (v < 0.02) continue; c.fillStyle = seqColor(Math.sqrt(v)); c.fillRect(x0 + k * cell, y0 + q * cell, Math.max(1, cell), Math.max(1, cell)); } }
@@ -40,7 +41,7 @@ export function install(A, out) {
     cvs.onclick = (e) => { const p = at(e); if (p) { drawOne(p[0], p[1]); A.setSel({ l: eng.R.program[p[0]].layer, h: p[1] }); } };
     cvs.onmousemove = (e) => { const p = at(e); showTip(e, p ? `slot ${p[0]} (L${eng.R.program[p[0]].layer}) head ${p[1]} — click to enlarge` : ''); }; cvs.onmouseleave = () => showTip(null, '');
     const sel = A.S().sel, s0 = Math.max(0, eng.R.program.findIndex((p) => p.layer === (sel.l ?? 0))); drawOne(s0, sel.h ?? 0);
-    const ro = C.attentionRollout(tr, slots), lab = ids.map(tstr); heatmap($('xARoll'), ro.map((r) => Array.from(r)), { rows: lab, cols: lab, diverging: false, padL: 70, label: (i, j) => `rollout "${lab[i]}" ← "${lab[j]}" ${ro[i][j].toFixed(4)}` });
+    const ro = C.attentionRollout(tr, slots), lab = ids.map(tstr); heatmap($('xARoll'), ro.map((r) => Array.from(r)), { rows: lab, cols: lab, diverging: false, padL: 70, label: (i, j) => `rollout "${lab[i]}" ← "${lab[j]}" ${ro[i][j].toFixed(4)}`, sync: 'atok' });
     bars($('xAFlow'), Array.from(ro[T - 1]), { label: (i) => `"${lab[i]}" ${ro[T - 1][i].toFixed(4)}` });
     let ent = 0, n = 0; for (let s = 0; s < slots; s++) for (let h = 0; h < H; h++) { const p = tr[T - 1].pattern[s]?.[h]; if (p) { let e = 0; for (const x of p) if (x > 0) e -= x * Math.log(x); ent += e; n++; } }
     $('xAInfo').textContent = `${T} tokens · ${slots} slots · mean last-token head entropy ${(ent / (n || 1)).toFixed(3)} nats (uniform = ln T = ${Math.log(T).toFixed(2)})`; return ro; };

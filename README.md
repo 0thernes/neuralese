@@ -2,6 +2,12 @@
 
 Live: https://0thernes.github.io/neuralese/ · **New here? [Beginner's guide to steering](docs/STEERING_GUIDE.md)** · Audit: [AUDIT.md](AUDIT.md) · Tsotchke analysis: [docs/TSOTCHKE.md](docs/TSOTCHKE.md) · Claims & evidence: [docs/CLAIMS.md](docs/CLAIMS.md) · Stack and versions: [docs/STACK.md](docs/STACK.md)
 
+## v15.1.0: polish pass (31 Oct 2026)
+- Overview landing dashboard: a hero 3D network coloured by live head activity, live model stats and a last-generation surprisal strip.
+- 3D: instanced heads, activation flow particles, hover info cards, fly-to camera, and bloom + depth of field with adaptive quality and an fps readout.
+- Charts: animated transitions, brush zoom, cross-highlighting, an attention arc diagram and token heat strips.
+- SVG icons, per-section accents, a shortcuts overlay (`?`, `[`/`]`, `H`), AA contrast, focus rings, and empty/error states. Respects reduced motion.
+
 ## v15.0.0: visual overhaul (31 Oct 2026)
 - **Navigation:** a grouped, searchable sidebar (press `/`) replaces the wall of 72 tabs; on phones it is a drawer.
 - **Design system:** self-hosted Inter and JetBrains Mono, card panels and restyled controls.
