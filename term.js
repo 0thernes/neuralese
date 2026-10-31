@@ -1,11 +1,11 @@
 // In-app terminal: a small, safe command language over the real app API (no eval). Shared by the batch runner.
-import { $, esc, MATS_OK } from './term-util.js?v=15';
-export const VERSION = '15.0.0';
-import { CMDS as SCI_CMDS } from './lab-science.js?v=15';
-import { CMDS as RES_CMDS } from './lab-research.js?v=15';
-import { CMDS as TSK_CMDS } from './lab-tsotchke.js?v=15';
-import { CMDS as FR_CMDS } from './lab-frontier.js?v=15';
-import { CMDS as HUB_CMDS } from './lab-hub.js?v=15';
+import { $, esc, MATS_OK } from './term-util.js?v=151';
+export const VERSION = '15.1.0';
+import { CMDS as SCI_CMDS } from './lab-science.js?v=151';
+import { CMDS as RES_CMDS } from './lab-research.js?v=151';
+import { CMDS as TSK_CMDS } from './lab-tsotchke.js?v=151';
+import { CMDS as FR_CMDS } from './lab-frontier.js?v=151';
+import { CMDS as HUB_CMDS } from './lab-hub.js?v=151';
 const SET_KEYS = ['n', 'seed', 'temp', 'topk', 'topp', 'minp', 'typical', 'rep', 'freq', 'pres', 'mode'];
 export const COMMANDS = {
   help: ['help [cmd]', 'list commands or show usage of one'],

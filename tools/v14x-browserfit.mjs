@@ -8,10 +8,10 @@ const docs = man.corpus.stories.map((i) => tok.encode(st[i]).slice(0, man.corpus
 const b = await puppeteer.launch({ executablePath: '/usr/bin/google-chrome', headless: 'new', protocolTimeout: 7200000, args: ['--no-sandbox'] }), p = await b.newPage();
 p.on('console', (m) => console.log('[page]', m.text())); p.on('pageerror', (e) => console.log('[pageerror]', e.message));
 await p.goto(url + 'README.md'); const t0 = Date.now();
-const res = await p.evaluate(async ({ docs, W }) => { const MJ = await import('/model.js?v=15'), buf = await (await fetch('/model/ts1M.safetensors')).arrayBuffer();
+const res = await p.evaluate(async ({ docs, W }) => { const MJ = await import('/model.js?v=151'), buf = await (await fetch('/model/ts1M.safetensors')).arrayBuffer();
   const n = Number(new DataView(buf).getBigUint64(0, true)), hdr = JSON.parse(new TextDecoder().decode(new Uint8Array(buf, 8, n))), Wt = MJ.buildWeights(MJ.parseSafetensors(buf.slice(8 + n), n, hdr)), d = Wt.wte.length / 50257;
   const cfg = { ...MJ.CFG, d, hd: d / 16, ff: 4 * d }, L = cfg.L, acc = { R: null, S: null }, q = docs.map((ids, i) => ({ ids, i })); let done = 0; const t = performance.now();
-  await new Promise((resolve, reject) => { let live = 0; for (let w = 0; w < W; w++) { const wk = new Worker('/lens-worker.js?v=15', { type: 'module' }); live++;
+  await new Promise((resolve, reject) => { let live = 0; for (let w = 0; w < W; w++) { const wk = new Worker('/lens-worker.js?v=151', { type: 'module' }); live++;
     const next = () => { const j = q.shift(); if (!j) { wk.terminate(); if (--live === 0) resolve(); return; } wk.postMessage({ W: Wt, cfg, ids: j.ids, kinds: ['R', 'S'] }); };
     wk.onmessage = (e) => { const m = e.data; if (m.error) return reject(new Error(m.error)); if (!m.done) return;
       for (const k of ['R', 'S']) { const r = m.res[k]; if (!acc[k]) acc[k] = { out: r.out.map((a) => new Float64Array(a.length)), mid: r.mid.map((a) => new Float64Array(a.length)) }; for (const tg of ['out', 'mid']) r[tg].forEach((a, l) => { const A = acc[k][tg][l]; for (let i = 0; i < a.length; i++) A[i] += a[i] / docs.length; }); }

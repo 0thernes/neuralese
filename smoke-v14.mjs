@@ -8,7 +8,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms)), fail = [], T = Date
 const check = async (name, fn, pred, arg) => { try { const r = await p.evaluate(fn, arg); const ok = pred(r); log(name, ok ? 'OK' : 'FAIL', JSON.stringify(r).slice(0, 300)); if (!ok) fail.push(name); } catch (e) { log(name, 'ERROR', e.message.slice(0, 300)); fail.push(name); } };
 const show = (k) => p.evaluate((x) => window.NEURALESE.v5.api.showTab(x), k);
 await p.goto(url); await p.waitForFunction(() => window.NEURALESE && window.NEURALESE_LAST, { timeout: 300000 }); log('loaded');
-await check('version', () => document.getElementById('ver').textContent, (r) => r.startsWith('v15.0.0'));
+await check('version', () => document.getElementById('ver').textContent, (r) => r.startsWith('v15.1.0'));
 await show('nlens');
 await check('dbLoad', async () => { document.getElementById('nlLoad').click(); for (let i = 0; i < 240 && !/✓/.test(document.getElementById('nlInfo').textContent); i++) await new Promise((r) => setTimeout(r, 500)); return document.getElementById('nlInfo').textContent; }, (r) => /✓ 8×1024 neurons/.test(r) && /sha256-verified/.test(r));
 await check('search', async () => { document.getElementById('nlQ').value = ' happy'; document.getElementById('nlGo').click(); await new Promise((r) => setTimeout(r, 800)); return document.getElementById('nlHits').textContent.slice(0, 200); }, (r) => /^\d+ hits/.test(r) && !/^0 hits/.test(r));

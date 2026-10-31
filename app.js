@@ -1,24 +1,26 @@
 // NEURALESE v2 — UI wiring. All numerics live in engine/analysis/surgery/decode/sae/rome (unit-tested vs PyTorch).
-import { GPT2Tokenizer } from './tokenizer.js?v=15';
-import { CFG, buildWeights, parseSafetensors, cloneWeights, mulberry32 } from './model.js?v=15';
-import { Engine, defaultRuntime, logSoftmax, topK, SITES } from './engine.js?v=15';
-import { computeStats, actCovariance, fitTunedLens, lensGrid, dla, patchResid, patchHeads, pathPatchHeadsToLogits, ablationSweep, buildControlVector, vectorArithmetic, tokenStats } from './analysis.js?v=15';
-import { Editor, MATS, getMat, toSafetensors, quantize } from './surgery.js?v=15';
-import { defaultDecode, applyPenalties, filterDist, pick, contrastiveLogits, cfgLogits, beamSearch } from './decode.js?v=15';
-import { SAE } from './sae.js?v=15';
-import { computeRome } from './rome.js?v=15';
-import { CORPUS } from './corpus.js?v=15';
-import { heatmap, lines, bars, showTip, seqColor, divColor, markStale } from './charts.js?v=15';
-import { Viz } from './viz.js?v=15';
-import { AudioEngine, editKind, STYLES } from './audio.js?v=15';
-import { buildV5 } from './v5.js?v=15';
-import { vecToJSON as _v2j, vecFromJSON as _j2v } from './labcore.js?v=15';
+import { GPT2Tokenizer } from './tokenizer.js?v=151';
+import { CFG, buildWeights, parseSafetensors, cloneWeights, mulberry32 } from './model.js?v=151';
+import { Engine, defaultRuntime, logSoftmax, topK, SITES } from './engine.js?v=151';
+import { computeStats, actCovariance, fitTunedLens, lensGrid, dla, patchResid, patchHeads, pathPatchHeadsToLogits, ablationSweep, buildControlVector, vectorArithmetic, tokenStats } from './analysis.js?v=151';
+import { Editor, MATS, getMat, toSafetensors, quantize } from './surgery.js?v=151';
+import { defaultDecode, applyPenalties, filterDist, pick, contrastiveLogits, cfgLogits, beamSearch } from './decode.js?v=151';
+import { SAE } from './sae.js?v=151';
+import { computeRome } from './rome.js?v=151';
+import { CORPUS } from './corpus.js?v=151';
+import { heatmap, lines, bars, showTip, seqColor, divColor, markStale, heatStrip, emit } from './charts.js?v=151';
+import { Viz } from './viz.js?v=151';
+import { AudioEngine, editKind, STYLES } from './audio.js?v=151';
+import { buildV5 } from './v5.js?v=151';
+import { vecToJSON as _v2j, vecFromJSON as _j2v } from './labcore.js?v=151';
+import * as UI15 from './ui15.js?v=151';
+import { homeMarkup } from './ui15.js?v=151';
 const audio = new AudioEngine();
 const { d, H, L, ff, V } = CFG;
 const $ = (id) => document.getElementById(id), $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const tick = () => new Promise((r) => setTimeout(r, 0));
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
-const toast = (m, bad) => { const t = $('toast'); t.textContent = m; t.style.borderColor = bad ? '#f87171' : ''; t.style.display = 'block'; clearTimeout(toast.h); toast.h = setTimeout(() => (t.style.display = 'none'), bad ? 6000 : 2500); };
+const toast = (m, bad) => { const t = $('toast'); t.textContent = m; t.style.borderColor = bad ? '#f87171' : ''; t.classList.toggle('bad', !!bad); t.style.display = 'block'; clearTimeout(toast.h); toast.h = setTimeout(() => (t.style.display = 'none'), bad ? 6000 : 2500); };
 const guard = (fn) => async (...a) => { try { await fn(...a); } catch (e) { console.error(e); toast('✖ ' + e.message, true); } };
 
 // ───────── loading (HTTP Range: only the fp32 tensors, skipping the bool attn.bias buffers) ─────────
@@ -69,12 +71,14 @@ async function ensureTuned() { await ensureStats(); if (!stats.tuned) { $('statI
 async function ensureCov(l) { if (!cov.has(l)) { await ensureStats(); cov.set(l, await actCovariance(W, stats, l, (f) => prog('romeP', f * 0.3))); } return cov.get(l); }
 const prog = (id, f) => { const e = $(id); if (e) e.firstElementChild.style.width = (f * 100).toFixed(0) + '%'; };
 function hud() {
+  queueMicrotask(() => { try { document.dispatchEvent(new CustomEvent('nl-hud', { detail: { params: PARAMS(), L: CFG.L, H: CFG.H, d: CFG.d, ff: CFG.ff, tps: S.perf.tps, ms: S.perf.ms, edits: ed.edits.length, steer: R.steer.filter((v) => v.on).length, mem: performance.memory ? `${(performance.memory.usedJSHeapSize / 1e6).toFixed(0)} MB` : 'n/a', hash: ($('wHash')?.textContent || '').replace(/^sha256\s*/, '').slice(0, 12) } })); } catch (e) { console.warn(e); } });
   const mem = performance.memory ? `${(performance.memory.usedJSHeapSize / 1e6).toFixed(0)} MB heap` : 'heap n/a';
   $('hud').innerHTML = `<span>TinyStories-8M · <b>${R.program.length}</b> slots</span><span><b>${S.perf.tps.toFixed(1)}</b> tok/s</span><span><b>${S.perf.ms.toFixed(1)}</b> ms/tok</span><span>${mem}</span><span>edits <b>${ed.edits.length}</b></span><span>steer <b>${R.steer.filter((v) => v.on).length}</b></span><span>stats <b>${stats ? stats.N : '–'}</b></span><span>SAE <b>${sae ? `L${sae.layer}×${sae.m}` : '–'}</b></span><span>backend <b>CPU/JS f32</b>${globalThis.NEURALESE_WEBGPU ? ` <span class="sm" title="WebGPU is enabled for the WEBGPU benchmark only; generation runs on CPU/JS">· WebGPU ${globalThis.NEURALESE_WEBGPU}</span>` : ''}</span>`;
 }
 
+let NPAR = 0; const PARAMS = () => { if (!NPAR) { const seen = new Set(), walk = (o, dd) => { if (!o || dd > 6 || seen.has(o)) return; seen.add(o); if (ArrayBuffer.isView(o)) { NPAR += o.length; return; } if (typeof o === 'object') for (const v of Object.values(o)) walk(v, dd + 1); }; walk(W, 0); } return NPAR > 1e6 ? (NPAR / 1e6).toFixed(2) + ' M' : String(NPAR); };
 // ───────── UI construction ─────────
-const TABS = { gen: 'GEN', steer: 'STEER', an: 'ANALYZE', causal: 'CAUSAL', sae: 'SAE', surg: 'SURGERY', rt: 'RUNTIME', ops: 'OPS', viz: '3D', audio: 'AUDIO' };
+const TABS = { home: 'OVERVIEW', gen: 'GEN', steer: 'STEER', an: 'ANALYZE', causal: 'CAUSAL', sae: 'SAE', surg: 'SURGERY', rt: 'RUNTIME', ops: 'OPS', viz: '3D', audio: 'AUDIO' };
 const opts = (a, v) => a.map((x) => { const [k, t] = Array.isArray(x) ? x : [x, x]; return `<option value="${k}"${k == v ? ' selected' : ''}>${t}</option>`; }).join('');
 const layerOpts = (v = 0) => opts([...Array(L).keys()], v);
 const P = {};
@@ -154,9 +158,11 @@ P.ops = `
 <fieldset><legend>active weight edits (replayed from original on every rebuild)</legend><div class="hist" id="editL"></div></fieldset>
 <fieldset><legend>snapshot (edit diffs + runtime, not weights)</legend><div class="r"><button id="bSnapE">export .json</button><input type="file" id="snapI" accept=".json"/></div></fieldset>
 <fieldset><legend>weights</legend><div class="r"><button id="bST">download modified model.safetensors (HF names, F32)</button></div><div class="sm">Runtime interventions (program, steering, head temps, masks, SAE clamps) are not representable as weights and are kept in the snapshot.</div></fieldset>`;
+P.home = homeMarkup();
 P.viz = `
 <fieldset><legend>weight-matrix view</legend><div class="r"><label>layer</label><select id="vzL">${layerOpts()}</select><label>mat</label><select id="vzM">${opts(MATS)}</select><select id="vzMode">${opts([['height', 'height-field'], ['points', 'point cloud']])}</select><label><input type="checkbox" id="vzDiff"/> diff vs original</label><button id="vzFit" title="fit the 3D scene into the visible area">⤢ fit to view</button></div><div id="vzInfo" class="sm"></div></fieldset>
-<fieldset><legend>legend</legend><div class="sm">Slabs = layers. Spheres = heads (glow/size = ‖z<sub>h</sub>‖ at last token). Grid of points = 1024 MLP neurons (red +, blue −). Teal tube = residual stream (radius ∝ ‖x‖). Click a head, neuron or slab to select it everywhere.</div></fieldset>`;
+<fieldset><legend>rendering</legend><div class="r"><label><input type="checkbox" id="vzBloom" checked/> bloom</label><label><input type="checkbox" id="vzDof" checked/> depth of field</label><label><input type="checkbox" id="vzAuto" checked/> adaptive quality (keeps ≥ 50 fps)</label></div><div id="vzFps" class="sm">measuring…</div></fieldset>
+<fieldset><legend>legend</legend><div class="sm">Slabs = layers. Spheres = heads (glow/size = ‖z<sub>h</sub>‖ at last token). Grid of points = 1024 MLP neurons (red +, blue −). Teal tube = residual stream (radius ∝ ‖x‖). Particles flowing head → stream: brightness/speed ∝ ‖z<sub>h</sub>‖. Hover anything for an info card; click a head, neuron or slab to select it everywhere (the camera glides to that layer).</div></fieldset>`;
 
 P.audio = `
 <fieldset><legend>engine</legend><div class="r"><button class="pri" id="auStart">▶ start audio</button><button id="auMute">mute (M)</button><span id="auInfo" class="sm">audio starts on your first click/key (browser autoplay policy)</span></div>
@@ -185,10 +191,11 @@ function buildUI() {
   q.addEventListener('keydown', (e) => { if (e.key === 'Enter') { const b = $$('#tabs button[data-t]').find((x) => !x.hidden && !x.closest('section').hidden); if (b) b.click(); } if (e.key === 'Escape') { q.value = ''; q.dispatchEvent(new Event('input')); q.blur(); } });
   addEventListener('keydown', (e) => { if (e.key === '/' && !/INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName)) { e.preventDefault(); document.body.classList.add('navopen'); q.focus(); } });
   $('bNav')?.addEventListener('click', () => document.body.classList.toggle('navopen'));
-  showTab('gen');
+  UI15.install({ showTab });
+  showTab('home');
 }
 function showTab(k) { if (!$('pane_' + k)) throw new Error('no tab ' + k); V5 && V5.onShow(k); $$('#tabs button').forEach((b) => { const on = b.dataset.t === k; b.classList.toggle('on', on); b.setAttribute('aria-selected', String(on)); if (on) { b.closest('section')?.classList.remove('shut'); b.scrollIntoView?.({ block: 'nearest' }); } }); $$('.pane').forEach((p) => p.classList.toggle('on', p.id === 'pane_' + k));
-  const ph = $('paneHead'); if (ph && V5) { const t = TABS[k] || k, lt = V5.long[k] || ''; ph.innerHTML = `<div class="phg">${esc(V5.groupOf?.[k] || '')}<span>${esc(t)}</span></div><h2>${esc(lt || t)}</h2>`; } $('panes')?.scrollTo?.(0, 0); }
+  const ph = $('paneHead'); if (ph && V5) { const t = TABS[k] || k, lt = V5.long[k] || ''; ph.innerHTML = `<div class="phg">${esc(V5.groupOf?.[k] || '')}<span>${esc(t)}</span></div><h2>${esc(lt || t)}</h2>`; } $('panes')?.scrollTo?.(0, 0); UI15.onTab(k, V5?.groupOf?.[k]); }
 
 // ───────── generation ─────────
 function readDecode() {
@@ -197,7 +204,7 @@ function readDecode() {
   for (const part of $('d_bias').value.split(',').map((s) => s.trim()).filter(Boolean)) { const m = part.match(/^(.*):\s*([+-]?[0-9.]+)$/); if (!m) throw new Error('bad logit bias: ' + part); const ids = tok.encode(m[1].startsWith(' ') ? m[1] : ' ' + m[1].trim()); D.bias[ids[0]] = (D.bias[ids[0]] || 0) + +m[2]; }
 }
 function tokSpan(id, cls, info) { const s = document.createElement('span'); s.className = 't ' + (cls || ''); s.textContent = tok.tokenStr(id); if (info) s._info = info; return s; }
-function attachTips(box) { box.onmousemove = (e) => { const t = e.target._info; showTip(e, t ? t() : ''); }; box.onmouseleave = () => showTip(null, ''); }
+function attachTips(box) { box.onmousemove = (e) => { const t = e.target._info; showTip(e, t ? t() : ''); if (box.id === 'outB' && e.target._sur != null) emit('gtok', [...box.children].filter((x) => x._sur != null).indexOf(e.target)); }; box.onmouseleave = () => { showTip(null, ''); if (box.id === 'outB') emit('gtok', -1); }; }
 let genId = 0;
 async function generate() {
   const my = ++genId; readDecode(); const ids = tok.encode($('prompt').value); if (!ids.length) return;
@@ -229,7 +236,7 @@ async function generate() {
       const lpRaw = logSoftmax(l); applyPenalties(l, seq.ids, gen, D); const dist = filterDist(l, D), id = pick(dist, rng, D.mode === 'greedy');
       const kept = new Set(dist.ids), top = topK(dist.lp, 10).map((i) => [i, Math.exp(dist.lp[i]), kept.has(i)]), pc = dist.probs[dist.ids.indexOf(id)];
       const sp = tokSpan(id, '', () => `p(${JSON.stringify(tok.tokenStr(id))}) = ${pc.toFixed(4)}  (post-filter)\n` + top.map(([i, p, k]) => `${k ? '●' : '○'} ${JSON.stringify(tok.tokenStr(i)).padEnd(14)} ${p.toFixed(4)}`).join('\n'));
-      sp.style.background = `rgba(244,114,182,${Math.min(0.55, -Math.log(pc + 1e-9) / 12)})`; sp._pos = seq.T; outB.appendChild(sp); gen.push(id);
+      sp.style.background = `rgba(244,114,182,${Math.min(0.55, -Math.log(pc + 1e-9) / 12)})`; sp._pos = seq.T; sp._sur = -Math.log(pc + 1e-9); outB.appendChild(sp); gen.push(id);
       $('topk').innerHTML = top.map(([i, p, k]) => `<div class="${k ? '' : 'x'}">${esc(JSON.stringify(tok.tokenStr(i)))} ${(p * 100).toFixed(1)}%<i style="width:${(p * 100).toFixed(0)}%"></i></div>`).join('');
       if (sonify) { const tr0 = r.trace, rank = lpRaw ? (() => { let k = 0; const v = lpRaw[id]; for (let i = 0; i < lpRaw.length; i++) if (lpRaw[i] > v) k++; return k; })() : 0; let ent = 0; for (let i = 0; i < lpRaw.length; i++) { const q = Math.exp(lpRaw[i]); if (q > 1e-12) ent -= q * lpRaw[i]; }
         const t2 = topK(lpRaw, 2); audio.token({ id, text: tok.tokenStr(id), p: Math.exp(lpRaw[id]), rank, ent, norms: [tr0.embed, ...tr0.resid_post].map((v) => Math.hypot(...v)), pats: tr0.pattern.flat().filter(Boolean), lp: lpRaw, lpClean: rSh ? logSoftmax(engClean.logits(rSh.h)) : null, top2: t2.map((i) => Math.exp(lpRaw[i])), resid: tr0.final }); }
@@ -244,9 +251,13 @@ async function generate() {
   const dt = performance.now() - tStart; if (nTok) { S.perf.tps = nTok / (dt / 1000); S.perf.ms = dt / nTok; }
   S.lastTraces = traces; S.lastIds = seq.ids.slice(); viz.activations(r.trace); hud();
   const first = gen.findIndex((x, i) => genC[i] !== undefined && genC[i] !== x); $('genInfo').textContent += ` · ${nTok} tok${cmp ? first < 0 ? ' · identical to clean' : ` · diverges from clean at +${first}` : ''}`;
-  attachTips(outB); readout();
+  attachTips(outB); readout(); genStrip(); { const sp = [...outB.children].filter((x) => x._sur != null); document.dispatchEvent(new CustomEvent('nl-gen', { detail: { toks: sp.map((x) => x.textContent), sur: sp.map((x) => x._sur), text: tok.decode(gen) } })); }
   window.NEURALESE_LAST = { hacked: tok.decode(gen), clean: tok.decode(genC) };
 }
+// v15.1 token heat strip under the output: post-filter surprisal −ln p of every sampled token, cross-highlighted with the text
+function genStrip() { const cv = $('outStrip'); if (!cv) return; const sp = [...$('outB').children].filter((x) => x._sur != null); cv.hidden = !sp.length; if (!sp.length) return;
+  heatStrip(cv, sp.map((x) => x.textContent), sp.map((x) => x._sur), { sync: 'gtok', name: 'surprisal −ln p (nats)', h: 30, min: 0 }); cv.previousElementSibling?.classList?.add?.('hasStrip');
+  if (!cv._hlWired) { cv._hlWired = true; document.addEventListener('nl-hl', (e) => { if (e.detail.key !== 'gtok') return; const all = [...$('outB').children].filter((x) => x._sur != null); all.forEach((x, i) => x.classList.toggle('hl', i === e.detail.i)); }); } }
 // per-token projection of the residual onto a steering vector
 function readout() {
   const id = $('readSel').value, tr = S.lastTraces; if (!tr) return; const spans = [...$('outB').children];
@@ -359,7 +370,7 @@ function weightEdit(label, e, path) { // records relative Frobenius change of th
 async function showSvd() {
   const path = matPath(); if (path === 'wte') throw new Error('wte SVD (50257×256) is too slow for the browser here; use a layer matrix or wpe'); $('svdInfo').textContent = 'running one-sided Jacobi SVD…'; await tick();
   const t0 = performance.now(), { a, rows, cols } = getMat(M, path), r = ed.svdOf(path, true), S2 = r.S; const tot = S2.reduce((x, y) => x + y * y, 0); let c = 0; const cum = S2.map((s) => (c += s * s) / tot);
-  const out = new Float32Array(rows * cols); (await import('./linalg.js?v=15')).svdReconstruct(r, Float64Array.from(S2), out); let e = 0; for (let i = 0; i < out.length; i++) e += (out[i] - a[i]) ** 2;
+  const out = new Float32Array(rows * cols); (await import('./linalg.js?v=151')).svdReconstruct(r, Float64Array.from(S2), out); let e = 0; for (let i = 0; i < out.length; i++) e += (out[i] - a[i]) ** 2;
   bars($('svdC'), Array.from(S2), { log: true, title: `σ spectrum ${path} (${rows}×${cols}, log) · hover for energy`, label: (i) => `σ${i} = ${S2[i].toPrecision(5)}  cum energy ${(cum[i] * 100).toFixed(2)}%`, onClick: (i) => ($('svK').value = i + 1) });
   $('svdInfo').textContent = `${S2.length} σ · ${r.sweeps} sweeps · ${(performance.now() - t0).toFixed(0)} ms · recon rel.err ${(Math.sqrt(e) / frob(a)).toExponential(2)} · 90% energy @ k=${cum.findIndex((x) => x >= 0.9) + 1}`;
 }
@@ -500,7 +511,8 @@ function wire() {
   on('bSnapE', 'click', exportSnap); on('snapI', 'change', (e) => importSnap(e.target.files[0]));
   on('bST', 'click', () => download('model.safetensors', toSafetensors(M), 'application/octet-stream'));
   // 3D
-  on('vzFit', 'click', () => viz?.fit?.()); for (const id of ['vzL', 'vzM', 'vzMode', 'vzDiff']) on(id, 'change', () => (id === 'vzL' ? setSel({ l: +$('vzL').value }) : refreshWeights()));
+  on('vzFit', 'click', () => viz?.fit?.()); for (const [id, k] of [['vzBloom', 'bloom'], ['vzDof', 'dof'], ['vzAuto', 'auto']]) on(id, 'change', () => { viz.fx[k] = $(id).checked; if (k !== 'auto') viz.quality = 'manual'; });
+  setInterval(() => { const el = $('vzFps'); if (!el || !viz?.fps || !el.offsetParent) return; const f = viz.fps(); el.textContent = `${f.fps} fps · ${f.cpuMs} ms CPU/frame · ${f.quality} · pixel ratio ${f.pixelRatio}`; $('vzBloom').checked = viz.fx.bloom; $('vzDof').checked = viz.fx.dof; }, 1000); for (const id of ['vzL', 'vzM', 'vzMode', 'vzDiff']) on(id, 'change', () => (id === 'vzL' ? setSel({ l: +$('vzL').value }) : refreshWeights()));
   // audio
   const startAudio = guard(async () => { await audio.start(); $('auInfo').textContent = `running · ${audio.ctx.sampleRate} Hz · base latency ${(audio.ctx.baseLatency * 1000 || 0).toFixed(1)} ms`; });
   addEventListener('pointerdown', startAudio, { once: true }); addEventListener('keydown', startAudio, { once: true }); on('auStart', 'click', startAudio);

@@ -73,7 +73,7 @@ test('V14-8 Neuron Lens DB: every file matches db-manifest sha256, 8×1024 neuro
     for (const h of D.heads) for (const k of ['ov_R', 'ov_S', 'writes_R', 'qk_S', 'qk_self']) assert.equal(h[k][0].length, 10); }
 });
 test('V14-9 wiring + provenance: three NEURON LENS tabs in INTERPRET, lens/ shipped in www, catalog sample attributed CC BY 4.0, original-implementation notice', () => {
-  assert.match(S('lab-ui.js'), /'saed', 'nlens', 'nlval', 'nlext'\]/); assert.match(S('v5.js'), /lab-lens\.js\?v=15/); assert.match(S('tools/build-www.mjs'), /'lens'/);
+  assert.match(S('lab-ui.js'), /'saed', 'nlens', 'nlval', 'nlext'\]/); assert.match(S('v5.js'), /lab-lens\.js\?v=151/); assert.match(S('tools/build-www.mjs'), /'lens'/);
   const x = J('lens/ext/neuron-lens-sample.json'); assert.match(x.license, /CC BY 4\.0/); assert.match(x.attribution, /a9lim/); assert.match(x.attribution, /treetowntree/);
   assert.ok(x.models['qwen3-8b'].heads.length === 1152 && x.models['gemma-4-12b'].heads.length === 768); assert.ok(!JSON.stringify(x).includes('"contexts"'));
   assert.match(S('lens/ext/ATTRIBUTION.md'), /creativecommons\.org\/licenses\/by\/4\.0/); assert.match(S('lab-lens.js'), /CC BY 4\.0/);

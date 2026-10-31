@@ -1,3 +1,27 @@
+# Neuralese v15.1.0: polish pass
+
+A front-end polish release. Models, maths and data are unchanged, and every provenance/honesty banner is kept.
+
+- **Overview dashboard (new landing tab, `H`):** a hero 3D network (8 rings × 16 instanced head nodes, coloured live by the real per-head ‖z_h‖, flow particles, parallax). Live stat cards (params 19.70 M, layers·heads, d_model·d_mlp, tok/s, ms/token, edits·steer, JS heap, weights hash) with skeleton loading. A tok/s sparkline, a surprisal strip for the last generation, and quick links into each section.
+- **3D scene:**
+  - Heads are drawn as one InstancedMesh. Animated activation flow runs along head→residual edges and up the residual column, with amplitude driven by the real activations.
+  - Hover picking shows an info card (head ‖z‖ and rank, layer, residual norm).
+  - Eased fly-to camera moves.
+  - A custom post-processing chain: HDR MSAA target, a bloom pyramid, and depth of field from the depth texture. Toggle it under VIZ → rendering.
+  - Adaptive quality drops DoF, then bloom, then pixel ratio when the 3-second average falls below 50 fps. A live fps/CPU-ms readout is shown.
+- **Data viz:**
+  - Charts animate between states (eased tweens).
+  - Line charts support brush-to-zoom (double-click resets).
+  - Charts are cross-highlighted through a shared token bus.
+  - New attention **arc diagram** (hover a token to isolate its arcs, top-4 tooltip) and **token heat strips** (attention received; per-token surprisal under the Generate output, synced with the text).
+- **UI:**
+  - An inline SVG icon set and a per-section accent colour (sidebar, pane header, primary buttons).
+  - Refined heading/legend hierarchy, visible `:focus-visible` rings, and AA-checked muted text (≥ 4.5:1 in both themes).
+  - Empty-canvas states ("No data yet") and error toasts.
+  - A keyboard shortcuts overlay (`?`). Use `[` / `]` for the previous/next tab.
+  - Button ripples. Everything respects `prefers-reduced-motion`: no tweens, a static hero, frozen flow and instant camera moves.
+- **Tests:** a new `test/v151.test.mjs` file, and a new `smoke-v151.mjs` that covers all 73 tabs at 3 sizes with 0 console errors. It also checks the overview stats, hero, icons/accents, shortcut overlay, `[`/`]`/`H` navigation, arcs + strip + cross-highlight, brush zoom, the 3D hover card + fly-to, contrast samples, reduced motion and fps.
+
 # Neuralese v15.0.0: visual overhaul
 
 A front-end redesign. Models, maths and data are unchanged, and every provenance/honesty banner is kept.
