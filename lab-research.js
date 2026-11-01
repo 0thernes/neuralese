@@ -1,10 +1,10 @@
 // v7 RESEARCH group: reproducibility (hashes, manifests, replay), hypothesis tests, ACDC-style circuit discovery + scrubbing,
 // linear probes with control tasks, user datasets, eval harness, notebook, report generator, structured log + lab-state files.
-import { lines, bars } from './charts.js?v=152';
-import { $, esc, fmt, opts, cv, tipq, prog, tick } from './lab-ui.js?v=152';
-import * as R from './research.js?v=152';
-import { cloneWeights } from './model.js?v=152';
-import { DS, docs, allDocs, setUserCorpus, clearUserCorpus } from './dataset.js?v=152';
+import { lines, bars } from './charts.js?v=153';
+import { $, esc, fmt, opts, cv, tipq, prog, tick } from './lab-ui.js?v=153';
+import * as R from './research.js?v=153';
+import { cloneWeights } from './model.js?v=153';
+import { DS, docs, allDocs, setUserCorpus, clearUserCorpus } from './dataset.js?v=153';
 const P = (id) => `<div class="prog" id="${id}"><i></i></div>`;
 const NBKEY = 'neuralese.notebook.v7', MODEL_ID = 'roneneldan/TinyStories-8M@refs/pr/1';
 const dl = (name, text, type = 'application/json') => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type })); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); };
@@ -104,6 +104,8 @@ export function install(A, out) {
     keep('eval', `Eval harness on ${N} docs × 32 tokens (${DS.name}), 12 cloze facts, 3 greedy 40-token generations.`, { docs: N, pplClean: a.ppl, pplCur: b.ppl, factClean: a.factTop1, factCur: b.factTop1, d2Clean: a.distinct2, d2Cur: b.distinct2, rep4Clean: a.rep4, rep4Cur: b.rep4 }); return { clean: a, cur: b }; };
   on('evGo', 'click', () => out.evalh());
   // ── NOTEBOOK ──
+  // v15.3: cells run as Blob-URL ES modules (CSP: script-src blob:) instead of new Function (which needed 'unsafe-eval').
+  const cellFn = async (code) => { const u = URL.createObjectURL(new Blob([`export default async (lab, research, docs, print, plot) => {\n${code}\n};`], { type: 'text/javascript' })); try { return (await import(/* @vite-ignore */ u)).default; } finally { URL.revokeObjectURL(u); } };
   const DEF = ['// perplexity of the current weights on 8 docs\nconst ce = research.docCE(lab.M(), docs(8, 24));\nprint("mean CE", ce.reduce((a, b) => a + b) / ce.length);\nplot(ce);', '// weights hash\nprint(await research.weightsHash(lab.M()));'];
   let cells; try { cells = JSON.parse(localStorage.getItem(NBKEY)) || DEF; } catch { cells = DEF; } const outs = [];
   const saveNb = () => { try { localStorage.setItem(NBKEY, JSON.stringify(cells)); } catch { /* quota */ } };
@@ -112,7 +114,7 @@ export function install(A, out) {
     $('nbCells').querySelectorAll('[data-del]').forEach((b) => (b.onclick = () => { cells.splice(+b.dataset.del, 1); outs.splice(+b.dataset.del, 1); saveNb(); renderNb(); })); };
   out.nbRun = async (i) => { const o = (outs[i] = { text: '', plot: null }), pre = $('nbO' + i), cvs = $('nbC' + i), print = (...a) => { o.text += a.map((x) => (typeof x === 'string' ? x : JSON.stringify(x, (k, v) => (ArrayBuffer.isView(v) ? Array.from(v.slice(0, 64)) : v)))).join(' ') + '\n'; pre.textContent = o.text; };
     const plot = (ys) => { const s = Array.isArray(ys) && ys.length && ys[0]?.ys ? ys : [{ ys: Array.from(ys), label: 'y' }]; o.plot = s; cvs.style.display = ''; lines(cvs, s); };
-    try { const fn = new Function('lab', 'research', 'docs', 'print', 'plot', `return (async () => {\n${cells[i]}\n})();`); const r = await fn(A, R, docs, print, plot); if (r !== undefined) print(r); }
+    try { const fn = await cellFn(cells[i]); const r = await fn(A, R, docs, print, plot); if (r !== undefined) print(r); }
     catch (e) { o.text += '✖ ' + e.message; pre.textContent = o.text; throw e; } return o; };
   on('nbAdd', 'click', () => { cells.push('print(lab.ed().edits.length, "edits")'); saveNb(); renderNb(); }); on('nbAll', 'click', async () => { for (let i = 0; i < cells.length; i++) await out.nbRun(i); });
   const nbMd = () => cells.map((c, i) => '```js\n' + c + '\n```\n' + (outs[i]?.text ? '```\n' + outs[i].text + '```\n' : '')).join('\n');

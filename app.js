@@ -1,21 +1,22 @@
 // NEURALESE v2 — UI wiring. All numerics live in engine/analysis/surgery/decode/sae/rome (unit-tested vs PyTorch).
-import * as U152 from './ui152.js?v=152';
-import { GPT2Tokenizer } from './tokenizer.js?v=152';
-import { CFG, buildWeights, parseSafetensors, cloneWeights, mulberry32 } from './model.js?v=152';
-import { Engine, defaultRuntime, logSoftmax, topK, SITES } from './engine.js?v=152';
-import { computeStats, actCovariance, fitTunedLens, lensGrid, dla, patchResid, patchHeads, pathPatchHeadsToLogits, ablationSweep, buildControlVector, vectorArithmetic, tokenStats } from './analysis.js?v=152';
-import { Editor, MATS, getMat, toSafetensors, quantize } from './surgery.js?v=152';
-import { defaultDecode, applyPenalties, filterDist, pick, contrastiveLogits, cfgLogits, beamSearch } from './decode.js?v=152';
-import { SAE } from './sae.js?v=152';
-import { computeRome } from './rome.js?v=152';
-import { CORPUS } from './corpus.js?v=152';
-import { heatmap, lines, bars, showTip, seqColor, divColor, markStale, heatStrip, emit } from './charts.js?v=152';
-import { Viz } from './viz.js?v=152';
-import { AudioEngine, editKind, STYLES } from './audio.js?v=152';
-import { buildV5 } from './v5.js?v=152';
-import { vecToJSON as _v2j, vecFromJSON as _j2v } from './labcore.js?v=152';
-import * as UI15 from './ui15.js?v=152';
-import { homeMarkup } from './ui15.js?v=152';
+import * as U152 from './ui152.js?v=153';
+import { GPT2Tokenizer } from './tokenizer.js?v=153';
+import { CFG, buildWeights, parseSafetensors, cloneWeights, mulberry32 } from './model.js?v=153';
+import { Engine, defaultRuntime, logSoftmax, topK, SITES } from './engine.js?v=153';
+import { RemoteEngine, withBias } from './engine-client.js?v=153';
+import { computeStats, actCovariance, fitTunedLens, lensGrid, dla, patchResid, patchHeads, pathPatchHeadsToLogits, ablationSweep, buildControlVector, vectorArithmetic, tokenStats } from './analysis.js?v=153';
+import { Editor, MATS, getMat, toSafetensors, quantize } from './surgery.js?v=153';
+import { defaultDecode, applyPenalties, filterDist, pick, contrastiveLogits, cfgLogits, beamSearch } from './decode.js?v=153';
+import { SAE } from './sae.js?v=153';
+import { computeRome } from './rome.js?v=153';
+import { CORPUS } from './corpus.js?v=153';
+import { heatmap, lines, bars, showTip, seqColor, divColor, markStale, heatStrip, emit } from './charts.js?v=153';
+import { Viz } from './viz.js?v=153';
+import { AudioEngine, editKind, STYLES } from './audio.js?v=153';
+import { buildV5 } from './v5.js?v=153';
+import { vecToJSON as _v2j, vecFromJSON as _j2v } from './labcore.js?v=153';
+import * as UI15 from './ui15.js?v=153';
+import { homeMarkup } from './ui15.js?v=153';
 const audio = new AudioEngine();
 const { d, H, L, ff, V } = CFG;
 const $ = (id) => document.getElementById(id), $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -206,49 +207,63 @@ function readDecode() {
 }
 function tokSpan(id, cls, info) { const s = document.createElement('span'); s.className = 't ' + (cls || ''); s.textContent = tok.tokenStr(id); if (info) s._info = info; return s; }
 function attachTips(box) { box.onmousemove = (e) => { const t = e.target._info; showTip(e, t ? t() : ''); if (box.id === 'outB' && e.target._sur != null) emit('gtok', [...box.children].filter((x) => x._sur != null).indexOf(e.target)); }; box.onmouseleave = () => { showTip(null, ''); if (box.id === 'outB') emit('gtok', -1); }; }
+// v15.3: generation runs in a Web Worker (engine-worker.js) so the UI thread never blocks on the forward pass.
+// Falls back to the main-thread Engine (same async interface) if the worker cannot start; S.perf.backend reports which is live.
+let RE = null, RE_P = null, RE_FAIL = null;
+async function genBackend() {
+  if (!RE && !RE_FAIL && !/[?&]noworker\b/.test(location.search)) { // one shared creation promise: concurrent generate() calls must not race two workers
+    RE_P = RE_P || RemoteEngine.create(); try { RE = await RE_P; } catch (e) { RE_FAIL = String(e.message || e); console.warn('engine worker unavailable, using main thread:', RE_FAIL); } }
+  if (RE) { await RE.sync('main', eng); if (!RE.cleanSynced) { RE.cleanSynced = RE.sync('clean', engClean); } await RE.cleanSynced; S.perf.backend = 'worker';
+    return { seq: (k, n) => RE.newSeq(k, n), step: (s, id, trace) => RE.step(s, id, { trace }), steps: (s, ids, trace) => RE.steps(s, ids, { trace }), beam: (s, h, o) => RE.beam(s, h, o), done: (ss) => { RE.free(ss).catch(() => {}); } }; }
+  S.perf.backend = 'main-thread';
+  const E = { main: eng, clean: engClean };
+  return { seq: async (k, n) => Object.assign(E[k].newSeq(n), { key: k }), step: async (s, id, trace) => { const r = E[s.key].step(s, id, { trace }); r.l = E[s.key].logits(r.h); return r; },
+    steps: async (s, ids, trace) => { const traces = []; let r; for (const id of ids) { r = E[s.key].step(s, id, { trace }); traces.push(r.trace); } r.l = E[s.key].logits(r.h); r.traces = traces; return r; }, beam: async (s, h, o) => beamSearch(E[s.key], s, h, o), done: () => {} };
+}
 let genId = 0;
 async function generate() {
   const my = ++genId; readDecode(); const ids = tok.encode($('prompt').value); if (!ids.length) return;
   const outB = $('outB'), outA = $('outA'); outB.innerHTML = ''; outA.innerHTML = ''; const cmp = $('cmpOn').checked; outA.style.display = cmp ? '' : 'none';
   for (const id of ids) { outB.appendChild(tokSpan(id, 'pr')); if (cmp) outA.appendChild(tokSpan(id, 'pr')); }
   const t0 = performance.now();
-  const seq = eng.newSeq(ids.length); const traces = []; let r; for (const id of ids) { r = eng.step(seq, id, { trace: true }); traces.push(r.trace); }
+  const G = await genBackend(); const seq = await G.seq('main', ids.length); let r = await G.steps(seq, ids, true); const traces = r.traces.slice();
   const amaEng = D.cdRole === 'clean' ? eng : engClean, expEng = D.cdRole === 'clean' ? engClean : eng;
   let sA = null, rA = null, sN = null, rN = null, sC = null, rC = null;
   if (D.mode === 'contrastive') { // run the other model over the prompt
-    const other = D.cdRole === 'clean' ? engClean : engClean; sA = other.newSeq(ids.length); for (const id of ids) rA = other.step(sA, id);
+    const other = D.cdRole === 'clean' ? engClean : engClean; void other; sA = await G.seq('clean', ids.length); rA = await G.steps(sA, ids);
   }
-  if (D.mode === 'cfg' && D.neg) { const nids = tok.encode(D.neg); sN = eng.newSeq(nids.length); for (const id of nids) rN = eng.step(sN, id); }
-  if (cmp) { sC = engClean.newSeq(ids.length); for (const id of ids) rC = engClean.step(sC, id); }
+  if (D.mode === 'cfg' && D.neg) { const nids = tok.encode(D.neg); sN = await G.seq('main', nids.length); rN = await G.steps(sN, nids); }
+  if (cmp) { sC = await G.seq('clean', ids.length); rC = await G.steps(sC, ids); }
   // shadow clean model on the HACKED token stream → KL(hacked‖clean) at identical context, for the divergence beating
-  let sSh = null, rSh = null; const sonify = audio.on && !audio.muted; if (sonify && audio.vol.score > 0) { sSh = engClean.newSeq(ids.length); for (const id of ids) rSh = engClean.step(sSh, id); } audio.resetHistory(); S.timeline = [];
+  let sSh = null, rSh = null; const sonify = audio.on && !audio.muted; if (sonify && audio.vol.score > 0) { sSh = await G.seq('clean', ids.length); rSh = await G.steps(sSh, ids); } audio.resetHistory(); S.timeline = [];
   const rng = mulberry32(D.seed), rngC = mulberry32(D.seed); const gen = [], genC = []; let nTok = 0, tStart = performance.now(), cDone = !cmp, bDone = false;
   $('genInfo').textContent = `prompt ${ids.length} tok · ${(performance.now() - t0).toFixed(0)} ms`;
   if (D.mode === 'beam') {
-    await tick(); const best = beamSearch(eng, seq, r.h, { beams: D.beams, n: D.n, lenpen: D.lenpen, o: D }); if (my !== genId) return;
+    await tick(); const best = await G.beam(seq, r.h, { beams: D.beams, n: D.n, lenpen: D.lenpen, o: D }); if (my !== genId) { G.done([seq, sA, sN, sC, sSh]); return; }
     for (const id of best.ids) outB.appendChild(tokSpan(id)); gen.push(...best.ids); bDone = true; nTok = best.ids.length;
     $('genInfo').textContent += ` · beam ${D.beams}: logp ${best.logp.toFixed(2)} score ${best.score.toFixed(3)}`;
   }
   for (let step = 0; step < D.n && my === genId && !(bDone && cDone); step++) {
     if (!bDone) {
       let l;
-      if (D.mode === 'contrastive') { const lH = eng.logits(r.h), lO = engClean.logits(rA.h); l = D.cdRole === 'clean' ? contrastiveLogits(lO, lH, D.cdAlpha, D.cdBeta) : contrastiveLogits(lH, lO, D.cdAlpha, D.cdBeta); }
-      else if (D.mode === 'cfg' && sN) l = cfgLogits(eng.logits(r.h), eng.logits(rN.h), D.cfg); else l = eng.outLogits(r.h);
+      if (D.mode === 'contrastive') { const lH = r.l, lO = rA.l; l = D.cdRole === 'clean' ? contrastiveLogits(lO, lH, D.cdAlpha, D.cdBeta) : contrastiveLogits(lH, lO, D.cdAlpha, D.cdBeta); }
+      else if (D.mode === 'cfg' && sN) l = cfgLogits(r.l, rN.l, D.cfg); else l = withBias(r.l, R);
       const lpRaw = logSoftmax(l); applyPenalties(l, seq.ids, gen, D); const dist = filterDist(l, D), id = pick(dist, rng, D.mode === 'greedy');
       const kept = new Set(dist.ids), top = topK(dist.lp, 10).map((i) => [i, Math.exp(dist.lp[i]), kept.has(i)]), pc = dist.probs[dist.ids.indexOf(id)];
       const sp = tokSpan(id, '', () => `p(${JSON.stringify(tok.tokenStr(id))}) = ${pc.toFixed(4)}  (post-filter)\n` + top.map(([i, p, k]) => `${k ? '●' : '○'} ${JSON.stringify(tok.tokenStr(i)).padEnd(14)} ${p.toFixed(4)}`).join('\n'));
       sp.style.background = `rgba(244,114,182,${Math.min(0.55, -Math.log(pc + 1e-9) / 12)})`; sp._pos = seq.T; sp._sur = -Math.log(pc + 1e-9); outB.appendChild(sp); gen.push(id);
       $('topk').innerHTML = top.map(([i, p, k]) => `<div class="${k ? '' : 'x'}">${esc(JSON.stringify(tok.tokenStr(i)))} ${(p * 100).toFixed(1)}%<i style="width:${(p * 100).toFixed(0)}%"></i></div>`).join('');
       if (sonify) { const tr0 = r.trace, rank = lpRaw ? (() => { let k = 0; const v = lpRaw[id]; for (let i = 0; i < lpRaw.length; i++) if (lpRaw[i] > v) k++; return k; })() : 0; let ent = 0; for (let i = 0; i < lpRaw.length; i++) { const q = Math.exp(lpRaw[i]); if (q > 1e-12) ent -= q * lpRaw[i]; }
-        const t2 = topK(lpRaw, 2); audio.token({ id, text: tok.tokenStr(id), p: Math.exp(lpRaw[id]), rank, ent, norms: [tr0.embed, ...tr0.resid_post].map((v) => Math.hypot(...v)), pats: tr0.pattern.flat().filter(Boolean), lp: lpRaw, lpClean: rSh ? logSoftmax(engClean.logits(rSh.h)) : null, top2: t2.map((i) => Math.exp(lpRaw[i])), resid: tr0.final }); }
+        const t2 = topK(lpRaw, 2); audio.token({ id, text: tok.tokenStr(id), p: Math.exp(lpRaw[id]), rank, ent, norms: [tr0.embed, ...tr0.resid_post].map((v) => Math.hypot(...v)), pats: tr0.pattern.flat().filter(Boolean), lp: lpRaw, lpClean: rSh ? logSoftmax(rSh.l) : null, top2: t2.map((i) => Math.exp(lpRaw[i])), resid: tr0.final }); }
       { let ent = 0, rk = 0; const v = lpRaw[id]; for (let i = 0; i < lpRaw.length; i++) { const q = Math.exp(lpRaw[i]); if (q > 1e-12) ent -= q * lpRaw[i]; if (lpRaw[i] > v) rk++; } const t2 = topK(lpRaw, 2); S.timeline.push({ id, p: Math.exp(v), p1: Math.exp(lpRaw[t2[0]]), p2: Math.exp(lpRaw[t2[1]]), ent, rank: rk }); }
       if (id === 50256) bDone = true;
-      else { if (sSh) rSh = engClean.step(sSh, id); r = eng.step(seq, id, { trace: true }); traces.push(r.trace); if (sA) rA = engClean.step(sA, id); if (sN) rN = eng.step(sN, id); nTok++; }
+      else { [rSh, r, rA, rN] = await Promise.all([sSh ? G.step(sSh, id) : rSh, G.step(seq, id, true), sA ? G.step(sA, id) : rA, sN ? G.step(sN, id) : rN]); traces.push(r.trace); nTok++; } // concurrent: one worker round-trip per token
     }
-    if (!cDone) { const l = applyPenalties(engClean.logits(rC.h), sC.ids, genC, D), dist = filterDist(l, D), id = pick(dist, rngC, D.mode === 'greedy'); const k = genC.length; genC.push(id);
-      outA.appendChild(tokSpan(id, gen[k] !== undefined && gen[k] !== id ? 'dv' : '')); if (id === 50256) cDone = true; else rC = engClean.step(sC, id); }
+    if (!cDone) { const l = applyPenalties(rC.l.slice(), sC.ids, genC, D), dist = filterDist(l, D), id = pick(dist, rngC, D.mode === 'greedy'); const k = genC.length; genC.push(id);
+      outA.appendChild(tokSpan(id, gen[k] !== undefined && gen[k] !== id ? 'dv' : '')); if (id === 50256) cDone = true; else rC = await G.step(sC, id); }
     if (step % 2 === 0) { const dt = performance.now() - tStart; S.perf.tps = nTok / (dt / 1000) || 0; S.perf.ms = dt / Math.max(1, nTok); hud(); viz.activations(r.trace); await tick(); }
   }
+  G.done([seq, sA, sN, sC, sSh]);
   const dt = performance.now() - tStart; if (nTok) { S.perf.tps = nTok / (dt / 1000); S.perf.ms = dt / nTok; }
   S.lastTraces = traces; S.lastIds = seq.ids.slice(); viz.activations(r.trace); hud();
   const first = gen.findIndex((x, i) => genC[i] !== undefined && genC[i] !== x); $('genInfo').textContent += ` · ${nTok} tok${cmp ? first < 0 ? ' · identical to clean' : ` · diverges from clean at +${first}` : ''}`;
@@ -371,7 +386,7 @@ function weightEdit(label, e, path) { // records relative Frobenius change of th
 async function showSvd() {
   const path = matPath(); if (path === 'wte') throw new Error('wte SVD (50257×256) is too slow for the browser here; use a layer matrix or wpe'); $('svdInfo').textContent = 'running one-sided Jacobi SVD…'; await tick();
   const t0 = performance.now(), { a, rows, cols } = getMat(M, path), r = ed.svdOf(path, true), S2 = r.S; const tot = S2.reduce((x, y) => x + y * y, 0); let c = 0; const cum = S2.map((s) => (c += s * s) / tot);
-  const out = new Float32Array(rows * cols); (await import('./linalg.js?v=152')).svdReconstruct(r, Float64Array.from(S2), out); let e = 0; for (let i = 0; i < out.length; i++) e += (out[i] - a[i]) ** 2;
+  const out = new Float32Array(rows * cols); (await import('./linalg.js?v=153')).svdReconstruct(r, Float64Array.from(S2), out); let e = 0; for (let i = 0; i < out.length; i++) e += (out[i] - a[i]) ** 2;
   bars($('svdC'), Array.from(S2), { log: true, title: `σ spectrum ${path} (${rows}×${cols}, log) · hover for energy`, label: (i) => `σ${i} = ${S2[i].toPrecision(5)}  cum energy ${(cum[i] * 100).toFixed(2)}%`, onClick: (i) => ($('svK').value = i + 1) });
   $('svdInfo').textContent = `${S2.length} σ · ${r.sweeps} sweeps · ${(performance.now() - t0).toFixed(0)} ms · recon rel.err ${(Math.sqrt(e) / frob(a)).toExponential(2)} · 90% energy @ k=${cum.findIndex((x) => x >= 0.9) + 1}`;
 }
@@ -540,13 +555,13 @@ function wire() {
 // ───────── boot ─────────
 (async () => {
   try {
-    const r = await loadModel(); W = r.W; tok = r.tok; M = cloneWeights(W); ed = new Editor(W, M); R = defaultRuntime(); eng = new Engine(M, R); engClean = new Engine(W, defaultRuntime());
+    const r = await loadModel(); W = r.W; tok = r.tok; M = cloneWeights(W); ed = new Editor(W, M); R = defaultRuntime(); eng = new Engine(M, R); engClean = new Engine(W, defaultRuntime()); engClean.prefixCache = true; // v15.3: originals are never edited in place
     buildUI(); viz = new Viz($('gl'), (s) => setSel(s)); wire(); caInputs(); afterChange(); setSel({ l: 0, h: 0 }); $('loader').style.display = 'none'; hud();
     V5.mount({ viz, W: () => W, M: () => M, eng: () => eng, engClean: () => engClean, tok: () => tok, R: () => R, ed: () => ed, S: () => S, stats: () => stats, sae: () => sae, setSel, showTab, commit, weightEdit, download, generate, analyze, undo, redo, ensureStats, guard, toast, audio, decode: () => D, defaultRuntime,
       applyShared: (st) => commit('load shared experiment', () => { R = Object.assign(defaultRuntime(), st.R || {}); eng.R = R; ed.setEdits(st.edits || []); }),
       reset: () => commit('reset everything', () => { R = defaultRuntime(); eng.R = R; ed.setEdits([]); }), nextVecId: () => nextVec++,
       makeEngine: (w, r) => { const e = new Engine(w, r); e.stats = stats; e.sae = eng.sae; return e; } });
-    window.NEURALESE = { v6: V5, v5: V5, viz, audio, W, M, tok, ed, get R() { return R; }, eng, engClean, commit, generate, analyze, undo, redo, get stats() { return stats; }, mb: r.mb };
+    window.NEURALESE = { v6: V5, v5: V5, viz, audio, W, M, tok, ed, get R() { return R; }, eng, engClean, commit, generate, analyze, undo, redo, get stats() { return stats; }, get perf() { return S.perf; }, mb: r.mb };
     if (/#x=/.test(location.hash)) { try { await V5.out.shareLoad(location.hash); } catch (e) { toast('share link: ' + e.message); } }
     await generate();
   } catch (e) { console.error(e); setLoad('✖ ' + e.message + ' — check your connection'); const b = $('loadRetry'); if (b) { b.classList.remove('hidden'); b.onclick = () => location.reload(); b.focus(); } }

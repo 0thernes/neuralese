@@ -1,6 +1,9 @@
-# NEURALESE v14: interpretability and weight-surgery lab (TinyStories-8M, 100% in-browser) — ⚛ Powered by Tsotchke
+# NEURALESE: interpretability and weight-surgery lab (TinyStories-8M, runs in the browser; includes vendored Tsotchke WASM components)
 
 Live: https://0thernes.github.io/neuralese/ · **New here? [Beginner's guide to steering](docs/STEERING_GUIDE.md)** · Audit: [AUDIT.md](AUDIT.md) · Tsotchke analysis: [docs/TSOTCHKE.md](docs/TSOTCHKE.md) · Claims & evidence: [docs/CLAIMS.md](docs/CLAIMS.md) · Stack and versions: [docs/STACK.md](docs/STACK.md)
+
+## v15.3.0: engineering pass (1 Nov 2026)
+- Prefix KV cache + independent KV equality test; generation in a Web Worker (main-thread fallback); CSP without `unsafe-eval`; SwiftShader only as a GPU-failure fallback; source moved to `src/`, feature-named tests, CI lint+test+smoke. Details and caveats in RELEASE_NOTES.md.
 
 ## v15.2.0: refinement pass (31 Oct 2026)
 - Sidebar labels wrap with full-title tooltips (no truncation); wider rail.
@@ -188,4 +191,4 @@ The app loads [roneneldan/TinyStories-8M](https://huggingface.co/roneneldan/Tiny
 - `node smoke.mjs` runs a headless-Chrome end-to-end check of the UI.
 
 ## Repo layout
-`main` holds the source, tests, and PyTorch reference script. `gh-pages` holds the deployed static site (same JS files). To run the tests you need a local copy of the weights in `model/` (`model.safetensors`, `vocab.json`, `merges.txt`). Then run `python ref.py` (torch + transformers) followed by `node --test test/`.
+`main` holds the source, tests, and PyTorch reference script. `gh-pages` holds the deployed static site (same JS files). To run the tests you need a local copy of the weights in `model/` (`model.safetensors`, `vocab.json`, `merges.txt`). Then run `python test/ref/ref.py` (torch + transformers) followed by `npm test`. Serve the app locally with `npm run serve` (static server over `src/`) and run `npm run smoke`.

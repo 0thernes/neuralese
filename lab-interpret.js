@@ -1,11 +1,11 @@
 // INTERPRET group: attention grid/rollout/head classes, residual geometry, circuit graph, neuron atlas, embeddings, SAE dashboard.
-import * as C from './labcore.js?v=152';
-import { logSoftmax, topK, entropy } from './engine.js?v=152';
-import { dla } from './analysis.js?v=152';
-import { CORPUS } from './corpus.js?v=152';
-import { allDocs } from './dataset.js?v=152';
-import { heatmap, lines, bars, scatter, showTip, seqColor, arcs, heatStrip } from './charts.js?v=152';
-import { $, esc, fmt, opts, lOpts, XB, cv, tipq, pal, PAL, prog, svgEl, tick, tokId, canvasFit, d, H, L, ff, V } from './lab-ui.js?v=152';
+import * as C from './labcore.js?v=153';
+import { logSoftmax, topK, entropy } from './engine.js?v=153';
+import { dla } from './analysis.js?v=153';
+import { CORPUS } from './corpus.js?v=153';
+import { allDocs } from './dataset.js?v=153';
+import { heatmap, lines, bars, scatter, showTip, seqColor, arcs, heatStrip } from './charts.js?v=153';
+import { $, esc, fmt, opts, lOpts, XB, cv, tipq, pal, PAL, prog, svgEl, tick, tokId, canvasFit, d, H, L, ff, V } from './lab-ui.js?v=153';
 const IOI = 'When Mary and John went to the store, John gave a drink to';
 export const markup = {
   attn: ['ATTENTION', 'Attention patterns', `<fieldset><legend>input</legend><div class="r"><input id="xAP" style="flex:1" value="${IOI}"/><button class="pri" id="xA">run</button></div><div id="xAInfo" class="sm"></div></fieldset>
@@ -87,7 +87,7 @@ export function install(A, out) {
     for (const e of edges) { const [x1, y1] = pos.get(e.a.k), [x2, y2] = pos.get(e.b.k); g += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${ec[e.type]}" stroke-width="${(1 + 6 * e.v).toFixed(2)}" opacity=".6"><title>${e.type.toUpperCase()}-composition L${e.a.l}H${e.a.h} → L${e.b.l}H${e.b.h}: q ${e.cs.q.toFixed(3)} k ${e.cs.k.toFixed(3)} v ${e.cs.v.toFixed(3)}</title></line>`; }
     for (const n of nodes) { const [x, y] = pos.get(n.k), rr = 5 + (13 * Math.abs(n.v)) / maxV; g += n.type === 'head' ? `<circle cx="${x}" cy="${y}" r="${rr}" fill="${n.v >= 0 ? '#0f3b37' : '#4a1d1d'}" stroke="${n.v >= 0 ? '#5eead4' : '#f87171'}" data-l="${n.l}" data-h="${n.h}" class="clk"><title>L${n.l}H${n.h} DLA ${n.v.toFixed(4)}</title></circle><text x="${x - 14}" y="${y + rr + 10}" class="t2">L${n.l}H${n.h}</text>` : `<rect x="${x - rr}" y="${y - rr / 2}" width="${2 * rr}" height="${rr}" fill="#22162e" stroke="#a78bfa"><title>MLP L${n.l} DLA ${n.v.toFixed(4)}</title></rect><text x="${x - 14}" y="${y + rr + 6}" class="t2">MLP${n.l}</text>`; }
     g += `<rect x="${lx - 80}" y="4" width="160" height="26" rx="4" fill="#14213a" stroke="#5eead4"/><text x="${lx - 72}" y="21" class="t1">logit "${esc(tstr(tgt))}"</text>`;
-    const s = svgEl($('xCSvg'), w, h, `<style>.t1{font:600 11px monospace;fill:#e2e8f0}.t2{font:9px monospace;fill:#94a3b8}.clk{cursor:pointer}</style><rect width="${w}" height="${h}" fill="#0b1020"/>${g}`);
+    const s = svgEl($('xCSvg'), w, h, `<rect width="${w}" height="${h}" fill="#0b1020"/>${g}`);
     s.querySelectorAll('[data-h]').forEach((e) => e.addEventListener('click', () => A.setSel({ l: +e.dataset.l, h: +e.dataset.h })));
     $('xCInfo').innerHTML = `target "${esc(tstr(tgt))}" p=${Math.exp(lp[tgt]).toFixed(4)} · Σ DLA = ${r.total.toFixed(3)} · ${nodes.length} nodes · ${edges.length} composition edges ≥ ${thr} (<span style="color:#60a5fa">Q</span>/<span style="color:#f472b6">K</span>/<span style="color:#fbbf24">V</span>) · size ∝ |DLA|; teal promotes, red suppresses`; return { nodes, edges, tgt }; };
   on('xC', 'click', out.circuit);

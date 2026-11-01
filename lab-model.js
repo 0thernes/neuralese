@@ -1,9 +1,9 @@
 // MODEL group: architecture schematic, parameter/FLOP breakdown, weight statistics (live tensors).
-import * as C from './labcore.js?v=152';
-import { getMat, MATS } from './surgery.js?v=152';
-import { CFG } from './model.js?v=152';
-import { heatmap, lines, bars, scatter } from './charts.js?v=152';
-import { $, esc, fmt, human, opts, lOpts, hOpts, XB, cv, tipq, pal, prog, svgEl, tick, d, H, hd, L, V } from './lab-ui.js?v=152';
+import * as C from './labcore.js?v=153';
+import { getMat, MATS } from './surgery.js?v=153';
+import { CFG } from './model.js?v=153';
+import { heatmap, lines, bars, scatter } from './charts.js?v=153';
+import { $, esc, fmt, human, opts, lOpts, hOpts, XB, cv, tipq, pal, prog, svgEl, tick, d, H, hd, L, V } from './lab-ui.js?v=153';
 
 export const markup = {
   arch: ['ARCH', 'Architecture schematic', `<fieldset><legend>architecture schematic ${tipq('Generated from the live weights and the runtime layer program: duplicated, reordered or skipped slots appear here. Click a block to select that layer.')}</legend><div class="r"><button class="pri" id="xArch">render</button><span class="sm" id="xArchInfo"></span>${XB('xArchSvg', 'svg')}</div><div id="xArchSvg" class="svgbox"></div></fieldset><fieldset><legend>config</legend><div id="xCfg" class="sm"></div></fieldset>`],
@@ -27,7 +27,7 @@ export function install(A, out) {
       g += `<text x="30" y="${y + 50}" class="t3">${s.attn ? 'LN·QKV·softmax(QKᵀ)V·O' : 'skipped'}</text><text x="244" y="${y + 50}" class="t3">${s.mlp ? 'LN·fc·GELU·proj' : 'skipped'}</text><circle cx="215" cy="${y + 29}" r="7" fill="#0b1020" stroke="#5eead4"/><text x="211" y="${y + 33}" class="t2">+</text>`; y += rowH; }
     g += box(60, y, 310, 34, '#14213a', `ln_f → wteᵀ unembed [${d}→${V}]`, 'tied weights → logits'); y += 50;
     g += `<text x="6" y="${y}" class="t2">runtime: ${R.steer.filter((v) => v.on).length} steering ops · ${Object.keys(R.logitBias || {}).length} logit biases · ${(R.hSteer || []).length} h-steers · ${A.ed().edits.length} weight edits</text>`;
-    const s = svgEl($('xArchSvg'), w, y + 14, `<style>.t1{font:600 11px monospace;fill:#e2e8f0}.t2{font:10px monospace;fill:#94a3b8}.t3{font:9px monospace;fill:#94a3b8}.clk{cursor:pointer}</style><rect width="${w}" height="${y + 14}" fill="#0b1020"/>${g}`);
+    const s = svgEl($('xArchSvg'), w, y + 14, `<rect width="${w}" height="${y + 14}" fill="#0b1020"/>${g}`);
     s.querySelectorAll('[data-sel]').forEach((e) => e.addEventListener('click', () => A.setSel({ l: +e.dataset.sel })));
     const tot = C.paramBreakdown(W).reduce((a, b) => a + b.count, 0);
     $('xArchInfo').textContent = `${slots.length} slots · ${human(tot)} params (${human(tot - W.wte.length - W.wpe.length)} non-embedding)`;
@@ -38,7 +38,7 @@ export function install(A, out) {
     for (const k of ['embed', 'mlp', 'attn', 'norm']) { const items = pb.filter((p) => p.group === k), gs = items.reduce((a, b) => a + b.count, 0); if (!gs) continue; const gw = (gs / tot) * W0; let y = 0;
       for (const it of items) { const ih = (it.count / gs) * H0; g += `<rect x="${x}" y="${y}" width="${gw}" height="${ih}" fill="${col[k]}" stroke="#0b1020" stroke-width=".5"><title>${it.name} [${it.shape.join('×')}] ${it.count.toLocaleString()} (${((100 * it.count) / tot).toFixed(2)}%)</title></rect>`; if (ih > 11 && gw > 40) g += `<text x="${x + 3}" y="${y + 10}" class="t2">${it.name}</text>`; y += ih; }
       if (gw > 30) g += `<text x="${x + 3}" y="${H0 + 14}" class="t1">${k} ${((100 * gs) / tot).toFixed(1)}%</text>`; x += gw; }
-    svgEl($('xTree'), W0, H0 + 22, `<style>.t1{font:600 10px monospace;fill:#e2e8f0}.t2{font:8px monospace;fill:#e5e7eb}</style><rect width="${W0}" height="${H0 + 22}" fill="#0b1020"/>${g}`);
+    svgEl($('xTree'), W0, H0 + 22, `<rect width="${W0}" height="${H0 + 22}" fill="#0b1020"/>${g}`);
     $('xParInfo').textContent = `${tot.toLocaleString()} parameters · wte ${((100 * pb[0].count) / tot).toFixed(1)}%`;
     const rows = pb.map((p) => [p.name, p.group, p.shape.join('×'), p.count]); const t = $('xParTab'); t._csv = () => C.toCSV(rows, ['tensor', 'group', 'shape', 'params']);
     t.innerHTML = `<table><tr><th>tensor</th><th>group</th><th>shape</th><th>params</th></tr>${rows.map((r) => `<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3].toLocaleString()}</td></tr>`).join('')}</table>`; return tot; };

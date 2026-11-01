@@ -1,6 +1,6 @@
 // NEURALESE engine: GPT-Neo forward pass with a full intervention/hook system.
 // Every runtime control lives in `R` (serialisable). Weight edits live in surgery.js.
-import { CFG, mulberry32 } from './model.js?v=152';
+import { CFG, mulberry32 } from './model.js?v=153';
 const { d, H, hd, L, ff, V } = CFG;
 export const SITES = ['resid_pre', 'z', 'attn_out', 'mlp_act', 'mlp_out', 'resid_post'];
 
@@ -48,6 +48,11 @@ export class Seq {
   constructor(n) { this.K = Array.from({ length: n }, () => []); this.V = Array.from({ length: n }, () => []); this.T = 0; this.ids = []; this.nPrompt = 0; }
   clone() { const s = new Seq(0); s.K = this.K.map((a) => a.slice()); s.V = this.V.map((a) => a.slice()); s.T = this.T; s.ids = this.ids.slice(); s.nPrompt = this.nPrompt; return s; }
 }
+
+const _oid = new WeakMap(); let _oidN = 1;
+const objId = (o) => { if (!o || typeof o !== 'object') return 0; if (!_oid.has(o)) _oid.set(o, _oidN++); return _oid.get(o); };
+// a Seq holding only the first k positions of src (K/V arrays are shared read-only rows; step() only appends)
+function truncSeq(src, k) { const s = new Seq(0); s.K = src.K.map((a) => a.slice(0, k)); s.V = src.V.map((a) => a.slice(0, k)); s.T = k; s.ids = src.ids.slice(0, k); s.nPrompt = src.nPrompt; return s; }
 
 export class Engine {
   constructor(W, R) { this.W = W; this.R = R || defaultRuntime(); this.stats = null; this.sae = null; }
@@ -163,8 +168,26 @@ export class Engine {
   logitOf(h, id) { let s = 0; const o = id * d; for (let j = 0; j < d; j++) s += this.W.wte[o + j] * h[j]; return s; }
   // unembed an arbitrary residual vector through ln_f
   lensLogits(x) { const h = new Float32Array(d); layerNorm(x, this.W.lnfW, this.W.lnfB, h); return this.logits(h); }
+  // v15.3 cross-call prefix KV cache (opt-in: eng.prefixCache = true). Within one sequence the KV cache always existed (Seq.K/V);
+  // this additionally reuses the cached K/V of the longest common token prefix between consecutive run() calls.
+  // It is bypassed for hook / trace / custom-rng calls and invalidated whenever the runtime R (JSON fingerprint), the weights
+  // version (W.__ver, bumped by surgery.Editor), the stats/SAE objects or nPrompt change; call invalidate() after any other
+  // in-place weight mutation. test/engine-kv.test.mjs proves cached == uncached logits.
+  invalidate() { this._pc = null; }
+  _pcKey(nP) { return [this.R.steer.some((v) => v.on) ? nP : -1, // nPrompt only matters to steering masks / time schedules
+     this.W.__ver | 0, objId(this.W), objId(this.stats), objId(this.sae), JSON.stringify(this.R)].join('|'); }
   run(ids, o = {}) {
-    const s = this.newSeq(o.nPrompt ?? ids.length); const traces = []; let r;
+    const nP = o.nPrompt ?? ids.length, useC = this.prefixCache && !o.hook && !o.trace && !o.rng && ids.length > 0;
+    if (useC) {
+      const key = this._pcKey(nP), pc = this._pc && this._pc.key === key ? this._pc : null; let k = 0;
+      if (pc) while (k < ids.length && k < pc.ids.length && pc.ids[k] === ids[k]) k++;
+      if (pc && k === ids.length) { this.cacheHits = (this.cacheHits || 0) + 1; const s = truncSeq(pc.seq, k); return { seq: s, last: { h: pc.hs[k - 1].slice(), trace: null, x: pc.xs[k - 1].slice() }, traces: [], cached: k }; }
+      const s = k ? truncSeq(pc.seq, k) : this.newSeq(nP); s.nPrompt = nP; const hs = k ? pc.hs.slice(0, k) : [], xs = k ? pc.xs.slice(0, k) : []; let r;
+      for (let i = k; i < ids.length; i++) { r = this.step(s, ids[i], o); hs.push(r.h.slice()); xs.push(r.x.slice()); }
+      this._pc = { key, ids: ids.slice(), seq: s.clone(), hs, xs }; if (k) this.cacheHits = (this.cacheHits || 0) + 1;
+      return { seq: s, last: r, traces: [], cached: k };
+    }
+    const s = this.newSeq(nP); const traces = []; let r;
     for (const t of ids) { r = this.step(s, t, o); if (o.trace) traces.push(r.trace); }
     return { seq: s, last: r, traces };
   }

@@ -379,3 +379,16 @@ canvas.ch{transition:box-shadow var(--dur) var(--ease)}canvas.ch:hover{box-shado
   .skel3,canvas.skelhid{height:240px!important}.skel3{margin-top:-240px}
 }
 @media (prefers-reduced-motion:reduce){.skel3::before,button.busy::after,.skel3 .skt b::after{animation:none}#tabs button:hover{transform:none}.errnote{animation:none}}
+
+/* v15.3: SVG styles moved out of inline <style> elements (CSP style-src-elem 'self') */
+#xCSvg .t1{font:600 11px monospace;fill:#e2e8f0}
+#xCSvg .t2{font:9px monospace;fill:#94a3b8}
+#xCSvg .clk{cursor:pointer}
+#xArchSvg .t1{font:600 11px monospace;fill:#e2e8f0}
+#xArchSvg .t2{font:10px monospace;fill:#94a3b8}
+#xArchSvg .t3{font:9px monospace;fill:#94a3b8}
+#xArchSvg .clk{cursor:pointer}
+#xTree .t1{font:600 10px monospace;fill:#e2e8f0}
+#xTree .t2{font:8px monospace;fill:#e5e7eb}
+.whash{white-space:nowrap;opacity:.7}
+.anomb{opacity:0;transition:opacity .6s;font-size:11px;color:#7dd3fc;border:1px solid #1e3a5f;border-radius:3px;padding:1px 6px;margin-left:8px}

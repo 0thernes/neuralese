@@ -1,7 +1,7 @@
 // Weight surgery: a replayable list of edit ops applied to a fresh copy of the original weights.
-import { CFG, copyWeightsInto, mulberry32, gauss } from './model.js?v=152';
-import { svd, svdReconstruct } from './linalg.js?v=152';
-import { resolve, fromPath } from './drill.js?v=152';
+import { CFG, copyWeightsInto, mulberry32, gauss } from './model.js?v=153';
+import { svd, svdReconstruct } from './linalg.js?v=153';
+import { resolve, fromPath } from './drill.js?v=153';
 const { d, ff, L } = CFG;
 export const MATS = ['q', 'k', 'v', 'o', 'fc', 'proj'];
 export const SHAPE = { q: [d, d], k: [d, d], v: [d, d], o: [d, d], fc: [ff, d], proj: [d, ff] };
@@ -19,12 +19,13 @@ export function quantize(a, rows, cols, bits) {
   return Math.sqrt(err / (rows * cols));
 }
 
+const bump = (W) => { W.__ver = (W.__ver | 0) + 1; }; // weights version → invalidates Engine prefix KV caches
 export class Editor {
   constructor(orig, mod) { this.orig = orig; this.mod = mod; this.edits = []; this.std = new Map(); this.svdCache = new Map(); this.nextId = 1; this.onRebuild = null; }
   sd(a) { if (!this.std.has(a)) this.std.set(a, tensorStd(a)); return this.std.get(a); }
-  push(e) { e.id = e.id || this.nextId++; this.nextId = Math.max(this.nextId, e.id + 1); this.edits.push(e); this.apply(e); this.onRebuild && this.onRebuild(); return e; }
+  push(e) { e.id = e.id || this.nextId++; this.nextId = Math.max(this.nextId, e.id + 1); this.edits.push(e); this.apply(e); bump(this.mod); this.onRebuild && this.onRebuild(); return e; }
   setEdits(list) { this.edits = list; this.nextId = list.reduce((a, e) => Math.max(a, e.id + 1), 1); this.rebuild(); }
-  rebuild() { copyWeightsInto(this.mod, this.orig); for (const e of this.edits) this.apply(e); this.onRebuild && this.onRebuild(); }
+  rebuild() { copyWeightsInto(this.mod, this.orig); for (const e of this.edits) this.apply(e); bump(this.mod); this.onRebuild && this.onRebuild(); }
   // SVD of the ORIGINAL matrix (cached) – edits that need the current matrix compute fresh.
   svdOf(path, current = false) {
     const W = current ? this.mod : this.orig; const { a, rows, cols } = getMat(W, path);

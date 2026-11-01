@@ -1,5 +1,5 @@
 // Neuron Lens in-browser refit: fits one document's R-lens and S-lens on the current weights (same code path as tools/nlens-fit.mjs).
-import { prepare, docJacobianR, docJacobianS } from './neuronlens.js?v=152';
+import { prepare, docJacobianR, docJacobianS } from './neuronlens.js?v=153';
 self.onmessage = (e) => {
   const { W, cfg, ids, kinds } = e.data; const t0 = performance.now();
   try {
