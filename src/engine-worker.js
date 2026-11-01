@@ -6,8 +6,8 @@
 //   free   {sid}
 //   beam   {key, sid, h0, opts}        → beamSearch result (decode.js), computed entirely in the worker
 // Hooks (JS functions) cannot cross the thread boundary; callers that need hooks use the main-thread Engine (still exported).
-import { Engine } from './engine.js?v=153';
-import { beamSearch } from './decode.js?v=153';
+import { Engine } from './engine.js?v=160';
+import { beamSearch } from './decode.js?v=160';
 const E = {}, seqs = new Map(); let nextSid = 1;
 function statsOf(s) { if (!s) return null; const d = s.meanZ[0].length, N = s.N, Z = s.Z;
   return { ...s, sampleZ(l, rng) { const i = Math.floor(rng() * N); return Z[l].subarray(i * d, i * d + d); } }; }

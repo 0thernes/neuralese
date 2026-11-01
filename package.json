@@ -1,6 +1,6 @@
 {
  "name": "neuralese",
- "version": "15.3.0",
+ "version": "16.0.0",
  "description": "NEURALESE: in-browser interpretability & weight-surgery lab for TinyStories-8M (GPT-Neo). Original engine code plus credited vendored third-party components (three.js, transformers.js/ONNX Runtime, WASM builds of Tsotchke Eshkol/Moonlab/QGTL/quantum_rng).",
  "main": "index.js",
  "scripts": {
@@ -15,20 +15,21 @@
   "docs": "node tools/gendocs.mjs",
   "www": "node tools/build-www.mjs",
   "fetch-model": "node tools/fetch-model.mjs",
-  "cli": "node src/cli.mjs --model model"
+  "cli": "node src/cli.mjs --model model",
+  "fetch-arch": "node tools/fetch-arch-models.mjs"
  },
  "keywords": [],
  "author": "Alex Donahue",
  "license": "MIT",
  "type": "module",
  "dependencies": {
-  "puppeteer-core": "^25.16.0"
+  "puppeteer-core": "25.16.0"
  },
  "devDependencies": {
-  "@capacitor/android": "^7.6.9",
-  "@capacitor/cli": "^7.6.9",
-  "@capacitor/core": "^7.6.9",
-  "@capacitor/ios": "^7.6.9",
+  "@capacitor/android": "7.6.9",
+  "@capacitor/cli": "7.6.9",
+  "@capacitor/core": "7.6.9",
+  "@capacitor/ios": "7.6.9",
   "eslint": "9.39.5"
  }
 }

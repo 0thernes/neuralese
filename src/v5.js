@@ -1,25 +1,26 @@
 // v5 shell: grouped tabs, module install, theme, resizable dock, export bar, shortcuts, terminal + learning center.
-import { initialTheme, navTooltips } from './ui152.js?v=153';
-import { GROUPS, runs, exportFor, parseLayers, $, $$ } from './lab-ui.js?v=153';
-import * as LM from './lab-model.js?v=153';
-import * as LI from './lab-interpret.js?v=153';
-import * as LV from './lab-intervene.js?v=153';
-import * as LE from './lab-eval.js?v=153';
-import * as LS from './lab-science.js?v=153';
-import * as LR from './lab-research.js?v=153';
-import * as LT from './lab-tsotchke.js?v=153';
-import * as LF from './lab-frontier.js?v=153';
-import * as LH from './lab-hub.js?v=153';
-import * as LN from './lab-lens.js?v=153';
-import * as LX from './lab-nested.js?v=153';
-import { installModes } from './viz3d.js?v=153';
-import { redrawAll } from './charts.js?v=153';
-import { makeTerminal, termMarkup, mountTerminal, VERSION } from './term.js?v=153';
-import { learnMarkup, mountLearn } from './learn/learn.js?v=153';
-import { banner } from './provenance.js?v=153';
-import { installGuide } from './guide.js?v=153';
+import { initialTheme, navTooltips } from './ui152.js?v=160';
+import { GROUPS, runs, exportFor, parseLayers, $, $$ } from './lab-ui.js?v=160';
+import * as LM from './lab-model.js?v=160';
+import * as LI from './lab-interpret.js?v=160';
+import * as LV from './lab-intervene.js?v=160';
+import * as LE from './lab-eval.js?v=160';
+import * as LS from './lab-science.js?v=160';
+import * as LR from './lab-research.js?v=160';
+import * as LT from './lab-tsotchke.js?v=160';
+import * as LF from './lab-frontier.js?v=160';
+import * as LH from './lab-hub.js?v=160';
+import * as LN from './lab-lens.js?v=160';
+import * as LX from './lab-nested.js?v=160';
+import * as L16 from './lab-v16.js?v=160';
+import { installModes } from './viz3d.js?v=160';
+import { redrawAll } from './charts.js?v=160';
+import { makeTerminal, termMarkup, mountTerminal, VERSION } from './term.js?v=160';
+import { learnMarkup, mountLearn } from './learn/learn.js?v=160';
+import { banner } from './provenance.js?v=160';
+import { installGuide } from './guide.js?v=160';
 export { VERSION };
-const MODS = [LM, LI, LN, LX, LV, LE, LS, LR, LT, LF, LH];
+const MODS = [LM, LI, LN, LX, LV, LE, LS, LR, LT, LF, LH, L16];
 const AUTO = { arch: 'arch', params: 'params', timeline: 'timeline', runs: 'runs' }; // cheap views rendered on open
 export function buildV5(TABS, P) {
   const long = {};

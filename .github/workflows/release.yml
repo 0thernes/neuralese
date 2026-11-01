@@ -7,7 +7,8 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 env:
-  VER: 15.3.0
+  VER: 16.0.0
+  VERSION_CODE: 1600
 jobs:
   test:
     runs-on: ubuntu-24.04
@@ -19,6 +20,9 @@ jobs:
       - uses: actions/cache@v5
         with: { path: model, key: tinystories-model-v1 }
       - run: node tools/fetch-model.mjs
+      - uses: actions/cache@v5
+        with: { path: model/arch, key: arch-models-v1 }
+      - run: node tools/fetch-arch-models.mjs   # ~3 GB, revision- and sha256-pinned; arch/encoder tests need it
       - run: npm run lint
       - run: node --test test/*.test.mjs
       - name: headless browser smoke (worker == main-thread tokens, strict CSP, all tabs; streams TinyStories-8M from HF)
@@ -76,11 +80,26 @@ jobs:
         with: { distribution: temurin, java-version: 21 }
       - run: npm ci && node tools/build-www.mjs
       - run: npx cap add android
-      - run: sed -i "s/versionCode 1$/versionCode 14/; s/versionName \"1.0\"/versionName \"$VER\"/" android/app/build.gradle && grep -n version android/app/build.gradle
-      - run: cd android && chmod +x gradlew && ./gradlew assembleDebug --no-daemon
-      - run: cp android/app/build/outputs/apk/debug/app-debug.apk Neuralese-$VER-debug.apk && sha256sum Neuralese-$VER-debug.apk
+      - run: sed -i "s/versionCode 1$/versionCode $VERSION_CODE/; s/versionName \"1.0\"/versionName \"$VER\"/" android/app/build.gradle && grep -n version android/app/build.gradle
+      # Release-signed APK when the ANDROID_KEYSTORE_B64 / ANDROID_KEYSTORE_PASSWORD / ANDROID_KEY_ALIAS secrets exist; otherwise the
+      # debug-signed APK (named -debug) is shipped and RELEASE_NOTES says so. Signing uses apksigner from the runner's build-tools.
+      - name: build APK
+        env: { KS: '${{ secrets.ANDROID_KEYSTORE_B64 }}', KSP: '${{ secrets.ANDROID_KEYSTORE_PASSWORD }}', KA: '${{ secrets.ANDROID_KEY_ALIAS }}' }
+        run: |
+          cd android && chmod +x gradlew
+          if [ -n "$KS" ] && [ -n "$KSP" ] && [ -n "$KA" ]; then
+            ./gradlew assembleRelease --no-daemon
+            echo "$KS" | base64 -d > "$RUNNER_TEMP/ks.jks"; BT=$(ls -d $ANDROID_HOME/build-tools/* | sort -V | tail -1)
+            "$BT/zipalign" -f -p 4 app/build/outputs/apk/release/app-release-unsigned.apk "$RUNNER_TEMP/al.apk"
+            "$BT/apksigner" sign --ks "$RUNNER_TEMP/ks.jks" --ks-pass env:KSP --ks-key-alias "$KA" --out ../Neuralese-$VER.apk "$RUNNER_TEMP/al.apk"
+            "$BT/apksigner" verify --print-certs ../Neuralese-$VER.apk; rm -f "$RUNNER_TEMP/ks.jks"
+          else
+            echo "::warning::no Android keystore secrets: shipping the debug-signed APK"; ./gradlew assembleDebug --no-daemon
+            cp app/build/outputs/apk/debug/app-debug.apk ../Neuralese-$VER-debug.apk
+          fi
+          cd .. && sha256sum Neuralese-$VER*.apk
       - uses: actions/upload-artifact@v6
-        with: { name: android, path: 'Neuralese-${{ env.VER }}-debug.apk', if-no-files-found: error }
+        with: { name: android, path: 'Neuralese-${{ env.VER }}*.apk', if-no-files-found: error }
 
   ios:
     needs: test

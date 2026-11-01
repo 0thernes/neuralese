@@ -1,0 +1,83 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://0thernes.github.io/neuralese/prereg.schema.json",
+ "title": "Neuralese pre-registration",
+ "type": "object",
+ "required": [
+  "hypothesis",
+  "metric",
+  "null",
+  "threshold",
+  "seed",
+  "commit_sha"
+ ],
+ "additionalProperties": false,
+ "properties": {
+  "hypothesis": {
+   "type": "string",
+   "minLength": 10
+  },
+  "metric": {
+   "type": "object",
+   "required": [
+    "name",
+    "params"
+   ],
+   "additionalProperties": false,
+   "properties": {
+    "name": {
+     "enum": [
+      "head_ablation_delta_ce",
+      "mean_ce"
+     ]
+    },
+    "params": {
+     "type": "object"
+    }
+   }
+  },
+  "null": {
+   "type": "string",
+   "minLength": 5
+  },
+  "threshold": {
+   "type": "object",
+   "required": [
+    "op",
+    "value"
+   ],
+   "additionalProperties": false,
+   "properties": {
+    "op": {
+     "enum": [
+      ">",
+      ">=",
+      "<",
+      "<="
+     ]
+    },
+    "value": {
+     "type": "number"
+    }
+   }
+  },
+  "seed": {
+   "type": "integer",
+   "minimum": 0,
+   "maximum": 4294967295
+  },
+  "commit_sha": {
+   "type": "string",
+   "pattern": "^[0-9a-f]{40}$"
+  },
+  "author": {
+   "type": "string"
+  },
+  "created": {
+   "type": "string"
+  },
+  "notes": {
+   "type": "string"
+  }
+ }
+}

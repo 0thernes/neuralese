@@ -1,22 +1,22 @@
 // NEURALESE v2 — UI wiring. All numerics live in engine/analysis/surgery/decode/sae/rome (unit-tested vs PyTorch).
-import * as U152 from './ui152.js?v=153';
-import { GPT2Tokenizer } from './tokenizer.js?v=153';
-import { CFG, buildWeights, parseSafetensors, cloneWeights, mulberry32 } from './model.js?v=153';
-import { Engine, defaultRuntime, logSoftmax, topK, SITES } from './engine.js?v=153';
-import { RemoteEngine, withBias } from './engine-client.js?v=153';
-import { computeStats, actCovariance, fitTunedLens, lensGrid, dla, patchResid, patchHeads, pathPatchHeadsToLogits, ablationSweep, buildControlVector, vectorArithmetic, tokenStats } from './analysis.js?v=153';
-import { Editor, MATS, getMat, toSafetensors, quantize } from './surgery.js?v=153';
-import { defaultDecode, applyPenalties, filterDist, pick, contrastiveLogits, cfgLogits, beamSearch } from './decode.js?v=153';
-import { SAE } from './sae.js?v=153';
-import { computeRome } from './rome.js?v=153';
-import { CORPUS } from './corpus.js?v=153';
-import { heatmap, lines, bars, showTip, seqColor, divColor, markStale, heatStrip, emit } from './charts.js?v=153';
-import { Viz } from './viz.js?v=153';
-import { AudioEngine, editKind, STYLES } from './audio.js?v=153';
-import { buildV5 } from './v5.js?v=153';
-import { vecToJSON as _v2j, vecFromJSON as _j2v } from './labcore.js?v=153';
-import * as UI15 from './ui15.js?v=153';
-import { homeMarkup } from './ui15.js?v=153';
+import * as U152 from './ui152.js?v=160';
+import { GPT2Tokenizer } from './tokenizer.js?v=160';
+import { CFG, buildWeights, parseSafetensors, cloneWeights, mulberry32 } from './model.js?v=160';
+import { Engine, defaultRuntime, logSoftmax, topK, SITES } from './engine.js?v=160';
+import { RemoteEngine, withBias } from './engine-client.js?v=160';
+import { computeStats, actCovariance, fitTunedLens, lensGrid, dla, patchResid, patchHeads, pathPatchHeadsToLogits, ablationSweep, buildControlVector, vectorArithmetic, tokenStats } from './analysis.js?v=160';
+import { Editor, MATS, getMat, toSafetensors, quantize } from './surgery.js?v=160';
+import { defaultDecode, applyPenalties, filterDist, pick, contrastiveLogits, cfgLogits, beamSearch } from './decode.js?v=160';
+import { SAE } from './sae.js?v=160';
+import { computeRome } from './rome.js?v=160';
+import { CORPUS } from './corpus.js?v=160';
+import { heatmap, lines, bars, showTip, seqColor, divColor, markStale, heatStrip, emit } from './charts.js?v=160';
+import { Viz } from './viz.js?v=160';
+import { AudioEngine, editKind, STYLES } from './audio.js?v=160';
+import { buildV5 } from './v5.js?v=160';
+import { vecToJSON as _v2j, vecFromJSON as _j2v } from './labcore.js?v=160';
+import * as UI15 from './ui15.js?v=160';
+import { homeMarkup } from './ui15.js?v=160';
 const audio = new AudioEngine();
 const { d, H, L, ff, V } = CFG;
 const $ = (id) => document.getElementById(id), $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -386,7 +386,7 @@ function weightEdit(label, e, path) { // records relative Frobenius change of th
 async function showSvd() {
   const path = matPath(); if (path === 'wte') throw new Error('wte SVD (50257×256) is too slow for the browser here; use a layer matrix or wpe'); $('svdInfo').textContent = 'running one-sided Jacobi SVD…'; await tick();
   const t0 = performance.now(), { a, rows, cols } = getMat(M, path), r = ed.svdOf(path, true), S2 = r.S; const tot = S2.reduce((x, y) => x + y * y, 0); let c = 0; const cum = S2.map((s) => (c += s * s) / tot);
-  const out = new Float32Array(rows * cols); (await import('./linalg.js?v=153')).svdReconstruct(r, Float64Array.from(S2), out); let e = 0; for (let i = 0; i < out.length; i++) e += (out[i] - a[i]) ** 2;
+  const out = new Float32Array(rows * cols); (await import('./linalg.js?v=160')).svdReconstruct(r, Float64Array.from(S2), out); let e = 0; for (let i = 0; i < out.length; i++) e += (out[i] - a[i]) ** 2;
   bars($('svdC'), Array.from(S2), { log: true, title: `σ spectrum ${path} (${rows}×${cols}, log) · hover for energy`, label: (i) => `σ${i} = ${S2[i].toPrecision(5)}  cum energy ${(cum[i] * 100).toFixed(2)}%`, onClick: (i) => ($('svK').value = i + 1) });
   $('svdInfo').textContent = `${S2.length} σ · ${r.sweeps} sweeps · ${(performance.now() - t0).toFixed(0)} ms · recon rel.err ${(Math.sqrt(e) / frob(a)).toExponential(2)} · 90% energy @ k=${cum.findIndex((x) => x >= 0.9) + 1}`;
 }

@@ -1,3 +1,21 @@
+# Neuralese v16.0.0: generic arch interface, WebGPU path, HUB interpretability, enforced pre-registration, release hygiene
+
+Every claim below has a test or smoke behind it. Where something is partial, it says so.
+
+- **Arch interface** (`src/arch/arch.js`): `archFromHF(config)` + `mapWeights` + `forward` cover GPT-Neo, GPT-2 and Llama/Qwen2/Mistral-style checkpoints (sliding-window attention and rope_scaling are refused, not approximated). Checked against HF transformers in float64 (`test/arch.test.mjs`, refs from `test/ref/ref_arch.py`). Max |Δlogit|: TinyStories-8M 3.9e-6, distilgpt2 3.8e-13, SmolLM-135M 7.9e-6, Qwen2.5-0.5B 4.3e-5, so all are within 1e-4. **Partial:** the lab tabs still run on the specialised TinyStories-8M engine; the arch interface is a separate generic path and does not replace the global CFG.
+- **WebGPU** (`src/gpu/webgpu-engine.js`): WGSL matvec/LayerNorm/attention kernels with a GPU-resident KV cache, for the clean forward only. It is used only when a logits-match gate passes (every position of a fixed prompt, max |Δlogit| ≤ 2e-3 vs the JS engine); otherwise the JS engine is used. A corrupted weight is rejected by the gate (smoke). It is opt-in from the NEW v16 tab (gate + benchmark). **Honest speed:** on the only adapter we could test (headless Chrome, SwiftShader *software* WebGPU), WebGPU decodes at 1.5 tok/s vs 34 tok/s for JS. Single-token decode of an 8M model is launch-bound, and we have no real-GPU number. Generation, steering, ablations and hooks always use JS.
+- **HUB interpretability** (new H-INTERP tab, `src/arch/encoder.js`, worker `src/arch/encoder-worker.js`): our own float64 forwards for ViT-B/16, the CLIP ViT-B/32 vision tower and the Whisper-tiny.en encoder, plus the Whisper log-mel front end. Matches against HF (`test/encoder.test.mjs`): ViT logits 2.6e-7, CLIP image embedding 9.6e-9, Whisper hidden states 1.2e-14, log-mel 6.4e-6. Tools that **work**: ViT logit lens, CLIP layer-wise embedding lens, attention rollout and attention maps, and per-layer linear probes with a majority baseline. **Not available:** the CLIP text tower (no zero-shot lens), the Whisper decoder lens, and anything for the transformers.js ONNX models (they expose no hidden states). ViT and Whisper weights are SHA-256-checked in the browser. CLIP is range-fetched out of the 605 MB checkpoint, so only its immutable revision is pinned.
+- **Enforced pre-registration** (`src/prereg.js`, REPRO tab, `tools/prereg-run.mjs`): JSON schema (`docs/prereg.schema.json`), canonical SHA-256, and a pinned commit. A run is refused if the document does not validate, the hash differs, or the commit is not the build's (`build.json`). Results come out as a REPRO bundle with its own hash. The CLI refuses with exit 2.
+- **Release hygiene:**
+  - Every npm dependency is pinned exactly, including Electron 42.11.16 and electron-builder 26.18.0. CI uses `npm ci` only.
+  - Model downloads are SHA-256-pinned (`tools/fetch-model.mjs`), and arch/encoder checkpoints are pinned by HF commit plus SHA-256 (`tools/fetch-arch-models.mjs`).
+  - Android versionCode now follows the version (1600).
+  - The CI signs a release APK with apksigner when the `ANDROID_KEYSTORE_B64` / `ANDROID_KEYSTORE_PASSWORD` / `ANDROID_KEY_ALIAS` secrets exist. **They do not exist yet** (the release token cannot manage repo secrets), so this release ships the **debug-signed** APK.
+  - **Desktop builds are unsigned** (no Authenticode / no code-signing certificate). Windows SmartScreen will warn. Verify downloads with SHA256SUMS.txt.
+  - The iOS IPA is unsigned as before.
+- **UI:** a "NEW v16" tab with what's new and the WebGPU button, plus the H-INTERP tab in the HUB group.
+- **Tests:** 184 unit tests (arch 5, encoder 5, prereg 4, hygiene 3 new) + engine-worker smoke + `test/smoke/webgpu.smoke.mjs` + `test/smoke/v16.smoke.mjs`. CI now fetches the ~3 GB of pinned checkpoints, so the arch and encoder tests actually run there.
+
 # Neuralese v15.3.0: engineering pass (KV/prefix cache, engine Web Worker, stricter CSP, repo restructure)
 
 Models, maths and data are unchanged. This release is about speed, safety and repo hygiene, and the claims below are each backed by a test.

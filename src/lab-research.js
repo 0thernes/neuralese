@@ -1,10 +1,10 @@
 // v7 RESEARCH group: reproducibility (hashes, manifests, replay), hypothesis tests, ACDC-style circuit discovery + scrubbing,
 // linear probes with control tasks, user datasets, eval harness, notebook, report generator, structured log + lab-state files.
-import { lines, bars } from './charts.js?v=153';
-import { $, esc, fmt, opts, cv, tipq, prog, tick } from './lab-ui.js?v=153';
-import * as R from './research.js?v=153';
-import { cloneWeights } from './model.js?v=153';
-import { DS, docs, allDocs, setUserCorpus, clearUserCorpus } from './dataset.js?v=153';
+import { lines, bars } from './charts.js?v=160';
+import { $, esc, fmt, opts, cv, tipq, prog, tick } from './lab-ui.js?v=160';
+import * as R from './research.js?v=160';
+import { cloneWeights } from './model.js?v=160';
+import { DS, docs, allDocs, setUserCorpus, clearUserCorpus } from './dataset.js?v=160';
 const P = (id) => `<div class="prog" id="${id}"><i></i></div>`;
 const NBKEY = 'neuralese.notebook.v7', MODEL_ID = 'roneneldan/TinyStories-8M@refs/pr/1';
 const dl = (name, text, type = 'application/json') => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type })); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); };
@@ -21,7 +21,10 @@ export const markup = {
   repro: ['REPRO', 'Reproducibility', `<fieldset><legend>weights fingerprint ${tipq('SHA-256 over every fp32 tensor in a fixed order (wte, wpe, final LN, then each layer’s tensors by name). Identical hashes ⇒ bit-identical weights. Runtime interventions (ablations, steering) do not change weights and are recorded separately in the manifest.')}</legend>
 <div class="r"><button class="pri" id="rpH">compute hashes</button><span class="sm">original model and current (edited) weights</span></div><table class="kv" id="rpOut"></table></fieldset>
 <fieldset><legend>experiment manifest</legend><div class="r"><button id="rpM">download manifest.json</button><label>replay</label><input type="file" id="rpF" accept=".json,application/json" aria-label="manifest file"/><button id="rpR">replay + verify hash</button></div>
-<div class="sm">A manifest records app version, model id + original hash, the full edit list, runtime interventions, prompt, decoding settings, seed and environment. Replay re-applies the edits from the clean weights and checks the resulting hash. Greedy decoding (or a fixed seed) is deterministic on the CPU path; WebGPU float reductions may differ in the last bits.</div><pre id="rpLog" class="sm"></pre></fieldset>`],
+<div class="sm">A manifest records app version, model id + original hash, the full edit list, runtime interventions, prompt, decoding settings, seed and environment. Replay re-applies the edits from the clean weights and checks the resulting hash. Greedy decoding (or a fixed seed) is deterministic on the CPU path; WebGPU float reductions may differ in the last bits.</div><pre id="rpLog" class="sm"></pre></fieldset>
+<fieldset><legend>pre-registered run (enforced) ${tipq('Paste a pre-registration (schema: docs/prereg.schema.json — hypothesis, metric, null, threshold, seed, commit_sha) and the sha256 you froze when you wrote it. The run refuses to start if the document does not validate, hashes differently, or pins a different commit than the build you are running. Results download as a REPRO bundle with its own sha256.')}</legend>
+<textarea id="prDoc" rows="6" class="mono" aria-label="pre-registration JSON"></textarea><div class="r"><label>frozen sha256</label><input id="prHash" class="mono" style="flex:1" aria-label="frozen pre-registration hash"/><button id="prHashNow">hash this document</button></div>
+<div class="r"><button class="pri" id="prRun">start pre-registered run</button><span class="sm" id="prCommit"></span></div><pre class="mono sm" id="prLog"></pre></fieldset>`],
   stats: ['STATS', 'Hypothesis testing', `<fieldset><legend>which heads matter? per-document paired tests ${tipq('For each head in the layer: zero its slice of the output projection, measure per-document CE, compare to the unablated model on the same documents. Paired sign-flip permutation test (two-sided), Cohen’s d_z, 95% bootstrap CI of the mean ΔCE, then Holm (FWER) and Benjamini–Hochberg (FDR) correction across all heads tested.')}</legend>
 <div class="r"><label>layer</label><input type="number" id="stL" value="0" min="0" max="7" style="width:4em"/><label>docs</label><input type="number" id="stN" value="12" style="width:4em"/><label>perms</label><input type="number" id="stB" value="2000" style="width:5em"/><label>α</label><input id="stA" value="0.05" style="width:4em"/><button class="pri" id="stGo">run</button></div>${P('stP')}<div id="stOut"></div>${cv('stCh', 'mean ΔCE per head with 95% bootstrap CI (filled = Holm-significant)')}</fieldset>
 <fieldset><legend>compare two lists of numbers</legend><div class="r"><input id="stX" style="flex:1" aria-label="sample A" value="1.2 0.8 1.5 1.1 0.9 1.3 1.7 1.0 1.4 1.2"/></div><div class="r"><input id="stY" style="flex:1" aria-label="sample B" value="1.0 0.9 1.1 1.0 0.7 1.0 1.2 1.1 1.0 0.9"/><label><input type="checkbox" id="stPair" checked/> paired</label><button id="stCmp">test</button></div><div id="stCmpOut"></div></fieldset>`],
@@ -54,6 +57,16 @@ export function install(A, out) {
     A.applyShared({ edits: m.edits || [], R: m.runtime || {} }); if (m.prompt != null && $('prompt')) $('prompt').value = m.prompt; const h = await out.hashes(), ok = h.cur === m.weights_sha256_current;
     $('rpLog').textContent = `replayed ${m.edits?.length || 0} edits · expected ${m.weights_sha256_current}\n                       got      ${h.cur}\n${ok ? '✔ bit-identical weights' : '✖ MISMATCH'}`; return ok; };
   on('rpR', 'click', async () => out.replay(JSON.parse(await readFile($('rpF')))));
+  // ── v16 enforced pre-registration ──
+  const buildCommit = (async () => { try { const r = await fetch('build.json', { cache: 'no-store' }); return r.ok ? (await r.json()).commit || null : null; } catch { return null; } })();
+  buildCommit.then((c) => { $('prCommit').textContent = c ? `this build: commit ${c.slice(0, 12)}…` : 'this build has no commit stamp (dev server): runs will be refused'; if (!$('prDoc').value) $('prDoc').value = JSON.stringify({ hypothesis: 'Zero-ablating L0H3 raises mean CE on the probe text', metric: { name: 'head_ablation_delta_ce', params: { layer: 0, head: 3 } }, null: 'Ablation changes CE by at most 0.01 nats', threshold: { op: '>', value: 0.01 }, seed: 7, commit_sha: c || '0'.repeat(40) }, null, 1); });
+  on('prHashNow', 'click', async () => { const P = await import('./prereg.js?v=160'), d = JSON.parse($('prDoc').value), e = P.validate(d); $('prLog').textContent = e.length ? 'invalid: ' + e.join('\n') : 'sha256 ' + (await P.preregHash(d)) + '\nfreeze this hash (e.g. publish it) before running.'; });
+  out.preregRun = async (docText, hash, text) => { const P = await import('./prereg.js?v=160'); let run;
+    try { run = await P.startRun(JSON.parse(docText), { expectedHash: hash, commit: await buildCommit }); } catch (e) { $('prLog').textContent = 'REFUSED: ' + e.message; return { refused: e.message }; }
+    const eng = new (await import('./engine.js?v=160')).Engine(A.M(), (await import('./engine.js?v=160')).defaultRuntime()), ids = A.tok().encode(text || 'Once upon a time, there was a little girl named Lily. She loved to play outside with her dog.');
+    const results = P.runMetric(run.prereg, eng, ids), b = await P.reproBundle(run, { results, weights_sha256: await R.weightsHash(A.M()), env: { ua: navigator.userAgent, version: VERSION } });
+    $('prLog').textContent = b.verdict.text + '\nbundle sha256 ' + b.bundle_sha256; dl(`neuralese-repro-${b.bundle_sha256.slice(0, 12)}.json`, JSON.stringify(b, null, 1)); return b; };
+  on('prRun', 'click', () => out.preregRun($('prDoc').value, $('prHash').value.trim()));
   // ── STATS ──
   out.statsHeads = async (L0, N0, B0) => { const l = Math.max(0, Math.min(7, +(L0 ?? $('stL').value) | 0)), N = Math.max(4, Math.min(200, +(N0 ?? $('stN').value) || 12)), B = Math.max(200, Math.min(20000, +(B0 ?? $('stB').value) || 2000)), alpha = +$('stA').value || 0.05;
     const D = docs(N, 24), C = cloneWeights(A.M()), ce = async (f) => { const o = []; for (const d of D) { o.push(R.docCE(C, [d])[0]); await tick(); } return o; }, base = await ce(), H = 16, hd = C.lnfW.length / H, d = C.lnfW.length, O = C.layers[l].o, rows = [];

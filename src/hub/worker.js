@@ -1,5 +1,5 @@
 // v12 MODEL HUB worker: runs transformers.js pipelines off the main thread. Messages: {id, op:'load'|'run'|'info', key, input, opts}.
-import { byKey, ORT_WASM, TFJS } from './models.js?v=153';
+import { byKey, ORT_WASM, TFJS } from './models.js?v=160';
 const P = {}; let wasmReady = null, T = null;
 const hex = (b) => [...new Uint8Array(b)].map((x) => x.toString(16).padStart(2, '0')).join('');
 async function verified(url, sha, what) { const r = await fetch(url); if (!r.ok) throw new Error(`${what} HTTP ${r.status}`); const buf = await r.arrayBuffer(), h = hex(await crypto.subtle.digest('SHA-256', buf)); if (h !== sha) throw new Error(`${what} SHA-256 mismatch: got ${h}`); return buf; }
