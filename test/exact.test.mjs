@@ -1,11 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'fs';
-import { buildWeights, parseSafetensors, cloneWeights } from '../model.js';
-import { Editor } from '../surgery.js';
-import { inspect, fromPath } from '../drill.js';
-import { lossSlice } from '../science.js';
-import { hvp } from '../grad.js';
+import { buildWeights, parseSafetensors, cloneWeights } from '../src/model.js';
+import { Editor } from '../src/surgery.js';
+import { inspect, fromPath } from '../src/drill.js';
+import { lossSlice } from '../src/science.js';
+import { hvp } from '../src/grad.js';
 const buf = fs.readFileSync('model/model.safetensors'), n = Number(buf.readBigUInt64LE(0)), hdr = JSON.parse(buf.subarray(8, 8 + n).toString());
 const W = buildWeights(parseSafetensors(buf.buffer.slice(buf.byteOffset + 8 + n), n, hdr));
 const tensors = (X) => [X.wte, X.wpe, X.lnfW, X.lnfB, ...X.layers.flatMap((P) => Object.keys(P).sort().map((k) => P[k]))];

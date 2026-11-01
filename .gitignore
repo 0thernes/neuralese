@@ -11,3 +11,5 @@ desktop/www/
 desktop/dist/
 model/
 node_modules/
+wasm/*.mjs
+wasm/*.wasm.b64

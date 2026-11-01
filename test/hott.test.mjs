@@ -3,12 +3,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'fs';
-import { buildWeights, parseSafetensors, CFG } from '../model.js';
-import * as TY from '../tsotchke/types.js';
-import * as QG from '../tsotchke/qgtl.js';
-import * as G from '../tsotchke/geometry.js';
-import { wasmBytes } from '../tsotchke/wasmb64.js';
-{ const f = new URL('../vendor/moonlab/dist/moonlab.wasm', import.meta.url); if (!fs.existsSync(f)) fs.writeFileSync(f, await wasmBytes('moonlab')); }
+import { buildWeights, parseSafetensors, CFG } from '../src/model.js';
+import * as TY from '../src/tsotchke/types.js';
+import * as QG from '../src/tsotchke/qgtl.js';
+import * as G from '../src/tsotchke/geometry.js';
+import { wasmBytes } from '../src/tsotchke/wasmb64.js';
+{ const f = new URL('../src/vendor/moonlab/dist/moonlab.wasm', import.meta.url); if (!fs.existsSync(f)) fs.writeFileSync(f, await wasmBytes('moonlab')); }
 const buf = fs.readFileSync('model/model.safetensors'), n = Number(buf.readBigUInt64LE(0)), hdr = JSON.parse(buf.subarray(8, 8 + n).toString());
 const W = buildWeights(parseSafetensors(buf.buffer.slice(buf.byteOffset + 8 + n), n, hdr));
 

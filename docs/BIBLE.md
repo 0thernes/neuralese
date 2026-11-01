@@ -56,7 +56,7 @@ Reference manual for every tab and control. Also in the app: TOOLS › LEARN ›
 
 ## Overview
 
-Neuralese is a browser laboratory for the real TinyStories-8M (GPT-Neo, 8 layers, d=256, 16 heads, 19.7 M parameters). Everything shown is computed from the live weights on your CPU in float32 JavaScript; nothing is mocked. You can edit weights (SURGERY), change the forward pass at runtime (RUNTIME, CONTROL, STEER), measure the consequences (EVALUATE group) and inspect internals (INTERPRET group). Every change goes through one undo/redo stack.
+Neuralese is a browser laboratory for the real TinyStories-8M (GPT-Neo, 8 layers, d=256, 16 heads, 19.7 M parameters). The core lab (generation, tracing, steering, surgery, patching, lenses) is computed from the live weights in float32 JavaScript on your CPU (generation runs in a Web Worker since v15.3). Exceptions are labelled where they appear: the Neuron Lens atlas and FRONTIER result files are precomputed offline by tools/*.mjs and loaded as data; HUB models run through vendored transformers.js / ONNX Runtime; the Tsotchke components are vendored third-party WASM builds (see TSOTCHKE). The lab interprets the models it ships or loads (TinyStories GPT-Neo family; HUB models only through the hidden states/attentions they expose), not arbitrary models. You can edit weights (SURGERY), change the forward pass at runtime (RUNTIME, CONTROL, STEER), measure the consequences (EVALUATE group) and inspect internals (INTERPRET group). Every change goes through one undo/redo stack.
 
 Layout: top bar (version, HUD, theme), left 3D view, right dock with grouped tabs (drag the splitter to resize). Keyboard: Ctrl/⌘+Enter generate · Ctrl/⌘+Z / Shift+Z undo/redo · ` focus terminal · ? shortcuts · 1–9, 0 jump to tab groups.
 
@@ -242,7 +242,7 @@ v10 checks NEURALESE against Tsotchke's own code, run unmodified. Moonlab's nati
 
 ## TSOTCHKE › CLAIMS (Claims & Evidence)
 
-Every claim made about a Tsotchke-powered component is listed with the observation that would refute it, and is checked now in your browser: recurrence accuracy, Moonlab fidelity vs direct sum, QWZ Chern numbers vs an independent lattice computation, Bell/CHSH, QRNG determinism (same golden bytes as Node), health tests detecting a stuck source, NIST worked examples, and edit/undo identity. The Node suite adds PyTorch cross-checks and mutation tests that show the checks can fail. Not claimed: quantum randomness, quantum speed-up, HoTT proofs or tensor-logic semantics. Terminal: claims.
+Every claim made about a vendored Tsotchke component is listed with the observation that would refute it, and is checked now in your browser: recurrence accuracy, Moonlab fidelity vs direct sum, QWZ Chern numbers vs an independent lattice computation, Bell/CHSH, QRNG determinism (same golden bytes as Node), health tests detecting a stuck source, NIST worked examples, and edit/undo identity. The Node suite adds PyTorch cross-checks and mutation tests that show the checks can fail. Not claimed: quantum randomness, quantum speed-up, HoTT proofs or tensor-logic semantics. Terminal: claims.
 
 ## FRONTIER: consciousness proxies, introspection, self-improvement, grokking, causal atlas
 

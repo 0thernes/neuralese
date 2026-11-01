@@ -1,5 +1,5 @@
 // v14.3 — lens attribution of attention heads vs zero-ablation ground truth (PREREG-v14x §14.3). Original Neuralese code.
-import { setup, writeResult, r4 } from './v14x-lib.mjs'; import * as NL from '../neuronlens.js';
+import { setup, writeResult, r4 } from './v14x-lib.mjs'; import * as NL from '../src/neuronlens.js';
 const { M, tok, kept, cnt, Z } = await setup(), { d, L, H, hd, V } = M.cfg, E = M.W.wte, g = M.W.lnfW, eb = NL.embMean(M), rng = NL.mulberry(14300);
 const freq = kept.slice().sort((a, b) => cnt[b] - cnt[a]).slice(50, 1050);
 const NAMES = ['Tom', 'Lily', 'Ben', 'Sue', 'Max', 'Mia', 'Sam', 'Anna', 'Tim', 'Lucy', 'Jack', 'Sara', 'Bob', 'Amy', 'Jill', 'Kate'], pick = (a) => a[Math.floor(rng() * a.length)];

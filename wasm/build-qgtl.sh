@@ -4,7 +4,7 @@
 # quantum_geometric_hardware.c + quantum_geometric_error.c + quantum_geometric_logging.c, plus qgtl_shim.c / qgtl_stubs.c.
 # Usage: QGTL=/path/to/quantum_geometric_tensor ./build-qgtl.sh
 set -euo pipefail
-HERE=$(cd "$(dirname "$0")" && pwd); QGTL=${QGTL:-/tmp/quantum_geometric_tensor}; DEST=${DEST:-$HERE/../site/tsotchke}; C=$QGTL/src/quantum_geometric/core
+HERE=$(cd "$(dirname "$0")" && pwd); QGTL=${QGTL:-/tmp/quantum_geometric_tensor}; DEST=${DEST:-$HERE/../src/tsotchke}; C=$QGTL/src/quantum_geometric/core
 emcc -O2 -I"$QGTL/include" -I"$QGTL/src" -w $C/qgt_context.c $C/quantum_geometric_operations.c $C/memory_pool.c \
   $C/quantum_geometric_hardware.c $C/quantum_geometric_error.c $C/quantum_geometric_logging.c "$HERE/qgtl_shim.c" "$HERE/qgtl_stubs.c" \
   -sMODULARIZE=1 -sEXPORT_ES6=1 -sENVIRONMENT=web,node -sALLOW_MEMORY_GROWTH=1 -sEXPORT_NAME=QGTL \

@@ -1,3 +1,15 @@
+# Neuralese v15.3.0: engineering pass (KV/prefix cache, engine Web Worker, stricter CSP, repo restructure)
+
+Models, maths and data are unchanged. This release is about speed, safety and repo hygiene, and the claims below are each backed by a test.
+
+- **KV cache (honest finding):** `engine.js` already had an incremental per-sequence KV cache (the audit's "no KV cache" was wrong). New: an independent full-recompute reference test (`test/engine-kv.test.mjs`, rel. error ≤ 1e-5 at every position) and an opt-in cross-call **prefix KV cache** for `Engine.run()`. It is bit-identical to uncached runs and is invalidated by weight edits (`W.__ver`), runtime/intervention changes (`R`), stats/SAE swaps and hooks, which bypass it. Node CPU bench (`tools/bench-engine.mjs`, 16-tok): KV generation 42.2 → 43.9 tok/s (noise-level; the cache already existed), no-cache recompute 6.5 tok/s, repeated `run()` 267 ms → 9 ms with the prefix cache.
+- **Engine Web Worker:** generation runs in `src/engine-worker.js` through `RemoteEngine` (`src/engine-client.js`), with a main-thread fallback (`?noworker` or if the worker cannot start). The smoke test proves the worker produces exactly the main-thread tokens. Lab tools that need JS hooks still use the synchronous main-thread Engine, because functions cannot cross threads. Caveat: on a headless software-GL box, worker generation was *slower* in wall time (2.5 vs 4.4 tok/s) because each token needs a message round-trip to a busy main thread. Fewer main-thread long tasks occurred (3 vs 15), but the initial weight sync is still one ~2.5 s task.
+- **CSP:** `'unsafe-eval'` is replaced by `'wasm-unsafe-eval'`. The notebook runs cells as Blob-URL modules (`blob:` in script-src), and inline `<style>` elements are moved into style.css. Inline style *attributes* are still allowed (`style-src-attr 'unsafe-inline'`, ~100 dynamic styles remain). Smoke: 0 CSP violations across 73 tabs.
+- **Desktop SwiftShader:** it is no longer forced on. It is enabled only by `--swiftshader`, `NEURALESE_SWIFTSHADER=1`, or automatically after a GPU-process crash or missing WebGL (persisted marker plus relaunch).
+- **Repo restructure:** app source is in `src/`, tests are named by feature (`test/*.test.mjs`, `test/smoke/*.smoke.mjs`), PyTorch references are in `test/ref/`, and old progress docs are in `docs/progress/`. Duplicate WASM artifacts were removed, with a hash manifest (`src/tsotchke/ARTIFACTS.sha256`) checked by `test/repo-layout.test.mjs`.
+- **CI:** CI still runs only on tags or manual dispatch, and now runs eslint, the unit tests and a headless-Chrome smoke before building.
+- **Wording:** "Tsotchke-powered" is now "vendored Tsotchke component(s)". The package description credits vendored three.js, transformers.js/ONNX and the Tsotchke WASM builds.
+
 # Neuralese v15.2.0: refinement pass
 
 A front-end refinement release. Models, maths and data are unchanged, every visualization still draws only real computed data, and every provenance/honesty banner is kept.

@@ -1,5 +1,5 @@
 // v14.4 — auto-labels from S.mid reads, scored against exact drivers, with a calibrated confidence (PREREG-v14x §14.4). Original Neuralese code.
-import fs from 'node:fs'; import { setup, writeResult, r4 } from './v14x-lib.mjs'; import * as NL from '../neuronlens.js';
+import fs from 'node:fs'; import { setup, writeResult, r4 } from './v14x-lib.mjs'; import * as NL from '../src/neuronlens.js';
 const { M, kept, cnt, Z } = await setup(), { d, L, ff } = M.cfg, freq = kept.slice().sort((a, b) => cnt[b] - cnt[a]).slice(0, 3000), FcT = NL.tokMatT(M, freq, true), nf = freq.length;
 const drv = JSON.parse(fs.readFileSync('lens/ts8m/drivers.json')).drivers, recs = [];
 for (let l = 0; l < L; l++) { const Cs = new Float32Array(ff * d); for (let n = 0; n < ff; n++) Cs.set(NL.neuronDirs(M, l, n).c, n * d);

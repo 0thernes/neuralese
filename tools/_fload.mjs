@@ -1,7 +1,7 @@
 // Shared loader for v11 FRONTIER tools: reads the local safetensors (8M, plus 3M/1M from the model zoo).
 import fs from 'node:fs';
 export const ROOT = new URL('../', import.meta.url).pathname;
-export const SITE = fs.existsSync(ROOT + 'site/model.js') ? ROOT + 'site/' : ROOT;
+export const SITE = ROOT + 'src/';
 export async function load(which = '8M') { const { buildWeights, parseSafetensors } = await import(SITE + 'model.js'); const { cfgFor } = await import(SITE + 'zoo.js');
   const f = (process.env.NEURALESE_MODEL || ROOT + 'model/') + (which === '8M' ? 'model.safetensors' : `ts${which}.safetensors`);
   const buf = fs.readFileSync(f), n = Number(buf.readBigUInt64LE(0)), hdr = JSON.parse(buf.subarray(8, 8 + n).toString());

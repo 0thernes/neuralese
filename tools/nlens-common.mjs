@@ -1,8 +1,8 @@
 // Shared Node helpers for the v14 Neuron Lens pipeline (fit, database, validation).
 import fs from 'node:fs'; import crypto from 'node:crypto';
-import { CFG, buildWeights, parseSafetensors } from '../model.js';
-import { prepare } from '../neuronlens.js';
-import { GPT2Tokenizer } from '../tokenizer.js';
+import { CFG, buildWeights, parseSafetensors } from '../src/model.js';
+import { prepare } from '../src/neuronlens.js';
+import { GPT2Tokenizer } from '../src/tokenizer.js';
 export const sha256 = (b) => crypto.createHash('sha256').update(b).digest('hex');
 export const TS_VALID = { url: 'https://huggingface.co/datasets/roneneldan/TinyStories/resolve/main/TinyStories-valid.txt', sha256: '94e431816c4cce81ff71e4408ff8d3bda9a42e8d2663986697c3954288cb38b4' };
 export function loadModel(dir = 'model') {

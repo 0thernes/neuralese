@@ -2,10 +2,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'fs';
 import { fileURLToPath } from 'node:url';
-import { loadZoo, weightDiff } from '../zoo.js';
-import { forward, logitsAt, grad } from '../grad.js';
-import { cloneWeights } from '../model.js';
-const R = JSON.parse(fs.readFileSync('ref_zoo.json'));
+import { loadZoo, weightDiff } from '../src/zoo.js';
+import { forward, logitsAt, grad } from '../src/grad.js';
+import { cloneWeights } from '../src/model.js';
+const R = JSON.parse(fs.readFileSync('test/ref/ref_zoo.json'));
 const fileRange = async (p, a, b) => { const fd = fs.openSync(p, 'r'), buf = Buffer.alloc(b - a + 1); fs.readSync(fd, buf, 0, buf.length, a); fs.closeSync(fd); return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.length); };
 const ids = [7454, 2402, 257, 640, 11, 612, 373, 257, 1310, 2576];
 for (const m of ['1M', '3M']) test(`zoo ${m}: range-loaded weights reproduce HF logits and loss`, async () => {

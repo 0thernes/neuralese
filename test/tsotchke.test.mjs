@@ -3,20 +3,20 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'fs';
-import { buildWeights, parseSafetensors, cloneWeights } from '../model.js';
-import { forward, grad } from '../grad.js';
-import { Editor } from '../surgery.js';
-import * as T from '../tsotchke/taylor.js';
-import * as N from '../tsotchke/nist.js';
-import * as Q from '../tsotchke/qrng.js';
-import * as G from '../tsotchke/geometry.js';
-import { wasmBytes } from '../tsotchke/wasmb64.js';
+import { buildWeights, parseSafetensors, cloneWeights } from '../src/model.js';
+import { forward, grad } from '../src/grad.js';
+import { Editor } from '../src/surgery.js';
+import * as T from '../src/tsotchke/taylor.js';
+import * as N from '../src/tsotchke/nist.js';
+import * as Q from '../src/tsotchke/qrng.js';
+import * as G from '../src/tsotchke/geometry.js';
+import { wasmBytes } from '../src/tsotchke/wasmb64.js';
 // Moonlab's Node loader reads dist/moonlab.wasm from disk; the repo stores it as SHA-256-pinned base64 text, so
 // materialise it (after the integrity check) if it is not already present.
-{ const f = new URL('../vendor/moonlab/dist/moonlab.wasm', import.meta.url); if (!fs.existsSync(f)) fs.writeFileSync(f, await wasmBytes('moonlab')); }
+{ const f = new URL('../src/vendor/moonlab/dist/moonlab.wasm', import.meta.url); if (!fs.existsSync(f)) fs.writeFileSync(f, await wasmBytes('moonlab')); }
 const buf = fs.readFileSync('model/model.safetensors'), n = Number(buf.readBigUInt64LE(0)), hdr = JSON.parse(buf.subarray(8, 8 + n).toString());
 const W = buildWeights(parseSafetensors(buf.buffer.slice(buf.byteOffset + 8 + n), n, hdr));
-const REF = JSON.parse(fs.readFileSync(new URL('./ref_taylor.json', import.meta.url)));
+const REF = JSON.parse(fs.readFileSync(new URL('./ref/ref_taylor.json', import.meta.url)));
 const v = Float64Array.from({ length: 256 }, (_, i) => Math.sin(i + 1) / 16), A = forward(W, REF.ids);
 const rel = (a, b) => Math.abs(a - b) / Math.abs(b);
 const enc = (s) => new TextEncoder().encode(s);
@@ -65,7 +65,7 @@ test('C2e Moonlab Bell state + CHSH: P = [½,0,0,½]; S within 4σ of Tsirelson 
 // ---- C3 quantum_rng compiled to WASM ----------------------------------------------------------------------------
 const GOLD = '52d659a0';
 test('C3z integrity: the shipped base64 WASM decodes to the pinned SHA-256, and a one-byte change is rejected', async () => {
-  await wasmBytes('qrng'); await wasmBytes('moonlab'); const P = (await import('../tsotchke/wasmb64.js')).PINS, keep = P.qrng.sha256;
+  await wasmBytes('qrng'); await wasmBytes('moonlab'); const P = (await import('../src/tsotchke/wasmb64.js')).PINS, keep = P.qrng.sha256;
   P.qrng.sha256 = keep.replace(/^./, (c) => (c === '0' ? '1' : '0')); await assert.rejects(() => wasmBytes('qrng'), /integrity/); P.qrng.sha256 = keep;
 });
 test('C3a seeded quantum_rng WASM is a pure function of the seed (golden prefix shared with the browser smoke test)', async () => {

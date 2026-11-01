@@ -5,9 +5,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { grad } from '../grad.js';
-import { compare } from '../tsotchke/adcheck.js';
-const G = JSON.parse(readFileSync(new URL('../tsotchke/data/eshkol_ad_golden.json', import.meta.url), 'utf8'));
+import { grad } from '../src/grad.js';
+import { compare } from '../src/tsotchke/adcheck.js';
+const G = JSON.parse(readFileSync(new URL('../src/tsotchke/data/eshkol_ad_golden.json', import.meta.url), 'utf8'));
 test('D1 grad.js full backward (all 1320 weight gradients + loss) matches Eshkol ad_backward', () => {
   const r = compare(grad, G); console.log(`  eshkol-ad loss ${r.loss} vs ${r.lossGolden}; max|Δg| ${r.err.toExponential(2)} / max|g| ${r.maxAbs.toFixed(3)}; tape ${G.tape} nodes`);
   assert.equal(r.n, 1320); assert.ok(r.ok, JSON.stringify(r)); });

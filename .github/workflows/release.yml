@@ -7,7 +7,7 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 env:
-  VER: 15.2.0
+  VER: 15.3.0
 jobs:
   test:
     runs-on: ubuntu-24.04
@@ -19,7 +19,12 @@ jobs:
       - uses: actions/cache@v5
         with: { path: model, key: tinystories-model-v1 }
       - run: node tools/fetch-model.mjs
+      - run: npm run lint
       - run: node --test test/*.test.mjs
+      - name: headless browser smoke (worker == main-thread tokens, strict CSP, all tabs; streams TinyStories-8M from HF)
+        run: |
+          node tools/serve.mjs 8765 src & sleep 2
+          CHROME=$(command -v google-chrome || command -v google-chrome-stable) node test/smoke/engine-worker.smoke.mjs http://localhost:8765/
 
   linux:
     needs: test

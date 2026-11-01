@@ -1,14 +1,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'fs';
-import { buildWeights, parseSafetensors, cloneWeights } from '../model.js';
-import { GPT2Tokenizer } from '../tokenizer.js';
-import { Engine, defaultRuntime } from '../engine.js';
-import { CORPUS } from '../corpus.js';
-import * as R from '../research.js';
+import { buildWeights, parseSafetensors, cloneWeights } from '../src/model.js';
+import { GPT2Tokenizer } from '../src/tokenizer.js';
+import { Engine, defaultRuntime } from '../src/engine.js';
+import { CORPUS } from '../src/corpus.js';
+import * as R from '../src/research.js';
 const M = 'model/', buf = fs.readFileSync(M + 'model.safetensors'), n = Number(buf.readBigUInt64LE(0)), hdr = JSON.parse(buf.subarray(8, 8 + n).toString());
 const W = buildWeights(parseSafetensors(buf.buffer.slice(buf.byteOffset + 8 + n), n, hdr)), tok = new GPT2Tokenizer(JSON.parse(fs.readFileSync(M + 'vocab.json')), fs.readFileSync(M + 'merges.txt', 'utf8'));
-const REF = JSON.parse(fs.readFileSync(new URL('./ref_stats.json', import.meta.url)));
+const REF = JSON.parse(fs.readFileSync(new URL('./ref/ref_stats.json', import.meta.url)));
 test('hypothesis tests match scipy / statsmodels', () => {
   R.holm(REF.ps).forEach((p, i) => assert.ok(Math.abs(p - REF.holm[i]) < 1e-12, 'holm ' + i));
   R.bh(REF.ps).forEach((p, i) => assert.ok(Math.abs(p - REF.bh[i]) < 1e-12, 'bh ' + i));

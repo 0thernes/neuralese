@@ -1,6 +1,6 @@
 // v14.7 + v14.8 — lens tests on the nested char LMs (PREREG-v14x §14.7, §14.8). Original Neuralese code.
 import fs from 'node:fs'; import vm from 'node:vm';
-import * as N from '../nestedlens.js'; import * as NL from '../neuronlens.js'; import { corpusText, stories } from './nlens-common.mjs'; import { writeResult, r4, q99, med, p99 } from './v14x-lib.mjs';
+import * as N from '../src/nestedlens.js'; import * as NL from '../src/neuronlens.js'; import { corpusText, stories } from './nlens-common.mjs'; import { writeResult, r4, q99, med, p99 } from './v14x-lib.mjs';
 const t0 = Date.now(), idx = JSON.parse(fs.readFileSync('nested/slm/models.index.json')), raw = fs.readFileSync('nested/slm/models.f32'), f32 = new Float32Array(raw.buffer.slice(raw.byteOffset, raw.byteOffset + raw.length));
 const Z = N.loadNested(idx, f32), { vocab } = Z, st = stories(await corpusText('model/TinyStories-valid.txt'));
 const docs = (from, n) => { const o = []; for (let i = from; o.length < n; i++) { const s = st[i].slice(0, 64); if (s.length === 64) o.push(N.encodeChars(vocab, s)); } return o; };

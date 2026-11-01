@@ -1,11 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'fs';
-import { buildWeights, parseSafetensors, cloneWeights, CFG } from '../model.js';
-import { Engine, defaultRuntime, logSoftmax, timeMul } from '../engine.js';
-import * as C from '../labcore.js';
-import { COMMANDS, complete, VERSION } from '../term.js';
-import { GLOSSARY, BIBLE, COURSE, gradeQuiz, search, buildIndex, md } from '../learn/learn.js';
+import { buildWeights, parseSafetensors, cloneWeights, CFG } from '../src/model.js';
+import { Engine, defaultRuntime, logSoftmax, timeMul } from '../src/engine.js';
+import * as C from '../src/labcore.js';
+import { COMMANDS, complete, VERSION } from '../src/term.js';
+import { GLOSSARY, BIBLE, COURSE, gradeQuiz, search, buildIndex, md } from '../src/learn/learn.js';
+import { VER } from './_paths.mjs';
 const { d, L } = CFG;
 const vecOp = (op, vec, coef, extra = {}) => ({ id: 1, name: 't', site: 'resid_pre', vecs: Array.from({ length: L }, () => vec), coef, sched: Array(L).fill(0).map((_, l) => (l === 2 ? 1 : 0)), mask: { kind: 'all' }, on: true, op, ...extra });
 const unit = () => { const v = new Float32Array(d); v[0] = 1; return v; };
@@ -39,7 +40,7 @@ test('labcore pure functions', () => {
   const cm = C.cosineMatrix([[1, 0], [0, 1], [1, 1]]); assert.ok(Math.abs(cm[0][2] - Math.SQRT1_2) < 1e-9);
 });
 test('terminal: command table, completion, version', () => {
-  assert.equal(VERSION, '15.2.0'); assert.ok(Object.keys(COMMANDS).length >= 52); for (const k of ['drill', 'atp', 'eigen', 'induct', 'geom', 'land', 'mode', 'cam', 'gpu', 'zoo', 'diff', 'share', 'hash', 'manifest', 'stats', 'acdc', 'scrub', 'probe', 'evalh', 'dataset', 'report', 'state', 'qseed', 'claims', 'fsdist', 'typecheck', 'qgtcheck', 'unify', 'frontier', 'scorecard', 'grok', 'pci', 'fclaims']) assert.ok(COMMANDS[k], k);
+  assert.equal(VERSION, VER); assert.ok(Object.keys(COMMANDS).length >= 52); for (const k of ['drill', 'atp', 'eigen', 'induct', 'geom', 'land', 'mode', 'cam', 'gpu', 'zoo', 'diff', 'share', 'hash', 'manifest', 'stats', 'acdc', 'scrub', 'probe', 'evalh', 'dataset', 'report', 'state', 'qseed', 'claims', 'fsdist', 'typecheck', 'qgtcheck', 'unify', 'frontier', 'scorecard', 'grok', 'pci', 'fclaims']) assert.ok(COMMANDS[k], k);
   assert.deepEqual(complete('ver'), ['version']); assert.ok(complete('sweep bl').includes('sweep blend')); assert.ok(complete('theme l').includes('theme light')); assert.ok(complete('tab ti').includes('tab timeline'));
 });
 test('learning center data: glossary ≥100 unique, cross-links resolve, labs use real commands', () => {

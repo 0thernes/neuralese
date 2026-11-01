@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import * as A from '../audio.js';
+import * as A from '../src/audio.js';
 
 test('tokenPitch: monotone in probability, lower for worse rank, stays in mode', () => {
   const sc = A.MODES.pentatonic, root = 48; let prev = -1;

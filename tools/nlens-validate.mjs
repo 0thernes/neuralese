@@ -2,7 +2,7 @@
 // Usage: node tools/nlens-validate.mjs [--workers 8] [--out lens/ts8m/validation.json] [--quick]  (--quick: tiny smoke run for tests)
 import fs from 'node:fs'; import os from 'node:os'; import { Worker, isMainThread, parentPort, workerData } from 'node:worker_threads';
 import { loadModel, tokenizer, corpusText, stories, docsFrom, sha256 } from './nlens-common.mjs';
-import * as NL from '../neuronlens.js';
+import * as NL from '../src/neuronlens.js';
 const arg = (k, v) => { const i = process.argv.indexOf('--' + k); return i > 0 ? process.argv[i + 1] : v; };
 function logSoftmaxRows(lg, R, V) { for (let r = 0; r < R; r++) { const o = r * V; let mx = -Infinity; for (let v = 0; v < V; v++) if (lg[o + v] > mx) mx = lg[o + v]; let z = 0; for (let v = 0; v < V; v++) z += Math.exp(lg[o + v] - mx); const c = mx + Math.log(z); for (let v = 0; v < V; v++) lg[o + v] -= c; } return lg; }
 const ROWS = Array.from({ length: 48 }, (_, i) => 16 + i);

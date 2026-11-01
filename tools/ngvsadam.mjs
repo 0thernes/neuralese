@@ -10,7 +10,7 @@ import { Worker, isMainThread, parentPort, workerData } from 'node:worker_thread
 import fs from 'node:fs';
 const SEL = process.env.SELECT === 'heldout' ? 'heldout' : 'train'; const ROOT = new URL('../', import.meta.url).pathname, STEPS = +(process.argv[2] || 20), NTR = 16, NHO = 32;
 if (!isMainThread) {
-  const { buildWeights, parseSafetensors } = await import(ROOT + 'site/model.js'); const { forward } = await import(ROOT + 'site/grad.js'); const { CORPUS } = await import(ROOT + 'site/corpus.js');
+  const { buildWeights, parseSafetensors } = await import(ROOT + 'src/model.js'); const { forward } = await import(ROOT + 'src/grad.js'); const { CORPUS } = await import(ROOT + 'src/corpus.js');
   const buf = fs.readFileSync((process.env.NEURALESE_MODEL || ROOT + 'model/') + 'model.safetensors'), n = Number(buf.readBigUInt64LE(0)), hdr = JSON.parse(buf.subarray(8, 8 + n).toString());
   const W = buildWeights(parseSafetensors(buf.buffer.slice(buf.byteOffset + 8 + n), n, hdr)), E = W.wte, d = W.lnfW.length, V = E.length / d;
   const { seed, method, lr } = workerData; const ids = CORPUS[seed].slice(0, NTR + NHO + 1); const A = forward(W, ids), N = A.lnf.XH;

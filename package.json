@@ -1,24 +1,21 @@
 {
  "name": "neuralese",
- "version": "15.2.0",
- "description": "NEURALESE v13: in-browser interpretability & weight-surgery lab for TinyStories-8M, with Tsotchke-powered components (Eshkol, Moonlab, QGTL, quantum_rng)",
+ "version": "15.3.0",
+ "description": "NEURALESE: in-browser interpretability & weight-surgery lab for TinyStories-8M (GPT-Neo). Original engine code plus credited vendored third-party components (three.js, transformers.js/ONNX Runtime, WASM builds of Tsotchke Eshkol/Moonlab/QGTL/quantum_rng).",
  "main": "index.js",
  "scripts": {
   "test": "node --test test/*.test.mjs",
-  "smoke151": "node smoke-v151.mjs http://localhost:8765/",
-  "smoke152": "node smoke-v152.mjs http://localhost:8814/",
-  "smoke": "node smoke.mjs http://localhost:8765/",
-  "ref": ".venv/bin/python ref.py",
-  "smoke5": "node smoke-v5.mjs http://localhost:8765/",
-  "smoke6": "node smoke-v6.mjs http://localhost:8765/",
-  "smoke7": "node smoke-v7.mjs http://localhost:8765/",
-  "smoke8": "node smoke-v8.mjs http://localhost:8765/",
+  "serve": "node tools/serve.mjs 8765 src",
+  "smoke": "node test/smoke/engine-worker.smoke.mjs http://localhost:8765/",
+  "smoke:ui": "node test/smoke/ui-refinement.smoke.mjs http://localhost:8765/",
+  "smoke:core": "node test/smoke/core-ui.smoke.mjs http://localhost:8765/",
+  "ref": ".venv/bin/python test/ref/ref.py",
   "wasm": "bash wasm/build-qrng.sh",
-  "lint": "npx --yes eslint@9 site test tools",
-  "cli": "node site/cli.mjs --model model",
+  "lint": "eslint . --max-warnings 100",
   "docs": "node tools/gendocs.mjs",
   "www": "node tools/build-www.mjs",
-  "fetch-model": "node tools/fetch-model.mjs"
+  "fetch-model": "node tools/fetch-model.mjs",
+  "cli": "node src/cli.mjs --model model"
  },
  "keywords": [],
  "author": "Alex Donahue",
@@ -31,6 +28,7 @@
   "@capacitor/android": "^7.6.9",
   "@capacitor/cli": "^7.6.9",
   "@capacitor/core": "^7.6.9",
-  "@capacitor/ios": "^7.6.9"
+  "@capacitor/ios": "^7.6.9",
+  "eslint": "9.39.5"
  }
 }

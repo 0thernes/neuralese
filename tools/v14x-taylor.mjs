@@ -1,7 +1,7 @@
 // v14.6 — Taylor check of the RelP linearisation on TS-8M (PREREG-v14x §14.6). Original Neuralese code.
 import { setup, writeResult, r4, med } from './v14x-lib.mjs';
 import { docsFrom } from './nlens-common.mjs';
-import * as NL from '../neuronlens.js';
+import * as NL from '../src/neuronlens.js';
 const t0 = Date.now(), { M, tok, st } = await setup(), { d, L } = M.cfg, S = NL.SKIP_FIRST, EPS = [1e-3, 1e-2, 1e-1], DELTA = +(process.argv[process.argv.indexOf('--delta') + 1] || 1e-4), OUT = process.argv.includes('--delta') ? 'lens/ts8m/v14x-taylor-delta' + DELTA + '-exploratory.json' : 'lens/ts8m/v14x-taylor.json';
 const docs = docsFrom(tok, st, 21500, 4, 65).map((x) => x.ids), rng = NL.mulberry(14600), out = [];
 const nrm = (a) => Math.sqrt(a.reduce((s, x) => s + x * x, 0));

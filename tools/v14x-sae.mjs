@@ -1,8 +1,8 @@
 // v14.2 — SAE features vs MLP neurons through the R-lens (PREREG-v14x §14.2). Usage: node tools/v14x-sae.mjs [--workers 4]
 import { setup, steerDeltas, scoreA, writeResult, p99, arg, r4 } from './v14x-lib.mjs';
 import { docsFrom } from './nlens-common.mjs';
-import { SAE } from '../sae.js';
-import * as NL from '../neuronlens.js';
+import { SAE } from '../src/sae.js';
+import * as NL from '../src/neuronlens.js';
 const t0 = Date.now(), S = await setup(), { M, kept, evalDocs, Z, tok, st } = S, { d } = M.cfg, LAY = 3;
 const rows = (docs) => { const X = []; for (const ids of docs) { const f = NL.forward(M, ids, { outs: true }); for (let t = 16; t < 64; t++) X.push(f.outs[LAY].subarray(t * d, t * d + d)); } const B = new Float32Array(X.length * d); X.forEach((x, i) => B.set(x, i * d)); return [B, X.length]; };
 const [X, N] = rows(docsFrom(tok, st, 0, 64, 64).map((x) => x.ids)), sae = new SAE(LAY, 1024, 1);

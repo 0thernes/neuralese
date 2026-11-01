@@ -4,8 +4,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import * as T from '../tsotchke/taylor.js';
-const G = JSON.parse(readFileSync(new URL('../tsotchke/data/eshkol_taylor_golden.json', import.meta.url), 'utf8'));
+import * as T from '../src/tsotchke/taylor.js';
+const G = JSON.parse(readFileSync(new URL('../src/tsotchke/data/eshkol_taylor_golden.json', import.meta.url), 'utf8'));
 const diffAll = () => T.eshkolDiff(G);
 test('E1 taylor.js matches Eshkol tr_* kernels to < 1e-12 on all 44 cases × 17 coefficients', () => {
   const r = diffAll(); console.log('  eshkol-taylor', JSON.stringify(r.worst), JSON.stringify(Object.fromEntries(Object.entries(r.per).map(([k, v]) => [k, +v.toExponential(2)]))));

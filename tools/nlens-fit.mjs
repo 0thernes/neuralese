@@ -4,7 +4,7 @@
 // Each (lens, document) job is cached as a file, so an interrupted fit resumes. Documents alternate even/odd halves.
 import fs from 'node:fs'; import os from 'node:os'; import { Worker, isMainThread, parentPort, workerData } from 'node:worker_threads';
 import { loadModel, tokenizer, corpusText, stories, docsFrom, sha256, BLOCKS, TS_VALID } from './nlens-common.mjs';
-import { docJacobianR, docJacobianS } from '../neuronlens.js';
+import { docJacobianR, docJacobianS } from '../src/neuronlens.js';
 const arg = (k, v) => { const i = process.argv.indexOf('--' + k); return i > 0 ? process.argv[i + 1] : v; };
 if (!isMainThread) {
   const M = loadModel(workerData.model);

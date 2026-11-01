@@ -3,7 +3,7 @@
 // Usage: node tools/nlens-db.mjs [--out lens/ts8m]  → lens/ts8m/db/L{l}.json, tokens.json, db-manifest.json (sha256 per file)
 import fs from 'node:fs';
 import { loadModel, tokenizer, corpusText, stories, docsFrom, sha256 } from './nlens-common.mjs';
-import * as NL from '../neuronlens.js';
+import * as NL from '../src/neuronlens.js';
 const arg = (k, v) => { const i = process.argv.indexOf('--' + k); return i > 0 ? process.argv[i + 1] : v; };
 const outDir = arg('out', 'lens/ts8m'), model = arg('model', 'model'), K = 10, r3 = (x) => +x.toPrecision(3);
 const M = loadModel(model), { d, L, ff, H, hd, V } = M.cfg, man = JSON.parse(fs.readFileSync(`${outDir}/manifest.json`, 'utf8')), lb = fs.readFileSync(`${outDir}/lenses.f32`);

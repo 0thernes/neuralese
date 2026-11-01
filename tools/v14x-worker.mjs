@@ -1,7 +1,7 @@
 // Worker for tools/v14x-lib.mjs steerDeltas: Δ mean log-prob (rows 16..63, kept vocab) from adding vec at layer l's MLP output.
 import { parentPort, workerData } from 'node:worker_threads';
 import { loadModel } from './nlens-common.mjs';
-import * as NL from '../neuronlens.js';
+import * as NL from '../src/neuronlens.js';
 const M = loadModel(workerData.modelDir), { evalDocs, kept } = workerData, V = M.cfg.V, ROWS = Array.from({ length: 48 }, (_, i) => 16 + i), base = new Map();
 function meanLP(ids, steer) { const f = NL.forward(M, ids, { steer, logits: true, logitRows: ROWS }), lg = f.logits, m = new Float64Array(kept.length);
   for (let r = 0; r < ROWS.length; r++) { const o = r * V; let mx = -Infinity; for (let v = 0; v < V; v++) if (lg[o + v] > mx) mx = lg[o + v]; let z = 0; for (let v = 0; v < V; v++) z += Math.exp(lg[o + v] - mx); const c = mx + Math.log(z);

@@ -1,5 +1,5 @@
 // v14.5 — cross-model neuron matching TS-3M ↔ TS-8M (PREREG-v14x §14.5). Original Neuralese code.
-import { setup, steerDeltas, writeResult, r4, p99, q99, arg } from './v14x-lib.mjs'; import * as NL from '../neuronlens.js';
+import { setup, steerDeltas, writeResult, r4, p99, q99, arg } from './v14x-lib.mjs'; import * as NL from '../src/neuronlens.js';
 const t0 = Date.now(), A = await setup('/workspace/nlens/m3M', 'lens/ts3m'), B = await setup('model', 'lens/ts8m'), kept = A.kept, LAYERS = [2, 5], K = 50, nW = +arg('workers', 3);
 const topSets = (S, l) => { const { ff } = S.M.cfg, KT = NL.tokMatT(S.M, kept, false), W = new Float32Array(ff * S.M.cfg.d); for (let n = 0; n < ff; n++) W.set(NL.neuronDirs(S.M, l, n).w, n * S.M.cfg.d);
   const R = NL.readsR(S.M, W, ff, S.Z.R.out[l], kept, KT), nk = kept.length; return Array.from({ length: ff }, (_, n) => new Set(NL.topK(R.subarray(n * nk, (n + 1) * nk), K))); };

@@ -1,7 +1,7 @@
 // Shared harness pieces for the v14.1–v14.9 experiments (docs/PREREG-v14x.md). Original Neuralese code.
 import fs from 'node:fs'; import os from 'node:os'; import { Worker } from 'node:worker_threads';
 import { loadModel, tokenizer, corpusText, stories, docsFrom, sha256 } from './nlens-common.mjs';
-import * as NL from '../neuronlens.js';
+import * as NL from '../src/neuronlens.js';
 export const PREREG = 'docs/PREREG-v14x.md', preregSha = () => sha256(fs.readFileSync(PREREG));
 export const arg = (k, v) => { const i = process.argv.indexOf('--' + k); return i > 0 ? process.argv[i + 1] : v; };
 // Same corpus objects as tools/nlens-validate.mjs: kept vocab (≥5 occurrences in stories 0..19999) and 16 eval docs from story 20000.
