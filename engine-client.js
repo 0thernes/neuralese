@@ -10,7 +10,7 @@ const cloneR = (R) => { try { return structuredClone(R); } catch { return JSON.p
 const plainStats = (s) => s && { N: s.N, Z: s.Z, meanZ: s.meanZ, meanAct: s.meanAct };
 const plainSae = (s) => s && { layer: s.layer, Wenc: s.Wenc, benc: s.benc, bdec: s.bdec, Wdec: s.Wdec };
 export class RemoteEngine {
-  static async create(url = new URL('./engine-worker.js?v=153', import.meta.url)) {
+  static async create(url = new URL('./engine-worker.js?v=160', import.meta.url)) {
     if (typeof Worker === 'undefined') throw new Error('Worker unavailable');
     const w = new Worker(url, { type: 'module' }), re = new RemoteEngine(w);
     await new Promise((res, rej) => { const to = setTimeout(() => rej(new Error('engine worker did not start')), 15000); w.addEventListener('message', function f(e) { if (e.data && e.data.ready) { clearTimeout(to); w.removeEventListener('message', f); res(); } }); w.addEventListener('error', (e) => { clearTimeout(to); rej(new Error('engine worker error: ' + (e.message || 'load failed'))); }); });

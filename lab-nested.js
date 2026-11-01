@@ -1,8 +1,8 @@
 // v14.7 / v14.8 NESTED group: a RISC-V CPU baked into transformer weights, a language model baked into a language model,
 // a mixture-of-experts inside an expert, and the lens results on those nested models. The three demos come from the
 // neuralese-nested workstream (nested/*, self-contained pages, framed so their ids never collide with the lab's).
-import * as N from './nestedlens.js?v=153';
-import { $, esc, fmt, tipq } from './lab-ui.js?v=153';
+import * as N from './nestedlens.js?v=160';
+import { $, esc, fmt, tipq } from './lab-ui.js?v=160';
 const frame = (src, h = 760) => `<iframe class="nestfr" loading="lazy" src="${src}" style="width:100%;height:${h}px;border:1px solid var(--line,#243049);border-radius:10px;background:#07090f"></iframe>`;
 export const markup = {
   nriscv: ['RISC-V IN WEIGHTS', 'A RISC-V CPU compiled into transformer weights', `<fieldset><legend>RV32I in weights ${tipq('Each forward pass of a hand-compiled transformer executes one RV32I instruction; the page checks every step against a plain-JS reference interpreter.')}</legend>${frame('nested/riscv/index.html')}</fieldset>`],

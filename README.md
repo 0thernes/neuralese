@@ -2,6 +2,9 @@
 
 Live: https://0thernes.github.io/neuralese/ · **New here? [Beginner's guide to steering](docs/STEERING_GUIDE.md)** · Audit: [AUDIT.md](AUDIT.md) · Tsotchke analysis: [docs/TSOTCHKE.md](docs/TSOTCHKE.md) · Claims & evidence: [docs/CLAIMS.md](docs/CLAIMS.md) · Stack and versions: [docs/STACK.md](docs/STACK.md)
 
+## v16.0.1: arch interface, WebGPU, HUB interpretability (2 Nov 2026)
+- One forward for GPT-Neo/GPT-2/Llama/Qwen2 matching HF within 1e-4; an opt-in WGSL WebGPU path behind a logits-match gate (slower than JS on the software adapter we could test); a logit/embedding lens, rollout and probes on ViT, CLIP vision and the Whisper encoder (H-INTERP tab); enforced pre-registration with REPRO bundles; exact dependency pins and hash-pinned models. The APK is now release-signed, and the desktop builds are unsigned. Details and caveats: [RELEASE_NOTES.md](RELEASE_NOTES.md).
+
 ## v15.3.0: engineering pass (1 Nov 2026)
 - Prefix KV cache + independent KV equality test; generation in a Web Worker (main-thread fallback); CSP without `unsafe-eval`; SwiftShader only as a GPU-failure fallback; source moved to `src/`, feature-named tests, CI lint+test+smoke. Details and caveats in RELEASE_NOTES.md.
 
