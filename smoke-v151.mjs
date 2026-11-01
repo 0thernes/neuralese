@@ -14,7 +14,7 @@ for (const [nm, w, h] of sizes) {
   p.on('console', (m) => { if (m.type() === 'error' && !/favicon/.test(m.text())) errs.push(m.text()); }); p.on('pageerror', (e) => errs.push(e.message));
   await p.goto(url); await p.waitForFunction(() => window.NEURALESE && window.NEURALESE_LAST, { timeout: 300000 }); await sleep(600);
   const chk = async (name, fn, pred, arg) => { const r = await p.evaluate(fn, arg).catch((e) => ({ error: e.message })); const ok = pred(r); log(nm, name, ok ? 'OK' : 'FAIL', JSON.stringify(r).slice(0, 220)); if (!ok) fail.push(nm + ':' + name); };
-  await chk('version', () => document.getElementById('ver').textContent, (r) => /^v15\.1\.0/.test(r));
+  await chk('version', () => document.getElementById('ver').textContent, (r) => /^v15\.[12]\.0/.test(r));
   await chk('fonts', async () => { await document.fonts.ready; return { sans: document.fonts.check('12px InterV'), mono: document.fonts.check('12px JBMonoV') }; }, (r) => r.sans && r.mono);
   await chk('sidebar', () => ({ groups: document.querySelectorAll('#tabs .ng').length, tabs: document.querySelectorAll('#tabs button[data-t]').length, search: !!document.getElementById('navQ') }), (r) => r.groups >= 13 && r.tabs >= 73 && r.search);
   await chk('search', async () => { const q = document.getElementById('navQ'); q.value = 'lens'; q.dispatchEvent(new Event('input')); const vis = [...document.querySelectorAll('#tabs button[data-t]')].filter((x) => !x.hidden && !x.closest('section').hidden).map((x) => x.dataset.t); q.value = ''; q.dispatchEvent(new Event('input')); return vis; }, (r) => r.includes('nlens') && r.includes('nxlens') && r.length < 20);

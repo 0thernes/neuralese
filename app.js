@@ -1,27 +1,28 @@
 // NEURALESE v2 — UI wiring. All numerics live in engine/analysis/surgery/decode/sae/rome (unit-tested vs PyTorch).
-import { GPT2Tokenizer } from './tokenizer.js?v=151';
-import { CFG, buildWeights, parseSafetensors, cloneWeights, mulberry32 } from './model.js?v=151';
-import { Engine, defaultRuntime, logSoftmax, topK, SITES } from './engine.js?v=151';
-import { computeStats, actCovariance, fitTunedLens, lensGrid, dla, patchResid, patchHeads, pathPatchHeadsToLogits, ablationSweep, buildControlVector, vectorArithmetic, tokenStats } from './analysis.js?v=151';
-import { Editor, MATS, getMat, toSafetensors, quantize } from './surgery.js?v=151';
-import { defaultDecode, applyPenalties, filterDist, pick, contrastiveLogits, cfgLogits, beamSearch } from './decode.js?v=151';
-import { SAE } from './sae.js?v=151';
-import { computeRome } from './rome.js?v=151';
-import { CORPUS } from './corpus.js?v=151';
-import { heatmap, lines, bars, showTip, seqColor, divColor, markStale, heatStrip, emit } from './charts.js?v=151';
-import { Viz } from './viz.js?v=151';
-import { AudioEngine, editKind, STYLES } from './audio.js?v=151';
-import { buildV5 } from './v5.js?v=151';
-import { vecToJSON as _v2j, vecFromJSON as _j2v } from './labcore.js?v=151';
-import * as UI15 from './ui15.js?v=151';
-import { homeMarkup } from './ui15.js?v=151';
+import * as U152 from './ui152.js?v=152';
+import { GPT2Tokenizer } from './tokenizer.js?v=152';
+import { CFG, buildWeights, parseSafetensors, cloneWeights, mulberry32 } from './model.js?v=152';
+import { Engine, defaultRuntime, logSoftmax, topK, SITES } from './engine.js?v=152';
+import { computeStats, actCovariance, fitTunedLens, lensGrid, dla, patchResid, patchHeads, pathPatchHeadsToLogits, ablationSweep, buildControlVector, vectorArithmetic, tokenStats } from './analysis.js?v=152';
+import { Editor, MATS, getMat, toSafetensors, quantize } from './surgery.js?v=152';
+import { defaultDecode, applyPenalties, filterDist, pick, contrastiveLogits, cfgLogits, beamSearch } from './decode.js?v=152';
+import { SAE } from './sae.js?v=152';
+import { computeRome } from './rome.js?v=152';
+import { CORPUS } from './corpus.js?v=152';
+import { heatmap, lines, bars, showTip, seqColor, divColor, markStale, heatStrip, emit } from './charts.js?v=152';
+import { Viz } from './viz.js?v=152';
+import { AudioEngine, editKind, STYLES } from './audio.js?v=152';
+import { buildV5 } from './v5.js?v=152';
+import { vecToJSON as _v2j, vecFromJSON as _j2v } from './labcore.js?v=152';
+import * as UI15 from './ui15.js?v=152';
+import { homeMarkup } from './ui15.js?v=152';
 const audio = new AudioEngine();
 const { d, H, L, ff, V } = CFG;
 const $ = (id) => document.getElementById(id), $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const tick = () => new Promise((r) => setTimeout(r, 0));
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const toast = (m, bad) => { const t = $('toast'); t.textContent = m; t.style.borderColor = bad ? '#f87171' : ''; t.classList.toggle('bad', !!bad); t.style.display = 'block'; clearTimeout(toast.h); toast.h = setTimeout(() => (t.style.display = 'none'), bad ? 6000 : 2500); };
-const guard = (fn) => async (...a) => { try { await fn(...a); } catch (e) { console.error(e); toast('✖ ' + e.message, true); } };
+const guard = (fn) => async (...a) => { const el = a[0]?.currentTarget; U152.busy(el, true); try { await fn(...a); U152.panelNote(el, ''); } catch (e) { console.error(e); toast('✖ ' + e.message, true); U152.panelNote(el, e.message); } finally { U152.busy(el, false); } };
 
 // ───────── loading (HTTP Range: only the fp32 tensors, skipping the bool attn.bias buffers) ─────────
 const REPO = 'https://huggingface.co/roneneldan/TinyStories-8M/resolve', ST_URL = `${REPO}/refs%2Fpr%2F1/model.safetensors`;
@@ -370,7 +371,7 @@ function weightEdit(label, e, path) { // records relative Frobenius change of th
 async function showSvd() {
   const path = matPath(); if (path === 'wte') throw new Error('wte SVD (50257×256) is too slow for the browser here; use a layer matrix or wpe'); $('svdInfo').textContent = 'running one-sided Jacobi SVD…'; await tick();
   const t0 = performance.now(), { a, rows, cols } = getMat(M, path), r = ed.svdOf(path, true), S2 = r.S; const tot = S2.reduce((x, y) => x + y * y, 0); let c = 0; const cum = S2.map((s) => (c += s * s) / tot);
-  const out = new Float32Array(rows * cols); (await import('./linalg.js?v=151')).svdReconstruct(r, Float64Array.from(S2), out); let e = 0; for (let i = 0; i < out.length; i++) e += (out[i] - a[i]) ** 2;
+  const out = new Float32Array(rows * cols); (await import('./linalg.js?v=152')).svdReconstruct(r, Float64Array.from(S2), out); let e = 0; for (let i = 0; i < out.length; i++) e += (out[i] - a[i]) ** 2;
   bars($('svdC'), Array.from(S2), { log: true, title: `σ spectrum ${path} (${rows}×${cols}, log) · hover for energy`, label: (i) => `σ${i} = ${S2[i].toPrecision(5)}  cum energy ${(cum[i] * 100).toFixed(2)}%`, onClick: (i) => ($('svK').value = i + 1) });
   $('svdInfo').textContent = `${S2.length} σ · ${r.sweeps} sweeps · ${(performance.now() - t0).toFixed(0)} ms · recon rel.err ${(Math.sqrt(e) / frob(a)).toExponential(2)} · 90% energy @ k=${cum.findIndex((x) => x >= 0.9) + 1}`;
 }
@@ -512,7 +513,7 @@ function wire() {
   on('bST', 'click', () => download('model.safetensors', toSafetensors(M), 'application/octet-stream'));
   // 3D
   on('vzFit', 'click', () => viz?.fit?.()); for (const [id, k] of [['vzBloom', 'bloom'], ['vzDof', 'dof'], ['vzAuto', 'auto']]) on(id, 'change', () => { viz.fx[k] = $(id).checked; if (k !== 'auto') viz.quality = 'manual'; });
-  setInterval(() => { const el = $('vzFps'); if (!el || !viz?.fps || !el.offsetParent) return; const f = viz.fps(); el.textContent = `${f.fps} fps · ${f.cpuMs} ms CPU/frame · ${f.quality} · pixel ratio ${f.pixelRatio}`; $('vzBloom').checked = viz.fx.bloom; $('vzDof').checked = viz.fx.dof; }, 1000); for (const id of ['vzL', 'vzM', 'vzMode', 'vzDiff']) on(id, 'change', () => (id === 'vzL' ? setSel({ l: +$('vzL').value }) : refreshWeights()));
+  setInterval(() => { const el = $('vzFps'); if (!el || !viz?.fps || !el.offsetParent) return; const f = viz.fps(); el.textContent = `${f.fps} fps · ${f.cpuMs} ms CPU/frame · ${f.quality} · pixel ratio ${f.pixelRatio} · GPU tier ${f.tier}`; $('vzBloom').checked = viz.fx.bloom; $('vzDof').checked = viz.fx.dof; }, 1000); for (const id of ['vzL', 'vzM', 'vzMode', 'vzDiff']) on(id, 'change', () => (id === 'vzL' ? setSel({ l: +$('vzL').value }) : refreshWeights()));
   // audio
   const startAudio = guard(async () => { await audio.start(); $('auInfo').textContent = `running · ${audio.ctx.sampleRate} Hz · base latency ${(audio.ctx.baseLatency * 1000 || 0).toFixed(1)} ms`; });
   addEventListener('pointerdown', startAudio, { once: true }); addEventListener('keydown', startAudio, { once: true }); on('auStart', 'click', startAudio);

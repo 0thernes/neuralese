@@ -3,9 +3,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 const S = (f) => fs.readFileSync(new URL('../' + f, import.meta.url), 'utf8');
-test('V151-1 version 15.1.0 everywhere + cache busters', () => {
-  assert.equal(JSON.parse(S('package.json')).version, '15.1.0'); assert.match(S('index.html'), /v15\.1\.0 · build 2026-10-31\.4/);
-  assert.ok(!/\?v=15["']/.test(S('index.html') + S('app.js')), 'no stale ?v=15 busters');
+test('V151-1 version 15.2.0 everywhere + cache busters', () => {
+  assert.equal(JSON.parse(S('package.json')).version, '15.2.0'); assert.match(S('index.html'), /v15\.2\.0 · build 2026-10-31\.5/);
+  assert.ok(!/\?v=15["']/.test(S('index.html') + S('app.js')), 'no stale busters');
 });
 test('V151-2 ui15: icons, group meta, overview + keys markup', async () => {
   const u = await import('../ui15.js'); assert.ok(Object.keys(u.ICONS).length >= 14); assert.match(u.icon(Object.keys(u.ICONS)[0]), /^<svg class="ic"/);

@@ -1,3 +1,15 @@
+# Neuralese v15.2.0: refinement pass
+
+A front-end refinement release. Models, maths and data are unchanged, every visualization still draws only real computed data, and every provenance/honesty banner is kept.
+
+- **Sidebar:** long tab labels no longer get cut off. They wrap to two lines, the rail is wider (184 px; 160 px under 1180 px), and every item shows its full title as a tooltip. Hover/press micro-motion.
+- **Neuron Lens atlas:** a skeleton/shimmer placeholder replaces the bare canvas. It shows "Atlas not loaded" with a call to action before loading, a live per-layer progress ("layer 3 of 8 · sha256-checking") while loading, and a retry message if the download fails. The placeholder is clearly marked as a placeholder (dashed outlines, no fake points).
+- **3D performance on weak GPUs:** a GPU tier (low/mid/high) is read from the WebGL renderer string plus core/memory hints. Software renderers (SwiftShader, llvmpipe, Basic Render) and old integrated/mobile GPUs now start at the lightest level (no post-processing, 1× pixels) instead of stuttering. A single quality ladder is shared with the adaptive loop, and the level the adaptive loop settles on is remembered for the next session. The VIZ fps readout shows the tier.
+- **Action states everywhere:** every action button wired through the shared guard shows a spinner (aria-busy) while it runs. A failure leaves a dismissible inline error note on that panel in addition to the toast; the next success clears it.
+- **Theme:** on first run the theme follows the OS colour scheme (`prefers-color-scheme`). After you pick one with the toggle, your choice wins.
+- **Consistency + mobile:** unified fieldset/legend/row spacing on the type and spacing tokens, press feedback on buttons, and chart hover rings. On phones: 16 px inputs (no iOS zoom-on-focus), 38 px touch targets, larger drawer items, and safe-area bottom padding. All motion respects `prefers-reduced-motion`.
+- **Tests:** 8 new unit tests (`test/v152.test.mjs`) and a new `smoke-v152.mjs` (all 73 tabs × 3 viewports, 0 console errors, plus sidebar-truncation, atlas skeleton → loaded, GPU-tier ladder, busy/error state and theme checks).
+
 # Neuralese v15.1.0: polish pass
 
 A front-end polish release. Models, maths and data are unchanged, and every provenance/honesty banner is kept.

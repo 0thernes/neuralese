@@ -1,10 +1,11 @@
 // v14 NEURON LENS group: browsable, searchable DB of every TinyStories-8M MLP neuron and attention head read through the fitted
 // R-lens / S-lens / mid-lenses (our own implementation of the neuron-lens method; prior art credited in docs/NEURON_LENS_METHOD.md), a rotating 3D atlas, pre-registered validation results,
 // an in-browser one-document refit, and an attributed CC BY 4.0 sample of the neuron-lens Qwen3-8B / Gemma-4-12B catalog.
-import * as NL from './neuronlens.js?v=151';
-import { bars, lines, showTip, seqColor } from './charts.js?v=151';
-import { $, esc, fmt, opts, lOpts, cv, tipq, pal, prog, canvasFit, chartBg, tick, d, H, L, ff, V } from './lab-ui.js?v=151';
-import { CFG } from './model.js?v=151';
+import * as NL from './neuronlens.js?v=152';
+import { bars, lines, showTip, seqColor } from './charts.js?v=152';
+import { $, esc, fmt, opts, lOpts, cv, tipq, pal, prog, canvasFit, chartBg, tick, d, H, L, ff, V } from './lab-ui.js?v=152';
+import { CFG } from './model.js?v=152';
+import { skeleton } from './ui152.js?v=152';
 const BASE = 'lens/ts8m/', EXT = 'lens/ext/neuron-lens-sample.json';
 const READS = [['in_S', 'in·S (what drives it, S.mid)'], ['in_R', 'in·R (input read, R.mid)'], ['out_R', 'out·R (what it promotes, R.out)'], ['out_S', 'out·S (write footprint, S.out)'], ['out_logit', 'logit lens (baseline)'], ['out_R_neg', 'out·R suppressed'], ['drivers', 'exact drivers (measured)']];
 const HREADS = [['ov_R', 'OV copy (R)'], ['ov_S', 'OV copy (S)'], ['ov_R_neg', 'OV suppressed'], ['writes_R', 'mean write (R)'], ['qk_S', 'keys sought (QK·S)'], ['qk_self', 'self-seeking tokens']];
@@ -34,11 +35,12 @@ export function install(A, out) {
   const chips = (pair, cls = '') => pair && pair[0] ? pair[0].map((v, i) => `<span class="chip ${cls}" title="id ${v}${pair[1] ? ' · ' + fmt(pair[1][i]) : ''}">${esc(ts(v))}</span>`).join(' ') : '<i>–</i>';
   const metric = (nr, k) => k === 'agree' ? overlap(nr.out_R[0], nr.out_logit[0]) : k === 'inout' ? overlap(nr.in_S[0], nr.in_R[0]) : nr[k] || 0;
   async function load() {
-    if (S.man) return S.man; const t0 = performance.now(); $('nlInfo').textContent = 'fetching manifest…';
+    if (S.man) return S.man; if (S.loading) return S.loading; S.loading = (async () => { try { return await load0(); } catch (e) { skeleton($('nlAtlas'), 'idle', 'Load failed: ' + e.message + ' — press “load database” to retry.'); throw e; } finally { S.loading = null; } })(); return S.loading; }
+  async function load0() { const t0 = performance.now(); $('nlInfo').textContent = 'fetching manifest…'; skeleton($('nlAtlas'), 'loading', 'fetching manifest…');
     const man = jsonOf(await getVerified(BASE + 'db-manifest.json')); S.lensMan = jsonOf(await getVerified(BASE + 'manifest.json'));
     if (man.lens_sha256 !== S.lensMan.sha256) throw new Error('db-manifest lens hash ≠ manifest.json');
     S.tok = jsonOf(await getVerified(BASE + 'db/tokens.json', man.files['db/tokens.json']));
-    for (let l = 0; l < man.layers; l++) { $('nlInfo').textContent = `layer ${l + 1}/${man.layers} (sha256-checking)…`; S.layers[l] = jsonOf(await getVerified(BASE + `db/L${l}.json`, man.files[`db/L${l}.json`])); await tick(); }
+    for (let l = 0; l < man.layers; l++) { $('nlInfo').textContent = `layer ${l + 1}/${man.layers} (sha256-checking)…`; skeleton($('nlAtlas'), 'loading', `layer ${l + 1} of ${man.layers} · sha256-checking`); S.layers[l] = jsonOf(await getVerified(BASE + `db/L${l}.json`, man.files[`db/L${l}.json`])); await tick(); }
     S.man = man; $('nlInfo').innerHTML = `✓ ${man.layers}×${man.neurons} neurons, ${man.layers}×${man.heads} heads · every file sha256-verified · lens ${man.lens_sha256.slice(0, 12)}… (fit on ${S.lensMan.nDocs} docs × T=${S.lensMan.corpus.T}, ${fmt(S.lensMan.fitSeconds / 60, 0)} min) · loaded in ${fmt((performance.now() - t0) / 1000, 1)} s`;
     atlas.reset(); return man; }
   async function lensMats() { if (S.lens) return S.lens; await load(); const b = await getVerified(BASE + 'lenses.f32', S.lensMan.sha256); return (S.lens = NL.unpackLenses(new Float32Array(b), S.lensMan)); }
@@ -64,7 +66,8 @@ export function install(A, out) {
   const atlas = (() => { let yaw = 0.6, pitch = 0.35, zoom = 1, raf = 0, pts = [], drag = null; const c = $('nlAtlas');
     function proj(x, y, z, W, Hh) { const cy = Math.cos(yaw), sy = Math.sin(yaw), cp = Math.cos(pitch), sp = Math.sin(pitch); const X = x * cy - z * sy, Z1 = x * sy + z * cy, Y = y * cp - Z1 * sp, Z = y * sp + Z1 * cp; const f = 3.2 / (3.2 + Z) * zoom * Math.min(W, Hh) * 0.36; return [W / 2 + X * f, Hh / 2 - Y * f, Z, f]; }
     function draw() { const [ctx, W] = canvasFit(c, 380), Hh = 380; ctx.fillStyle = chartBg(); ctx.fillRect(0, 0, W, Hh); pts = [];
-      if (!S.man) { ctx.fillStyle = '#7d8aa6'; ctx.font = '13px system-ui'; ctx.fillText('load the database to light up 8,192 neurons and 128 heads', 16, 28); return; }
+      if (!S.man) { if (!S.loading) skeleton(c, 'idle', 'Press “load database” above to light up 8,192 neurons and 128 heads (~6 MB, sha256-verified).'); return; }
+      skeleton(c, 'off');
       const key = $('nlC').value, hitSet = new Set((S.hits || []).map((x) => x.h == null ? `${x.l}:${x.n}` : `${x.l}:h${x.h}`));
       const all = S.layers.flatMap((Ld) => Ld.neurons.map((nr) => metric(nr, key))).sort((a, b) => a - b), hi = all[Math.floor(all.length * 0.99)] || 1;
       const P = [];
@@ -90,6 +93,7 @@ export function install(A, out) {
     c.addEventListener('mouseleave', (e) => showTip(e, ''));
     c.addEventListener('wheel', (e) => { e.preventDefault(); zoom = Math.max(0.4, Math.min(4, zoom * (e.deltaY < 0 ? 1.1 : 0.9))); draw(); }, { passive: false });
     c._redraw = draw; return { draw, reset() { cancelAnimationFrame(raf); draw(); loop(); } }; })();
+  atlas.draw();
   on('nlLoad', 'click', async () => { await load(); neuronCard(S.sel.l, S.sel.n); });
   on('nlGo', 'click', out.nlSearch); $('nlQ').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('nlGo').click(); });
   on('nlC', 'change', () => atlas.draw());
@@ -120,7 +124,7 @@ export function install(A, out) {
     $('nvInfo').innerHTML = `prereg ${VAL.prereg_sha256?.slice(0, 12) ?? '?'}… · lens ${VAL.lens_sha256?.slice(0, 12) ?? '?'}… · ran ${fmt(VAL.seconds / 60, 1)} min · file ${s.slice(0, 12)}…` + (VAL.verdicts ? '<br>' + Object.entries(VAL.verdicts).map(([k, v]) => `<b>${k}</b> ${v.pass ? '✓ supported' : '✗ not supported'} — ${esc(v.detail)}`).join('<br>') : ''); drawVal(); });
   on('nvM', 'change', drawVal);
   on('nrGo', 'click', async () => { const Z = await lensMats(), ids = A.tok().encode($('nrP').value); if (ids.length < NL.SKIP_FIRST + 4) throw new Error(`need ≥ ${NL.SKIP_FIRST + 4} tokens (SKIP_FIRST=${NL.SKIP_FIRST}); have ${ids.length}`);
-    const kinds = $('nrK').value.split(','), use = ids.slice(0, 48), wk = new Worker(new URL('./lens-worker.js?v=151', import.meta.url), { type: 'module' }); $('nrInfo').textContent = `fitting ${kinds.join('+')} on ${use.length} tokens (${use.length - 1 - NL.SKIP_FIRST} valid positions) in a worker…`;
+    const kinds = $('nrK').value.split(','), use = ids.slice(0, 48), wk = new Worker(new URL('./lens-worker.js?v=152', import.meta.url), { type: 'module' }); $('nrInfo').textContent = `fitting ${kinds.join('+')} on ${use.length} tokens (${use.length - 1 - NL.SKIP_FIRST} valid positions) in a worker…`;
     const res = await new Promise((ok, bad) => { wk.onmessage = (e) => { if (e.data.progress != null) prog('nrProg', e.data.progress); else if (e.data.error) bad(new Error(e.data.error)); else ok(e.data); }; wk.onerror = (e) => bad(new Error(e.message)); wk.postMessage({ W: A.W(), cfg: CFG, ids: use, kinds }); }); wk.terminate();
     const cos = (a, b) => { let s = 0, na = 0, nb = 0; for (let i = 0; i < a.length; i++) { s += a[i] * b[i]; na += a[i] * a[i]; nb += b[i] * b[i]; } return s / Math.sqrt(na * nb || 1); };
     const series = []; for (const k of kinds) for (const tg of ['out', 'mid']) series.push({ label: `${k}.${tg}`, color: ['#5eead4', '#60a5fa', '#a78bfa', '#f472b6'][series.length], ys: [...Array(L).keys()].map((l) => (res.res[k][tg][l] && Z[k][tg][l] ? cos(res.res[k][tg][l], Z[k][tg][l]) : NaN)) });

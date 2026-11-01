@@ -1,22 +1,23 @@
 // v5 shell: grouped tabs, module install, theme, resizable dock, export bar, shortcuts, terminal + learning center.
-import { GROUPS, runs, exportFor, parseLayers, $, $$ } from './lab-ui.js?v=151';
-import * as LM from './lab-model.js?v=151';
-import * as LI from './lab-interpret.js?v=151';
-import * as LV from './lab-intervene.js?v=151';
-import * as LE from './lab-eval.js?v=151';
-import * as LS from './lab-science.js?v=151';
-import * as LR from './lab-research.js?v=151';
-import * as LT from './lab-tsotchke.js?v=151';
-import * as LF from './lab-frontier.js?v=151';
-import * as LH from './lab-hub.js?v=151';
-import * as LN from './lab-lens.js?v=151';
-import * as LX from './lab-nested.js?v=151';
-import { installModes } from './viz3d.js?v=151';
-import { redrawAll } from './charts.js?v=151';
-import { makeTerminal, termMarkup, mountTerminal, VERSION } from './term.js?v=151';
-import { learnMarkup, mountLearn } from './learn/learn.js?v=151';
-import { banner } from './provenance.js?v=151';
-import { installGuide } from './guide.js?v=151';
+import { initialTheme, navTooltips } from './ui152.js?v=152';
+import { GROUPS, runs, exportFor, parseLayers, $, $$ } from './lab-ui.js?v=152';
+import * as LM from './lab-model.js?v=152';
+import * as LI from './lab-interpret.js?v=152';
+import * as LV from './lab-intervene.js?v=152';
+import * as LE from './lab-eval.js?v=152';
+import * as LS from './lab-science.js?v=152';
+import * as LR from './lab-research.js?v=152';
+import * as LT from './lab-tsotchke.js?v=152';
+import * as LF from './lab-frontier.js?v=152';
+import * as LH from './lab-hub.js?v=152';
+import * as LN from './lab-lens.js?v=152';
+import * as LX from './lab-nested.js?v=152';
+import { installModes } from './viz3d.js?v=152';
+import { redrawAll } from './charts.js?v=152';
+import { makeTerminal, termMarkup, mountTerminal, VERSION } from './term.js?v=152';
+import { learnMarkup, mountLearn } from './learn/learn.js?v=152';
+import { banner } from './provenance.js?v=152';
+import { installGuide } from './guide.js?v=152';
 export { VERSION };
 const MODS = [LM, LI, LN, LX, LV, LE, LS, LR, LT, LF, LH];
 const AUTO = { arch: 'arch', params: 'params', timeline: 'timeline', runs: 'runs' }; // cheap views rendered on open
@@ -34,7 +35,7 @@ export function buildV5(TABS, P) {
     setTheme(t) { document.documentElement.dataset.theme = t; setTimeout(redrawAll, 0); try { localStorage.setItem('neuralese.theme', t); } catch { /* */ } (api?.viz || window.NEURALESE?.viz)?.setBg?.(t === 'light'); const b = $('bTheme'); if (b) b.textContent = t === 'light' ? '☾ dark' : '☀ light'; },
     toggleTheme() { V.setTheme(document.documentElement.dataset.theme === 'light' ? 'dark' : 'light'); },
     wire({ guard }) {
-      V.setTheme(localStorage.getItem('neuralese.theme') || 'dark');
+      V.setTheme(initialTheme(localStorage.getItem('neuralese.theme'), matchMedia?.('(prefers-color-scheme: light)').matches)); navTooltips();
       $('bTheme')?.addEventListener('click', V.toggleTheme);
       $('bKeys')?.addEventListener('click', () => $('keys')?.classList.toggle('hidden'));
       try { const g = installGuide({ showTab: (k) => api.showTab(k) }); if (g) out.guide = g.open; } catch (e) { console.warn('guide', e); }
