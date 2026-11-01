@@ -2,6 +2,9 @@
 
 Live: https://0thernes.github.io/neuralese/ · **New here? [Beginner's guide to steering](docs/STEERING_GUIDE.md)** · Audit: [AUDIT.md](AUDIT.md) · Tsotchke analysis: [docs/TSOTCHKE.md](docs/TSOTCHKE.md) · Claims & evidence: [docs/CLAIMS.md](docs/CLAIMS.md) · Stack and versions: [docs/STACK.md](docs/STACK.md)
 
+## v17.0.0: new front-end shell (1 Nov 2026)
+Nine workspaces replace the 75-tab strip (all 75 tools kept, see `PARITY.md`), dockable/splittable panels with saved layouts, Ctrl/⌘+K command palette, a typed selection store, typed worker RPC, a 3D model cosmos and 3D nested-experiment views (three.js WebGPU with WebGL2 fallback), and a notebook/report mode tied to pre-registration. Shell source is in `ui/` (Solid + TypeScript + Vite + Tailwind v4; `cd ui && bun install && bun run build` writes `src/shell/`). Details in `RELEASE_NOTES.md`.
+
 ## v16.0.1: arch interface, WebGPU, HUB interpretability (2 Nov 2026)
 - One forward for GPT-Neo/GPT-2/Llama/Qwen2 matching HF within 1e-4; an opt-in WGSL WebGPU path behind a logits-match gate (slower than JS on the software adapter we could test); a logit/embedding lens, rollout and probes on ViT, CLIP vision and the Whisper encoder (H-INTERP tab); enforced pre-registration with REPRO bundles; exact dependency pins and hash-pinned models. The APK is now release-signed, and the desktop builds are unsigned. Details and caveats: [RELEASE_NOTES.md](RELEASE_NOTES.md).
 

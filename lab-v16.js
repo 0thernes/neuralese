@@ -1,6 +1,6 @@
 // v16 tabs: HUB interpretability (logit lens / CLIP embedding lens, attention rollout, linear probes on ViT, CLIP-vision and
 // Whisper-encoder internals, via our own HF-matched forwards in a worker) and "What's new in v16" with the opt-in WebGPU path.
-import { $, esc, tipq } from './lab-ui.js?v=160';
+import { $, esc, tipq } from './lab-ui.js?v=170';
 const kv = (rows) => `<table class="kv">${rows.map(([a, b]) => `<tr><td>${a}</td><td>${b}</td></tr>`).join('')}</table>`;
 const CLIP_MEAN = [0.48145466, 0.4578275, 0.40821073], CLIP_STD = [0.26862954, 0.26130258, 0.27577711];
 export const WORKS = [
@@ -25,7 +25,7 @@ export const markup = {
 <div class="r"><button class="pri" id="wgGo">gate + benchmark</button><span class="sm">benchmark only: generation, steering and lab tools always run on the JS engine</span></div><div id="wgOut" class="sm" aria-live="polite">${typeof navigator !== 'undefined' && navigator.gpu ? 'navigator.gpu present' : 'navigator.gpu not present in this browser: JS only'}</div></fieldset>`],
 };
 let W = null, seq = 0; const pend = {};
-function worker() { if (W) return W; W = new Worker(new URL('./arch/encoder-worker.js?v=160', import.meta.url), { type: 'module' });
+function worker() { if (W) return W; W = new Worker(new URL('./arch/encoder-worker.js?v=170', import.meta.url), { type: 'module' });
   W.onmessage = ({ data }) => { const p = pend[data.id]; if (!p) return; if (data.progress) return p.say?.(data.progress); delete pend[data.id]; data.err ? p.rej(new Error(data.err)) : p.res(data.ok); }; return W; }
 const call = (op, args, say, transfer = []) => new Promise((res, rej) => { const id = ++seq; pend[id] = { res, rej, say }; worker().postMessage({ id, op, args }, transfer); });
 function testImage(S = 224) { const c = new OffscreenCanvas(S, S), g = c.getContext('2d'); g.fillStyle = '#2b6cb0'; g.fillRect(0, 0, S, S); g.fillStyle = '#f6e05e'; g.beginPath(); g.arc(S * 0.62, S * 0.4, S * 0.22, 0, 7); g.fill(); g.fillStyle = '#2f855a'; g.fillRect(0, S * 0.75, S, S * 0.25); return c; }
@@ -56,7 +56,7 @@ export function install(A, out) {
   // ── opt-in WebGPU ──
   let gpu = null;
   out.webgpu = async () => { const o = $('wgOut'), N = window.NEURALESE, eng = N?.engClean; if (!eng) throw new Error('model not loaded yet'); if (o) o.textContent = 'building WGSL engine + running logits gate…';
-    const [{ WebGPUEngine }, { CFG }] = await Promise.all([import('./gpu/webgpu-engine.js?v=160'), import('./model.js?v=160')]); gpu?.destroy?.(); gpu = null;
+    const [{ WebGPUEngine }, { CFG }] = await Promise.all([import('./gpu/webgpu-engine.js?v=170'), import('./model.js?v=170')]); gpu?.destroy?.(); gpu = null;
     const { eng: g, reason, gate } = await WebGPUEngine.create(eng.W, CFG, { gateEngine: eng }); if (!g) { if (o) o.textContent = `WebGPU refused: ${reason} → JS engine stays in use`; return { ok: false, reason }; }
     const n = 32; let s = g.newSeq(), t0 = performance.now(); for (let i = 0; i < n; i++) await g.step(s, 100 + i); const gpuTps = n / ((performance.now() - t0) / 1000);
     s = eng.newSeq(1); t0 = performance.now(); for (let i = 0; i < n; i++) eng.logits(eng.step(s, 100 + i).h); const jsTps = n / ((performance.now() - t0) / 1000); gpu = g;

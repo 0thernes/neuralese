@@ -2,10 +2,10 @@
 // 3D map, speech recognition (mic + file), text-to-speech, a chained speech-to-speech demo, OCR, captioning, CLIP zero-shot,
 // swappable generation-only LMs, and parameter-efficient fine-tuning of the main TinyStories-8M model on your own text.
 // Every demo has a built-in self-test with a numeric pass threshold (see docs/ROADMAP-v12.md, docs/CLAIMS.md).
-import { lines } from './charts.js?v=160';
-import { $, esc, tipq } from './lab-ui.js?v=160';
-import { MODELS, TOOL_MATRIX, TFJS_VERSION, ORT_WASM, pca3, cosine, resample, wav, wer, TRANSFORMS, byKey, cer } from './hub/models.js?v=160';
-import { toEdit } from './hub/finetune.js?v=160';
+import { lines } from './charts.js?v=170';
+import { $, esc, tipq } from './lab-ui.js?v=170';
+import { MODELS, TOOL_MATRIX, TFJS_VERSION, ORT_WASM, pca3, cosine, resample, wav, wer, TRANSFORMS, byKey, cer } from './hub/models.js?v=170';
+import { toEdit } from './hub/finetune.js?v=170';
 const kv = (rows) => `<table class="kv">${rows.map(([a, b]) => `<tr><td>${a}</td><td>${b}</td></tr>`).join('')}</table>`;
 const ok = (b) => (b ? '<span class="good">✔ pass</span>' : '<span class="warn">✖ fail</span>');
 const st = (id) => `<div class="sm" id="${id}St" aria-live="polite"></div>`;
@@ -40,7 +40,7 @@ export const markup = {
 };
 // ---------- worker client ----------
 let W8 = null, seq = 0; const pend = new Map();
-function hub() { if (W8) return W8; W8 = new Worker(new URL('./hub/worker.js?v=160', import.meta.url), { type: 'module' });
+function hub() { if (W8) return W8; W8 = new Worker(new URL('./hub/worker.js?v=170', import.meta.url), { type: 'module' });
   W8.onmessage = (e) => { const p = pend.get(e.data.id); if (!p) return; if (e.data.evt) return p.on?.(e.data); pend.delete(e.data.id); e.data.ok ? p.res(e.data.result) : p.rej(new Error(e.data.error)); };
   W8.onerror = (e) => { for (const p of pend.values()) p.rej(new Error('hub worker failed: ' + (e.message || 'load error'))); pend.clear(); W8 = null; }; return W8; }
 const say = (id, s) => { const el = $(id + 'St'); if (el) el.textContent = s; };
@@ -114,7 +114,7 @@ export function install(A, out) {
   on('hgGo', 'click', () => out.hgen());
   // fine-tune
   let lastFT = null;
-  out.finetune = (text, steps, lr) => new Promise((res, rej) => { const ids = A.tok().encode(text ?? $('hfIn').value), W = A.W(); const w = new Worker(new URL('./hub/ft-worker.js?v=160', import.meta.url), { type: 'module' }); const curve = []; say('hf', `${ids.length} tokens · precomputing frozen activations…`); $('hfApply').disabled = true;
+  out.finetune = (text, steps, lr) => new Promise((res, rej) => { const ids = A.tok().encode(text ?? $('hfIn').value), W = A.W(); const w = new Worker(new URL('./hub/ft-worker.js?v=170', import.meta.url), { type: 'module' }); const curve = []; say('hf', `${ids.length} tokens · precomputing frozen activations…`); $('hfApply').disabled = true;
     w.onmessage = (e) => { if (e.data.evt) { curve.push(e.data.held); say('hf', `step ${e.data.step}: held-out CE ${e.data.held.toFixed(4)}`); lines($('hfCh'), [{ label: 'held-out CE', ys: curve }], { title: 'held-out cross-entropy per Adam step' }); return; } w.terminate(); if (!e.data.ok) return rej(new Error(e.data.error)); const r = e.data.result; lastFT = r;
       $('hfOut').innerHTML = kv([['trainable parameters', r.params], ['chunks train / held-out', `${r.trainChunks} / ${r.heldChunks} (${r.heldTokens} held-out targets)`], ['held-out CE before → after', `${r.before.toFixed(4)} → ${r.after.toFixed(4)}`], ['change, 95% bootstrap CI', `${r.delta.est.toFixed(4)} [${r.delta.lo.toFixed(4)}, ${r.delta.hi.toFixed(4)}]`], ['criterion', 'CI upper bound < 0'], ['result', ok(r.improved)], ['‖Δθ‖₂', r.editL2.toFixed(4)]]);
       $('hfApply').disabled = false; say('hf', 'done'); keep('finetune', `fine-tune ${r.curve.length - 1} steps`, { before: r.before, after: r.after, improved: r.improved }); res(r); };

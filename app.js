@@ -1,22 +1,22 @@
 // NEURALESE v2 — UI wiring. All numerics live in engine/analysis/surgery/decode/sae/rome (unit-tested vs PyTorch).
-import * as U152 from './ui152.js?v=160';
-import { GPT2Tokenizer } from './tokenizer.js?v=160';
-import { CFG, buildWeights, parseSafetensors, cloneWeights, mulberry32 } from './model.js?v=160';
-import { Engine, defaultRuntime, logSoftmax, topK, SITES } from './engine.js?v=160';
-import { RemoteEngine, withBias } from './engine-client.js?v=160';
-import { computeStats, actCovariance, fitTunedLens, lensGrid, dla, patchResid, patchHeads, pathPatchHeadsToLogits, ablationSweep, buildControlVector, vectorArithmetic, tokenStats } from './analysis.js?v=160';
-import { Editor, MATS, getMat, toSafetensors, quantize } from './surgery.js?v=160';
-import { defaultDecode, applyPenalties, filterDist, pick, contrastiveLogits, cfgLogits, beamSearch } from './decode.js?v=160';
-import { SAE } from './sae.js?v=160';
-import { computeRome } from './rome.js?v=160';
-import { CORPUS } from './corpus.js?v=160';
-import { heatmap, lines, bars, showTip, seqColor, divColor, markStale, heatStrip, emit } from './charts.js?v=160';
-import { Viz } from './viz.js?v=160';
-import { AudioEngine, editKind, STYLES } from './audio.js?v=160';
-import { buildV5 } from './v5.js?v=160';
-import { vecToJSON as _v2j, vecFromJSON as _j2v } from './labcore.js?v=160';
-import * as UI15 from './ui15.js?v=160';
-import { homeMarkup } from './ui15.js?v=160';
+import * as U152 from './ui152.js?v=170';
+import { GPT2Tokenizer } from './tokenizer.js?v=170';
+import { CFG, buildWeights, parseSafetensors, cloneWeights, mulberry32 } from './model.js?v=170';
+import { Engine, defaultRuntime, logSoftmax, topK, SITES } from './engine.js?v=170';
+import { RemoteEngine, withBias } from './engine-client.js?v=170';
+import { computeStats, actCovariance, fitTunedLens, lensGrid, dla, patchResid, patchHeads, pathPatchHeadsToLogits, ablationSweep, buildControlVector, vectorArithmetic, tokenStats } from './analysis.js?v=170';
+import { Editor, MATS, getMat, toSafetensors, quantize } from './surgery.js?v=170';
+import { defaultDecode, applyPenalties, filterDist, pick, contrastiveLogits, cfgLogits, beamSearch } from './decode.js?v=170';
+import { SAE } from './sae.js?v=170';
+import { computeRome } from './rome.js?v=170';
+import { CORPUS } from './corpus.js?v=170';
+import { heatmap, lines, bars, showTip, seqColor, divColor, markStale, heatStrip, emit } from './charts.js?v=170';
+import { Viz } from './viz.js?v=170';
+import { AudioEngine, editKind, STYLES } from './audio.js?v=170';
+import { buildV5 } from './v5.js?v=170';
+import { vecToJSON as _v2j, vecFromJSON as _j2v } from './labcore.js?v=170';
+import * as UI15 from './ui15.js?v=170';
+import { homeMarkup } from './ui15.js?v=170';
 const audio = new AudioEngine();
 const { d, H, L, ff, V } = CFG;
 const $ = (id) => document.getElementById(id), $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -196,7 +196,7 @@ function buildUI() {
   UI15.install({ showTab });
   showTab('home');
 }
-function showTab(k) { if (!$('pane_' + k)) throw new Error('no tab ' + k); V5 && V5.onShow(k); $$('#tabs button').forEach((b) => { const on = b.dataset.t === k; b.classList.toggle('on', on); b.setAttribute('aria-selected', String(on)); if (on) { b.closest('section')?.classList.remove('shut'); b.scrollIntoView?.({ block: 'nearest' }); } }); $$('.pane').forEach((p) => p.classList.toggle('on', p.id === 'pane_' + k));
+function showTab(k) { if (!$('pane_' + k)) throw new Error('no tab ' + k); document.dispatchEvent(new CustomEvent('neuralese:tab', { detail: k })); V5 && V5.onShow(k); $$('#tabs button').forEach((b) => { const on = b.dataset.t === k; b.classList.toggle('on', on); b.setAttribute('aria-selected', String(on)); if (on) { b.closest('section')?.classList.remove('shut'); b.scrollIntoView?.({ block: 'nearest' }); } }); $$('.pane').forEach((p) => p.classList.toggle('on', p.id === 'pane_' + k));
   const ph = $('paneHead'); if (ph && V5) { const t = TABS[k] || k, lt = V5.long[k] || ''; ph.innerHTML = `<div class="phg">${esc(V5.groupOf?.[k] || '')}<span>${esc(t)}</span></div><h2>${esc(lt || t)}</h2>`; } $('panes')?.scrollTo?.(0, 0); UI15.onTab(k, V5?.groupOf?.[k]); }
 
 // ───────── generation ─────────
@@ -265,7 +265,7 @@ async function generate() {
   }
   G.done([seq, sA, sN, sC, sSh]);
   const dt = performance.now() - tStart; if (nTok) { S.perf.tps = nTok / (dt / 1000); S.perf.ms = dt / nTok; }
-  S.lastTraces = traces; S.lastIds = seq.ids.slice(); viz.activations(r.trace); hud();
+  S.lastTraces = traces; S.lastIds = seq.ids.slice(); document.dispatchEvent(new CustomEvent('neuralese:trace')); viz.activations(r.trace); hud();
   const first = gen.findIndex((x, i) => genC[i] !== undefined && genC[i] !== x); $('genInfo').textContent += ` · ${nTok} tok${cmp ? first < 0 ? ' · identical to clean' : ` · diverges from clean at +${first}` : ''}`;
   attachTips(outB); readout(); genStrip(); { const sp = [...outB.children].filter((x) => x._sur != null); document.dispatchEvent(new CustomEvent('nl-gen', { detail: { toks: sp.map((x) => x.textContent), sur: sp.map((x) => x._sur), text: tok.decode(gen) } })); }
   window.NEURALESE_LAST = { hacked: tok.decode(gen), clean: tok.decode(genC) };
@@ -386,7 +386,7 @@ function weightEdit(label, e, path) { // records relative Frobenius change of th
 async function showSvd() {
   const path = matPath(); if (path === 'wte') throw new Error('wte SVD (50257×256) is too slow for the browser here; use a layer matrix or wpe'); $('svdInfo').textContent = 'running one-sided Jacobi SVD…'; await tick();
   const t0 = performance.now(), { a, rows, cols } = getMat(M, path), r = ed.svdOf(path, true), S2 = r.S; const tot = S2.reduce((x, y) => x + y * y, 0); let c = 0; const cum = S2.map((s) => (c += s * s) / tot);
-  const out = new Float32Array(rows * cols); (await import('./linalg.js?v=160')).svdReconstruct(r, Float64Array.from(S2), out); let e = 0; for (let i = 0; i < out.length; i++) e += (out[i] - a[i]) ** 2;
+  const out = new Float32Array(rows * cols); (await import('./linalg.js?v=170')).svdReconstruct(r, Float64Array.from(S2), out); let e = 0; for (let i = 0; i < out.length; i++) e += (out[i] - a[i]) ** 2;
   bars($('svdC'), Array.from(S2), { log: true, title: `σ spectrum ${path} (${rows}×${cols}, log) · hover for energy`, label: (i) => `σ${i} = ${S2[i].toPrecision(5)}  cum energy ${(cum[i] * 100).toFixed(2)}%`, onClick: (i) => ($('svK').value = i + 1) });
   $('svdInfo').textContent = `${S2.length} σ · ${r.sweeps} sweeps · ${(performance.now() - t0).toFixed(0)} ms · recon rel.err ${(Math.sqrt(e) / frob(a)).toExponential(2)} · 90% energy @ k=${cum.findIndex((x) => x >= 0.9) + 1}`;
 }
@@ -436,7 +436,7 @@ async function importSnap(file) {
 }
 
 // ───────── selection sync ─────────
-function setSel(s) {
+function setSel(s) { queueMicrotask(() => document.dispatchEvent(new CustomEvent('neuralese:sel', { detail: { ...S.sel } })));
   Object.assign(S.sel, { h: null, n: null }, s); const { l, h, n } = S.sel; viz.select(S.sel);
   $('selInfo').textContent = `L${l}${h != null ? ` H${h}` : ''}${n != null ? ` N${n}` : ''}`;
   $('hgL').value = l; $('smL').value = l; $('vzL').value = l; $('naL').value = l; if (h != null) { $('attH').value = h; const s2 = R.program.findIndex((p) => p.layer === l); if (s2 >= 0) $('attS').value = s2; $('elT').value = 'head'; $('elI').value = h; drawAttention(); }
@@ -562,6 +562,7 @@ function wire() {
       reset: () => commit('reset everything', () => { R = defaultRuntime(); eng.R = R; ed.setEdits([]); }), nextVecId: () => nextVec++,
       makeEngine: (w, r) => { const e = new Engine(w, r); e.stats = stats; e.sae = eng.sae; return e; } });
     window.NEURALESE = { v6: V5, v5: V5, viz, audio, W, M, tok, ed, get R() { return R; }, eng, engClean, commit, generate, analyze, undo, redo, get stats() { return stats; }, get perf() { return S.perf; }, mb: r.mb };
+    Object.defineProperties(window.NEURALESE, Object.getOwnPropertyDescriptors({ showTab, setSel, get sel() { return { ...S.sel }; }, order: V5.order, long: V5.long, cfg: CFG, get lastTraces() { return S.lastTraces; }, get lastIds() { return S.lastIds || null; } })); document.dispatchEvent(new CustomEvent('neuralese:ready')); // v17 shell bridge (typed in ui/src/bridge.ts)
     if (/#x=/.test(location.hash)) { try { await V5.out.shareLoad(location.hash); } catch (e) { toast('share link: ' + e.message); } }
     await generate();
   } catch (e) { console.error(e); setLoad('✖ ' + e.message + ' — check your connection'); const b = $('loadRetry'); if (b) { b.classList.remove('hidden'); b.onclick = () => location.reload(); b.focus(); } }

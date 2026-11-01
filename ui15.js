@@ -1,7 +1,7 @@
 // v15.1 front-end layer: inline SVG icon set, per-section accent colours, overview dashboard (live stats + hero 3D network),
 // keyboard-shortcut overlay generated from the real bindings, and small motion/micro-interaction helpers.
-import { GROUPS } from './lab-ui.js?v=160';
-import { lines, heatStrip, reduced } from './charts.js?v=160';
+import { GROUPS } from './lab-ui.js?v=170';
+import { lines, heatStrip, reduced } from './charts.js?v=170';
 const P = (d) => `<path d="${d}"/>`;
 export const ICONS = {
   home: P('M3 11l9-7 9 7') + P('M5 10v10h14V10') + P('M10 20v-6h4v6'),
@@ -62,5 +62,5 @@ function mountHome(api) {
   document.addEventListener('nl-hud', (e) => { const s = e.detail; set('params', s.params); set('layers · heads', `${s.L} · ${s.H}`); set('d_model · d_mlp', `${s.d} · ${s.ff}`); set('tok/s', s.tps.toFixed(1)); set('ms / token', s.ms.toFixed(1)); set('edits · steer', `${s.edits} · ${s.steer}`); set('JS heap', s.mem); set('weights', s.hash || 'hashing…');
     if (s.tps > 0 && Math.abs((tps[tps.length - 1] ?? -1) - s.tps) > 1e-9) { tps.push(s.tps); if (tps.length > 60) tps.shift(); } const cv = document.getElementById('hmTps'); if (cv && cv.offsetParent && tps.length) lines(cv, [{ ys: tps.slice(), label: 'tok/s' }], { h: 120, min: 0 }); });
   document.addEventListener('nl-gen', (e) => { const { toks, sur, text } = e.detail, cv = document.getElementById('hmStrip'); if (cv && toks.length) heatStrip(cv, toks, sur, { h: 34, min: 0, name: 'surprisal −ln p (nats)', sync: 'gtok' }); const el = document.getElementById('hmLast'); if (el) el.textContent = text.slice(0, 220) + (text.length > 220 ? '…' : ''); });
-  const cv = document.getElementById('heroCv'); if (cv) import('./hero.js?v=160').then((m) => { hero = new m.Hero(cv); hero.active = document.getElementById('pane_home')?.classList.contains('on'); }).catch((e) => console.warn('hero', e));
+  const cv = document.getElementById('heroCv'); if (cv) import('./hero.js?v=170').then((m) => { hero = new m.Hero(cv); hero.active = document.getElementById('pane_home')?.classList.contains('on'); }).catch((e) => console.warn('hero', e));
 }
