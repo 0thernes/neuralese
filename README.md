@@ -2,6 +2,12 @@
 
 Live: https://0thernes.github.io/neuralese/ · **New here? [Beginner's guide to steering](docs/STEERING_GUIDE.md)** · Audit: [AUDIT.md](AUDIT.md) · Tsotchke analysis: [docs/TSOTCHKE.md](docs/TSOTCHKE.md) · Claims & evidence: [docs/CLAIMS.md](docs/CLAIMS.md) · Stack and versions: [docs/STACK.md](docs/STACK.md)
 
+## v15.2.0: refinement pass (31 Oct 2026)
+- Sidebar labels wrap with full-title tooltips (no truncation); wider rail.
+- Neuron Lens atlas: skeleton/shimmer placeholder with live load progress and a retry message on failure.
+- 3D: GPU tiering. Software and weak GPUs start at a light quality level, and the adaptive level persists across sessions.
+- Busy spinners and inline error notes on every action; the theme follows the OS on first run; mobile touch targets and inputs enlarged.
+
 ## v15.1.0: polish pass (31 Oct 2026)
 - Overview landing dashboard: a hero 3D network coloured by live head activity, live model stats and a last-generation surprisal strip.
 - 3D: instanced heads, activation flow particles, hover info cards, fly-to camera, and bloom + depth of field with adaptive quality and an fps readout.

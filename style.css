@@ -334,3 +334,48 @@ kbd{display:inline-block;min-width:18px;text-align:center;font-family:var(--mono
 #out .cstamp{display:none}
 .stats{grid-template-columns:repeat(auto-fill,minmax(128px,1fr))}
 @media (max-width:1300px){.stats{grid-template-columns:repeat(auto-fill,minmax(128px,1fr))}}
+/* ===== v15.2 polish layer ===== */
+:root{--rail:184px;--fs-2xs:9.5px;--lh-tight:1.25;--lh:1.5;--dur2:240ms}
+@media (max-width:1180px){:root{--rail:160px}}
+@media (max-width:900px){:root{--rail:0px}}
+/* sidebar: wrap long labels to two lines instead of cutting them off; full text is also the native tooltip */
+#tabs button{white-space:normal;text-overflow:clip;line-height:var(--lh-tight);display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;overflow:hidden;padding-top:6px;padding-bottom:6px;overflow-wrap:anywhere;transition:background var(--dur) var(--ease),color var(--dur) var(--ease),transform var(--dur) var(--ease)}
+#tabs button:hover{transform:translateX(2px)}
+#tabs button:active{transform:translateX(2px) scale(.985)}
+/* busy state for any action button (set by the global action guard) */
+button.busy{position:relative;color:transparent!important;pointer-events:none}
+button.busy::after{content:"";position:absolute;inset:0;margin:auto;width:13px;height:13px;border-radius:50%;border:2px solid var(--t2);border-right-color:transparent;animation:spin152 .7s linear infinite}
+@keyframes spin152{to{transform:rotate(360deg)}}
+/* inline error state on the panel whose action failed */
+.errnote{margin-top:var(--s2);padding:7px 10px;border-radius:var(--rad-s);border:1px solid color-mix(in srgb,var(--r) 55%,transparent);background:color-mix(in srgb,var(--r) 10%,transparent);color:var(--t);font-size:var(--fs-s);cursor:pointer;animation:in152 var(--dur2) var(--ease)}
+@keyframes in152{from{opacity:0;transform:translateY(-3px)}}
+/* skeleton / shimmer placeholder for the Neuron Lens atlas (and any canvas waiting on a download) */
+canvas.skelhid{visibility:hidden;height:300px!important}
+.skel3{position:relative;height:300px;margin-top:-300px;border-radius:var(--rad);border:1px solid var(--b);overflow:hidden;display:grid;place-items:center;background:var(--chart-bg)}
+.skel3::before{content:"";position:absolute;inset:0;background:linear-gradient(100deg,transparent 30%,color-mix(in srgb,var(--t) 7%,transparent) 50%,transparent 70%);background-size:220% 100%;animation:shim152 1.6s linear infinite}
+.skel3[data-state=idle]::before{animation-duration:3.2s;opacity:.6}
+@keyframes shim152{from{background-position:120% 0}to{background-position:-120% 0}}
+.skel3 .skr{position:absolute;inset:18% 12%;display:flex;justify-content:space-between;align-items:center}
+.skel3 .skr i{width:9%;aspect-ratio:1/2.6;border-radius:50%;border:1.5px dashed color-mix(in srgb,var(--m2) 55%,transparent)}
+.skel3 .skt{position:relative;text-align:center;max-width:78%;padding:10px 14px;border-radius:var(--rad);background:color-mix(in srgb,var(--p2) 85%,transparent);box-shadow:var(--e1)}
+.skel3 .skt b{display:block;font-size:var(--fs-m);color:var(--t);margin-bottom:3px}
+.skel3 .skt span{font-size:var(--fs-s);color:var(--m)}
+.skel3[data-state=loading] .skt b::after{content:"";display:inline-block;width:10px;height:10px;margin-left:8px;border-radius:50%;border:2px solid var(--a);border-right-color:transparent;animation:spin152 .7s linear infinite;vertical-align:-1px}
+/* consistent rhythm: fieldsets, legends, rows */
+#panes fieldset{padding:var(--s3) var(--s4) var(--s4)}
+#panes fieldset>legend{font-size:var(--fs-m);line-height:var(--lh-tight)}
+#panes .r{gap:var(--s2);row-gap:var(--s2)}
+/* micro-interactions */
+button{transition:background var(--dur) var(--ease),border-color var(--dur) var(--ease),transform 90ms var(--ease),box-shadow var(--dur) var(--ease)}
+button:not(:disabled):active{transform:translateY(1px)}
+canvas.ch{transition:box-shadow var(--dur) var(--ease)}canvas.ch:hover{box-shadow:0 0 0 1px var(--b2) inset}
+/* mobile: larger touch targets, inputs that don't trigger iOS zoom, safe areas, full-width actions */
+@media (max-width:600px){
+  #tabs button{padding-top:10px;padding-bottom:10px;font-size:13px}
+  #panes input:not([type=checkbox]):not([type=radio]),#panes select,#panes textarea{font-size:16px;min-height:38px}
+  #panes button{min-height:38px}
+  #panes fieldset{padding:var(--s3)}
+  #panes{padding-bottom:calc(var(--s5) + env(safe-area-inset-bottom))}
+  .skel3,canvas.skelhid{height:240px!important}.skel3{margin-top:-240px}
+}
+@media (prefers-reduced-motion:reduce){.skel3::before,button.busy::after,.skel3 .skt b::after{animation:none}#tabs button:hover{transform:none}.errnote{animation:none}}

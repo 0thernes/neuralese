@@ -3,9 +3,10 @@
 // (bloom + depth of field, adaptive quality), hover picking with info cards, smooth camera fly-to, fps meter.
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { CFG } from './model.js?v=151';
-import { getMat } from './surgery.js?v=151';
-import { Post } from './post.js?v=151';
+import { CFG } from './model.js?v=152';
+import { getMat } from './surgery.js?v=152';
+import { Post } from './post.js?v=152';
+import { classifyGpu, startLevel, readRenderer, store, LADDER } from './ui152.js?v=152';
 const { L, H, ff, d } = CFG, GAP = 2.4, RX = 4.9;
 const headPos = (l, h) => new THREE.Vector3(-4 + h * 0.53, l * GAP + 0.6, 1.6);
 export class Viz {
@@ -49,6 +50,8 @@ export class Viz {
     canvas.addEventListener('pointermove', (e) => { if (e.buttons) return this.card(null); const t = performance.now(); if (t - hovT < 45) return; hovT = t; const p = pick(e); this.card(p, e); canvas.style.cursor = p ? 'pointer' : ''; });
     canvas.addEventListener('pointerleave', () => this.card(null));
     this.post = new Post(r, this.rawRender); this.fx = { bloom: true, dof: true, auto: true }; this.light = false;
+    this.gpu = readRenderer(r.getContext()); this.tier = classifyGpu(this.gpu, navigator.hardwareConcurrency || 8, navigator.deviceMemory || 8, matchMedia('(pointer: coarse)').matches);
+    { const lv = startLevel(this.tier, parseInt(store.get('neuralese.q3d'), 10)); if (lv > 0) this.setLevel(lv, this.tier === 'high' ? 'saved from last session' : `${this.tier}-tier GPU default`); }
     const resize = () => { r.setSize(innerWidth, innerHeight); this.post.setSize(innerWidth, innerHeight, r.getPixelRatio()); this.cam.aspect = innerWidth / innerHeight; this.cam.updateProjectionMatrix(); }; addEventListener('resize', resize); resize();
     this.ctl.dampingFactor = this.reduced ? 0.5 : 0.08; this.ctl.minDistance = 4; this.ctl.maxDistance = 140;
     // frame timing → fps meter + adaptive quality (drop DoF, then bloom, then pixel ratio when the 2 s average falls under target)
@@ -59,9 +62,14 @@ export class Viz {
   }
   render() { const usePost = !this.light && (this.fx.bloom || this.fx.dof) && this.post.ok; if (!usePost) return this.renderer.render(this.scene, this.cam);
     const dist = this.cam.position.distanceTo(this.ctl.target); this.post.render(this.scene, this.cam, { bloom: this.fx.bloom ? 0.85 : 0, dof: this.fx.dof ? 1 : 0, focus: dist, range: Math.max(6, dist * 0.55) }, this.renderer.render.bind(this.renderer)); }
+  // v15.2: one quality ladder (ui152.LADDER). Start level = max(GPU-tier default, level the adaptive loop settled on last
+  // session), so weak/software GPUs start light instead of stuttering for the first seconds; drops are persisted.
+  setLevel(i, why) { const q = LADDER[i]; this.level = i; this.fx.bloom = q.bloom; this.fx.dof = q.dof; const px = Math.min(this.dpr, q.px);
+    if (this.renderer.getPixelRatio() !== px) { this.renderer.setPixelRatio(px); window.dispatchEvent(new Event('resize')); } this.quality = q.name + (why ? ` · ${why}` : ''); }
   adapt() { if (!this.fx.auto || this.ft.hist.length < 3) return; const avg = this.ft.hist.slice(-3).reduce((a, b) => a + b, 0) / 3; if (avg >= 50) return; this.ft.hist.length = 0;
-    if (this.fx.dof) { this.fx.dof = false; this.quality = 'bloom only'; } else if (this.fx.bloom) { this.fx.bloom = false; this.quality = 'no post'; } else if (this.renderer.getPixelRatio() > 1) { this.renderer.setPixelRatio(1); this.quality = 'no post · 1× pixels'; window.dispatchEvent(new Event('resize')); } }
-  fps() { return { fps: +this.ft.fps.toFixed(1), cpuMs: +(this.ft.cpu || 0).toFixed(2), quality: this.quality || 'full (bloom + DoF)', fx: { ...this.fx }, pixelRatio: this.renderer.getPixelRatio() }; }
+    const cur = this.fx.dof ? 0 : this.fx.bloom ? 1 : this.renderer.getPixelRatio() > 1 ? 2 : 3; if (cur >= LADDER.length - 1) return;
+    this.setLevel(cur + 1, `auto (${avg.toFixed(0)} fps)`); store.set('neuralese.q3d', String(this.level)); }
+  fps() { return { fps: +this.ft.fps.toFixed(1), cpuMs: +(this.ft.cpu || 0).toFixed(2), quality: this.quality || 'full (bloom + DoF)', fx: { ...this.fx }, pixelRatio: this.renderer.getPixelRatio(), tier: this.tier, level: this.level || 0 }; }
   // smooth camera fly-to a layer (keeps the viewing direction; eased; instant under reduced motion)
   flyTo(l) { if (l == null || (this.mode3d && this.mode3d !== 'stack')) return; const q1 = new THREE.Vector3(1.5, l * GAP + 0.6, 0.4), off = this.cam.position.clone().sub(this.ctl.target), len = Math.max(12, Math.min(off.length() * 0.8, 26)), p1 = q1.clone().add(off.setLength(len));
     if (this.reduced) { this.ctl.target.copy(q1); this.cam.position.copy(p1); return; } this.fly = { t0: performance.now(), ms: 850, p0: this.cam.position.clone(), q0: this.ctl.target.clone(), p1, q1 }; }
