@@ -1,6 +1,8 @@
-# Neuralese v16.0.0: generic arch interface, WebGPU path, HUB interpretability, enforced pre-registration, release hygiene
+# Neuralese v16.0.1 (= v16.0.0 + CI fix): generic arch interface, WebGPU path, HUB interpretability, enforced pre-registration, release hygiene
 
 Every claim below has a test or smoke behind it. Where something is partial, it says so.
+
+**Why 16.0.1:** the `v16.0.0` tag's CI failed its headless smoke because the dev server returned a 404 for `build.json` (now a committed placeholder that the www build overwrites). No assets were built for v16.0.0. Rather than force-move a published tag, the same code plus that fix ships as v16.0.1.
 
 - **Arch interface** (`src/arch/arch.js`): `archFromHF(config)` + `mapWeights` + `forward` cover GPT-Neo, GPT-2 and Llama/Qwen2/Mistral-style checkpoints (sliding-window attention and rope_scaling are refused, not approximated). Checked against HF transformers in float64 (`test/arch.test.mjs`, refs from `test/ref/ref_arch.py`). Max |Δlogit|: TinyStories-8M 3.9e-6, distilgpt2 3.8e-13, SmolLM-135M 7.9e-6, Qwen2.5-0.5B 4.3e-5, so all are within 1e-4. **Partial:** the lab tabs still run on the specialised TinyStories-8M engine; the arch interface is a separate generic path and does not replace the global CFG.
 - **WebGPU** (`src/gpu/webgpu-engine.js`): WGSL matvec/LayerNorm/attention kernels with a GPU-resident KV cache, for the clean forward only. It is used only when a logits-match gate passes (every position of a fixed prompt, max |Δlogit| ≤ 2e-3 vs the JS engine); otherwise the JS engine is used. A corrupted weight is rejected by the gate (smoke). It is opt-in from the NEW v16 tab (gate + benchmark). **Honest speed:** on the only adapter we could test (headless Chrome, SwiftShader *software* WebGPU), WebGPU decodes at 1.5 tok/s vs 34 tok/s for JS. Single-token decode of an 8M model is launch-bound, and we have no real-GPU number. Generation, steering, ablations and hooks always use JS.
@@ -10,7 +12,7 @@ Every claim below has a test or smoke behind it. Where something is partial, it 
   - Every npm dependency is pinned exactly, including Electron 42.11.16 and electron-builder 26.18.0. CI uses `npm ci` only.
   - Model downloads are SHA-256-pinned (`tools/fetch-model.mjs`), and arch/encoder checkpoints are pinned by HF commit plus SHA-256 (`tools/fetch-arch-models.mjs`).
   - Android versionCode now follows the version (1600).
-  - The CI signs a release APK with apksigner when the `ANDROID_KEYSTORE_B64` / `ANDROID_KEYSTORE_PASSWORD` / `ANDROID_KEY_ALIAS` secrets exist. **They do not exist yet** (the release token cannot manage repo secrets), so this release ships the **debug-signed** APK.
+  - The CI signs a **release APK** with apksigner (`Neuralese-<ver>.apk`, RSA-4096 key, cert SHA-256 `4E:26:13:83:89:A9:15:38:D7:87:DA:9C:8F:6A:2A:D7:C9:DF:1D:81:68:E2:DD:20:37:FA:14:12:85:F5:8B:0B`) from the `ANDROID_KEYSTORE_B64` / `ANDROID_KEYSTORE_PASSWORD` / `ANDROID_KEY_ALIAS` repo secrets. If they are absent, it falls back to the debug-signed APK. Earlier APKs were debug-signed, so Android will refuse to update them in place: uninstall the old app first.
   - **Desktop builds are unsigned** (no Authenticode / no code-signing certificate). Windows SmartScreen will warn. Verify downloads with SHA256SUMS.txt.
   - The iOS IPA is unsigned as before.
 - **UI:** a "NEW v16" tab with what's new and the WebGPU button, plus the H-INTERP tab in the HUB group.

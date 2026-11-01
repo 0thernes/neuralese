@@ -15,12 +15,12 @@ export const markup = {
 <input type="file" id="hiFile" accept="image/*,audio/*" aria-label="image or audio file"/><button id="hiTest">use test input</button><button class="pri" id="hiGo">run</button></div>
 <div class="sm" id="hiSt" aria-live="polite">Runs in a worker; a ViT forward takes ~10–30 s on a laptop CPU.</div><canvas id="hiCv" width="448" height="224" class="ch" aria-label="input and attention overlay"></canvas><div id="hiOut"></div></fieldset>
 <fieldset><legend>which tools work on which HUB model</legend><div id="hiWorks">${kv([['<b>model</b>', '<b>tools · status</b>'], ...WORKS.map(([m, t, s]) => [esc(m), `${esc(t)}<br><span class="sm">${esc(s)}</span>`])])}</div></fieldset>`],
-  v16: ['NEW v16', "What's new in v16", `<fieldset><legend>new in v16.0.0</legend><ul class="sm">
+  v16: ['NEW v16', "What's new in v16", `<fieldset><legend>new in v16.0 (v16.0.1)</legend><ul class="sm">
 <li><b>Arch interface</b> (src/arch/arch.js): one forward for GPT-Neo, GPT-2 and Llama/Qwen2/Mistral-style checkpoints, matching HF within 1e-4 (tested on TinyStories-8M, distilgpt2, SmolLM-135M, Qwen2.5-0.5B). The lab tabs still use the specialised TinyStories-8M engine.</li>
 <li><b>WebGPU path</b> (opt-in, below): WGSL kernels for the clean forward, refused unless a logits-match gate passes; otherwise JS.</li>
 <li><b>HUB interpretability</b> (H-INTERP tab): logit/embedding lens, rollout, probes on ViT, CLIP vision and Whisper encoder.</li>
 <li><b>Enforced pre-registration</b> (REPRO tab): schema-validated, hashed, commit-pinned runs with a downloadable REPRO bundle; tools/prereg-run.mjs for the CLI.</li>
-<li><b>Release hygiene</b>: Electron pinned exactly, npm ci, hash-pinned model downloads; signing status in RELEASE_NOTES.</li></ul></fieldset>
+<li><b>Release hygiene</b>: Electron pinned exactly, npm ci, hash-pinned model downloads; signing status in RELEASE_NOTES (APK now release-signed; desktop unsigned).</li></ul></fieldset>
 <fieldset><legend>WebGPU (opt-in) ${tipq('Builds the WGSL engine from the current clean weights, runs every position of a fixed prompt through both it and the JS engine, and refuses it if any logit differs by more than 2e-3. Then times 32 steps on each. Only the clean forward is on the GPU: steering, ablations and hooks always use JS.')}</legend>
 <div class="r"><button class="pri" id="wgGo">gate + benchmark</button><span class="sm">benchmark only: generation, steering and lab tools always run on the JS engine</span></div><div id="wgOut" class="sm" aria-live="polite">${typeof navigator !== 'undefined' && navigator.gpu ? 'navigator.gpu present' : 'navigator.gpu not present in this browser: JS only'}</div></fieldset>`],
 };

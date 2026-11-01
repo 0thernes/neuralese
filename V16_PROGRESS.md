@@ -40,3 +40,4 @@ All 8 assets incl. SHA256SUMS; CI test job (lint + 167 tests + headless smoke) g
 - NEXT: browser smoke of new tabs, docs, commit/tag.
 - v16 smoke OK (www build, port 18766): NEW tab, WebGPU gate 2.7e-5 (swiftshader 0.96 vs JS 30.2 tok/s), prereg refuse+bundle, Whisper H-INTERP in browser 37.8 s, probe 0.99 vs maj 0.93. Full suite 184/184, lint 0 errors.
 - Docs written. NEXT: amend single commit, push, tag v16.0.0, CI, pages.
+- v16.0.0 tag CI FAILED (smoke: 404 build.json on dev server). Fixed with src/build.json placeholder. Not moving the tag (force) -> shipping v16.0.1 (one new commit). Android keystore created at /home/box/.neuralese-android-signing (p12 + pass, 0600) and stored as repo secrets ANDROID_KEYSTORE_B64/PASSWORD/KEY_ALIAS.

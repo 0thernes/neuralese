@@ -1,6 +1,6 @@
 // In-app terminal: a small, safe command language over the real app API (no eval). Shared by the batch runner.
 import { $, esc, MATS_OK } from './term-util.js?v=160';
-export const VERSION = '16.0.0';
+export const VERSION = '16.0.1';
 import { CMDS as SCI_CMDS } from './lab-science.js?v=160';
 import { CMDS as RES_CMDS } from './lab-research.js?v=160';
 import { CMDS as TSK_CMDS } from './lab-tsotchke.js?v=160';
