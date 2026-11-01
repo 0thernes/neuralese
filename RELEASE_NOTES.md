@@ -1,176 +1,40 @@
-# Neuralese v16.0.1 (= v16.0.0 + CI fix): generic arch interface, WebGPU path, HUB interpretability, enforced pre-registration, release hygiene
+# Neuralese v17.0.0: new front-end shell (workspaces, dock, command palette, 3D model cosmos)
 
-Every claim below has a test or smoke behind it. Where something is partial, it says so.
+v17 is a front-end re-architecture. The engine, lab maths, workers and every v16 tool are unchanged and reused; the new shell wraps them. Every claim below has a test or smoke behind it. Where something is partial, it says so.
 
-**Why 16.0.1:** the `v16.0.0` tag's CI failed its headless smoke because the dev server returned a 404 for `build.json` (now a committed placeholder that the www build overwrites). No assets were built for v16.0.0. Rather than force-move a published tag, the same code plus that fix ships as v16.0.1.
+## What changed
+- **New shell** (`ui/`, Solid + TypeScript strict + Vite + Tailwind v4, Kobalte dialog), built into `src/shell/` and loaded after the legacy app. No eval; the CSP is unchanged.
+- **9 workspaces instead of 75 tabs:** Overview, Model, Lens, Circuits, Interventions, Experiments, Hub, Nested & Frontier, Learn. All 75 v16 tabs live in them as dock panels (see `PARITY.md`: 75/75 verified by smoke at three viewports).
+- **Dockable, splittable panels** with drag, keyboard resize and saved layouts per workspace (localStorage).
+- **Command palette** (Ctrl/⌘+K or /) as main navigation; Alt+1..9 switch workspaces.
+- **Global typed selection store** (layer, head, neuron, token) kept in sync with the legacy inspector both ways.
+- **Typed worker RPC** (`ui/src/core/rpc.ts`) over the existing engine worker wire protocol, with timeouts and typed errors.
+- **3D model cosmos** (three.js WebGPURenderer, falls back to WebGL2): one stratum per layer, instanced neurons coloured by real MLP activations of the last generation, heads ring, residual ribbons per token, semantic zoom labels. Click picks a layer/neuron into the selection store.
+- **3D nested views** of the RISC-V-in-a-transformer, SLM-in-SLM and MoE-in-MoE experiments, drawn from the shipped artifacts (no synthetic data).
+- **Notebook / report mode** tied to pre-registration: markdown, chart, table and REPRO cells; REPRO bundles verified with the existing `prereg.js` hashing; export to HTML.
+- **Polish:** View Transitions, spring camera (disabled under prefers-reduced-motion), first-run tour, light/dark sync, keyboard navigation, compact phone layout (one tab group + bottom workspace bar under 760 px).
+- Low GPU tier (existing tier logic) forces the WebGL backend and lighter rendering.
 
-- **Arch interface** (`src/arch/arch.js`): `archFromHF(config)` + `mapWeights` + `forward` cover GPT-Neo, GPT-2 and Llama/Qwen2/Mistral-style checkpoints (sliding-window attention and rope_scaling are refused, not approximated). Checked against HF transformers in float64 (`test/arch.test.mjs`, refs from `test/ref/ref_arch.py`). Max |Δlogit|: TinyStories-8M 3.9e-6, distilgpt2 3.8e-13, SmolLM-135M 7.9e-6, Qwen2.5-0.5B 4.3e-5, so all are within 1e-4. **Partial:** the lab tabs still run on the specialised TinyStories-8M engine; the arch interface is a separate generic path and does not replace the global CFG.
-- **WebGPU** (`src/gpu/webgpu-engine.js`): WGSL matvec/LayerNorm/attention kernels with a GPU-resident KV cache, for the clean forward only. It is used only when a logits-match gate passes (every position of a fixed prompt, max |Δlogit| ≤ 2e-3 vs the JS engine); otherwise the JS engine is used. A corrupted weight is rejected by the gate (smoke). It is opt-in from the NEW v16 tab (gate + benchmark). **Honest speed:** on the only adapter we could test (headless Chrome, SwiftShader *software* WebGPU), WebGPU decodes at 1.5 tok/s vs 34 tok/s for JS. Single-token decode of an 8M model is launch-bound, and we have no real-GPU number. Generation, steering, ablations and hooks always use JS.
-- **HUB interpretability** (new H-INTERP tab, `src/arch/encoder.js`, worker `src/arch/encoder-worker.js`): our own float64 forwards for ViT-B/16, the CLIP ViT-B/32 vision tower and the Whisper-tiny.en encoder, plus the Whisper log-mel front end. Matches against HF (`test/encoder.test.mjs`): ViT logits 2.6e-7, CLIP image embedding 9.6e-9, Whisper hidden states 1.2e-14, log-mel 6.4e-6. Tools that **work**: ViT logit lens, CLIP layer-wise embedding lens, attention rollout and attention maps, and per-layer linear probes with a majority baseline. **Not available:** the CLIP text tower (no zero-shot lens), the Whisper decoder lens, and anything for the transformers.js ONNX models (they expose no hidden states). ViT and Whisper weights are SHA-256-checked in the browser. CLIP is range-fetched out of the 605 MB checkpoint, so only its immutable revision is pinned.
-- **Enforced pre-registration** (`src/prereg.js`, REPRO tab, `tools/prereg-run.mjs`): JSON schema (`docs/prereg.schema.json`), canonical SHA-256, and a pinned commit. A run is refused if the document does not validate, the hash differs, or the commit is not the build's (`build.json`). Results come out as a REPRO bundle with its own hash. The CLI refuses with exit 2.
-- **Release hygiene:**
-  - Every npm dependency is pinned exactly, including Electron 42.11.16 and electron-builder 26.18.0. CI uses `npm ci` only.
-  - Model downloads are SHA-256-pinned (`tools/fetch-model.mjs`), and arch/encoder checkpoints are pinned by HF commit plus SHA-256 (`tools/fetch-arch-models.mjs`).
-  - Android versionCode now follows the version (1600).
-  - The CI signs a **release APK** with apksigner (`Neuralese-<ver>.apk`, RSA-4096 key, cert SHA-256 `4E:26:13:83:89:A9:15:38:D7:87:DA:9C:8F:6A:2A:D7:C9:DF:1D:81:68:E2:DD:20:37:FA:14:12:85:F5:8B:0B`) from the `ANDROID_KEYSTORE_B64` / `ANDROID_KEYSTORE_PASSWORD` / `ANDROID_KEY_ALIAS` repo secrets. If they are absent, it falls back to the debug-signed APK. Earlier APKs were debug-signed, so Android will refuse to update them in place: uninstall the old app first.
-  - **Desktop builds are unsigned** (no Authenticode / no code-signing certificate). Windows SmartScreen will warn. Verify downloads with SHA256SUMS.txt.
-  - The iOS IPA is unsigned as before.
-- **UI:** a "NEW v16" tab with what's new and the WebGPU button, plus the H-INTERP tab in the HUB group.
-- **Tests:** 184 unit tests (arch 5, encoder 5, prereg 4, hygiene 3 new) + engine-worker smoke + `test/smoke/webgpu.smoke.mjs` + `test/smoke/v16.smoke.mjs`. CI now fetches the ~3 GB of pinned checkpoints, so the arch and encoder tests actually run there.
+## Verification
+- 184 existing node tests pass; 17 new bun tests (RPC, selection store, layouts, cosmos data, notebook); `tsc --noEmit` clean; eslint 0 errors.
+- Puppeteer smoke (`test/smoke/v17-workspaces.smoke.mjs`) at 1440x900, 1240x700, 390x844: every workspace and every panel opened, 0 console errors, 0 CSP violations.
 
-# Neuralese v15.3.0: engineering pass (KV/prefix cache, engine Web Worker, stricter CSP, repo restructure)
+## Size and load (headless Chrome, software GL, local server)
+Initial shell adds shell.js 137 kB (53 kB gzip) + shell.css 14 kB (4 kB gzip). three.js (stage 614 kB / 170 kB gzip, core 223 kB / 57 kB gzip) loads only when a 3D panel opens.
 
-Models, maths and data are unchanged. This release is about speed, safety and repo hygiene, and the claims below are each backed by a test.
+| viewport | FCP v16 | FCP v17 | model ready v16 | model ready v17 |
+|---|---|---|---|---|
+| 1440x900 | 1524 ms | 1956 ms | 14829 ms | 21311 ms |
+| 1240x700 | 392 ms | 448 ms | 10691 ms | 12733 ms |
+| 390x844 | 424 ms | 328 ms | 14204 ms | 11049 ms |
 
-- **KV cache (honest finding):** `engine.js` already had an incremental per-sequence KV cache (the audit's "no KV cache" was wrong). New: an independent full-recompute reference test (`test/engine-kv.test.mjs`, rel. error ≤ 1e-5 at every position) and an opt-in cross-call **prefix KV cache** for `Engine.run()`. It is bit-identical to uncached runs and is invalidated by weight edits (`W.__ver`), runtime/intervention changes (`R`), stats/SAE swaps and hooks, which bypass it. Node CPU bench (`tools/bench-engine.mjs`, 16-tok): KV generation 42.2 → 43.9 tok/s (noise-level; the cache already existed), no-cache recompute 6.5 tok/s, repeated `run()` 267 ms → 9 ms with the prefix cache.
-- **Engine Web Worker:** generation runs in `src/engine-worker.js` through `RemoteEngine` (`src/engine-client.js`), with a main-thread fallback (`?noworker` or if the worker cannot start). The smoke test proves the worker produces exactly the main-thread tokens. Lab tools that need JS hooks still use the synchronous main-thread Engine, because functions cannot cross threads. Caveat: on a headless software-GL box, worker generation was *slower* in wall time (2.5 vs 4.4 tok/s) because each token needs a message round-trip to a busy main thread. Fewer main-thread long tasks occurred (3 vs 15), but the initial weight sync is still one ~2.5 s task.
-- **CSP:** `'unsafe-eval'` is replaced by `'wasm-unsafe-eval'`. The notebook runs cells as Blob-URL modules (`blob:` in script-src), and inline `<style>` elements are moved into style.css. Inline style *attributes* are still allowed (`style-src-attr 'unsafe-inline'`, ~100 dynamic styles remain). Smoke: 0 CSP violations across 73 tabs.
-- **Desktop SwiftShader:** it is no longer forced on. It is enabled only by `--swiftshader`, `NEURALESE_SWIFTSHADER=1`, or automatically after a GPU-process crash or missing WebGL (persisted marker plus relaunch).
-- **Repo restructure:** app source is in `src/`, tests are named by feature (`test/*.test.mjs`, `test/smoke/*.smoke.mjs`), PyTorch references are in `test/ref/`, and old progress docs are in `docs/progress/`. Duplicate WASM artifacts were removed, with a hash manifest (`src/tsotchke/ARTIFACTS.sha256`) checked by `test/repo-layout.test.mjs`.
-- **CI:** CI still runs only on tags or manual dispatch, and now runs eslint, the unit tests and a headless-Chrome smoke before building.
-- **Wording:** "Tsotchke-powered" is now "vendored Tsotchke component(s)". The package description credits vendored three.js, transformers.js/ONNX and the Tsotchke WASM builds.
+## Honest caveats
+- The legacy panes are re-parented into the dock, not rewritten as Solid components; their internals look as in v16.
+- The shell bundles three 0.187 for the new 3D views while legacy 3D tabs keep vendor three r160, so two copies load if you use both (three logs a warning).
+- WebGPU is used when the browser exposes it; in our CI and headless runs only the WebGL2 path was exercised.
+- Workspace labels in the phone bottom bar are truncated at 390 px.
+- No React island and no Capacitor-specific native code were needed; mobile uses the responsive compact layout.
+- Load numbers come from a software-rendered headless browser and are noisy; treat them as rough.
 
-# Neuralese v15.2.0: refinement pass
+---
 
-A front-end refinement release. Models, maths and data are unchanged, every visualization still draws only real computed data, and every provenance/honesty banner is kept.
-
-- **Sidebar:** long tab labels no longer get cut off. They wrap to two lines, the rail is wider (184 px; 160 px under 1180 px), and every item shows its full title as a tooltip. Hover/press micro-motion.
-- **Neuron Lens atlas:** a skeleton/shimmer placeholder replaces the bare canvas. It shows "Atlas not loaded" with a call to action before loading, a live per-layer progress ("layer 3 of 8 · sha256-checking") while loading, and a retry message if the download fails. The placeholder is clearly marked as a placeholder (dashed outlines, no fake points).
-- **3D performance on weak GPUs:** a GPU tier (low/mid/high) is read from the WebGL renderer string plus core/memory hints. Software renderers (SwiftShader, llvmpipe, Basic Render) and old integrated/mobile GPUs now start at the lightest level (no post-processing, 1× pixels) instead of stuttering. A single quality ladder is shared with the adaptive loop, and the level the adaptive loop settles on is remembered for the next session. The VIZ fps readout shows the tier.
-- **Action states everywhere:** every action button wired through the shared guard shows a spinner (aria-busy) while it runs. A failure leaves a dismissible inline error note on that panel in addition to the toast; the next success clears it.
-- **Theme:** on first run the theme follows the OS colour scheme (`prefers-color-scheme`). After you pick one with the toggle, your choice wins.
-- **Consistency + mobile:** unified fieldset/legend/row spacing on the type and spacing tokens, press feedback on buttons, and chart hover rings. On phones: 16 px inputs (no iOS zoom-on-focus), 38 px touch targets, larger drawer items, and safe-area bottom padding. All motion respects `prefers-reduced-motion`.
-- **Tests:** 8 new unit tests (`test/v152.test.mjs`) and a new `smoke-v152.mjs` (all 73 tabs × 3 viewports, 0 console errors, plus sidebar-truncation, atlas skeleton → loaded, GPU-tier ladder, busy/error state and theme checks).
-
-# Neuralese v15.1.0: polish pass
-
-A front-end polish release. Models, maths and data are unchanged, and every provenance/honesty banner is kept.
-
-- **Overview dashboard (new landing tab, `H`):** a hero 3D network (8 rings × 16 instanced head nodes, coloured live by the real per-head ‖z_h‖, flow particles, parallax). Live stat cards (params 19.70 M, layers·heads, d_model·d_mlp, tok/s, ms/token, edits·steer, JS heap, weights hash) with skeleton loading. A tok/s sparkline, a surprisal strip for the last generation, and quick links into each section.
-- **3D scene:**
-  - Heads are drawn as one InstancedMesh. Animated activation flow runs along head→residual edges and up the residual column, with amplitude driven by the real activations.
-  - Hover picking shows an info card (head ‖z‖ and rank, layer, residual norm).
-  - Eased fly-to camera moves.
-  - A custom post-processing chain: HDR MSAA target, a bloom pyramid, and depth of field from the depth texture. Toggle it under VIZ → rendering.
-  - Adaptive quality drops DoF, then bloom, then pixel ratio when the 3-second average falls below 50 fps. A live fps/CPU-ms readout is shown.
-- **Data viz:**
-  - Charts animate between states (eased tweens).
-  - Line charts support brush-to-zoom (double-click resets).
-  - Charts are cross-highlighted through a shared token bus.
-  - New attention **arc diagram** (hover a token to isolate its arcs, top-4 tooltip) and **token heat strips** (attention received; per-token surprisal under the Generate output, synced with the text).
-- **UI:**
-  - An inline SVG icon set and a per-section accent colour (sidebar, pane header, primary buttons).
-  - Refined heading/legend hierarchy, visible `:focus-visible` rings, and AA-checked muted text (≥ 4.5:1 in both themes).
-  - Empty-canvas states ("No data yet") and error toasts.
-  - A keyboard shortcuts overlay (`?`). Use `[` / `]` for the previous/next tab.
-  - Button ripples. Everything respects `prefers-reduced-motion`: no tweens, a static hero, frozen flow and instant camera moves.
-- **Tests:** a new `test/v151.test.mjs` file, and a new `smoke-v151.mjs` that covers all 73 tabs at 3 sizes with 0 console errors. It also checks the overview stats, hero, icons/accents, shortcut overlay, `[`/`]`/`H` navigation, arcs + strip + cross-highlight, brush zoom, the 3D hover card + fly-to, contrast samples, reduced motion and fps.
-
-# Neuralese v15.0.0: visual overhaul
-
-A front-end redesign. Models, maths and data are unchanged, and every provenance/honesty banner is kept.
-
-- **Design system:** a dark "research lab" look built from CSS tokens: surfaces, text, accent palette, type scale, spacing, radii, elevation, focus rings and motion. Inter and JetBrains Mono are self-hosted (variable WOFF2, SIL OFL licences in `vendor/fonts/`), with no font CDN. There is a matching light theme, and `prefers-reduced-motion` turns off all animation.
-- **Navigation:** the 72-tab wall is replaced by a grouped, collapsible sidebar.
-  - Live search (press `/`); tabs are labelled with their descriptive titles.
-  - A sticky pane header shows the group, the tab and its title.
-  - On phones the sidebar is a drawer behind ☰. The ⌘K command palette is restyled.
-- **Components:** panels are cards. Buttons, inputs, selects, checkboxes, radios and sliders, sticky-header tables, tooltips, toasts, chips and scrollbars are restyled. Charts that have not been rendered yet show an empty-state pattern, and there is a shimmer for busy elements.
-- **Charts (`charts.js`, rewritten, same API):**
-  - Crisp HiDPI rendering with nice-number ticks, gridlines, axes and legends.
-  - Hover crosshairs and markers; area fills and soft glow on lines; rounded gradient bars with hover; scatter plots with gridlines and glow.
-  - Heatmaps use perceptual colormaps (viridis and magma, plus a dark-centred blue→orange diverging map) and draw a colorbar.
-- **3D:**
-  - ACES tone mapping with key, rim and fill lights and a gradient backdrop.
-  - Additive glow halos on attention heads scale with ‖z_h‖, and MLP neurons are drawn as soft round points.
-  - Glass layer slabs with edge outlines, layer labels and a ground grid.
-  - Fit-to-view ignores the grid and accounts for the taller header. The heightfield uses the diverging palette.
-- **Tests:**
-  - `test/v15.test.mjs` adds 4 tests, for a total of 149.
-  - `smoke-v15.mjs` opens every tab at 1440×900, 1240×700 and 390×844. It asserts each pane and header renders, the page never overflows horizontally, and there are 0 console errors. It also checks the sidebar search and collapse, the mobile drawer and that the fonts load.
-- **Cache busting:** cache busters are now `?v=15`.
-
-# Neuralese v14.9.0
-
-All 14.x criteria were pre-registered in docs/PREREG-v14x.md (sha256 7f864197…93a1, pinned by test V14X-1) before any data. Results: docs/CLAIMS-v14x.md; failures: docs/REPORT-v14.md.
-
-## 14.9.0
-- Headless-Chrome fit of the full TS-1M lens through lens-worker.js: cosine 1.000000 with the Node fit for all 31 blocks (C9a supported). Scope: CPU Web Workers, not WebGPU.
-- docs/REPORT-v14.md lists every failed prediction from 14.0–14.8; test V14X-7 enforces it (C9b).
-- test/v14x.test.mjs (8 tests); smoke-v14 covers the NESTED tabs. 145/145 tests, SMOKE OK.
-
-## 14.8.0
-- Host × nested cross-read. C8a not supported, as predicted: host-head reads of baked-guest units are exactly 0.
-- C8b supported: the emulator's mode-0 and mode-1 reads of the same unit agree (median r 0.888 vs τ99 0.637).
-
-## 14.7.0
-- New NESTED group with four tabs:
-  - RISC-V IN WEIGHTS, SLM IN SLM and MoE IN MoE, integrated from the neuralese-nested workstream (nested/).
-  - NESTED LENS, with results and a unit reader.
-- The nested SLM weights ship as float32 (nested/slm/models.f32, 1.5 MB, sha256-checked) instead of 6.2 MB of float64 JSON. Max KL against float64 is 2.4e-16.
-- nestedlens.js adds a finite-difference R-lens. R.out passes the steering null on the composite (384/384) and the emulator (243/249). C7 supported.
-
-## 14.6.0
-- Taylor check of the RelP linearisation on TS-8M. C6 not supported at all 7 layers, as predicted.
-- The pre-registered δ=1e-4 finite difference is float32-noise-limited. An exploratory δ=1e-2 rerun is included and labelled as such.
-
-## 14.5.0
-- Hungarian matching of TS-3M ↔ TS-8M neurons on out·R top-50 Jaccard. C5 not supported: 11/48 = 22.9% of pairs exceed τ99, against the ≥30% criterion.
-
-## 14.4.0
-- Auto-labels from S.mid reads.
-- C4a supported: hit rate 12.95% vs 0.16% shuffled, McNemar p≈2e-295.
-- C4b supported: logistic-z confidence is calibrated within 0.033 in every bin.
-
-## 14.3.0
-- Head attribution through the lens vs zero-ablation (node level; scope change). C3 not supported:
-  - induction: recall 0.31, AUROC 0.63
-  - IOI: recall 0.18, AUROC 0.48
-  - the logit baseline is equally poor.
-- `forward` gains `ablate` and `zs` options.
-
-## 14.2.0
-- SAE features (sae.js, m=1024, L3) through R.out pass 64/64, matching neurons at 64/64. C2 supported, but at ceiling, and the SAE is weakly sparse.
-
-## 14.1.0
-- TS-1M and TS-3M lenses (lens/ts1m, lens/ts3m; scope change from distilgpt2/GPT-2).
-- C1a supported: R.out beats the logit lens at 7/7 layers on both models, null 0.011.
-- C1b supported: split-half cosine ≥0.9927 for every block of 1M/3M/8M.
-- C1c supported: the 8M rerun at 64 neurons per layer gives narrower CIs at 7/7 layers.
-- Weak-spot fix: the NEURON LENS steer demo now averages Δ over positions and ranks only DB-vocabulary tokens.
-
-## 14.0.0
-- Neuron Lens: original JS implementation of R/S/mid lenses (RelP tape, forward/reverse doc Jacobians) for TinyStories-8M; prior-art credit in docs/NEURON_LENS_METHOD.md.
-- lens/ts8m: lenses.f32 (sha256 6a668f3e…7636), validation.json, drivers.json, per-layer neuron/head DB with db-manifest sha256s.
-- New tabs NEURON LENS / LENS VALID / LENS CATALOG; Web Worker refit.
-- Pre-registered validation (docs/PREREG-v14.md + Amendment 1): P1, P2, P5 supported; P3, P4 not supported (docs/CLAIMS-v14.md).
-- Attributed CC BY 4.0 sample of stdlogits/neuron-lens dataset in lens/ext (no contexts).
-- ROADMAP-v14 for v14.1–v14.9.
-
-## 13.0.1
-- Electron 38 → 42.11.16 and puppeteer-core 24 → 25.16.0 (Dependabot security updates, PR #2).
-- Electron 42 no longer falls back to software WebGL by itself, so on machines without a usable GPU the lab stopped at "Error creating WebGL context". `desktop/main.cjs` now enables the SwiftShader fallback.
-
-
-**Live:** https://0thernes.github.io/neuralese/
-
-v13 packages the v12.1 lab as native apps. The lab itself is unchanged. It is the same in-browser interpretability and weight-surgery lab for TinyStories-8M.
-
-## Downloads
-| platform | file | notes |
-|---|---|---|
-| Windows x64 | `Neuralese-Setup-13.0.1-x64.exe` | NSIS installer. Unsigned, so SmartScreen will warn: More info → Run anyway |
-| Windows x64 | `Neuralese-13.0.1-x64-portable.exe` | runs without installing. Unsigned |
-| Linux x64 | `Neuralese-13.0.1-x86_64.AppImage` | `chmod +x`, then run. Some distros need `libfuse2` |
-| Linux x64 | `Neuralese-13.0.1-amd64.deb` | `sudo apt install ./Neuralese-13.0.1-amd64.deb` |
-| Android | `Neuralese-13.0.1-debug.apk` | debug build. Allow "install unknown apps" |
-| iOS device | `Neuralese-13.0.1-unsigned.ipa` | unsigned. Re-sign with AltStore or Sideloadly |
-| iOS Simulator | `Neuralese-13.0.1-simulator.app.zip` | unzip, then `xcrun simctl install booted App.app` |
-
-`SHA256SUMS.txt` lists the hash of every file.
-
-## Honest limitations
-- None of the builds is code-signed: Windows SmartScreen, macOS-style Gatekeeper prompts on Linux desktops, and an unsigned iOS IPA. There is no auto-update.
-- On first run the model (~112 MB) and any HUB models download from Hugging Face, so the apps need internet then. After that, the browser cache serves them.
-- Mobile performance: the lab is heavy. Some tabs (3D, HUB ONNX models, long sweeps) are slow or memory-limited on phones.
-- The Android build is a debug APK, not a Play Store release.

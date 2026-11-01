@@ -1,7 +1,7 @@
 // NEURALESE lab core: pure, testable research computations behind every v5 visualization.
 // These functions compute from the weights/engine passed in at call time (no cached or precomputed results inside this module).
-import { CFG, mulberry32, cloneWeights } from './model.js?v=160';
-import { Engine, defaultRuntime, logSoftmax, layerNorm, entropy } from './engine.js?v=160';
+import { CFG, mulberry32, cloneWeights } from './model.js?v=170';
+import { Engine, defaultRuntime, logSoftmax, layerNorm, entropy } from './engine.js?v=170';
 const { d, H, hd, L, ff, V } = CFG;
 const tick = () => new Promise((r) => setTimeout(r, 0));
 

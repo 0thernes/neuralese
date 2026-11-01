@@ -81,7 +81,7 @@ test('A7 guided path: ten stops, every stop is a real tab, button wired', () => 
   assert.ok(S('v5.js').includes('installGuide('));
 });
 
-test('A8 cache busters are ?v=160 everywhere', () => {
+test('A8 cache busters are ?v=170 everywhere', () => {
   for (const f of ['index.html', 'app.js', 'v5.js', 'labcore.js']) { assert.ok(!/\?v=12\b/.test(S(f)), f); }
   assert.ok(S('index.html').includes('v' + VER));
 });

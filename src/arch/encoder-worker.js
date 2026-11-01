@@ -1,7 +1,7 @@
 // v16 HUB interpretability worker: loads a revision-pinned HF safetensors checkpoint (ViT, CLIP vision tower, Whisper encoder), runs
 // our float64 JS forward (matches HF, test/encoder.test.mjs) and returns compact interpretability summaries so the page stays responsive.
-import { encoderFromHF, mapEncoder, encode, vitLens, clipLensEmb, rollout, linearProbe, whisperLogMel } from './encoder.js?v=160';
-import { remoteSafetensors } from './remote.js?v=160';
+import { encoderFromHF, mapEncoder, encode, vitLens, clipLensEmb, rollout, linearProbe, whisperLogMel } from './encoder.js?v=170';
+import { remoteSafetensors } from './remote.js?v=170';
 export const MODELS = {
   vit: { repo: 'google/vit-base-patch16-224', rev: '3f49326eb077187dfe1c2a2bb15fbd74e6ab91e3', sha: '1cea07110a4a47edc51420b2dda6f3b8b58e7256e8f44b4ea6aa9696162ccb5d', keep: () => true },
   clip: { repo: 'laion/CLIP-ViT-B-32-laion2B-s34B-b79K', rev: '1a25a446712ba5ee05982a381eed697ef9b435cf', sha: null, keep: (k) => k.startsWith('vision_model.') || k === 'visual_projection.weight' },
@@ -13,7 +13,7 @@ async function load(key, id) { if (C[key]) return C[key]; const m = MODELS[key];
   const cfg = await (await fetch(url(m, 'config.json'))).json(), E = encoderFromHF(cfg); let T, verified;
   if (m.sha) { say(id, `downloading ${m.repo}@${m.rev.slice(0, 7)} (full file, sha256-checked)`); const r = await fetch(url(m, 'model.safetensors')); if (!r.ok) throw new Error('HTTP ' + r.status); const buf = await r.arrayBuffer();
     const got = hex(await crypto.subtle.digest('SHA-256', buf)); if (got !== m.sha) throw new Error(`sha256 mismatch: got ${got}`); verified = 'sha256 ' + got.slice(0, 16) + '…';
-    const { readSafetensors } = await import('./arch.js?v=160'); const all = readSafetensors(new Uint8Array(buf)); T = Object.fromEntries(Object.entries(all).filter(([k]) => m.keep(k))); }
+    const { readSafetensors } = await import('./arch.js?v=170'); const all = readSafetensors(new Uint8Array(buf)); T = Object.fromEntries(Object.entries(all).filter(([k]) => m.keep(k))); }
   else { ({ T } = await remoteSafetensors(url(m, 'model.safetensors'), m.keep, { onProgress: (s) => say(id, s) })); verified = `revision-pinned ${m.rev.slice(0, 7)} (range fetch: whole-file sha256 not computed)`; }
   return (C[key] = { E, W: mapEncoder(E, T), verified }); }
 const cos = (a, b) => { let s = 0, na = 0, nb = 0; for (let i = 0; i < a.length; i++) { s += a[i] * b[i]; na += a[i] * a[i]; nb += b[i] * b[i]; } return s / Math.sqrt(na * nb); };

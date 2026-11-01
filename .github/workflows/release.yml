@@ -7,8 +7,8 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 env:
-  VER: 16.0.1
-  VERSION_CODE: 1601
+  VER: 17.0.0
+  VERSION_CODE: 1700
 jobs:
   test:
     runs-on: ubuntu-24.04
@@ -25,6 +25,11 @@ jobs:
       - run: node tools/fetch-arch-models.mjs   # ~3 GB, revision- and sha256-pinned; arch/encoder tests need it
       - run: npm run lint
       - run: node --test test/*.test.mjs
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+      - name: v17 shell (typecheck, unit tests, build)
+        run: cd ui && bun install --frozen-lockfile && bun run typecheck && bun test tests && bun run build
       - name: headless browser smoke (worker == main-thread tokens, strict CSP, all tabs; streams TinyStories-8M from HF)
         run: |
           node tools/serve.mjs 8765 src & sleep 2

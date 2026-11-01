@@ -10,7 +10,7 @@ const r = await p.evaluate(async (skipHub) => {
   const out = window.NEURALESE.v6.out, res = {}; res.newTab = !!document.getElementById('pane_v16') && document.getElementById('pane_v16').textContent.includes('Arch interface');
   res.hinterpTab = !!document.getElementById('pane_hinterp');
   res.webgpu = await out.webgpu().catch((e) => ({ err: String(e) }));
-  const P = await import('./prereg.js?v=160'), commit = (await (await fetch('build.json')).json()).commit;
+  const P = await import('./prereg.js?v=170'), commit = (await (await fetch('build.json')).json()).commit;
   const doc = { hypothesis: 'Zero-ablating L0H3 raises mean CE on the probe text', metric: { name: 'head_ablation_delta_ce', params: { layer: 0, head: 3 } }, null: 'Ablation changes CE by less than the threshold', threshold: { op: '>', value: 0.01 }, seed: 1, commit_sha: commit };
   const errsV = P.validate(doc); if (errsV.length) return { ...res, prereg: { invalid: errsV } }; const h = await P.preregHash(doc);
   const bad = await out.preregRun(JSON.stringify(doc), '0'.repeat(64)); const good = await out.preregRun(JSON.stringify(doc), h);

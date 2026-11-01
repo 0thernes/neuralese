@@ -7,13 +7,13 @@ const b = await puppeteer.launch({ executablePath: process.env.CHROME || '/usr/b
 const p = await b.newPage(); const errs = []; p.on('pageerror', (e) => errs.push(e.message));
 await p.goto(url + '?noworker'); await p.waitForFunction(() => window.NEURALESE && window.NEURALESE_LAST, { timeout: 600000 });
 const r = await p.evaluate(async () => {
-  const { WebGPUEngine } = await import('./gpu/webgpu-engine.js?v=160'); const { CFG } = await import('./model.js?v=160'); const N = window.NEURALESE, eng = N.engClean;
+  const { WebGPUEngine } = await import('./gpu/webgpu-engine.js?v=170'); const { CFG } = await import('./model.js?v=170'); const N = window.NEURALESE, eng = N.engClean;
   const ids = [464, 2068, 7586, 21831, 18045, 625, 262, 16931, 3290, 13, 1881, 1110];
   const { eng: g, reason, gate } = await WebGPUEngine.create(eng.W, CFG, { gateEngine: eng, gatePrompt: ids }); if (!g) return { reason, gate };
   const n = 32; let s = g.newSeq(), t0 = performance.now(); for (let i = 0; i < n; i++) await g.step(s, 100 + i); const gpuTps = n / ((performance.now() - t0) / 1000);
   s = eng.newSeq(1); t0 = performance.now(); for (let i = 0; i < n; i++) eng.logits(eng.step(s, 100 + i).h); const jsTps = n / ((performance.now() - t0) / 1000);
   // a corrupted weight must make the gate fail (proves the gate is live, not a rubber stamp)
-  const bad = { ...eng.W, lnfW: eng.W.lnfW.map((v, i) => (i === 3 ? v * 1.5 : v)) }; const { CFG: C2 } = await import('./model.js?v=160');
+  const bad = { ...eng.W, lnfW: eng.W.lnfW.map((v, i) => (i === 3 ? v * 1.5 : v)) }; const { CFG: C2 } = await import('./model.js?v=170');
   const b2 = await WebGPUEngine.create(bad, C2, { gateEngine: eng, gatePrompt: ids.slice(0, 3) });
   return { reason, gate, adapter: g.adapterInfo, gpuTps, jsTps, corruptedGateRejected: !b2.eng, corruptedReason: b2.reason };
 });

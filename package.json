@@ -1,6 +1,6 @@
 {
  "name": "neuralese",
- "version": "16.0.1",
+ "version": "17.0.0",
  "description": "NEURALESE: in-browser interpretability & weight-surgery lab for TinyStories-8M (GPT-Neo). Original engine code plus credited vendored third-party components (three.js, transformers.js/ONNX Runtime, WASM builds of Tsotchke Eshkol/Moonlab/QGTL/quantum_rng).",
  "main": "index.js",
  "scripts": {

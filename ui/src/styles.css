@@ -1,0 +1,102 @@
+@import "tailwindcss" source(none);
+@source "./";
+/* Design tokens: v17 maps onto the legacy palette (src/style.css) so both layers theme together. AA-checked pairs:
+   --c-fg on --c-bg, --c-muted on --c-panel, --c-accent-fg on --c-accent. */
+@theme {
+  --color-bg: var(--bg, #070a12);
+  --color-panel: var(--p2, #0d1220);
+  --color-line: var(--b, #1f2937);
+  --color-fg: var(--t, #e6edf7);
+  --color-muted: var(--m, #9aa7bd);
+  --color-accent: var(--a, #2dd4bf);
+  --radius-panel: 10px;
+  --ease-spring: cubic-bezier(.2, .9, .25, 1.15);
+}
+:root { --c-bg: #070a12; --c-fg: #e6edf7; --c-muted: #a3b0c5; --c-panel: #0d1220; --c-line: #233044; --c-accent: #2dd4bf; --c-accent-fg: #04201c; --c-warn: #fbbf24; --wsbar: 38px; }
+:root[data-theme=light] { --c-bg: #eef2f8; --c-fg: #0e1626; --c-muted: #475569; --c-panel: #ffffff; --c-line: #cbd5e1; --c-accent: #0b7d70; --c-accent-fg: #ffffff; --c-warn: #8a4b00; }
+body.v17-on #dock, body.v17-on #split, body.v17-on #tabs { display: none !important; }
+body.v17-on #gl { visibility: hidden; }
+#v17 { position: fixed; top: 34px; left: 0; right: 0; bottom: 0; z-index: 6; color: var(--c-fg); background: var(--c-bg); }
+.v17 { display: flex; flex-direction: column; height: 100%; font: 13px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+.sr-only { @apply sr-only; }
+.wsbar { height: var(--wsbar); display: flex; align-items: center; gap: 2px; padding: 0 8px; border-bottom: 1px solid var(--c-line); overflow-x: auto; scrollbar-width: none; background: var(--c-panel); view-transition-name: wsbar; }
+.wsbar button { padding: 5px 11px; border-radius: 7px; color: var(--c-muted); white-space: nowrap; border: 1px solid transparent; background: none; cursor: pointer; }
+.wsbar button:hover { color: var(--c-fg); }
+.wsbar button.on { color: var(--c-accent-fg); background: var(--c-accent); font-weight: 600; }
+.wsbar .sp { flex: 1; }
+.wsbar .palbtn { border-color: var(--c-line); color: var(--c-fg); }
+.dock { flex: 1; min-height: 0; display: flex; padding: 6px; view-transition-name: dock; }
+.dock > * { flex: 1; }
+.split { display: flex; width: 100%; height: 100%; min-width: 0; min-height: 0; }
+.split.col { flex-direction: column; }
+.cell-wrap { display: flex; min-width: 0; min-height: 0; }
+.cell-wrap > * { flex: 1; }
+.gutter { flex: 0 0 6px; cursor: col-resize; border-radius: 3px; }
+.split.col > .gutter { cursor: row-resize; }
+.gutter:hover, .gutter:focus-visible { background: var(--c-accent); outline: none; }
+.group { display: flex; flex-direction: column; min-width: 0; min-height: 0; border: 1px solid var(--c-line); border-radius: var(--radius-panel); background: var(--c-panel); overflow: hidden; }
+.tabstrip { display: flex; gap: 1px; overflow-x: auto; border-bottom: 1px solid var(--c-line); flex: 0 0 auto; scrollbar-width: thin; }
+.tab { display: flex; align-items: center; border-right: 1px solid var(--c-line); flex: 0 0 auto; }
+.tab button { background: none; border: 0; color: var(--c-muted); padding: 6px 9px; cursor: pointer; font: inherit; max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tab.on button[role=tab] { color: var(--c-fg); box-shadow: inset 0 -2px 0 var(--c-accent); font-weight: 600; }
+.tab .tx { padding: 6px 4px; opacity: .55; }
+.tab .tx:hover, .tab .tx:focus-visible { opacity: 1; }
+.panel { flex: 1; min-height: 0; overflow: auto; position: relative; }
+.adopt { height: 100%; }
+.legacy-pane > .pane { display: block; padding: 8px 10px; }
+#v17 #out { position: static; display: flex; max-height: none; height: 100%; left: auto; right: auto; box-shadow: none; border: 0; backdrop-filter: none; }
+#v17 #dock2 { position: static; display: block; width: auto; border: 0; max-height: none; }
+.selp { padding: 8px 10px; }
+.selrow { display: flex; flex-wrap: wrap; gap: 10px; }
+.selrow input { width: 64px; }
+.hint { color: var(--c-muted); margin: 6px 0; }
+.warn { color: var(--c-warn); }
+.cosmos { position: relative; height: 100%; min-height: 260px; display: flex; flex-direction: column; }
+.cosmos-stage { flex: 1; min-height: 200px; position: relative; overflow: hidden; }
+.cosmos-canvas { display: block; outline: none; touch-action: none; }
+.cosmos-canvas:focus-visible { box-shadow: inset 0 0 0 2px var(--c-accent); }
+.cosmos-hud { padding: 6px 10px; font-size: 12px; color: var(--c-muted); border-top: 1px solid var(--c-line); }
+.cosmos-hud b { color: var(--c-fg); }
+.seg { display: flex; gap: 4px; padding: 6px; }
+.seg button, .nbbar button, .nbbar .file, .tour-b button { border: 1px solid var(--c-line); border-radius: 6px; padding: 3px 9px; background: transparent; color: var(--c-fg); cursor: pointer; font: inherit; }
+.seg button.on { background: var(--c-accent); color: var(--c-accent-fg); }
+.nb { padding: 8px 10px; display: flex; flex-direction: column; gap: 8px; }
+.nbbar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.nbbar .file input { display: none; }
+.nbtitle { font-size: 18px; font-weight: 700; background: transparent; border: 0; color: var(--c-fg); }
+.cell { border: 1px solid var(--c-line); border-radius: 8px; padding: 6px 8px; }
+.cellbar { display: flex; gap: 8px; align-items: center; color: var(--c-muted); font-size: 12px; margin-bottom: 4px; }
+.cellbar button { margin-left: auto; background: none; border: 0; color: var(--c-muted); cursor: pointer; }
+.cell textarea { width: 100%; min-height: 60px; background: transparent; color: var(--c-fg); border: 1px solid var(--c-line); border-radius: 6px; }
+.repro { font-size: 11px; white-space: pre-wrap; }
+.chart { width: 100%; color: var(--c-fg); }
+.vt { overflow: auto; position: relative; border: 1px solid var(--c-line); border-radius: 6px; font-variant-numeric: tabular-nums; }
+.vt-head { position: sticky; top: 0; display: flex; background: var(--c-panel); z-index: 1; font-weight: 600; }
+.vt-head span, .vt-row span { flex: 1; padding: 2px 8px; }
+.vt-row { position: absolute; left: 0; right: 0; display: flex; cursor: pointer; }
+.vt-row:hover { background: color-mix(in srgb, var(--c-accent) 14%, transparent); }
+.pal-ov { position: fixed; inset: 0; background: #0008; z-index: 50; }
+.pal-pos { position: fixed; inset: 0; display: flex; justify-content: center; align-items: flex-start; padding-top: 12vh; z-index: 51; pointer-events: none; }
+.pal, .tour { pointer-events: auto; width: min(640px, 94vw); background: var(--c-panel); color: var(--c-fg); border: 1px solid var(--c-line); border-radius: 12px; box-shadow: 0 24px 64px -12px #000a; overflow: hidden; }
+.pal-in { width: 100%; padding: 12px 14px; font-size: 15px; background: transparent; border: 0; border-bottom: 1px solid var(--c-line); color: var(--c-fg); outline: none; }
+.pal-list { max-height: 52vh; overflow: auto; }
+.pal-list [role=option] { display: flex; justify-content: space-between; gap: 12px; padding: 7px 14px; cursor: pointer; }
+.pal-list [role=option] span { color: var(--c-muted); font-size: 12px; text-align: right; }
+.pal-list .on { background: color-mix(in srgb, var(--c-accent) 18%, transparent); }
+.pal-empty { padding: 12px 14px; color: var(--c-muted); }
+.tour { padding: 18px 20px; }
+.tour-t { font-size: 17px; font-weight: 700; margin-bottom: 6px; }
+.tour-b { display: flex; gap: 8px; align-items: center; justify-content: flex-end; margin-top: 14px; }
+.tour-b span { margin-right: auto; color: var(--c-muted); }
+.tour-b .pri { background: var(--c-accent); color: var(--c-accent-fg); border-color: var(--c-accent); }
+:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 1px; }
+@keyframes panel-in { from { opacity: 0; transform: translateY(6px) scale(.995); } }
+.panel > * { animation: panel-in 260ms var(--ease-spring); }
+::view-transition-old(dock), ::view-transition-new(dock) { animation-duration: 220ms; }
+@media (prefers-reduced-motion: reduce) { .panel > * { animation: none; } ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; } }
+/* Capacitor / phones: one tab group, workspace bar at the bottom with safe-area padding */
+.v17.compact { flex-direction: column-reverse; }
+.v17.compact .wsbar { border-top: 1px solid var(--c-line); border-bottom: 0; height: calc(var(--wsbar) + env(safe-area-inset-bottom)); padding-bottom: env(safe-area-inset-bottom); }
+.v17.compact .dock { padding: 0; }
+.v17.compact .group { border-radius: 0; border: 0; }
+.v17.compact .tab button { padding: 9px 10px; }

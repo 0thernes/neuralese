@@ -1,6 +1,6 @@
 // v16: read only the tensors you need from a remote .safetensors with HTTP Range requests (e.g. the CLIP vision tower out of a
 // 605 MB vision+text checkpoint). Hugging Face resolve URLs send CORS + Accept-Ranges. Falls back to a full GET if Range is ignored.
-import { toF32 } from './arch.js?v=160';
+import { toF32 } from './arch.js?v=170';
 async function rng(url, a, b, sig) { const r = await fetch(url, { headers: { Range: `bytes=${a}-${b - 1}` }, signal: sig }); if (!r.ok) throw new Error(`${url}: HTTP ${r.status}`); const u = new Uint8Array(await r.arrayBuffer()); return r.status === 206 ? u : u.subarray(a, b); }
 export async function remoteSafetensors(url, keep = () => true, { signal, onProgress } = {}) {
   const h8 = await rng(url, 0, 8, signal), n = Number(new DataView(h8.buffer, h8.byteOffset, 8).getBigUint64(0, true));

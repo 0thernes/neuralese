@@ -1,10 +1,10 @@
 // v7 RESEARCH group: reproducibility (hashes, manifests, replay), hypothesis tests, ACDC-style circuit discovery + scrubbing,
 // linear probes with control tasks, user datasets, eval harness, notebook, report generator, structured log + lab-state files.
-import { lines, bars } from './charts.js?v=160';
-import { $, esc, fmt, opts, cv, tipq, prog, tick } from './lab-ui.js?v=160';
-import * as R from './research.js?v=160';
-import { cloneWeights } from './model.js?v=160';
-import { DS, docs, allDocs, setUserCorpus, clearUserCorpus } from './dataset.js?v=160';
+import { lines, bars } from './charts.js?v=170';
+import { $, esc, fmt, opts, cv, tipq, prog, tick } from './lab-ui.js?v=170';
+import * as R from './research.js?v=170';
+import { cloneWeights } from './model.js?v=170';
+import { DS, docs, allDocs, setUserCorpus, clearUserCorpus } from './dataset.js?v=170';
 const P = (id) => `<div class="prog" id="${id}"><i></i></div>`;
 const NBKEY = 'neuralese.notebook.v7', MODEL_ID = 'roneneldan/TinyStories-8M@refs/pr/1';
 const dl = (name, text, type = 'application/json') => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type })); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); };
@@ -60,10 +60,10 @@ export function install(A, out) {
   // ── v16 enforced pre-registration ──
   const buildCommit = (async () => { try { const r = await fetch('build.json', { cache: 'no-store' }); return r.ok ? (await r.json()).commit || null : null; } catch { return null; } })();
   buildCommit.then((c) => { $('prCommit').textContent = c ? `this build: commit ${c.slice(0, 12)}…` : 'this build has no commit stamp (dev server): runs will be refused'; if (!$('prDoc').value) $('prDoc').value = JSON.stringify({ hypothesis: 'Zero-ablating L0H3 raises mean CE on the probe text', metric: { name: 'head_ablation_delta_ce', params: { layer: 0, head: 3 } }, null: 'Ablation changes CE by at most 0.01 nats', threshold: { op: '>', value: 0.01 }, seed: 7, commit_sha: c || '0'.repeat(40) }, null, 1); });
-  on('prHashNow', 'click', async () => { const P = await import('./prereg.js?v=160'), d = JSON.parse($('prDoc').value), e = P.validate(d); $('prLog').textContent = e.length ? 'invalid: ' + e.join('\n') : 'sha256 ' + (await P.preregHash(d)) + '\nfreeze this hash (e.g. publish it) before running.'; });
-  out.preregRun = async (docText, hash, text) => { const P = await import('./prereg.js?v=160'); let run;
+  on('prHashNow', 'click', async () => { const P = await import('./prereg.js?v=170'), d = JSON.parse($('prDoc').value), e = P.validate(d); $('prLog').textContent = e.length ? 'invalid: ' + e.join('\n') : 'sha256 ' + (await P.preregHash(d)) + '\nfreeze this hash (e.g. publish it) before running.'; });
+  out.preregRun = async (docText, hash, text) => { const P = await import('./prereg.js?v=170'); let run;
     try { run = await P.startRun(JSON.parse(docText), { expectedHash: hash, commit: await buildCommit }); } catch (e) { $('prLog').textContent = 'REFUSED: ' + e.message; return { refused: e.message }; }
-    const eng = new (await import('./engine.js?v=160')).Engine(A.M(), (await import('./engine.js?v=160')).defaultRuntime()), ids = A.tok().encode(text || 'Once upon a time, there was a little girl named Lily. She loved to play outside with her dog.');
+    const eng = new (await import('./engine.js?v=170')).Engine(A.M(), (await import('./engine.js?v=170')).defaultRuntime()), ids = A.tok().encode(text || 'Once upon a time, there was a little girl named Lily. She loved to play outside with her dog.');
     const results = P.runMetric(run.prereg, eng, ids), b = await P.reproBundle(run, { results, weights_sha256: await R.weightsHash(A.M()), env: { ua: navigator.userAgent, version: VERSION } });
     $('prLog').textContent = b.verdict.text + '\nbundle sha256 ' + b.bundle_sha256; dl(`neuralese-repro-${b.bundle_sha256.slice(0, 12)}.json`, JSON.stringify(b, null, 1)); return b; };
   on('prRun', 'click', () => out.preregRun($('prDoc').value, $('prHash').value.trim()));

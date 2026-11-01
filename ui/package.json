@@ -1,0 +1,26 @@
+{
+  "name": "neuralese-ui",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite",
+    "typecheck": "tsc --noEmit -p .",
+    "test": "bun test tests"
+  },
+  "dependencies": {
+    "@kobalte/core": "0.13.14",
+    "solid-js": "1.9.18",
+    "three": "0.187.0",
+    "uplot": "1.6.32"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "4.3.3",
+    "@types/bun": "1.4.4",
+    "@types/three": "0.187.0",
+    "tailwindcss": "4.3.3",
+    "typescript": "7.0.2",
+    "vite": "8.3.5",
+    "vite-plugin-solid": "2.11.15"
+  }
+}
