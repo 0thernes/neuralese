@@ -29,6 +29,7 @@ export class RemoteEngine {
   async newSeq(key, nPrompt = 0) { const { sid } = await this.call({ op: 'seq', key, nPrompt }); return { key, sid, T: 0, ids: [], nPrompt }; }
   async step(seq, tok, o = {}) { const r = await this.call({ op: 'step', key: seq.key, sid: seq.sid, tok, trace: !!o.trace }); seq.T = r.T; seq.ids = r.ids; return r; }
   async steps(seq, toks, o = {}) { const r = await this.call({ op: 'steps', key: seq.key, sid: seq.sid, toks, trace: !!o.trace }); seq.T = r.T; seq.ids = r.ids; return r; }
+  kvgeom(seq, phase) { return this.call({ op: 'kvgeom', key: seq.key, sid: seq.sid, phase }); }
   beam(seq, h0, opts) { return this.call({ op: 'beam', key: seq.key, sid: seq.sid, h0, opts }); }
   free(seqs) { return this.call({ op: 'free', sids: seqs.filter(Boolean).map((s) => s.sid) }); }
   terminate() { this.w.terminate(); }
