@@ -76,9 +76,10 @@ function rope(A, vec, nh, pos) { const hd = A.hd, half = hd / 2; for (let h = 0;
   const f = pos / A.ropeTheta ** ((2 * i) / hd), c = Math.cos(f), s = Math.sin(f), a = vec[o + i], b = vec[o + i + half]; vec[o + i] = a * c - b * s; vec[o + i + half] = b * c + a * s; } } }
 export const unembed = (A, W, h) => mv(W.lm, h, A.V, A.d);
 
-// opts: { attn: bool (return patterns[l][h][t][s]), hook(l, site, vec, t) → optional replacement vector, lastOnly: logits only for the last position }
+// opts: { attn: bool (return patterns[l][h][t][s]), keys: bool (return keys[l][t] post-RoPE), hook(l, site, vec, t) → optional replacement vector, lastOnly: logits only for the last position }
 export function forward(A, W, ids, opts = {}) {
   const T = ids.length, d = A.d, hd = A.hd, H = A.H, Hkv = A.Hkv, grp = H / Hkv, hidden = [], patterns = [];
+  const keyDump = opts.keys ? [] : null;
   let x = ids.map((id, t) => { const e = new Float64Array(d); for (let i = 0; i < d; i++) e[i] = W.wte[id * d + i] + (W.wpe ? W.wpe[t * d + i] : 0); return e; });
   hidden.push(x.map((v) => v.slice()));
   for (let l = 0; l < A.L; l++) {
@@ -93,6 +94,7 @@ export function forward(A, W, ids, opts = {}) {
         if (pat) pat[h].push(Array.from(sc));
         const z = (Q[t].z ||= new Float64Array(H * hd)); for (let s = lo; s <= t; s++) { const p = sc[s]; for (let i = 0; i < hd; i++) z[h * hd + i] += p * Vv[s][kh * hd + i]; } } }
     if (pat) patterns.push(pat);
+    if (keyDump) keyDump.push(K.map((k) => Float64Array.from(k)));
     const nx = [];
     for (let t = 0; t < T; t++) { let a = mv(P.o, Q[t].z, d, H * hd, P.ob); if (opts.hook) a = opts.hook(l, 'attn_out', a, t) || a;
       const r = new Float64Array(d); for (let i = 0; i < d; i++) r[i] = x[t][i] + a[i];
@@ -105,7 +107,9 @@ export function forward(A, W, ids, opts = {}) {
   }
   const fin = x.map((v) => norm(A, v, W.nfw, W.nfb)), from = opts.lastOnly ? T - 1 : 0, logits = [];
   for (let t = from; t < T; t++) logits.push(unembed(A, W, fin[t]));
-  return { logits, hidden, final: fin, patterns: opts.attn ? patterns : null };
+  const out = { logits, hidden, final: fin, patterns: opts.attn ? patterns : null };
+  if (keyDump) out.keys = keyDump; // per layer: post-RoPE key vector per token (Hkv * hd). Absent unless opts.keys.
+  return out;
 }
 // logit lens: decode an intermediate residual state with the model's own final norm + unembedding (HF hidden_states[-1] is already normed for these families,
 // so lensLogits(hidden[L]) is NOT used for the last layer; callers use forward().logits there).

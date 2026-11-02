@@ -2,7 +2,7 @@ import { Dialog } from '@kobalte/core/dialog';
 import { createSignal, type JSX } from 'solid-js';
 const STEPS: [string, string][] = [
   ['Welcome to NEURALESE v17', 'An in-browser interpretability lab running the real TinyStories-8M weights on your device. Everything you see is computed from this model; nothing is mocked.'],
-  ['Workspaces', 'The 75 v16 tools are grouped into nine workspaces (top bar, or keys Alt+1…9). Every old tab still exists.'],
+  ['Workspaces', 'The 75 v16 tools stay in nine workspaces (Alt+1…9). Adversary (Alt+0) is a tenth workspace for key-cache geometry and MLP-unit checks. It is an experiment, and a null result is a result.'],
   ['Command palette', 'Press Ctrl/⌘+K (or /) and type to jump to any panel, workspace or action. This is the fastest way around.'],
   ['Panels', 'Split a panel right or down, drag tabs between groups, resize with the gutters (arrow keys work too). Layouts are saved per workspace; “reset layout” restores the default.'],
   ['One selection', 'Picking a layer, head, neuron or token anywhere updates every panel: the 3D cosmos, inspector, lens and attention views.'],

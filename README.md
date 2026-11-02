@@ -2,6 +2,9 @@
 
 Live: https://0thernes.github.io/neuralese/ · **New here? [Beginner's guide to steering](docs/STEERING_GUIDE.md)** · Audit: [AUDIT.md](AUDIT.md) · Tsotchke analysis: [docs/TSOTCHKE.md](docs/TSOTCHKE.md) · Claims & evidence: [docs/CLAIMS.md](docs/CLAIMS.md) · Stack and versions: [docs/STACK.md](docs/STACK.md)
 
+## v17.1.0: Adversary Lab (2 Nov 2026)
+A tenth workspace for key-cache geometry (the Lyra Technique, on our small models) and an MLP-unit search with a steering-versus-random rule. It reports leakage, null, or above-chance from a locked pre-registration. On TinyStories-8M the shipped run is **leakage**, and the neuron rule **fails**. Method, citations, and that measurement: [docs/ADVERSARY.md](docs/ADVERSARY.md). Release steps still open are listed in [RELEASE_NOTES.md](RELEASE_NOTES.md).
+
 ## v17.0.0: new front-end shell (1 Nov 2026)
 Nine workspaces replace the 75-tab strip (all 75 tools kept, see `PARITY.md`), dockable/splittable panels with saved layouts, Ctrl/⌘+K command palette, a typed selection store, typed worker RPC, a 3D model cosmos and 3D nested-experiment views (three.js WebGPU with WebGL2 fallback), and a notebook/report mode tied to pre-registration. Shell source is in `ui/` (Solid + TypeScript + Vite + Tailwind v4; `cd ui && bun install && bun run build` writes `src/shell/`). Details in `RELEASE_NOTES.md`.
 

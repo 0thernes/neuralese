@@ -17,6 +17,8 @@ import { buildV5 } from './v5.js?v=170';
 import { vecToJSON as _v2j, vecFromJSON as _j2v } from './labcore.js?v=170';
 import * as UI15 from './ui15.js?v=170';
 import { homeMarkup } from './ui15.js?v=170';
+import { geometryFromSeq, KV_CADENCE } from './adversary/geometry.js?v=170';
+import { attachAdversary } from './adversary/campaign.js?v=170';
 const audio = new AudioEngine();
 const { d, H, L, ff, V } = CFG;
 const $ = (id) => document.getElementById(id), $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -214,19 +216,29 @@ async function genBackend() {
   if (!RE && !RE_FAIL && !/[?&]noworker\b/.test(location.search)) { // one shared creation promise: concurrent generate() calls must not race two workers
     RE_P = RE_P || RemoteEngine.create(); try { RE = await RE_P; } catch (e) { RE_FAIL = String(e.message || e); console.warn('engine worker unavailable, using main thread:', RE_FAIL); } }
   if (RE) { await RE.sync('main', eng); if (!RE.cleanSynced) { RE.cleanSynced = RE.sync('clean', engClean); } await RE.cleanSynced; S.perf.backend = 'worker';
-    return { seq: (k, n) => RE.newSeq(k, n), step: (s, id, trace) => RE.step(s, id, { trace }), steps: (s, ids, trace) => RE.steps(s, ids, { trace }), beam: (s, h, o) => RE.beam(s, h, o), done: (ss) => { RE.free(ss).catch(() => {}); } }; }
+    return { seq: (k, n) => RE.newSeq(k, n), step: (s, id, trace) => RE.step(s, id, { trace }), steps: (s, ids, trace) => RE.steps(s, ids, { trace }), beam: (s, h, o) => RE.beam(s, h, o), kvgeom: (s, phase) => RE.kvgeom(s, phase), done: (ss) => { RE.free(ss).catch(() => {}); } }; }
   S.perf.backend = 'main-thread';
   const E = { main: eng, clean: engClean };
   return { seq: async (k, n) => Object.assign(E[k].newSeq(n), { key: k }), step: async (s, id, trace) => { const r = E[s.key].step(s, id, { trace }); r.l = E[s.key].logits(r.h); return r; },
-    steps: async (s, ids, trace) => { const traces = []; let r; for (const id of ids) { r = E[s.key].step(s, id, { trace }); traces.push(r.trace); } r.l = E[s.key].logits(r.h); r.traces = traces; return r; }, beam: async (s, h, o) => beamSearch(E[s.key], s, h, o), done: () => {} };
+    steps: async (s, ids, trace) => { const traces = []; let r; for (const id of ids) { r = E[s.key].step(s, id, { trace }); traces.push(r.trace); } r.l = E[s.key].logits(r.h); r.traces = traces; return r; }, beam: async (s, h, o) => beamSearch(E[s.key], s, h, o),
+    kvgeom: async (s, phase) => geometryFromSeq(s, { nHeads: CFG.H, headDim: CFG.hd, phase }), done: () => {} };
 }
 let genId = 0;
+async function noteKv(G, seq, phase) {
+  try {
+    const g = await G.kvgeom(seq, phase);
+    (S.kvSeries = S.kvSeries || []).push(g);
+    document.dispatchEvent(new CustomEvent('neuralese:kvgeom', { detail: g }));
+  } catch (e) { console.warn('kvgeom', e); }
+}
 async function generate() {
   const my = ++genId; readDecode(); const ids = tok.encode($('prompt').value); if (!ids.length) return;
+  S.kvSeries = []; document.dispatchEvent(new CustomEvent('neuralese:kvgeom-reset'));
   const outB = $('outB'), outA = $('outA'); outB.innerHTML = ''; outA.innerHTML = ''; const cmp = $('cmpOn').checked; outA.style.display = cmp ? '' : 'none';
   for (const id of ids) { outB.appendChild(tokSpan(id, 'pr')); if (cmp) outA.appendChild(tokSpan(id, 'pr')); }
   const t0 = performance.now();
   const G = await genBackend(); const seq = await G.seq('main', ids.length); let r = await G.steps(seq, ids, true); const traces = r.traces.slice();
+  await noteKv(G, seq, 'encoding'); let kvAt = 0;
   const amaEng = D.cdRole === 'clean' ? eng : engClean, expEng = D.cdRole === 'clean' ? engClean : eng;
   let sA = null, rA = null, sN = null, rN = null, sC = null, rC = null;
   if (D.mode === 'contrastive') { // run the other model over the prompt
@@ -257,12 +269,13 @@ async function generate() {
         const t2 = topK(lpRaw, 2); audio.token({ id, text: tok.tokenStr(id), p: Math.exp(lpRaw[id]), rank, ent, norms: [tr0.embed, ...tr0.resid_post].map((v) => Math.hypot(...v)), pats: tr0.pattern.flat().filter(Boolean), lp: lpRaw, lpClean: rSh ? logSoftmax(rSh.l) : null, top2: t2.map((i) => Math.exp(lpRaw[i])), resid: tr0.final }); }
       { let ent = 0, rk = 0; const v = lpRaw[id]; for (let i = 0; i < lpRaw.length; i++) { const q = Math.exp(lpRaw[i]); if (q > 1e-12) ent -= q * lpRaw[i]; if (lpRaw[i] > v) rk++; } const t2 = topK(lpRaw, 2); S.timeline.push({ id, p: Math.exp(v), p1: Math.exp(lpRaw[t2[0]]), p2: Math.exp(lpRaw[t2[1]]), ent, rank: rk }); }
       if (id === 50256) bDone = true;
-      else { [rSh, r, rA, rN] = await Promise.all([sSh ? G.step(sSh, id) : rSh, G.step(seq, id, true), sA ? G.step(sA, id) : rA, sN ? G.step(sN, id) : rN]); traces.push(r.trace); nTok++; } // concurrent: one worker round-trip per token
+      else { [rSh, r, rA, rN] = await Promise.all([sSh ? G.step(sSh, id) : rSh, G.step(seq, id, true), sA ? G.step(sA, id) : rA, sN ? G.step(sN, id) : rN]); traces.push(r.trace); nTok++; if (nTok - kvAt >= KV_CADENCE) { kvAt = nTok; await noteKv(G, seq, 'generation'); } } // concurrent: one worker round-trip per token, plus a geometry sample every KV_CADENCE tokens
     }
     if (!cDone) { const l = applyPenalties(rC.l.slice(), sC.ids, genC, D), dist = filterDist(l, D), id = pick(dist, rngC, D.mode === 'greedy'); const k = genC.length; genC.push(id);
       outA.appendChild(tokSpan(id, gen[k] !== undefined && gen[k] !== id ? 'dv' : '')); if (id === 50256) cDone = true; else rC = await G.step(sC, id); }
     if (step % 2 === 0) { const dt = performance.now() - tStart; S.perf.tps = nTok / (dt / 1000) || 0; S.perf.ms = dt / Math.max(1, nTok); hud(); viz.activations(r.trace); await tick(); }
   }
+  if (D.mode !== 'beam' && nTok !== kvAt) await noteKv(G, seq, 'generation'); // beam search clones its own sequences and does not extend this cache
   G.done([seq, sA, sN, sC, sSh]);
   const dt = performance.now() - tStart; if (nTok) { S.perf.tps = nTok / (dt / 1000); S.perf.ms = dt / nTok; }
   S.lastTraces = traces; S.lastIds = seq.ids.slice(); document.dispatchEvent(new CustomEvent('neuralese:trace')); viz.activations(r.trace); hud();
@@ -561,7 +574,8 @@ function wire() {
       applyShared: (st) => commit('load shared experiment', () => { R = Object.assign(defaultRuntime(), st.R || {}); eng.R = R; ed.setEdits(st.edits || []); }),
       reset: () => commit('reset everything', () => { R = defaultRuntime(); eng.R = R; ed.setEdits([]); }), nextVecId: () => nextVec++,
       makeEngine: (w, r) => { const e = new Engine(w, r); e.stats = stats; e.sae = eng.sae; return e; } });
-    window.NEURALESE = { v6: V5, v5: V5, viz, audio, W, M, tok, ed, get R() { return R; }, eng, engClean, commit, generate, analyze, undo, redo, get stats() { return stats; }, get perf() { return S.perf; }, mb: r.mb };
+    window.NEURALESE = { v6: V5, v5: V5, viz, audio, W, M, tok, ed, get R() { return R; }, eng, engClean, commit, generate, analyze, undo, redo, get stats() { return stats; }, get perf() { return S.perf; }, mb: r.mb,
+      adversary: attachAdversary({ eng: () => engClean, tok: () => tok, cfg: CFG }) };
     Object.defineProperties(window.NEURALESE, Object.getOwnPropertyDescriptors({ showTab, setSel, get sel() { return { ...S.sel }; }, order: V5.order, long: V5.long, cfg: CFG, get lastTraces() { return S.lastTraces; }, get lastIds() { return S.lastIds || null; } })); document.dispatchEvent(new CustomEvent('neuralese:ready')); // v17 shell bridge (typed in ui/src/bridge.ts)
     if (/#x=/.test(location.hash)) { try { await V5.out.shareLoad(location.hash); } catch (e) { toast('share link: ' + e.message); } }
     await generate();

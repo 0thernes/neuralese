@@ -2,7 +2,9 @@
 
 Every v16 tab (75) is mounted as a dock panel in a v17 workspace. Generated from the puppeteer smoke report (`test/smoke/v17-workspaces.smoke.mjs`), which opens every panel at 1440x900, 1240x700 and 390x844 and checks it is visible and non-empty.
 
-Result: 75/75 legacy tabs OK, 80/80 panels OK including new native panels.
+Result: 75/75 legacy tabs OK, 80/80 panels OK including new native panels, in the v17.0 smoke.
+
+v17.1 adds the Adversary workspace (Alt+0) and six native panels (`adv-live`, `adv-run`, `adv-det`, `adv-hunt`, `adv-steer`, `adv-repro`) plus the shared selection panel. No legacy tab moved. Those panels are covered by the shell unit test that every workspace layout contains its panels. The three-viewport puppeteer smoke was not re-run for v17.1; see `V17_1_PROGRESS.md`.
 
 | panel | workspace | verified |
 |---|---|---|

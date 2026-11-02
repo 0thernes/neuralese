@@ -35,13 +35,15 @@ export function App(): JSX.Element {
     { id: 'a-reset', title: 'Reset this workspace layout', hint: 'restore the default panel arrangement', run: () => setLayout(ws().layout()) },
     { id: 'a-tour', title: 'Show the tour', hint: 'first-run introduction', run: () => setTour(true) },
     { id: 'a-legacy', title: 'Legacy v16 command list', hint: 'the original palette of lab commands', run: () => { const p = document.getElementById('pal'); p?.classList.remove('hidden'); (document.getElementById('palIn') as HTMLInputElement | null)?.focus(); } },
+    { id: 'adv-run', title: 'Adversary Lab: run honest vs deceptive', hint: 'equal-length system prompts, then residualized AUROC', run: () => { const w = WORKSPACES.find((x) => x.id === 'adversary'); if (w) go(w, 'adv-run'); document.dispatchEvent(new CustomEvent('neuralese:adv-run')); } },
+    { id: 'adv-hunt', title: 'Adversary Lab: neuron hunt', hint: 'rank MLP units, then compare a push with random sets', run: () => { const w = WORKSPACES.find((x) => x.id === 'adversary'); if (w) go(w, 'adv-hunt'); document.dispatchEvent(new CustomEvent('neuralese:adv-hunt')); } },
   ];
   onMount(() => {
     const onKey = (e: KeyboardEvent): void => {
       const typing = /INPUT|TEXTAREA|SELECT/.test((document.activeElement as HTMLElement | null)?.tagName ?? '');
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); e.stopImmediatePropagation(); setPal(true); return; }
       if (!typing && e.key === '/' ) { e.preventDefault(); e.stopImmediatePropagation(); setPal(true); return; }
-      if (e.altKey && /^[1-9]$/.test(e.key)) { const w = WORKSPACES[+e.key - 1]; if (w) { e.preventDefault(); go(w); } }
+      if (e.altKey && /^[0-9]$/.test(e.key)) { const w = WORKSPACES.find((x) => x.key === e.key); if (w) { e.preventDefault(); go(w); } }
     };
     addEventListener('keydown', onKey, true); onCleanup(() => removeEventListener('keydown', onKey, true));
     const onR = (): void => { setCompact(innerWidth < 760); }; addEventListener('resize', onR);
