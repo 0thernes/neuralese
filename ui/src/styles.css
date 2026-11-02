@@ -100,3 +100,17 @@ body.v17-on #gl { visibility: hidden; }
 .v17.compact .dock { padding: 0; }
 .v17.compact .group { border-radius: 0; border: 0; }
 .v17.compact .tab button { padding: 9px 10px; }
+/* Adversary Lab. The workspace bar already scrolls; labels of the older nine workspaces are unchanged. */
+.adv { padding: 8px 10px; display: flex; flex-direction: column; gap: 8px; }
+.adv h3 { font-size: 14px; font-weight: 650; }
+.adv table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.adv th, .adv td { text-align: left; padding: 3px 6px; border-bottom: 1px solid var(--c-line); vertical-align: top; }
+.adv tr.on td { background: color-mix(in srgb, var(--c-accent) 16%, transparent); }
+.adv tr[class] { cursor: pointer; }
+.adv-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.adv button, .adv-row input { border: 1px solid var(--c-line); border-radius: 6px; padding: 3px 9px; background: transparent; color: var(--c-fg); font: inherit; }
+.adv button { cursor: pointer; }
+.adv button.pri { background: var(--c-accent); color: var(--c-accent-fg); border-color: var(--c-accent); }
+.adv button:disabled { opacity: .55; cursor: default; }
+.adv .chk { display: inline-flex; gap: 4px; align-items: center; color: var(--c-muted); }
+.adv input[type="number"] { width: 72px; }

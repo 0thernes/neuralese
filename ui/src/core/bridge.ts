@@ -1,5 +1,6 @@
 // Typed view of the legacy app (src/app.js publishes window.NEURALESE and fires neuralese:ready / neuralese:sel).
 import type { Cfg, Trace } from './engine-api';
+import type { AdversaryApi } from './adv';
 export interface LegacySel { l: number; h: number | null; n: number | null; mat?: string }
 export interface LegacyApp {
   showTab(k: string): void;
@@ -14,6 +15,7 @@ export interface LegacyApp {
   tok?: { tokenStr(id: number): string };
   generate(): Promise<void>;
   analyze(): Promise<void>;
+  adversary?: AdversaryApi;
 }
 declare global { interface Window { NEURALESE?: LegacyApp } }
 export function legacy(): LegacyApp | null { return window.NEURALESE && 'showTab' in window.NEURALESE ? window.NEURALESE : null; }

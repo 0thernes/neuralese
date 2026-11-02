@@ -8,6 +8,7 @@ export interface EngineApi extends ApiMap {
   seq: [{ key: string; nPrompt: number }, { sid: number }];
   step: [{ key: string; sid: number; tok: number; trace: boolean }, StepOut];
   steps: [{ key: string; sid: number; toks: number[]; trace: boolean }, StepOut];
+  kvgeom: [{ key: string; sid: number; phase?: string; upTo?: number }, { phase: string; T: number; spectral_entropy: number; effective_rank: number; norm_per_token: number; key_norm: number; top_sv_ratio: number; values: number[] }];
   beam: [{ key: string; sid: number; h0: Float32Array; opts: unknown }, unknown];
   free: [{ sids: number[] }, unknown];
 }

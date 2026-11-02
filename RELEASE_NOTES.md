@@ -1,3 +1,35 @@
+# Neuralese v17.1.0: Adversary Lab
+
+Experimental cognitive-geometry and neuron tooling inside the v17 shell. Not a detector, and not a reproduction of published large-model AUROCs.
+
+## What shipped in the app
+- **Adversary** workspace (Alt+0). The original nine workspaces and all 75 legacy tabs stay where they were. The phone bar still scrolls; those nine labels are unchanged.
+- Panels: Live geometry, Condition runner, Detector results, Neuron hunt, Steering compare, Prereg & REPRO, plus the shared selection inspector. Command palette entries for the workspace, the panels, and two run actions.
+- Key-cache features from the paper’s flatten `(KV heads × tokens) × head dim`: spectral entropy, effective rank, top singular-value ratio, rank-10, key norm, norm per token, layer-norm entropy, layer variance. Encoding snapshot, generation snapshot, delta. FWL residualization. Logistic AUROC with an add-one permutation p, an encoding-phase leakage check, and leave-one-prompt-out from three prompts up.
+- Worker op `kvgeom`, also computed on the main-thread fallback. Sampled at prompt end, every 8 generated tokens, and at the end. Beam search does not extend that sequence.
+- Arch `forward(..., { keys: true })` returns the same kind of key vectors for GPT-Neo, GPT-2, Llama, and Qwen2. The campaign runner uses the GPT-Neo engine, which is the path that already keeps a KV cache in the worker.
+- Neuron ranking by Cohen’s d, then a push of the top pair against random pairs. The judge is a fixed word list plus a coherence check. Pass means strictly more rubric-positive coherent completions than every random set. Activation is not treated as intent.
+- Pre-registration locks before the forwards. Mutation throws. A changed plan is a new version. REPRO bundles hash themselves. A notebook pin writes a markdown cell.
+
+## What TinyStories-8M actually did
+`node tools/adversary-measure.mjs` (8 prompts, honest vs deceptive, 8 generated tokens, 200 permutations). Recorded in `src/adversary/measured-tinystories.json` and shown in the workspace as a shipped measurement, separate from a live run.
+
+- **Geometry: leakage.** Encoding AUROC 1.00 (p 0.015). The prompt cache already separates the system lines. Delta in-sample AUROC 0.953 does not clear the permutation bar (p 0.179). Leave-one-prompt-out AUROC 0.766.
+- **Neuron rule: fail.** Top pair L2 N776 and L6 N373. Steered rubric count 0, and every random pair was 0.
+- No 0.5B–70B model was loaded. The paper’s AUROC range is not a result of this lab.
+
+## Checks run here
+- `npm test`: 196 passing (the previous 184 plus the adversary file).
+- `cd ui && bun run typecheck && bun test tests`: clean, 17 passing.
+- A full `eslint` run is part of the release workflow. This branch does not turn CI on for every push. `.github/workflows/release.yml` stays `workflow_dispatch` and tag `v*` only.
+
+## Release steps still open
+This VM did not build the installers. After review, and only if you want the GitHub release:
+
+1. Tag `v17.1.0` on the merged commit (do not force-push). The tag triggers `.github/workflows/release.yml` (`VER` 17.1.0, `VERSION_CODE` 1710): tests, Linux AppImage and `.deb`, Windows NSIS and portable, Android APK (release-signed only if the keystore secrets exist, otherwise the debug-signed APK), unsigned iOS IPA and Simulator zip, then `SHA256SUMS`.
+2. Run the Pages workflow (`.github/workflows/pages.yml`, `workflow_dispatch`) so the site picks up the shell.
+3. Confirm the release assets match `RELEASE_NOTES` before describing the APK as release-signed.
+
 # Neuralese v17.0.0: new front-end shell (workspaces, dock, command palette, 3D model cosmos)
 
 v17 is a front-end re-architecture. The engine, lab maths, workers and every v16 tool are unchanged and reused; the new shell wraps them. Every claim below has a test or smoke behind it. Where something is partial, it says so.
