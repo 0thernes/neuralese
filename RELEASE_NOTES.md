@@ -1,3 +1,26 @@
+# Neuralese v17.2.0: Forge CPU
+
+An original NestLang / ForgeISA track in the v17 shell. Not a port of QwenBend or Qwenputer. Method and the measured contrast: `docs/NEST_CPU.md`.
+
+## What shipped in the app
+- **Forge** workspace, opened from the bar or the command palette (no Alt digit; Alt+1…9 and Alt+0 are unchanged). Panels: NestLang, Forge CPU, Memory, Token lanes, WeightCPU / MDCC, Forge REPRO, and the shared selection inspector.
+- ForgeISA/1 (8 registers, 256-word ROM, 256-word RAM) with an int32 reference VM and a float32 weight-constructed engine. float64 gadgets are a cross-check. The engine state is a separate bit bank. It does not write the TinyStories residual.
+- NestLang/1 type, affine, and termination checks. Failures do not run.
+- A demo program, 22 copies of 35, halts at 770. On this machine that was 93 instructions, 467 engine tokens, and zero precision faults, with the float32 and float64 traces equal to the VM.
+- MDCC contrast on eight frozen cells: WeightCPU 8/8 in 99 ms and 756 engine tokens; host `bigint` 8/8 in 0.25 ms and 32 tokens. The proposer is a parser, not TinyStories. bf16 was not run.
+
+## Checks run here
+- `npm test`: 197 pass, 0 fail, 7 skipped. The skips are the arch and encoder families whose weights were not downloaded (`model/arch` is absent). The previous suite's runnable tests stayed green, and `test/forge.test.mjs` is included.
+- `cd ui && bun run typecheck && bun test tests`: clean, 17 pass. `bun run build` wrote `src/shell/`.
+- CI is still tag and `workflow_dispatch` only. This branch does not turn it on for every push.
+
+## Release steps still open
+This VM did not build the installers. After review, and only if you want the GitHub release:
+
+1. Tag `v17.2.0` on the merged commit (do not force-push). The tag triggers `.github/workflows/release.yml` (`VER` 17.2.0, `VERSION_CODE` 1720).
+2. Run the Pages workflow (`.github/workflows/pages.yml`, `workflow_dispatch`) so the site picks up the shell.
+3. Confirm the release assets before describing any installer as signed.
+
 # Neuralese v17.1.0: Adversary Lab
 
 Experimental cognitive-geometry and neuron tooling inside the v17 shell. Not a detector, and not a reproduction of published large-model AUROCs.

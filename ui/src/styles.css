@@ -114,3 +114,10 @@ body.v17-on #gl { visibility: hidden; }
 .adv button:disabled { opacity: .55; cursor: default; }
 .adv .chk { display: inline-flex; gap: 4px; align-items: center; color: var(--c-muted); }
 .adv input[type="number"] { width: 72px; }
+.forge textarea { width: 100%; min-height: 148px; resize: vertical; font: 12.5px/1.45 ui-monospace, monospace; border: 1px solid var(--c-line); border-radius: 6px; background: transparent; color: var(--c-fg); padding: 6px 8px; }
+.forge .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; min-height: 0; }
+.forge .tok { display: block; width: 100%; text-align: left; font: 12px/1.35 ui-monospace, monospace; border: 0; border-bottom: 1px solid var(--c-line); background: transparent; color: var(--c-fg); padding: 2px 4px; }
+.forge button.tok { cursor: pointer; }
+.forge .tok.on { background: color-mix(in srgb, var(--c-accent) 18%, transparent); }
+.forge canvas.heat { width: min(100%, 280px); height: auto; image-rendering: pixelated; border-radius: 6px; background: var(--c-bg); }
+.forge pre { white-space: pre-wrap; max-height: 220px; overflow: auto; }

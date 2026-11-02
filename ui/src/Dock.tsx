@@ -6,12 +6,14 @@ import { NATIVE_PANELS } from './core/workspaces';
 import { legacy } from './core/bridge';
 import { CosmosPanel, LegacyPanel, NestedPanel, NotebookPanel, OutputPanel, SelectionPanel } from './panels/Panels';
 import { AdversaryPanel } from './panels/Adversary';
+import { ForgePanel } from './panels/Forge';
 export function panelTitle(id: string): string { if (id.startsWith('legacy:')) { const k = id.slice(7); const lg = legacy(); return lg?.long[k] ?? lg?.order.find((o) => o[0] === k)?.[1] ?? k; } return NATIVE_PANELS[id] ?? id; }
 function Panel(p: { id: string }): JSX.Element {
   return <Switch fallback={<LegacyPanel k={p.id.slice(7)} />}>
     <Match when={p.id === 'cosmos'}><CosmosPanel /></Match><Match when={p.id === 'nested3d'}><NestedPanel /></Match>
     <Match when={p.id === 'notebook'}><NotebookPanel /></Match><Match when={p.id === 'selection'}><SelectionPanel /></Match><Match when={p.id === 'output'}><OutputPanel /></Match>
     <Match when={p.id.startsWith('adv-')}><AdversaryPanel id={p.id} /></Match>
+    <Match when={p.id.startsWith('forge-')}><ForgePanel id={p.id} /></Match>
   </Switch>;
 }
 // Structural key: a subtree is re-created only when its shape changes, never on resize or tab activation, so heavy
