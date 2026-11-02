@@ -3,7 +3,7 @@
 // plus the repo README.md. Used by the gh-pages deploy, the Electron desktop builds and the Capacitor Android/iOS builds.
 // Usage: node tools/build-www.mjs [outDir]
 import fs from 'node:fs'; import path from 'node:path';
-export const DIRS = ['arch', 'frontier', 'gpu', 'hub', 'learn', 'lens', 'nested', 'shell', 'tsotchke', 'vendor'];
+export const DIRS = ['adversary', 'arch', 'frontier', 'gpu', 'hub', 'learn', 'lens', 'nested', 'shell', 'tsotchke', 'vendor'];
 // root = repo root; returns names relative to the web root (src/), plus README.md (copied from the repo root)
 export function wwwFiles(root = '.') { const src = path.join(root, 'src'); return [...fs.readdirSync(src).filter((f) => /\.js$/.test(f) || ['index.html', 'style.css', 'cli.mjs'].includes(f)), 'README.md'].sort().concat(DIRS); }
 if (import.meta.url === `file://${process.argv[1]}`) {
