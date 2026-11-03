@@ -1,6 +1,7 @@
 // The 75 v16 tabs stay in the original 9 workspaces. Every legacy tab key appears exactly once.
 // v17.1 adds a tenth workspace, Adversary, with native panels only (no legacy tabs moved).
 // Alt+1…9 keep their keys. Adversary is Alt+0 so the phone bar does not rename the older labels.
+// v17.2 adds Forge. It has no Alt digit; open it from the bar or the palette.
 import { split, tabs, type Node } from './layout';
 export interface Workspace { id: string; title: string; key: string; blurb: string; legacy: string[]; native: string[]; layout: () => Node }
 const L = (k: string): string => `legacy:${k}`;
@@ -18,10 +19,12 @@ export const WORKSPACES: Workspace[] = [
   ws('frontier', 'Nested & Frontier', '8', 'Nested RISC-V / SLM-in-SLM / MoE-in-MoE, pre-registered frontier studies, Tsotchke components.', ['nriscv', 'nslm', 'nmoe', 'nxlens', 'fx', 'fsc', 'fmind', 'frsi', 'fgrok', 'fatlas', 'fclaims', 'tsk', 'qrng', 'qgeom', 'types', 'taylor', 'claims'], ['nested3d'], two(1)),
   ws('learn', 'Learn', '9', 'Course, glossary and the terminal.', ['learn', 'term'], [], two(0)),
   ws('adversary', 'Adversary', '0', 'Experimental key-cache geometry and MLP-unit comparison. Not a detector. Small models often show a null.', [], ['adv-live', 'adv-run', 'adv-det', 'adv-hunt', 'adv-steer', 'adv-repro', 'selection'], (p) => split('row', [split('col', [tabs(p.slice(0, 3)), tabs(p.slice(3, 5))], [0.58, 0.42]), split('col', [tabs(p.slice(5, 6)), tabs(p.slice(6))], [0.62, 0.38])], [0.62, 0.38])),
+  ws('forge', 'Forge', 'F', 'NestLang programs clocked by an original in-weight CPU, checked against an int32 VM, beside an MDCC host-decimal lane. Exact is not the same as true.', [], ['forge-prog', 'forge-cpu', 'forge-mem', 'forge-trace', 'forge-mdcc', 'forge-repro', 'selection'], (p) => split('row', [split('col', [tabs(p.slice(0, 2)), tabs(p.slice(2, 4))], [0.5, 0.5]), split('col', [tabs(p.slice(4, 6)), tabs(p.slice(6))], [0.62, 0.38])], [0.62, 0.38])),
 ];
 export const NATIVE_PANELS: Record<string, string> = {
   cosmos: 'Model cosmos (3D)', nested3d: 'Nested experiments (3D)', notebook: 'Notebook / report', selection: 'Selection & inspector', output: 'Generation output',
   'adv-live': 'Live geometry', 'adv-run': 'Condition runner', 'adv-det': 'Detector results', 'adv-hunt': 'Neuron hunt', 'adv-steer': 'Steering compare', 'adv-repro': 'Prereg & REPRO',
+  'forge-prog': 'NestLang', 'forge-cpu': 'Forge CPU', 'forge-mem': 'Memory', 'forge-trace': 'Token lanes', 'forge-mdcc': 'WeightCPU / MDCC', 'forge-repro': 'Forge REPRO',
 };
 export function workspaceOfLegacy(k: string): Workspace | undefined { return WORKSPACES.find((w) => w.legacy.includes(k)); }
 export function allLegacy(): string[] { return WORKSPACES.flatMap((w) => w.legacy); }

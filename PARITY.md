@@ -6,6 +6,8 @@ Result: 75/75 legacy tabs OK, 80/80 panels OK including new native panels, in th
 
 v17.1 adds the Adversary workspace (Alt+0) and six native panels (`adv-live`, `adv-run`, `adv-det`, `adv-hunt`, `adv-steer`, `adv-repro`) plus the shared selection panel. No legacy tab moved. Those panels are covered by the shell unit test that every workspace layout contains its panels. The three-viewport puppeteer smoke was not re-run for v17.1; see `V17_1_PROGRESS.md`.
 
+v17.2 adds the Forge workspace (no Alt digit) and six native panels (`forge-prog`, `forge-cpu`, `forge-mem`, `forge-trace`, `forge-mdcc`, `forge-repro`) plus the shared selection panel. No legacy tab moved. The shell unit test checks that the default layout contains every Forge panel. The three-viewport puppeteer smoke was not re-run for v17.2; see `V17_2_PROGRESS.md`.
+
 | panel | workspace | verified |
 |---|---|---|
 | `cosmos` | model | yes |

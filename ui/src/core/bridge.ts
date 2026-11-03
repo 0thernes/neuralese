@@ -12,10 +12,11 @@ export interface LegacyApp {
   readonly lastTraces: Trace[] | null;
   readonly lastIds: number[] | null;
   viz?: { tier?: string };
-  tok?: { tokenStr(id: number): string };
+  tok?: { encode(s: string): number[]; tokenStr(id: number): string };
   generate(): Promise<void>;
   analyze(): Promise<void>;
   adversary?: AdversaryApi;
+  eng?: { newSeq(n: number): object; step(seq: object, id: number, o?: { trace?: boolean }): { h: Float32Array }; logits(h: ArrayLike<number>): ArrayLike<number> };
 }
 declare global { interface Window { NEURALESE?: LegacyApp } }
 export function legacy(): LegacyApp | null { return window.NEURALESE && 'showTab' in window.NEURALESE ? window.NEURALESE : null; }

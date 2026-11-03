@@ -37,6 +37,7 @@ export function App(): JSX.Element {
     { id: 'a-legacy', title: 'Legacy v16 command list', hint: 'the original palette of lab commands', run: () => { const p = document.getElementById('pal'); p?.classList.remove('hidden'); (document.getElementById('palIn') as HTMLInputElement | null)?.focus(); } },
     { id: 'adv-run', title: 'Adversary Lab: run honest vs deceptive', hint: 'equal-length system prompts, then residualized AUROC', run: () => { const w = WORKSPACES.find((x) => x.id === 'adversary'); if (w) go(w, 'adv-run'); document.dispatchEvent(new CustomEvent('neuralese:adv-run')); } },
     { id: 'adv-hunt', title: 'Adversary Lab: neuron hunt', hint: 'rank MLP units, then compare a push with random sets', run: () => { const w = WORKSPACES.find((x) => x.id === 'adversary'); if (w) go(w, 'adv-hunt'); document.dispatchEvent(new CustomEvent('neuralese:adv-hunt')); } },
+    { id: 'forge-demo', title: 'Forge: run the 22×35 demo', hint: 'NestLang handoff, then one clock per instruction', run: () => { const w = WORKSPACES.find((x) => x.id === 'forge'); if (w) go(w, 'forge-prog'); document.dispatchEvent(new CustomEvent('neuralese:forge-demo')); } },
   ];
   onMount(() => {
     const onKey = (e: KeyboardEvent): void => {
@@ -56,7 +57,7 @@ export function App(): JSX.Element {
   });
   return <div class="v17" classList={{ compact: compact() }} data-theme={theme()}>
     <nav class="wsbar" aria-label="workspaces">
-      <For each={WORKSPACES}>{(w) => <button classList={{ on: w.id === ws().id }} aria-current={w.id === ws().id ? 'page' : undefined} title={`${w.blurb} (Alt+${w.key})`} data-ws={w.id} onClick={() => go(w)}>{w.title}</button>}</For>
+      <For each={WORKSPACES}>{(w) => <button classList={{ on: w.id === ws().id }} aria-current={w.id === ws().id ? 'page' : undefined} title={`${w.blurb}${/^[0-9]$/.test(w.key) ? ` (Alt+${w.key})` : ''}`} data-ws={w.id} onClick={() => go(w)}>{w.title}</button>}</For>
       <span class="sp" />
       <button class="palbtn" onClick={() => setPal(true)} aria-label="open command palette" title="Command palette (Ctrl/⌘+K)">⌘K search</button>
     </nav>
