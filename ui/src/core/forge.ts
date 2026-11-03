@@ -18,6 +18,7 @@ export interface ForgeRun {
   diff32: { i?: number; why?: string; faults?: string[] } | null;
   tokens: ForgeToken[];
   vm: { trace: ForgeStep[]; result: number | null; fail: string | null; ram: number[]; regs: number[] } | null;
+  compiled?: { rom: number[] };
   engine: { faults: string[]; kind: string; result: number | null } | null;
 }
 export interface LaneReport {

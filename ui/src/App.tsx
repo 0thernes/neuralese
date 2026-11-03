@@ -38,6 +38,7 @@ export function App(): JSX.Element {
     { id: 'adv-run', title: 'Adversary Lab: run honest vs deceptive', hint: 'equal-length system prompts, then residualized AUROC', run: () => { const w = WORKSPACES.find((x) => x.id === 'adversary'); if (w) go(w, 'adv-run'); document.dispatchEvent(new CustomEvent('neuralese:adv-run')); } },
     { id: 'adv-hunt', title: 'Adversary Lab: neuron hunt', hint: 'rank MLP units, then compare a push with random sets', run: () => { const w = WORKSPACES.find((x) => x.id === 'adversary'); if (w) go(w, 'adv-hunt'); document.dispatchEvent(new CustomEvent('neuralese:adv-hunt')); } },
     { id: 'forge-demo', title: 'Forge: run the 22×35 demo', hint: 'NestLang handoff, then one clock per instruction', run: () => { const w = WORKSPACES.find((x) => x.id === 'forge'); if (w) go(w, 'forge-prog'); document.dispatchEvent(new CustomEvent('neuralese:forge-demo')); } },
+    { id: 'walk-run', title: 'Deep Walk: run the prompt', hint: 'one real forward, then the zoom ladder', run: () => { const w = WORKSPACES.find((x) => x.id === 'walk'); if (w) go(w, 'walk-read'); document.dispatchEvent(new CustomEvent('neuralese:walk-run')); } },
   ];
   onMount(() => {
     const onKey = (e: KeyboardEvent): void => {

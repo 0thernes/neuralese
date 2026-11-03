@@ -24,10 +24,11 @@ describe('layout tree', () => {
     expect(deserialize('{bad', known)).toBeNull(); expect(deserialize(JSON.stringify({ v: 99, n: r }), known)).toBeNull(); expect(deserialize(JSON.stringify({ v: 1, n: { kind: 'x' } }), known)).toBeNull();
     expect(panels(ensurePanels(tabs(['a']), ['a', 'b']))).toEqual(['a', 'b']);
   });
-  test('workspaces: 75 legacy tabs, each exactly once, 11 workspaces; default layouts contain every panel', () => {
-    const all = allLegacy(); expect(all).toHaveLength(75); expect(new Set(all).size).toBe(75); expect(WORKSPACES).toHaveLength(11);
+  test('workspaces: 75 legacy tabs, each exactly once, 12 workspaces; default layouts contain every panel', () => {
+    const all = allLegacy(); expect(all).toHaveLength(75); expect(new Set(all).size).toBe(75); expect(WORKSPACES).toHaveLength(12);
     expect(WORKSPACES.map((w) => w.id)).toContain('adversary'); expect(WORKSPACES.find((w) => w.id === 'adversary')?.legacy).toEqual([]);
     expect(WORKSPACES.map((w) => w.id)).toContain('forge'); expect(WORKSPACES.find((w) => w.id === 'forge')?.legacy).toEqual([]);
+    expect(WORKSPACES.map((w) => w.id)).toContain('walk'); expect(WORKSPACES.find((w) => w.id === 'walk')?.legacy).toEqual([]);
     for (const w of WORKSPACES) expect(panels(w.layout()).sort()).toEqual(panelsOf(w).sort());
   });
 });
