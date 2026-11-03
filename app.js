@@ -19,6 +19,7 @@ import * as UI15 from './ui15.js?v=170';
 import { homeMarkup } from './ui15.js?v=170';
 import { geometryFromSeq, KV_CADENCE } from './adversary/geometry.js?v=170';
 import { attachAdversary } from './adversary/campaign.js?v=170';
+import { CITATIONS, FAULT_SPEC, runFaultOp, runWalkCellOp, runWalkOp } from './walk/session.js?v=170';
 const audio = new AudioEngine();
 const { d, H, L, ff, V } = CFG;
 const $ = (id) => document.getElementById(id), $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -574,8 +575,43 @@ function wire() {
       applyShared: (st) => commit('load shared experiment', () => { R = Object.assign(defaultRuntime(), st.R || {}); eng.R = R; ed.setEdits(st.edits || []); }),
       reset: () => commit('reset everything', () => { R = defaultRuntime(); eng.R = R; ed.setEdits([]); }), nextVecId: () => nextVec++,
       makeEngine: (w, r) => { const e = new Engine(w, r); e.stats = stats; e.sae = eng.sae; return e; } });
+    let walkRemote = false;
+    async function deepWalk(prompt, opts = {}) {
+      const ids = tok.encode(prompt);
+      if (!ids.length) throw new Error('empty prompt');
+      const token = opts.token == null ? ids.length - 1 : Math.max(0, Math.min(opts.token, ids.length - 1));
+      const edited = opts.edited === true;
+      const engNow = edited ? eng : engClean;
+      const msg = { ids, token, prompt, fault: opts.fault || null, cap: opts.cap, modelLabel: edited ? 'TinyStories-8M (edited weights)' : 'TinyStories-8M' };
+      if (!RE && !RE_FAIL) { try { await genBackend(); } catch { /* main thread remains available */ } }
+      if (RE) {
+        try {
+          await RE.sync(edited ? 'main' : 'clean', engNow);
+          walkRemote = true;
+          return annotateWalk(await RE.walk(edited ? 'main' : 'clean', ids, msg));
+        } catch (e) { console.warn('walk worker failed, using the main-thread engine', e); }
+      }
+      walkRemote = false;
+      return annotateWalk(runWalkOp(engNow, msg));
+    }
+    function annotateWalk(view) {
+      view.pieces = view.ids.map((id) => tok.tokenStr(id));
+      for (const t of view.logitsTop) t.piece = tok.tokenStr(t.id);
+      view.greedy = tok.tokenStr(view.argmax);
+      view.where = walkRemote ? 'engine worker' : 'main-thread engine';
+      if (view.cleanArgmax != null) view.cleanPiece = tok.tokenStr(view.cleanArgmax);
+      return view;
+    }
     window.NEURALESE = { v6: V5, v5: V5, viz, audio, W, M, tok, ed, get R() { return R; }, eng, engClean, commit, generate, analyze, undo, redo, get stats() { return stats; }, get perf() { return S.perf; }, mb: r.mb,
-      adversary: attachAdversary({ eng: () => engClean, tok: () => tok, cfg: CFG }) };
+      adversary: attachAdversary({ eng: () => engClean, tok: () => tok, cfg: CFG }),
+      deepWalk, deepCell: (opId, index, term = null) => walkRemote && RE ? RE.walkCell(opId, index, term) : Promise.resolve(runWalkCellOp({ opId, index, term })),
+      deepFault: async () => {
+        const ids = tok.encode(FAULT_SPEC.prompt);
+        if (!RE && !RE_FAIL) { try { await genBackend(); } catch { /* main thread */ } }
+        if (RE) { try { await RE.sync('clean', engClean); return RE.walkStudy('clean', ids); } catch (e) { console.warn('study worker failed', e); } }
+        return runFaultOp(engClean, ids);
+      },
+      deepMeta: () => ({ hypothesis: FAULT_SPEC.hypothesis, citations: CITATIONS }) };
     Object.defineProperties(window.NEURALESE, Object.getOwnPropertyDescriptors({ showTab, setSel, get sel() { return { ...S.sel }; }, order: V5.order, long: V5.long, cfg: CFG, get lastTraces() { return S.lastTraces; }, get lastIds() { return S.lastIds || null; } })); document.dispatchEvent(new CustomEvent('neuralese:ready')); // v17 shell bridge (typed in ui/src/bridge.ts)
     if (/#x=/.test(location.hash)) { try { await V5.out.shareLoad(location.hash); } catch (e) { toast('share link: ' + e.message); } }
     await generate();

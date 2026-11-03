@@ -86,13 +86,22 @@ export class Engine {
     }
   }
 
-  // One token through the stack. o: {trace:bool, hook(site,slot,layer,t,vec), rng}
+  // One token through the stack. o: {trace:bool, hook(site,slot,layer,t,vec), rng, detail?: array, detailToken?: number}
+  // `detail` only copies vectors. It does not change the arithmetic. detailToken limits those copies to one position.
   step(seq, tok, o = {}) {
     const W = this.W, R = this.R, t = seq.T, isGen = t >= seq.nPrompt, hook = o.hook;
     const tr = o.trace ? { tok, t, resid_pre: [], z: [], attn_out: [], mlp_act: [], mlp_out: [], resid_post: [], pattern: [], slotLayer: [] } : null;
+    const take = (id, kind, values, meta) => { if (o.detail && (o.detailToken == null || o.detailToken === t)) o.detail.push({ id, kind, t, values: values.slice(), ...meta }); };
     const p = posIndex(R.pos, t);
     const x = new Float32Array(d);
     for (let i = 0; i < d; i++) x[i] = W.wte[tok * d + i] + W.wpe[p * d + i];
+    if (o.detail && (o.detailToken == null || o.detailToken === t)) {
+      const wteRow = new Float32Array(d), wpeRow = new Float32Array(d);
+      for (let i = 0; i < d; i++) { wteRow[i] = W.wte[tok * d + i]; wpeRow[i] = W.wpe[p * d + i]; }
+      take('embed.wte', 'embed', wteRow, { weight: 'wte', tok, pos: p });
+      take('embed.wpe', 'embed', wpeRow, { weight: 'wpe', tok, pos: p });
+      take('embed', 'add', x, { pos: p, tok });
+    }
     if (tr) tr.embed = x.slice();
     const h = new Float32Array(d);
     const rng = o.rng || mulberry32((R.seed + t * 7919) | 0);
@@ -102,13 +111,24 @@ export class Engine {
       this._steer('resid_pre', l, t, isGen, x, seq.nPrompt);
       if (hook) hook('resid_pre', s, l, t, x);
       if (tr) tr.resid_pre[s] = x.slice();
+      take(`s${s}.L${l}.resid_pre`, 'vec', x, { layer: l, slot: s });
       if (slot.attn) {
-        layerNorm(x, P.ln1w, P.ln1b, h);
+        const ln1 = layerNorm(x, P.ln1w, P.ln1b, h);
+        take(`s${s}.L${l}.ln1`, 'ln', h, { layer: l, slot: s, mean: ln1.mean, rstd: ln1.rstd, weight: 'ln1w', bias: 'ln1b', src: `s${s}.L${l}.resid_pre`, eps: CFG.eps });
         const q = matvec(P.q, h, new Float32Array(d), d, d), k = matvec(P.k, h, new Float32Array(d), d, d), v = matvec(P.v, h, new Float32Array(d), d, d);
         this._steer('q', l, t, isGen, q, seq.nPrompt); this._steer('k', l, t, isGen, k, seq.nPrompt); this._steer('v', l, t, isGen, v, seq.nPrompt);
+        take(`s${s}.L${l}.q`, 'matvec', q, { layer: l, slot: s, weight: 'q', src: `s${s}.L${l}.ln1`, nIn: d, nOut: d, acc: 'lanes4' });
+        take(`s${s}.L${l}.k`, 'matvec', k, { layer: l, slot: s, weight: 'k', src: `s${s}.L${l}.ln1`, nIn: d, nOut: d, acc: 'lanes4' });
+        take(`s${s}.L${l}.v`, 'matvec', v, { layer: l, slot: s, weight: 'v', src: `s${s}.L${l}.ln1`, nIn: d, nOut: d, acc: 'lanes4' });
         if (!seq.K[s]) { seq.K[s] = []; seq.V[s] = []; }
         seq.K[s].push(k); seq.V[s].push(v);
         const Ks = seq.K[s], Vs = seq.V[s], T = Ks.length, me = T - 1;
+        if (o.detail && (o.detailToken == null || o.detailToken === t)) {
+          const flatK = new Float32Array(T * d), flatV = new Float32Array(T * d);
+          for (let j = 0; j < T; j++) { flatK.set(Ks[j], j * d); flatV.set(Vs[j], j * d); }
+          take(`s${s}.L${l}.keys`, 'cache', flatK, { layer: l, slot: s, T });
+          take(`s${s}.L${l}.values`, 'cache', flatV, { layer: l, slot: s, T });
+        }
         const M = R.attnMask[l], win = M.window > 0 ? M.window : l % 2 ? CFG.window : 1e9, lo = Math.max(0, T - win);
         const z = new Float32Array(d); const pats = tr ? [] : null;
         for (let hh = 0; hh < H; hh++) {
@@ -121,8 +141,10 @@ export class Engine {
             let a = 0; if (M.mode !== 'uniform') { const kj = Ks[j]; for (let i = 0; i < hd; i++) a += q[off + i] * kj[off + i]; a /= tau; }
             sc[j] = a; if (a > mx) mx = a;
           }
+          take(`s${s}.L${l}.H${hh}.score`, 'score', sc, { layer: l, slot: s, head: hh, tau, off, T, mode: M.mode, srcQ: `s${s}.L${l}.q`, srcK: `s${s}.L${l}.keys` });
           let sum = 0; for (let j = 0; j < T; j++) { const e = sc[j] === -Infinity ? 0 : Math.exp(sc[j] - mx); sc[j] = e; sum += e; }
           for (let j = 0; j < T; j++) { const w = sc[j] / sum; sc[j] = w; if (w) { const vj = Vs[j]; for (let i = 0; i < hd; i++) z[off + i] += w * vj[off + i]; } }
+          take(`s${s}.L${l}.H${hh}.prob`, 'softmax', sc, { layer: l, slot: s, head: hh, src: `s${s}.L${l}.H${hh}.score` });
           const ab = R.headAbl[l][hh];
           if (ab === 'zero') for (let i = 0; i < hd; i++) z[off + i] = 0;
           else if (ab === 'mean' && this.stats) { const mz = this.stats.meanZ[l]; for (let i = 0; i < hd; i++) z[off + i] = mz[off + i]; }
@@ -132,33 +154,46 @@ export class Engine {
         this._steer('z', l, t, isGen, z, seq.nPrompt);
         if (hook) hook('z', s, l, t, z);
         if (tr) { tr.z[s] = z.slice(); tr.pattern[s] = pats; }
+        take(`s${s}.L${l}.z`, 'mix', z, { layer: l, slot: s, srcV: `s${s}.L${l}.values` });
         const ao = matvec(P.o, z, new Float32Array(d), d, d, P.ob);
         this._steer('attn_out', l, t, isGen, ao, seq.nPrompt);
         if (hook) hook('attn_out', s, l, t, ao);
         if (tr) tr.attn_out[s] = ao.slice();
+        take(`s${s}.L${l}.ao`, 'matvec', ao, { layer: l, slot: s, weight: 'o', bias: 'ob', src: `s${s}.L${l}.z`, nIn: d, nOut: d, acc: 'lanes4' });
         for (let i = 0; i < d; i++) x[i] += ao[i];
+        take(`s${s}.L${l}.resid_attn`, 'residual', x, { layer: l, slot: s, src: `s${s}.L${l}.resid_pre`, add: `s${s}.L${l}.ao` });
       }
       if (slot.mlp) {
-        layerNorm(x, P.ln2w, P.ln2b, h);
+        const ln2 = layerNorm(x, P.ln2w, P.ln2b, h);
+        const preLn = slot.attn ? `s${s}.L${l}.resid_attn` : `s${s}.L${l}.resid_pre`;
+        take(`s${s}.L${l}.ln2`, 'ln', h, { layer: l, slot: s, mean: ln2.mean, rstd: ln2.rstd, weight: 'ln2w', bias: 'ln2b', src: preLn, eps: CFG.eps });
         const a = matvec(P.fc, h, new Float32Array(ff), ff, d, P.fcb);
+        take(`s${s}.L${l}.mlp_pre`, 'matvec', a, { layer: l, slot: s, weight: 'fc', bias: 'fcb', src: `s${s}.L${l}.ln2`, nIn: d, nOut: ff, acc: 'lanes4' });
         for (let i = 0; i < ff; i++) a[i] = gelu(a[i]);
         for (const na of R.neuronAbl) if (na.l === l) a[na.n] = na.mode === 'zero' ? 0 : na.mode === 'mean' && this.stats ? this.stats.meanAct[l][na.n] : na.value;
         if (hook) hook('mlp_act', s, l, t, a);
         if (tr) tr.mlp_act[s] = a.slice();
+        take(`s${s}.L${l}.mlp_act`, 'gelu', a, { layer: l, slot: s, src: `s${s}.L${l}.mlp_pre` });
         const mo = matvec(P.proj, a, new Float32Array(d), d, ff, P.projb);
         this._steer('mlp_out', l, t, isGen, mo, seq.nPrompt);
         if (hook) hook('mlp_out', s, l, t, mo);
         if (tr) tr.mlp_out[s] = mo.slice();
+        take(`s${s}.L${l}.mo`, 'matvec', mo, { layer: l, slot: s, weight: 'proj', bias: 'projb', src: `s${s}.L${l}.mlp_act`, nIn: ff, nOut: d, acc: 'lanes4' });
+        const preMlp = slot.attn ? `s${s}.L${l}.resid_attn` : `s${s}.L${l}.resid_pre`;
         for (let i = 0; i < d; i++) x[i] += mo[i];
+        take(`s${s}.L${l}.resid_mlp`, 'residual', x, { layer: l, slot: s, src: preMlp, add: `s${s}.L${l}.mo` });
       }
       this._steer('resid_post', l, t, isGen, x, seq.nPrompt);
       this._sae(l, x);
       if (hook) hook('resid_post', s, l, t, x);
       if (tr) tr.resid_post[s] = x.slice();
+      take(`s${s}.L${l}.resid_post`, 'vec', x, { layer: l, slot: s });
     }
     const st = layerNorm(x, W.lnfW, W.lnfB, h);
     for (const v of R.hSteer || []) if (v.on !== false) for (let i = 0; i < d; i++) h[i] += v.coef * v.vec[i];
     if (tr) { tr.final = x.slice(); tr.lnf = st; tr.h = h.slice(); }
+    take('final', 'vec', x, {});
+    take('lnf', 'ln', h, { mean: st.mean, rstd: st.rstd, weight: 'lnf', bias: 'lnfB', src: 'final', eps: CFG.eps });
     seq.T++; seq.ids.push(tok);
     return { h, trace: tr, x };
   }
@@ -177,7 +212,7 @@ export class Engine {
   _pcKey(nP) { return [this.R.steer.some((v) => v.on) ? nP : -1, // nPrompt only matters to steering masks / time schedules
      this.W.__ver | 0, objId(this.W), objId(this.stats), objId(this.sae), JSON.stringify(this.R)].join('|'); }
   run(ids, o = {}) {
-    const nP = o.nPrompt ?? ids.length, useC = this.prefixCache && !o.hook && !o.trace && !o.rng && ids.length > 0;
+    const nP = o.nPrompt ?? ids.length, useC = this.prefixCache && !o.hook && !o.trace && !o.rng && !o.detail && ids.length > 0;
     if (useC) {
       const key = this._pcKey(nP), pc = this._pc && this._pc.key === key ? this._pc : null; let k = 0;
       if (pc) while (k < ids.length && k < pc.ids.length && pc.ids[k] === ids[k]) k++;
