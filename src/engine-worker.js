@@ -10,6 +10,7 @@ import { Engine } from './engine.js?v=170';
 import { beamSearch } from './decode.js?v=170';
 import { CFG } from './model.js?v=170';
 import { geometryFromSeq } from './adversary/geometry.js?v=170';
+import { runFaultOp, runWalkOp, runWalkCellOp, runForgeOp, runSignificandOp, runVoltageOp } from './walk/session.js?v=170';
 const E = {}, seqs = new Map(); let nextSid = 1;
 function statsOf(s) { if (!s) return null; const d = s.meanZ[0].length, N = s.N, Z = s.Z;
   return { ...s, sampleZ(l, rng) { const i = Math.floor(rng() * N); return Z[l].subarray(i * d, i * d + d); } }; }
@@ -27,6 +28,12 @@ self.onmessage = (ev) => {
     }
     else if (m.op === 'free') { for (const s of m.sids) seqs.delete(s); out = { ok: true }; }
     else if (m.op === 'beam') { const e = E[m.key], q = seqs.get(m.sid); out = beamSearch(e, q.s, m.h0, m.opts); }
+    else if (m.op === 'walk') { out = runWalkOp(E[m.key], m); }
+    else if (m.op === 'walkCell') { out = runWalkCellOp(m); }
+    else if (m.op === 'walkForge') { out = runForgeOp(m); }
+    else if (m.op === 'walkSignificand') { out = runSignificandOp(m); }
+    else if (m.op === 'walkVoltage') { out = runVoltageOp(m); }
+    else if (m.op === 'walkStudy') { out = runFaultOp(E[m.key], m.ids); }
     else throw new Error('unknown op ' + m.op);
     self.postMessage({ id: m.id, out }, tr);
   } catch (err) { self.postMessage({ id: m.id, err: String(err && err.stack || err) }); }

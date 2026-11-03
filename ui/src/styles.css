@@ -121,3 +121,8 @@ body.v17-on #gl { visibility: hidden; }
 .forge .tok.on { background: color-mix(in srgb, var(--c-accent) 18%, transparent); }
 .forge canvas.heat { width: min(100%, 280px); height: auto; image-rendering: pixelated; border-radius: 6px; background: var(--c-bg); }
 .forge pre { white-space: pre-wrap; max-height: 220px; overflow: auto; }
+.walk input[type="text"], .walk input:not([type]) { width: min(100%, 280px); border: 1px solid var(--c-line); border-radius: 6px; background: transparent; color: var(--c-fg); padding: 3px 8px; font: inherit; }
+.walk input[type="range"] { width: min(100%, 220px); vertical-align: middle; }
+.walk .zoomladder { display: flex; flex-wrap: wrap; gap: 4px; }
+.walk article { border-top: 1px solid var(--c-line); padding-top: 6px; }
+.walk a { color: var(--c-accent); }

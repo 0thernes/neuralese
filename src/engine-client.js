@@ -31,6 +31,11 @@ export class RemoteEngine {
   async steps(seq, toks, o = {}) { const r = await this.call({ op: 'steps', key: seq.key, sid: seq.sid, toks, trace: !!o.trace }); seq.T = r.T; seq.ids = r.ids; return r; }
   kvgeom(seq, phase) { return this.call({ op: 'kvgeom', key: seq.key, sid: seq.sid, phase }); }
   beam(seq, h0, opts) { return this.call({ op: 'beam', key: seq.key, sid: seq.sid, h0, opts }); }
+  walk(key, ids, opts = {}) { return this.call({ op: 'walk', key, ids, ...opts }); }
+  walkCell(opId, index, term = null) { return this.call({ op: 'walkCell', opId, index, term }); }
+  walkForge(name, a, b, opts = {}) { return this.call({ op: 'walkForge', name, a, b, ...opts }); }
+  walkVoltage(params) { return this.call({ op: 'walkVoltage', ...params }); }
+  walkStudy(key, ids) { return this.call({ op: 'walkStudy', key, ids }); }
   free(seqs) { return this.call({ op: 'free', sids: seqs.filter(Boolean).map((s) => s.sid) }); }
   terminate() { this.w.terminate(); }
 }
