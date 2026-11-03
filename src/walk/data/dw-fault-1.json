@@ -1,0 +1,138 @@
+{
+  "id": "DW-FAULT-1",
+  "hypothesis": "On TinyStories-8M, flipping IEEE-754 bit 23 (least significant exponent bit) of layer-3 residual-stream activations at the last prompt token, on a shared Bernoulli mask with p=0.05, yields a larger mean KL(clean || faulty) than flipping bit 0 (least significant mantissa bit) on that same mask, and changes the greedy token at least as often.",
+  "model": "TinyStories-8M",
+  "prompt": "Once upon a time",
+  "cleanToken": 11,
+  "meanKlExponent": 0.028322474748366442,
+  "meanKlMantissa": 3.892656443094806e-9,
+  "rateExponent": 0,
+  "rateMantissa": 0,
+  "predictionHolds": true,
+  "whatFlipped": "bit 23 or bit 0 of resid_post at layer 3, last token, each selected index of a Bernoulli(p=0.05) mask. Seed per trial is 1729 + trial + 1. The forward is the real Engine; weights are not modified.",
+  "n": 12,
+  "rows": [
+    {
+      "trial": 0,
+      "nFlip": 9,
+      "klExponent": 0.0005343713361813542,
+      "klMantissa": 2.456191207605957e-10,
+      "exponentChanged": false,
+      "mantissaChanged": false,
+      "tokenExponent": 11,
+      "tokenMantissa": 11
+    },
+    {
+      "trial": 1,
+      "nFlip": 10,
+      "klExponent": 0.00858637100531995,
+      "klMantissa": 2.2959494916651614e-9,
+      "exponentChanged": false,
+      "mantissaChanged": false,
+      "tokenExponent": 11,
+      "tokenMantissa": 11
+    },
+    {
+      "trial": 2,
+      "nFlip": 12,
+      "klExponent": 0.001395725638856946,
+      "klMantissa": 1.6053730478602635e-10,
+      "exponentChanged": false,
+      "mantissaChanged": false,
+      "tokenExponent": 11,
+      "tokenMantissa": 11
+    },
+    {
+      "trial": 3,
+      "nFlip": 11,
+      "klExponent": 0.12576403884419146,
+      "klMantissa": 1.4914500249853275e-9,
+      "exponentChanged": false,
+      "mantissaChanged": false,
+      "tokenExponent": 11,
+      "tokenMantissa": 11
+    },
+    {
+      "trial": 4,
+      "nFlip": 10,
+      "klExponent": 0.004817757321681129,
+      "klMantissa": 2.3470423852108574e-9,
+      "exponentChanged": false,
+      "mantissaChanged": false,
+      "tokenExponent": 11,
+      "tokenMantissa": 11
+    },
+    {
+      "trial": 5,
+      "nFlip": 14,
+      "klExponent": 0.002822179335641663,
+      "klMantissa": 2.1141726801446767e-9,
+      "exponentChanged": false,
+      "mantissaChanged": false,
+      "tokenExponent": 11,
+      "tokenMantissa": 11
+    },
+    {
+      "trial": 6,
+      "nFlip": 11,
+      "klExponent": 0.006247359663599965,
+      "klMantissa": 1.0631744877076185e-8,
+      "exponentChanged": false,
+      "mantissaChanged": false,
+      "tokenExponent": 11,
+      "tokenMantissa": 11
+    },
+    {
+      "trial": 7,
+      "nFlip": 9,
+      "klExponent": 0.0008186554847109289,
+      "klMantissa": 1.8464410541719506e-9,
+      "exponentChanged": false,
+      "mantissaChanged": false,
+      "tokenExponent": 11,
+      "tokenMantissa": 11
+    },
+    {
+      "trial": 8,
+      "nFlip": 15,
+      "klExponent": 0.009007878617617367,
+      "klMantissa": 1.0771360956694501e-8,
+      "exponentChanged": false,
+      "mantissaChanged": false,
+      "tokenExponent": 11,
+      "tokenMantissa": 11
+    },
+    {
+      "trial": 9,
+      "nFlip": 8,
+      "klExponent": 0.0008780489522224604,
+      "klMantissa": 8.466454156834952e-9,
+      "exponentChanged": false,
+      "mantissaChanged": false,
+      "tokenExponent": 11,
+      "tokenMantissa": 11
+    },
+    {
+      "trial": 10,
+      "nFlip": 18,
+      "klExponent": 0.17599690508817656,
+      "klMantissa": 1.0940581671188271e-8,
+      "exponentChanged": false,
+      "mantissaChanged": false,
+      "tokenExponent": 11,
+      "tokenMantissa": 11
+    },
+    {
+      "trial": 11,
+      "nFlip": 8,
+      "klExponent": 0.0030004056921975673,
+      "klMantissa": -4.599476406380835e-9,
+      "exponentChanged": false,
+      "mantissaChanged": false,
+      "tokenExponent": 11,
+      "tokenMantissa": 11
+    }
+  ],
+  "spec_sha256": "286cfe8e0117d8e51ccf6537af52edd01b0d12b1e5299e7d86203f098fae0163",
+  "cleanPiece": ","
+}
