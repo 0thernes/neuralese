@@ -86,9 +86,10 @@ for (const [w, h, name] of WIDTHS) test(`click every control · ${name}`, async 
       if (!found) return false;
       return page.waitForFunction((ws) => document.querySelector('#v17 .wsbar button.on')?.dataset.ws === ws, id, { timeout: 180000 }).then(() => true).catch(() => false);
     };
-    const clickControls = (panel) => page.evaluate((pid) => {
+    const clickControls = (panel) => page.evaluate(async (pid) => {
       const btn = [...document.querySelectorAll('#v17 .tabstrip button[role=tab]')].find((b) => b.getAttribute('data-panel') === pid);
       btn?.click();
+      await new Promise((r) => setTimeout(r, 0));
       const host = [...document.querySelectorAll('#v17 .panel')].find((el) => el.getAttribute('data-panel') === pid);
       if (!host) return { missing: true, clicked: 0, disabled: 0, ws: document.querySelector('#v17 .wsbar button.on')?.getAttribute('data-ws'), panels: [...document.querySelectorAll('#v17 .panel')].map((p) => p.getAttribute('data-panel')), tabs: [...document.querySelectorAll('#v17 .tabstrip button[role=tab]')].map((b) => b.getAttribute('data-panel')) };
       let clicked = 0; let disabled = 0;
@@ -97,6 +98,7 @@ for (const [w, h, name] of WIDTHS) test(`click every control · ${name}`, async 
         if (el.disabled) { disabled++; continue; }
         el.click();
         clicked++;
+        await new Promise((r) => setTimeout(r, 0));
       }
       return { missing: false, clicked, disabled };
     }, panel);
@@ -116,10 +118,12 @@ for (const [w, h, name] of WIDTHS) test(`click every control · ${name}`, async 
         if (stats.missing) {
           await showWs(id);
           await page.waitForTimeout(40);
-          stats = await page.evaluate(({ ws, pid }) => {
+          stats = await page.evaluate(async ({ ws, pid }) => {
             if (document.querySelector('#v17 .wsbar button.on')?.dataset.ws !== ws) document.querySelector(`#v17 .wsbar button[data-ws="${ws}"]`)?.click();
+            await new Promise((r) => setTimeout(r, 0));
             const btn = [...document.querySelectorAll('#v17 .tabstrip button[role=tab]')].find((b) => b.getAttribute('data-panel') === pid);
             btn?.click();
+            await new Promise((r) => setTimeout(r, 0));
             const host = [...document.querySelectorAll('#v17 .panel')].find((el) => el.getAttribute('data-panel') === pid);
             if (!host) return { missing: true, clicked: 0, disabled: 0, ws: document.querySelector('#v17 .wsbar button.on')?.dataset.ws, panels: [...document.querySelectorAll('#v17 .panel')].map((p) => p.getAttribute('data-panel')), tabs: [...document.querySelectorAll('#v17 .tabstrip button[role=tab]')].map((b) => b.getAttribute('data-panel')) };
             let clicked = 0, disabled = 0;
@@ -127,6 +131,7 @@ for (const [w, h, name] of WIDTHS) test(`click every control · ${name}`, async 
               if (el instanceof HTMLInputElement && el.type === 'file') continue;
               if (el.disabled) { disabled++; continue; }
               el.click(); clicked++;
+              await new Promise((r) => setTimeout(r, 0));
             }
             return { missing: false, clicked, disabled };
           }, { ws: id, pid: panel });

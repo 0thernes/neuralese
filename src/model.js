@@ -36,6 +36,11 @@ export function copyWeightsInto(dst, src) {
   dst.wte.set(src.wte); dst.wpe.set(src.wpe); dst.lnfW.set(src.lnfW); dst.lnfB.set(src.lnfB);
   dst.layers.forEach((L, i) => { for (const k in L) L[k].set(src.layers[i][k]); });
 }
+export async function copyWeightsIntoYield(dst, src) {
+  const put = async (d, s) => { const N = 262144; for (let i = 0; i < s.length; i += N) { d.set(s.subarray(i, Math.min(s.length, i + N)), i); if (s.length > N) await new Promise((r) => setTimeout(r, 0)); } };
+  await put(dst.wte, src.wte); await put(dst.wpe, src.wpe); await put(dst.lnfW, src.lnfW); await put(dst.lnfB, src.lnfB);
+  for (let i = 0; i < dst.layers.length; i++) for (const k of Object.keys(dst.layers[i])) await put(dst.layers[i][k], src.layers[i][k]);
+}
 
 function layerNorm(x, w, b, out) {
   const n = x.length; let m = 0; for (let i = 0; i < n; i++) m += x[i]; m /= n;
