@@ -37,7 +37,7 @@ export function install(A, out) {
   on('xQ', 'click', () => out.calib());
 
   const greedy = (eng, ids, n) => { const s = eng.newSeq(ids.length); let r; for (const t of ids) r = eng.step(s, t); const o = []; for (let i = 0; i < n; i++) { const id = topK(eng.outLogits(r.h), 1)[0]; o.push(id); if (id === 50256) break; r = eng.step(s, id); } return o; };
-  out.impact = (p) => { if (p != null) $('xIP').value = p; const tok = A.tok(), ids = tok.encode($('xIP').value); if (!ids.length) throw new Error('empty prompt'); const r = C.editImpact(A.engClean(), A.eng(), ids), lab = ids.map(tstr);
+  out.impact = async (p) => { if (p != null) $('xIP').value = p; const tok = A.tok(), ids = tok.encode($('xIP').value); if (!ids.length) throw new Error('empty prompt'); const r = await C.editImpact(A.engClean(), A.eng(), ids), lab = ids.map(tstr);
     bars($('xIL'), r.perLayer, { label: (i) => `slot ${i}: KL ${r.perLayer[i].toExponential(3)}` }); lines($('xIPos'), [{ ys: r.perPos, color: '#f472b6', label: 'KL' }], { xs: lab, min: 0 });
     bars($('xIS'), r.shifts.map((s) => s[1]), { label: (i) => `"${tstr(r.shifts[i][0])}" ${r.shifts[i][2].toFixed(4)} → ${r.shifts[i][3].toFixed(4)} (Δ ${r.shifts[i][1] >= 0 ? '+' : ''}${r.shifts[i][1].toFixed(4)})` });
     $('xIInfo').innerHTML = `final KL(hacked‖clean) <b>${r.finalKL.toExponential(3)}</b> nats · total variation ${r.tv.toFixed(4)} · entropy ${r.entC.toFixed(3)} → ${r.entH.toFixed(3)} · largest shift ${r.shifts[0] ? `"${esc(tstr(r.shifts[0][0]))}" ${r.shifts[0][1] >= 0 ? '+' : ''}${r.shifts[0][1].toFixed(4)}` : 'none (identical)'}`;
