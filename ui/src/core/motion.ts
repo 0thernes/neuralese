@@ -12,6 +12,9 @@ type VT = { finished?: Promise<unknown>; ready?: Promise<unknown>; updateCallbac
 type VTDoc = Document & { startViewTransition?: (cb: () => void) => VT };
 export function viewTransition(cb: () => void): void {
   const d = document as VTDoc; if (!d.startViewTransition || reducedMotion()) { cb(); return; }
-  const vt = d.startViewTransition(cb); const quiet = (): void => { /* a newer transition superseded this one */ };
+  // A second transition while one is running throws. The click still has to land.
+  let vt: VT;
+  try { vt = d.startViewTransition(cb); } catch { cb(); return; }
+  const quiet = (): void => { /* a newer transition superseded this one */ };
   vt.finished?.catch(quiet); vt.ready?.catch(quiet); vt.updateCallbackDone?.catch(quiet);
 }

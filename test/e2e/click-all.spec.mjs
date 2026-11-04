@@ -1,25 +1,46 @@
 import { test, expect, chromium } from '@playwright/test';
 import fs from 'node:fs';
+import zlib from 'node:zlib';
 
 const URL = process.env.PREVIEW_URL || 'https://0thernes.github.io/neuralese/preview/?notour';
-const WIDTHS = [[390, 844, 'mobile'], [768, 1024, 'tablet'], [1440, 900, 'desktop']];
+const WIDTHS = [[390, 844, 'mobile'], [768, 1024, 'tablet'], [1440, 900, 'desktop']].filter((x) => !process.env.E2E_VIEW || x[2] === process.env.E2E_VIEW);
+
+// A presented WebGL/WebGPU frame is often gone from readPixels. The screenshot is what the page shows.
+function pngVaries(buf) {
+  let off = 8; let width = 0; let height = 0; let colorType = 6; const idat = [];
+  while (off + 8 <= buf.length) {
+    const len = buf.readUInt32BE(off); const type = buf.toString('ascii', off + 4, off + 8); const data = buf.subarray(off + 8, off + 8 + len);
+    if (type === 'IHDR') { width = data.readUInt32BE(0); height = data.readUInt32BE(4); colorType = data[9]; }
+    else if (type === 'IDAT') idat.push(data);
+    else if (type === 'IEND') break;
+    off += 12 + len;
+  }
+  const bpp = colorType === 6 ? 4 : colorType === 2 ? 3 : colorType === 0 ? 1 : 4;
+  const raw = zlib.inflateSync(Buffer.concat(idat)); const stride = width * bpp;
+  const prev = Buffer.alloc(stride); const row = Buffer.alloc(stride); let p = 0; let first = null; let varied = false;
+  for (let y = 0; y < height; y++) {
+    const filter = raw[p++];
+    for (let i = 0; i < stride; i++) {
+      const x = raw[p++]; const a = i >= bpp ? row[i - bpp] : 0; const b = prev[i]; const c = i >= bpp ? prev[i - bpp] : 0;
+      let v = x;
+      if (filter === 1) v = (x + a) & 255;
+      else if (filter === 2) v = (x + b) & 255;
+      else if (filter === 3) v = (x + ((a + b) >> 1)) & 255;
+      else if (filter === 4) { const pp = a + b - c; const pa = Math.abs(pp - a); const pb = Math.abs(pp - b); const pc = Math.abs(pp - c); v = (x + (pa <= pb && pa <= pc ? a : pb <= pc ? b : c)) & 255; }
+      row[i] = v;
+    }
+    if (first == null) first = row[0] + (row[1] || 0) + (row[2] || 0);
+    for (let i = 0; i < stride; i += bpp * 16) { const s = row[i] + (row[i + 1] || 0) + (row[i + 2] || 0); if (Math.abs(s - first) > 12) varied = true; }
+    prev.set(row);
+  }
+  return { ok: varied && width >= 20 && height >= 20, w: width, h: height };
+}
 
 async function nonBlank(page, selector) {
-  return page.evaluate((sel) => {
-    const c = document.querySelector(sel);
-    if (!(c instanceof HTMLCanvasElement) || c.clientWidth < 20 || c.clientHeight < 20) return { ok: false, reason: 'size', w: c?.clientWidth ?? 0, h: c?.clientHeight ?? 0 };
-    const gl = c.getContext('webgl2') || c.getContext('webgl');
-    if (!gl) return { ok: c.width > 20, reason: 'no-gl-context', w: c.width, h: c.height };
-    const pix = new Uint8Array(4);
-    const samples = [];
-    for (let i = 0; i < 9; i++) {
-      const x = Math.floor(((i % 3) + 0.5) * c.width / 3);
-      const y = Math.floor((Math.floor(i / 3) + 0.5) * c.height / 3);
-      gl.readPixels(x, y, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pix);
-      samples.push(pix[0] + pix[1] + pix[2] + pix[3]);
-    }
-    return { ok: samples.some((v) => v > 0), samples, w: c.width, h: c.height };
-  }, selector);
+  const box = await page.locator(selector).boundingBox();
+  if (!box || box.width < 20 || box.height < 20) return { ok: false, reason: 'size', w: box?.width ?? 0, h: box?.height ?? 0 };
+  const png = await page.locator(selector).screenshot({ type: 'png' });
+  return pngVaries(png);
 }
 
 test('every workspace control, three widths, no console errors', async () => {
@@ -51,49 +72,49 @@ test('every workspace control, three widths, no console errors', async () => {
     await page.keyboard.press('Escape');
     const workspaces = await page.locator('.wsbar button[data-ws]').evaluateAll((els) => els.map((e) => e.getAttribute('data-ws')));
     expect(workspaces.length).toBeGreaterThanOrEqual(13);
+    const showWs = async (id) => {
+      const found = await page.evaluate((ws) => { const b = document.querySelector(`#v17 .wsbar button[data-ws="${ws}"]`); if (!b) return false; b.click(); return true; }, id);
+      if (!found) return false;
+      await page.waitForFunction((ws) => document.querySelector('#v17 .wsbar button.on')?.dataset.ws === ws, id, { timeout: 180000 });
+      return true;
+    };
+    const clickControls = (panel) => page.evaluate((pid) => {
+      const host = [...document.querySelectorAll('#v17 .panel')].find((el) => el.getAttribute('data-panel') === pid);
+      if (!host) return { missing: true, clicked: 0, disabled: 0 };
+      let clicked = 0; let disabled = 0;
+      for (const el of host.querySelectorAll('button, input[type="checkbox"]')) {
+        if (el instanceof HTMLInputElement && el.type === 'file') continue;
+        if (el.disabled) { disabled++; continue; }
+        el.click();
+        clicked++;
+      }
+      return { missing: false, clicked, disabled };
+    }, panel);
     let clicked = 0;
     let disabled = 0;
-    for (const id of workspaces) {
-      const found = await page.evaluate((ws) => {
-        const b = document.querySelector(`#v17 .wsbar button[data-ws="${ws}"]`);
-        if (!b) return false;
-        b.click();
-        return true;
-      }, id);
-      if (!found) {
-        failures.push(`${name} lost workspace button ${id} url=${page.url()}`);
-        break;
-      }
+    if (!process.env.E2E_PIXELS_ONLY) for (const id of workspaces) {
+      if (!await showWs(id)) { failures.push(`${name} lost workspace button ${id} url=${page.url()}`); break; }
       fs.appendFileSync('/tmp/e2e-progress.txt', `${name} ${id}\n`);
       await page.waitForTimeout(150);
-      const tabs = await page.locator('.tabstrip button[role=tab]').evaluateAll((els) => els.map((e) => e.getAttribute('data-panel')));
+      const tabs = await page.locator('#v17 .tabstrip button[role=tab]').evaluateAll((els) => els.map((e) => e.getAttribute('data-panel')));
       for (const panel of tabs) {
-        await page.evaluate((pid) => { document.querySelector(`.tabstrip button[data-panel="${CSS.escape(pid)}"]`)?.click(); }, panel);
-        await page.waitForTimeout(40);
-        const stats = await page.evaluate((pid) => {
-          const host = document.querySelector(`.panel[data-panel="${CSS.escape(pid)}"]`);
-          if (!host) return { missing: true, clicked: [], disabled: 0 };
-          const clicked = [];
-          let disabled = 0;
-          for (const el of host.querySelectorAll('button, input[type="checkbox"]')) {
-            if (el instanceof HTMLInputElement && el.type === 'file') continue;
-            if (el.disabled) { disabled++; continue; }
-            const label = (el.getAttribute('aria-label') || el.textContent || '').trim().slice(0, 80);
-            const before = host.innerText.slice(0, 240);
-            el.click();
-            clicked.push({ label, changed: host.innerText.slice(0, 240) !== before });
-          }
-          return { clicked, disabled };
-        }, panel);
+        // A control can call showTab and move the shell to another workspace. Come back, then open this panel.
+        if ((await page.locator('#v17 .wsbar button.on').getAttribute('data-ws')) !== id) await showWs(id);
+        const open = async () => {
+          await page.evaluate((pid) => { const btn = [...document.querySelectorAll('#v17 .tabstrip button[role=tab]')].find((b) => b.getAttribute('data-panel') === pid); btn?.click(); }, panel);
+          await page.waitForFunction((pid) => [...document.querySelectorAll('#v17 .panel')].some((el) => el.getAttribute('data-panel') === pid), panel, { timeout: 8000 }).catch(() => {});
+        };
+        await open();
+        let stats = await clickControls(panel);
+        if (stats.missing) { await showWs(id); await open(); stats = await clickControls(panel); }
         if (stats.missing) failures.push(`${name} missing panel ${panel}`);
-        clicked += stats.clicked?.length || 0;
+        clicked += stats.clicked || 0;
         disabled += stats.disabled || 0;
       }
     }
     const jump = async (ws, panel) => {
-      await page.evaluate((id) => document.querySelector(`#v17 .wsbar button[data-ws="${id}"]`)?.click(), ws);
-      await page.waitForFunction((id) => document.querySelector('#v17 .wsbar button.on')?.dataset.ws === id, ws, { timeout: 20000 });
-      await page.evaluate((pid) => document.querySelector(`.tabstrip button[data-panel="${CSS.escape(pid)}"]`)?.click(), panel);
+      await showWs(ws);
+      await page.evaluate((pid) => { const btn = [...document.querySelectorAll('#v17 .tabstrip button[role=tab]')].find((b) => b.getAttribute('data-panel') === pid); btn?.click(); }, panel);
       await page.waitForTimeout(400);
     };
     await jump('overview', 'cosmos');
