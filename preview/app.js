@@ -512,7 +512,7 @@ function wire() {
   on('bDense', 'click', () => document.body.classList.toggle('dense')); on('bPal', 'click', palOpen); on('readSel', 'change', readout);
   // steering
   on('bCv', 'click', async () => { const pairs = $('cvPairs').value.split('\n').map((s) => s.split('|').map((x) => x.trim())).filter((p) => p.length === 2 && p[0] && p[1]); if (!pairs.length) throw new Error('need lines "positive | negative"');
-    const t0 = performance.now(), site = $('cvSite').value, vecs = buildControlVector(engClean, tok, pairs, { site, method: $('cvMethod').value, agg: $('cvAgg').value });
+    const t0 = performance.now(), site = $('cvSite').value, vecs = await buildControlVector(engClean, tok, pairs, { site, method: $('cvMethod').value, agg: $('cvAgg').value });
     addVector($('cvName').value || 'v', site, vecs, { method: $('cvMethod').value, pairs: pairs.length }); $('cvInfo').textContent = `${pairs.length} pairs · ${(performance.now() - t0).toFixed(0)} ms`; });
   on('bCvExpr', 'click', () => { const vecs = vectorArithmetic($('cvExpr').value, R.steer); addVector($('cvExprName').value || 'mix', R.steer[0]?.site || 'resid_post', vecs, { expr: $('cvExpr').value }); });
   on('bCvExport', 'click', () => download('neuralese-vectors.json', JSON.stringify({ format: 'neuralese-vectors', vectors: R.steer.map(vecToJSON) })));
