@@ -17,7 +17,7 @@ export class RemoteEngine {
     return re;
   }
   constructor(w) { this.w = w; this.n = 0; this.pend = new Map(); this.sums = {}; this.stamp = {}; this.calls = 0;
-    w.onmessage = (e) => { const m = e.data, p = this.pend.get(m.id); if (!p) return; this.pend.delete(m.id); m.err ? p.rej(new Error(m.err)) : p.res(m.out); }; }
+    w.onmessage = (e) => { const m = e.data; if (!m || typeof m !== 'object' || m.id == null) return; const p = this.pend.get(m.id); if (!p) return; this.pend.delete(m.id); m.err ? p.rej(new Error(m.err)) : p.res(m.out); }; }
   call(msg, transfer = []) { const id = ++this.n; this.calls++; return new Promise((res, rej) => { this.pend.set(id, { res, rej }); this.w.postMessage({ id, ...msg }, transfer); }); }
   // Push the current state of a main-thread Engine into worker slot `key`. Weights are re-sent only when their checksum changed.
   async sync(key, eng) {
