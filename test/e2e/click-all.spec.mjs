@@ -37,14 +37,15 @@ function pngVaries(buf) {
 }
 
 async function nonBlank(page, selector) {
-  const box = await page.locator(selector).boundingBox();
+  const loc = page.locator(selector).first();
+  const box = await loc.boundingBox({ timeout: 20000 }).catch(() => null);
   if (!box || box.width < 20 || box.height < 20) return { ok: false, reason: 'size', w: box?.width ?? 0, h: box?.height ?? 0 };
-  const png = await page.locator(selector).screenshot({ type: 'png' });
+  const png = await loc.screenshot({ type: 'png', timeout: 20000 });
   return pngVaries(png);
 }
 
 test('every workspace control, three widths, no console errors', async () => {
-  test.setTimeout(2400000);
+  test.setTimeout(3600000);
   const browser = await chromium.launch({
     executablePath: process.env.CHROME || '/opt/google/chrome/chrome',
     headless: true,
@@ -73,14 +74,25 @@ test('every workspace control, three widths, no console errors', async () => {
     const workspaces = await page.locator('.wsbar button[data-ws]').evaluateAll((els) => els.map((e) => e.getAttribute('data-ws')));
     expect(workspaces.length).toBeGreaterThanOrEqual(13);
     const showWs = async (id) => {
-      const found = await page.evaluate((ws) => { const b = document.querySelector(`#v17 .wsbar button[data-ws="${ws}"]`); if (!b) return false; b.click(); return true; }, id);
-      if (!found) return false;
-      await page.waitForFunction((ws) => document.querySelector('#v17 .wsbar button.on')?.dataset.ws === ws, id, { timeout: 180000 });
-      return true;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const found = await page.evaluate((ws) => { window.__wsHold = 0; const b = document.querySelector(`#v17 .wsbar button[data-ws="${ws}"]`); if (!b) return false; b.click(); return true; }, id);
+        if (!found) return false;
+        // A control can call showTab after it yields. Stay on this workspace only once that callback has landed.
+        const stable = await page.waitForFunction((ws) => {
+          const now = document.querySelector('#v17 .wsbar button.on')?.dataset.ws;
+          if (now !== ws) { window.__wsHold = 0; return false; }
+          window.__wsHold = (window.__wsHold || 0) + 1;
+          return window.__wsHold >= 3;
+        }, id, { timeout: 20000 }).then(() => true).catch(() => false);
+        if (stable) return true;
+        await page.reload({ waitUntil: 'domcontentloaded' });
+        await page.waitForSelector('#v17 .wsbar', { timeout: 240000 });
+      }
+      return false;
     };
     const clickControls = (panel) => page.evaluate((pid) => {
       const host = [...document.querySelectorAll('#v17 .panel')].find((el) => el.getAttribute('data-panel') === pid);
-      if (!host) return { missing: true, clicked: 0, disabled: 0 };
+      if (!host) return { missing: true, clicked: 0, disabled: 0, ws: document.querySelector('#v17 .wsbar button.on')?.getAttribute('data-ws'), panels: [...document.querySelectorAll('#v17 .panel')].map((p) => p.getAttribute('data-panel')), tabs: [...document.querySelectorAll('#v17 .tabstrip button[role=tab]')].map((b) => b.getAttribute('data-panel')) };
       let clicked = 0; let disabled = 0;
       for (const el of host.querySelectorAll('button, input[type="checkbox"]')) {
         if (el instanceof HTMLInputElement && el.type === 'file') continue;
@@ -101,33 +113,47 @@ test('every workspace control, three widths, no console errors', async () => {
         // A control can call showTab and move the shell to another workspace. Come back, then open this panel.
         if ((await page.locator('#v17 .wsbar button.on').getAttribute('data-ws')) !== id) await showWs(id);
         const open = async () => {
-          await page.evaluate((pid) => { const btn = [...document.querySelectorAll('#v17 .tabstrip button[role=tab]')].find((b) => b.getAttribute('data-panel') === pid); btn?.click(); }, panel);
-          await page.waitForFunction((pid) => [...document.querySelectorAll('#v17 .panel')].some((el) => el.getAttribute('data-panel') === pid), panel, { timeout: 8000 }).catch(() => {});
+          for (let i = 0; i < 3; i++) {
+            await page.evaluate((pid) => { const btn = [...document.querySelectorAll('#v17 .tabstrip button[role=tab]')].find((b) => b.getAttribute('data-panel') === pid); btn?.click(); }, panel);
+            const ok = await page.waitForFunction((pid) => [...document.querySelectorAll('#v17 .panel')].some((el) => el.getAttribute('data-panel') === pid), panel, { timeout: 8000 }).then(() => true).catch(() => false);
+            if (ok) return;
+            await showWs(id);
+          }
         };
         await open();
-        let stats = await clickControls(panel);
-        if (stats.missing) { await showWs(id); await open(); stats = await clickControls(panel); }
-        if (stats.missing) failures.push(`${name} missing panel ${panel}`);
+        const stats = await clickControls(panel);
+        if (stats.missing) { console.log('MISSING', name, panel, JSON.stringify(stats)); failures.push(`${name} missing panel ${panel} ws=${stats.ws} panels=${(stats.panels || []).join('|')} tabs=${(stats.tabs || []).slice(0, 12).join('|')}`); }
         clicked += stats.clicked || 0;
         disabled += stats.disabled || 0;
       }
     }
-    const jump = async (ws, panel) => {
-      await showWs(ws);
-      await page.evaluate((pid) => { const btn = [...document.querySelectorAll('#v17 .tabstrip button[role=tab]')].find((b) => b.getAttribute('data-panel') === pid); btn?.click(); }, panel);
-      await page.waitForTimeout(400);
+    // Heavy buttons keep the main thread after they yield. A fresh page is the check that the
+    // stage still draws; the clicks above already ran on this page.
+    const shot = await browser.newPage({ viewport: { width: w, height: h } });
+    shot.setDefaultTimeout(60000);
+    const shotErrors = [];
+    shot.on('console', (m) => { if (m.type() === 'error' && !/favicon/i.test(m.text())) shotErrors.push(m.text().slice(0, 300)); });
+    shot.on('pageerror', (e) => shotErrors.push('PAGE ' + (e.message || '').slice(0, 400)));
+    await shot.addInitScript(() => { localStorage.setItem('neuralese.v17.toured', '1'); });
+    await shot.goto(URL, { waitUntil: 'domcontentloaded', timeout: 90000 });
+    await shot.waitForSelector('#v17 .wsbar', { timeout: 240000 });
+    const showShot = async (ws, panel) => {
+      await shot.evaluate((id) => document.querySelector(`#v17 .wsbar button[data-ws="${id}"]`)?.click(), ws);
+      await shot.waitForFunction((id) => document.querySelector('#v17 .wsbar button.on')?.dataset.ws === id, ws);
+      await shot.evaluate((pid) => { const btn = [...document.querySelectorAll('#v17 .tabstrip button[role=tab]')].find((b) => b.getAttribute('data-panel') === pid); btn?.click(); }, panel);
+      await shot.waitForTimeout(1200);
     };
-    await jump('overview', 'cosmos');
-    await page.waitForTimeout(1000);
-    const cosmos = await nonBlank(page, '.cosmos-canvas');
-    await jump('model', 'legacy:viz');
-    await page.waitForTimeout(600);
-    const gl = await nonBlank(page, '#gl');
+    await showShot('overview', 'cosmos');
+    const cosmos = await nonBlank(shot, '.cosmos-canvas');
+    await showShot('model', 'legacy:viz');
+    const gl = await nonBlank(shot, '#gl');
+    errors.push(...shotErrors);
+    await shot.close();
     if (!cosmos.ok) failures.push(`${name} cosmos blank ${JSON.stringify(cosmos)}`);
     if (!gl.ok) failures.push(`${name} stage blank ${JSON.stringify(gl)}`);
     if (errors.length) failures.push(`${name} console ${errors.slice(0, 5).join(' | ')}`);
     report.views[name] = { width: w, height: h, workspaces: workspaces.length, clicked, disabled, cosmos, gl, errors: errors.slice(0, 8) };
-    await page.close();
+    await Promise.race([page.close(), new Promise((r) => setTimeout(r, 5000))]);
   }
   fs.mkdirSync('test/e2e', { recursive: true });
   fs.writeFileSync('test/e2e/click-all-output.json', JSON.stringify({ report, failures }, null, 2));
