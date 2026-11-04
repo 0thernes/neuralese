@@ -2,6 +2,10 @@
 
 Live: https://0thernes.github.io/neuralese/ · **New here? [Beginner's guide to steering](docs/STEERING_GUIDE.md)** · Audit: [AUDIT.md](AUDIT.md) · Tsotchke analysis: [docs/TSOTCHKE.md](docs/TSOTCHKE.md) · Claims & evidence: [docs/CLAIMS.md](docs/CLAIMS.md) · Stack and versions: [docs/STACK.md](docs/STACK.md)
 
+## v17.3.0: Weight-Machine (4 Nov 2026)
+
+A board of weight gadgets: a Forge CPU, attention RAM, a paged SSD, a 16-lane GPU, an 8×8 systolic TPU, and a bus. An int32 reference is the ground truth. The CMOS zoom is simulated. Machine Room is a workspace with no Alt digit. Write-up: [docs/WEIGHT_MACHINE.md](docs/WEIGHT_MACHINE.md). Release notes: [RELEASE_NOTES.md](RELEASE_NOTES.md).
+
 ## v17.2.0: Forge CPU and Deep Walk (3 Nov 2026)
 Forge clocks a small original CPU from NestLang. An int32 VM is the ground truth. A float32 gadget engine matches it on the shipped suite. An MDCC lane answers the same arithmetic with host `bigint` and spends far fewer tokens. Exact is not the same as the right program, and bf16 parity is not claimed. Write-up: [docs/NEST_CPU.md](docs/NEST_CPU.md).
 
