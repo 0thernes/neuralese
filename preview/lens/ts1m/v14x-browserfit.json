@@ -1,0 +1,54 @@
+{
+ "prereg_sha256": "7f8641976c350553d1fd0870b1d9ee7181bc518298bee60fc53b88e7eb7393a1",
+ "date": "2026-10-31T20:36:45.573Z",
+ "browser": "headless Chrome (CPU Web Workers, lens-worker.js)",
+ "workers": 2,
+ "docs": 64,
+ "browserSeconds": 111,
+ "wallSeconds": 112,
+ "cos": {
+  "R.out": [
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1
+  ],
+  "R.mid": [
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1
+  ],
+  "S.mid": [
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1
+  ],
+  "S.out": [
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1
+  ]
+ },
+ "minCos": 1,
+ "C9a": {
+  "verdict": "supported"
+ }
+}

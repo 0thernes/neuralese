@@ -1,0 +1,41 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Neuralese · RISC-V in the weights</title>
+<link rel="stylesheet" href="../shared/lab.css"><style>main{grid-template-columns:420px 1fr 1fr}#stack{height:460px}</style></head><body>
+<header><h1>RISC-V <b>inside the weights</b> — a hand-compiled transformer CPU</h1>
+<div class="sub">Each click = one forward pass through 11 sublayers (D=<span id="D"></span>, every weight computed by a compiler, nothing trained). Program ROM and data RAM live as tokens in the context; the machine state is the last token. A1 attention <i>is</i> instruction fetch, A2 attention <i>is</i> the RAM read (latest write wins). A separate JS reference interpreter checks every step.</div></header>
+<main>
+<section class="card" style="grid-row:span 2"><h2>Forward pass, layer by layer</h2><canvas id="stack"></canvas><div class="note">Slabs bottom→top: sublayers. FFN cells = fraction of neurons firing; attention cells = softmax weight per context token.</div>
+<div style="margin-top:10px"><select id="prog"></select> <button id="reset">reset</button> <button id="step">step</button> <button id="run">run ▶</button></div>
+<div id="info" style="margin-top:8px"></div><div id="flags" style="margin-top:8px"></div></section>
+<section class="card"><h2>Registers</h2><table id="regs"></table></section>
+<section class="card"><h2>ROM · fetch attention</h2><table id="rom"></table></section>
+<section class="card" style="grid-column:span 2"><h2>RAM · read attention</h2><table id="ram"></table></section>
+</main>
+<script src="../shared/iso.js"></script><script src="ref.js"></script><script src="cpu.js"></script><script>
+let spec, model, progs, cpu, ref, prevX, rec = {}, y = null, agree = 0, timer = null;
+const $ = id => document.getElementById(id), hex = v => '0x' + (v >>> 0).toString(16).padStart(8, '0');
+async function init() {
+  spec = await (await fetch('riscv_spec.json')).json(); progs = await (await fetch('programs.json')).json(); model = RVTransformer.prep(spec); $('D').textContent = spec.D;
+  for (const k in progs) $('prog').add(new Option(k)); reset();
+}
+function reset() { const p = progs[$('prog').value]; cpu = new RVTransformer.CPU(model, p.words, Array(32).fill(0)); ref = new RefRV(p.words, Array(32).fill(0)); prevX = cpu.x.slice(); rec = {}; y = null; agree = 0; render(); }
+function step() {
+  prevX = cpu.x.slice(); rec = {}; const t0 = performance.now(); y = cpu.step(rec); const ms = performance.now() - t0; ref.step();
+  const same = ref.pc === cpu.pc && ref.x.every((v, i) => v === cpu.x[i]) && cpu.ram().every((v, i) => v === (ref.ram[i] >>> 0)); if (same) agree++;
+  $('info').innerHTML = `t=${cpu.t} · forward ${ms.toFixed(1)} ms · reference agreement <span class="${same ? 'ok' : 'bad'}">${agree}/${cpu.t}</span>`; render();
+}
+function bin(a, n) { const out = new Array(n).fill(0); if (!a) return out; for (let i = 0; i < a.length; i++) out[Math.floor(i * n / a.length)] += a[i] / Math.ceil(a.length / n); return out; }
+function render() {
+  const p = progs[$('prog').value], S = model.S;
+  $('regs').innerHTML = `<tr><td>pc</td><td>${hex(cpu.pc)}</td></tr>` + cpu.x.map((v, i) => `<tr class="${v !== prevX[i] ? 'chg' : ''}"><td>x${i}</td><td>${hex(v)}</td><td>${v | 0}</td></tr>`).join('');
+  const a1 = rec.A1_fetch;
+  $('rom').innerHTML = p.asm.map((s, i) => `<tr class="${i === (cpu.pc >>> 2) ? 'hot' : ''}"><td>${i * 4}</td><td>${s}</td><td><span class="bar" style="width:${a1 ? (a1[i] * 70).toFixed(0) : 0}px"></span></td></tr>`).join('');
+  const a2 = rec.A2_ram_read, ram = cpu.ram();
+  $('ram').innerHTML = '<tr>' + ram.map((v, s) => { let w = 0; if (a2) cpu.ramTok.forEach((tk, j) => { if (tk[0] === s && 64 + j < a2.length) w += a2[64 + j]; }); return `<td style="text-align:center">[${s}]<br>${v | 0}<br><span class="bar g" style="width:${(w * 30).toFixed(0)}px"></span></td>`; }).slice(0, 16).join('') + '</tr>';
+  $('flags').innerHTML = Object.keys(S).filter(k => k.startsWith('f_')).map(k => `<span class="pill ${y && y[S[k][0]] === 1 ? 'on' : ''}">${k.slice(2)}</span>`).join('');
+  const layers = spec.layers.map(l => l.type === 'ffn' ? { name: l.name, cells: bin(rec[l.name], 64), cols: 8, color: '#5cf2a6' } : { name: l.name, cells: rec[l.name] ? Array.from(rec[l.name]).slice(0, 96) : [], cols: 12, color: '#ff7ad9' });
+  Iso.draw($('stack'), layers);
+}
+$('reset').onclick = reset; $('prog').onchange = reset; $('step').onclick = step;
+$('run').onclick = () => { if (timer) { clearInterval(timer); timer = null; return; } timer = setInterval(step, 120); };
+init().then(() => { const n = +new URLSearchParams(location.search).get('autostep') || 0; for (let i = 0; i < n; i++) step(); });
+</script></body></html>

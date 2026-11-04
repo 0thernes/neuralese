@@ -1,0 +1,5 @@
+{"source":"wasm/qrng_native/build.sh (tsotchke/quantum_rng@1a77e77, seed \"neuralese-v8\", 64 bytes); Debian trixie x86_64, gcc 14 + glibc 2.41, musl-gcc (musl 1.2.5)",
+ "glibc_sse3":"e5f60b0d8ba3ed75cbbd3adfcec0ce78ea836f86da9a009ea95317135f6efaf1dfb7e8e6f8495f136baac6b58f9cbbef7d38ddba3fc9640d1c161f347e70efbf",
+ "glibc_scalar":"e5f60b0d8ba3ed75cbbd3adfcec0ce78ea836f86da9a009ea95317135f6efaf1dfb7e8e6f8495f136baac6b58f9cbbef7d38ddba3fc9640d1c161f347e70efbf",
+ "musl_sse3":"52d659a0bec9e8c567fe012c30f37954bb1906043566c217434eaa60fa8dcff206480b361e91c7f31592637b8ec87e8afcff3d2cc0ee3c43110660de01ed93fe",
+ "musl_scalar":"52d659a0bec9e8c567fe012c30f37954bb1906043566c217434eaa60fa8dcff206480b361e91c7f31592637b8ec87e8afcff3d2cc0ee3c43110660de01ed93fe"}
