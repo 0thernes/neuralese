@@ -11,7 +11,7 @@ const { L, H, ff, d } = CFG, GAP = 2.4, RX = 4.9;
 const headPos = (l, h) => new THREE.Vector3(-4 + h * 0.53, l * GAP + 0.6, 1.6);
 export class Viz {
   constructor(canvas, onPick) {
-    this.onPick = onPick; const r = (this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' })); this.dpr = Math.min(devicePixelRatio, 2); r.setPixelRatio(this.dpr); r.setSize(innerWidth, innerHeight);
+    this.onPick = onPick; const r = (this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance', preserveDrawingBuffer: true })); this.dpr = Math.min(devicePixelRatio, 2); r.setPixelRatio(this.dpr); r.setSize(innerWidth, innerHeight);
     r.toneMapping = THREE.ACESFilmicToneMapping; r.toneMappingExposure = 1.75; this.rawRender = r.render.bind(r);
     const s = (this.scene = new THREE.Scene()); this.bgTex = backdrop(); s.background = this.bgTex; s.fog = new THREE.FogExp2(0x070b14, 0.011);
     this.reduced = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;

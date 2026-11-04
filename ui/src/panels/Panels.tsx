@@ -57,9 +57,9 @@ export function SelectionPanel(): JSX.Element {
   return (
     <div class="selp">
       <div class="selrow">
-        <label>layer <input type="number" min="0" max={c.L - 1} value={sel().layer} onChange={(e) => set({ layer: +e.currentTarget.value })} /></label>
-        <label>head <input type="number" min="0" max={c.H - 1} value={sel().head ?? ''} placeholder="–" onChange={(e) => set({ head: e.currentTarget.value === '' ? null : +e.currentTarget.value })} /></label>
-        <label>neuron <input type="number" min="0" max={c.ff - 1} value={sel().neuron ?? ''} placeholder="–" onChange={(e) => set({ neuron: e.currentTarget.value === '' ? null : +e.currentTarget.value })} /></label>
+        <label>layer <input type="number" min="0" max={c.L - 1} value={sel().layer} onChange={(e) => { const n = +e.currentTarget.value; if (Number.isInteger(n)) set({ layer: n }); }} /></label>
+        <label>head <input type="number" min="0" max={c.H - 1} value={sel().head ?? ''} placeholder="–" onChange={(e) => { if (e.currentTarget.value === '') { set({ head: null }); return; } const n = +e.currentTarget.value; if (Number.isInteger(n)) set({ head: n }); }} /></label>
+        <label>neuron <input type="number" min="0" max={c.ff - 1} value={sel().neuron ?? ''} placeholder="–" onChange={(e) => { if (e.currentTarget.value === '') { set({ neuron: null }); return; } const n = +e.currentTarget.value; if (Number.isInteger(n)) set({ neuron: n }); }} /></label>
         <label>token <select value={sel().token ?? ''} onChange={(e) => set({ token: e.currentTarget.value === '' ? null : +e.currentTarget.value })}><option value="">last</option><For each={toks()}>{(id, i) => <option value={i()}>{i()}: {JSON.stringify(legacy()?.tok?.tokenStr(id) ?? String(id))}</option>}</For></select></label>
       </div>
       <p class="hint">One selection drives every panel (cosmos, inspector, lens, attention). Model: {sel().model}.</p>

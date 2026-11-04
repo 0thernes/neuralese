@@ -48,12 +48,13 @@ export function complete(prefix) { const p = prefix.trimStart(); if (p.includes(
 
 for (const [k, v] of Object.entries({ ...SCI_CMDS, ...RES_CMDS, ...TSK_CMDS, ...FR_CMDS, ...HUB_CMDS })) if (!COMMANDS[k]) COMMANDS[k] = v;
 export function makeTerminal(A, out) {
-  const hist = JSON.parse(localStorage.getItem('neuralese.term.hist') || '[]');
+  let hist = [];
+  try { const saved = JSON.parse(localStorage.getItem('neuralese.term.hist') || '[]'); if (Array.isArray(saved)) hist = saved.filter((x) => typeof x === 'string'); } catch { hist = []; }
   const num = (x, name, lo = -Infinity, hi = Infinity) => { const v = +x; if (x == null || x === '' || !isFinite(v) || v < lo || v > hi) throw new Error(`${name} must be a number in [${lo}, ${hi}]`); return v; };
   const layer = (x) => num(x, 'layer', 0, 7) | 0, mat = (x) => { const m = String(x || '').match(/^L?(\d)\.(\w+)$/); if (!m || !MATS_OK.includes(m[2])) throw new Error('matrix must look like L3.q (' + MATS_OK.join('|') + ')'); return `L${m[1]}.${m[2]}`; };
   async function exec(line) {
     line = String(line).trim(); if (!line || line.startsWith('#')) return '';
-    if (hist[hist.length - 1] !== line) { hist.push(line); localStorage.setItem('neuralese.term.hist', JSON.stringify(hist.slice(-200))); }
+    if (hist[hist.length - 1] !== line) { hist.push(line); try { localStorage.setItem('neuralese.term.hist', JSON.stringify(hist.slice(-200))); } catch { /* a full disk must not kill the command */ } }
     const [cmd, ...a] = line.split(/\s+/), rest = line.slice(cmd.length).trim();
     switch (cmd) {
       case 'help': if (a[0]) { const c = COMMANDS[a[0]]; if (!c) throw new Error('unknown command ' + a[0]); return `${c[0]}\n  ${c[1]}`; } return Object.values(COMMANDS).map(([u, h]) => `${u.padEnd(44)} ${h}`).join('\n');

@@ -1,0 +1,17 @@
+# Bugs reproduced on the preview
+
+Probe: Playwright + system Chrome against https://0thernes.github.io/neuralese/preview/?notour on 4 Nov 2026, after the shell that docks `#gl` was published. Output is summarized below. A later click-all run is `test/e2e/click-all-output.json` when that file exists.
+
+| Bug | Cause | Fix | Evidence |
+|---|---|---|---|
+| The realistic 3D stage (bloom, depth of field, GPU tier, orbit) did not appear in the v17 shell | `body.v17-on #gl { visibility: hidden }` and `#v17` covers the viewport. The canvas still rendered off-screen at window size | When the viz or 3D-modes tab is mounted, `#gl` is moved into `.stage-host`, given class `docked`, and resized from that box. Picking uses the canvas rectangle. `preserveDrawingBuffer` is on so a pixel read sees the frame | Probe: `docked: true`, `visibility: visible`, 709×421, parent `stage-host`. Code: `ui/src/panels/Panels.tsx`, `src/viz.js`, `src/viz3d.js` |
+| Workspace-bar clicks felt dead along the top edge | The header in `src/style.css` is 44px. `#v17` started at 34px, so the header (z-index 10) covered the top of the bar (z-index 6) | `#v17 { top: 44px }` | `ui/src/styles.css` |
+| Caught button failures showed up as console errors | `guard` in `src/app.js` called `console.error` after it had already shown a toast | It now `console.warn`s and yields once so the busy state paints before a long compute | `src/app.js` |
+| Undo looked unclickable on a fresh load | The button is disabled until an edit exists. Playwright's default click waits until enabled and then times out | Not a product bug. The click-all suite does not click `disabled` controls; it counts them | Probe: `#bUndo` resolved disabled. Theme, shortcut overlay, and the legacy palette did toggle |
+| Clearing the layer box threw | `+''` is `NaN`. `selection.set` throws `RangeError`, which the panel only `console.warn`s | Non-integers are ignored. An empty head or neuron box still means null | `ui/src/panels/Panels.tsx` |
+| Undo, redo, and dense had no accessible name | The buttons are a character plus a `title`, which is not a name | `aria-label` on each | `src/index.html` |
+| A bad worker message crashed the handler | `step` / `steps` / `beam` / `kvgeom` read `seqs.get(sid).s` when the sequence was missing. `steps` with `toks: []` read `.h` of an unset result. `free` iterated a missing `sids`. A non-object `ev.data` threw before the catch could reply | Those cases throw `Error` (so the reply is `{id, err}`) or no-op. The client ignores a message with no `id` | `src/engine-worker.js`, `src/engine-client.js`, `test/worker-messages.test.mjs` |
+| Desktop and the dev server could read outside the app directory | `path.join(root, '/%2e%2e%2fwww-evil')` normalizes to a sibling of `root`, and `startsWith(root)` treats `/app/www-evil` as inside `/app/www`. A bad `%` made `decodeURIComponent` throw out of the handler. A `Range` past EOF errored the file stream | `safeAppPath` / `safeRange` | `desktop/safe-path.cjs`, `desktop/main.cjs`, `tools/serve.mjs`, `test/desktop-path.test.mjs` |
+| A bad terminal history broke the terminal | `JSON.parse` of `neuralese.term.hist` was uncaught, and `setItem` throws when storage is full | Corrupt history is dropped. A failed write does not fail the command | `src/term.js` |
+
+Workspace walk in that probe (13 workspaces, no panel clicks yet) recorded 0 console errors and 0 failed responses. The click-all suite is the check that every enabled control survives a click.

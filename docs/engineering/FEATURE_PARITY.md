@@ -12,10 +12,10 @@ Every tab key that appears in an older release is still a key in v17.3.0. The co
 | Overview home dashboard | v15.0.0 | present | key `home` |
 | Encoder interpretability | v16.0.1 | present | key `hinterp` |
 | Adversary, Forge, Deep Walk, Machine Room | v17.1–v17.3 | present | `ui/src/core/workspaces.ts` |
-| Adaptive 3D stage (bloom, depth of field, GPU tier) | v15.1 | regressed in the v17 shell, restored by docking `#gl` | `src/viz.js` `classList.contains('docked')`, `ui/src/panels/Panels.tsx` |
+| Adaptive 3D stage (bloom, depth of field, GPU tier) | v15.1 | restored | The v17 shell hid `#gl`. It is docked into the viz panel again. Preview probe: `docked: true`, 709×421, visible. `docs/engineering/BUGS.md` |
 | Consciousness-indicator scorecard, PCI, self-improvement | v12 (frontier) | present | keys `fsc`, `fmind`, `frsi` |
 | Speech, vision, swappable LM | v12 hub | present | keys `hspeech`, `hvision`, `hgen` |
 | Diffusion as a product feature | none | not a shipped feature | Moonlab's `grover_diffusion` WASM export is unused by a tab. It was not removed. |
-| UMAP, t-SNE | none | missing, not previously shipped | Backlog in `docs/KANBAN.md` |
+| UMAP, t-SNE | none | not previously shipped | Not restored, because no older tag had the view. Backlog in `docs/KANBAN.md` |
 
 The machine-readable list is `features.json`. `node tools/check-features.mjs` fails if a release file names an id the current file dropped, or if a source tab has no id.
