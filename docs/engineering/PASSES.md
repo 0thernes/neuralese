@@ -32,11 +32,22 @@ The suite was run once, on the preview, after these fixes. It was not repeated b
 
 Screenshots of overview, the model stage, and the lens, before this pass and after, are in the pull request. The before set is the previous preview. The after set is this build.
 
-`npm audit` reports 7 moderate vulnerabilities and no high or critical ones. They are in the existing dependency tree. This pass did not run `npm audit fix --force`.
+The sharded preview run after passes 11–16 did not stay at 100%. Three Playwright workers against https://0thernes.github.io/neuralese/preview/?notour crashed the desktop target, left `legacy:land` and the model tabs inactive at check time, and recorded main-thread tasks of 500–1000 ms.
 
-The sharded preview run after these passes did not stay at 100%. Three Playwright workers against https://0thernes.github.io/neuralese/preview/?notour :
+| Pass | Area | Found | Fixed | What |
+|---|---|---|---|---|
+| 17 | Main thread, navigation, tests, dependencies | 8 | 7 | The weight checksum was one 205 ms scan. Embedding Gram, composition, the loss slice, and superposition were single tasks of 2 s, 82 s, 3 s, and 5 s. Fisher was one 9 s task. The neuron hunt and the geometry run were one traced `eng.run`. Chart heatmaps above 4096 cells now paint through an OffscreenCanvas in 16 ms slices. Notebook weights are copied in 256 KB slices and transferred. `npm audit` (no `--force`) is 0 vulnerabilities. |
 
-- An earlier tablet shard on this same preview passed: 582 controls clicked, 9 disabled, 0 console errors, 0 long tasks, cosmos 388×426, docked `#gl` 373×572. Axe ran before the clicks and did not report a serious or critical violation.
-- The last three-shard run failed. Desktop still clicked 580 controls with 0 console errors and non-blank cosmos (737×369) and `#gl` (709×490), and recorded main-thread tasks of 92, 852, 572, 857, 521, 238, 76, and 869 ms. Mobile's longest sampled tasks included 1026 ms. One circuits tab (`legacy:land`) and the model tabs were not the active panel when the check ran, because a control had called `showTab` and the shell was on surgery or geometry. One desktop target crashed in an earlier parallel attempt.
+`showTab` from a control is supposed to open that tab. The shell was applying the workspace change inside `startViewTransition`, whose callback runs on a later frame, so at check time the dock still showed the previous panel (`legacy:land` inactive, model tabs not active) even though the click had asked for them. That was a stale update, not the product behavior. `viewTransition` now applies the workspace and panel immediately. The click suite also opens the intended panel and clicks its controls in the same turn, and it yields between controls so one panel is not a single task. Playwright `workers` is 1: three SwiftShader browsers were what crashed the desktop target. This run used one browser and finished all three widths.
 
-Remaining: some chart draws and a single forward still exceed 50 ms on the main thread when three browsers share the machine. Edge-level ACDC, MEMIT, UMAP, and t-SNE were never shipped tabs. Copying weights into the notebook worker can be a long task. The 43 P0 cards are not implemented. `npm audit` reports 7 moderate advisories and no high or critical ones. Electron and Capacitor release builds were not packed here. `contextIsolation` is already on in `desktop/main.cjs`.
+One `npx playwright test` on https://0thernes.github.io/neuralese/preview/?notour (commit `654a4cf`, 4 Nov 2026), workers 1:
+
+| Width | Clicked | Disabled | Console errors | Axe serious/critical | Cosmos | `#gl` | Long-task max | p95 (of tasks ≥ 50 ms) | n ≥ 50 ms |
+|---|---|---|---|---|---|---|---|---|---|
+| Mobile 390×844 | 582 | 9 | 0 | none | 390×658 | 390×478 | 1970 ms | 728 ms | 1011 |
+| Tablet 768×1024 | 582 | 9 | 0 | none | 388×426 | 373×572 | 4823 ms | 773 ms | 1112 |
+| Desktop 1440×900 | 582 | 9 | 0 | none | 737×369 | 709×490 | 2126 ms | 804 ms | 1280 |
+
+The run did not pass. The gate is no task of 200 ms or more. 50 ms is still the goal, and the p95 of tasks that already last at least 50 ms is 728–804 ms. Isolated checks after the yields: attention 69 ms, analyze 77 ms, composition 127 ms, Fisher 122 ms, the hunt and the geometry run 0 tasks ≥ 200 ms. The suite still records 200–1400 ms tasks on chart export, hub model load, calibration, the parameter sweep, and safetensors-sized copies, and one task per width of 2–5 s. The root site was not replaced (`/` still serves `2527d67`). No tag and no release.
+
+Remaining: those long tasks. Edge-level ACDC, MEMIT, UMAP, and t-SNE were never shipped tabs. The 43 P0 cards are not implemented. Electron and Capacitor release builds were not packed here. `contextIsolation` is already on in `desktop/main.cjs`.
