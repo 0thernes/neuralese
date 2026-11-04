@@ -34,4 +34,9 @@ Screenshots of overview, the model stage, and the lens, before this pass and aft
 
 `npm audit` reports 7 moderate vulnerabilities and no high or critical ones. They are in the existing dependency tree. This pass did not run `npm audit fix --force`.
 
-Remaining: Edge-level ACDC, MEMIT, UMAP, and t-SNE were never shipped tabs. The fault study and some chart draws can still occupy the main thread. A notebook cell that needs the weights copies them once, and that copy can be a long task. The 43 P0 cards are not implemented. Electron and Capacitor release builds were not executed in this environment (no Android SDK signing secrets, no full Electron pack). `contextIsolation` is already on in `desktop/main.cjs`.
+The sharded preview run after these passes did not stay at 100%. Three Playwright workers against https://0thernes.github.io/neuralese/preview/?notour :
+
+- An earlier tablet shard on this same preview passed: 582 controls clicked, 9 disabled, 0 console errors, 0 long tasks, cosmos 388×426, docked `#gl` 373×572. Axe ran before the clicks and did not report a serious or critical violation.
+- The last three-shard run failed. Desktop still clicked 580 controls with 0 console errors and non-blank cosmos (737×369) and `#gl` (709×490), and recorded main-thread tasks of 92, 852, 572, 857, 521, 238, 76, and 869 ms. Mobile's longest sampled tasks included 1026 ms. One circuits tab (`legacy:land`) and the model tabs were not the active panel when the check ran, because a control had called `showTab` and the shell was on surgery or geometry. One desktop target crashed in an earlier parallel attempt.
+
+Remaining: some chart draws and a single forward still exceed 50 ms on the main thread when three browsers share the machine. Edge-level ACDC, MEMIT, UMAP, and t-SNE were never shipped tabs. Copying weights into the notebook worker can be a long task. The 43 P0 cards are not implemented. `npm audit` reports 7 moderate advisories and no high or critical ones. Electron and Capacitor release builds were not packed here. `contextIsolation` is already on in `desktop/main.cjs`.
