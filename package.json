@@ -12,6 +12,8 @@
   "ref": ".venv/bin/python test/ref/ref.py",
   "wasm": "bash wasm/build-qrng.sh",
   "lint": "eslint . --max-warnings 100",
+  "features": "node tools/check-features.mjs",
+  "agent": "node tools/agent.mjs",
   "docs": "node tools/gendocs.mjs",
   "www": "node tools/build-www.mjs",
   "fetch-model": "node tools/fetch-model.mjs",

@@ -47,7 +47,7 @@ function DockInner(p: { node: Node; set: (n: Node) => void; root: Node; compact:
   return <div class="group" data-group={n.id} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { const id = e.dataTransfer?.getData('text/x-panel'); if (id) p.set(movePanel(p.root, id, n.id)); }}>
     <div class="tabstrip" role="tablist" aria-label="panels">
       <For each={n.panels}>{(id) => <div class="tab" classList={{ on: id === act() }}>
-        <button role="tab" id={`tab-${id}`} aria-selected={id === act()} aria-controls={`panel-${id}`} draggable="true" data-panel={id}
+        <button role="tab" id={`tab-${id}`} aria-selected={id === act()} aria-controls={`panel-${id}`} draggable="true" data-panel={id} data-feature={id.startsWith('legacy:') ? `feature-tab-${id.slice(7)}` : `feature-panel-${id}`}
           onDragStart={(e) => e.dataTransfer?.setData('text/x-panel', id)}
           onClick={() => p.set(activate(p.root, id))}
           onKeyDown={(e) => { const j = n.panels.indexOf(id) + (e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0); if (j !== n.panels.indexOf(id) && n.panels[j]) { e.preventDefault(); p.set(activate(p.root, n.panels[j]!)); queueMicrotask(() => document.getElementById(`tab-${n.panels[j]}`)?.focus()); } }}>{panelTitle(id)}</button>

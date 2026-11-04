@@ -24,6 +24,8 @@ jobs:
         with: { path: model/arch, key: arch-models-v1 }
       - run: node tools/fetch-arch-models.mjs   # ~3 GB, revision- and sha256-pinned; arch/encoder tests need it
       - run: npm run lint
+      - name: never-subtract feature manifest
+        run: node tools/check-features.mjs
       - run: node --test test/*.test.mjs
       - uses: oven-sh/setup-bun@v2
         with:

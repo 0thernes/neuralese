@@ -1,5 +1,5 @@
 import { createSignal, For, onCleanup, onMount, Show, type JSX } from 'solid-js';
-import { WORKSPACES, NATIVE_PANELS, panelsOf, workspaceOfLegacy, type Workspace } from './core/workspaces';
+import { WORKSPACES, NATIVE_PANELS, panelsOf, workspaceOfLegacy, type Workspace } from '@app/core/workspaces';
 import { deserialize, ensurePanels, serialize, panels, activate, addPanel, tabs, type Node } from './core/layout';
 import { legacy } from './core/bridge';
 import { viewTransition } from './core/motion';
@@ -59,9 +59,9 @@ export function App(): JSX.Element {
   });
   return <div class="v17" classList={{ compact: compact() }} data-theme={theme()}>
     <nav class="wsbar" aria-label="workspaces">
-      <For each={WORKSPACES}>{(w) => <button classList={{ on: w.id === ws().id }} aria-current={w.id === ws().id ? 'page' : undefined} title={`${w.blurb}${/^[0-9]$/.test(w.key) ? ` (Alt+${w.key})` : ''}`} data-ws={w.id} onClick={() => go(w)}>{w.title}</button>}</For>
+      <For each={WORKSPACES}>{(w) => <button classList={{ on: w.id === ws().id }} aria-current={w.id === ws().id ? 'page' : undefined} title={`${w.blurb}${/^[0-9]$/.test(w.key) ? ` (Alt+${w.key})` : ''}`} data-ws={w.id} data-feature={`feature-ws-${w.id}`} onClick={() => go(w)}>{w.title}</button>}</For>
       <span class="sp" />
-      <button class="palbtn" onClick={() => setPal(true)} aria-label="open command palette" title="Command palette (Ctrl/⌘+K)">⌘K search</button>
+      <button class="palbtn" data-feature="feature-action-palette" onClick={() => setPal(true)} aria-label="open command palette" title="Command palette (Ctrl/⌘+K)">⌘K search</button>
     </nav>
     <main class="dock" aria-label={`${ws().title} workspace`}>
       <Show when={compact()} fallback={<Dock node={layout()} set={setLayout} root={layout()} compact={false} />}>

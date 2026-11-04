@@ -26,7 +26,9 @@ const $ = (id) => document.getElementById(id), $$ = (s, r = document) => [...r.q
 const tick = () => new Promise((r) => setTimeout(r, 0));
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const toast = (m, bad) => { const t = $('toast'); t.textContent = m; t.style.borderColor = bad ? '#f87171' : ''; t.classList.toggle('bad', !!bad); t.style.display = 'block'; clearTimeout(toast.h); toast.h = setTimeout(() => (t.style.display = 'none'), bad ? 6000 : 2500); };
-const guard = (fn) => async (...a) => { const el = a[0]?.currentTarget; U152.busy(el, true); try { await fn(...a); U152.panelNote(el, ''); } catch (e) { console.error(e); toast('✖ ' + e.message, true); U152.panelNote(el, e.message); } finally { U152.busy(el, false); } };
+// Yield once so the busy state paints and so a click returns to the event loop before a long compute.
+// Caught failures are shown in the toast. They are warnings: an uncaught exception is still an error.
+const guard = (fn) => async (...a) => { const el = a[0]?.currentTarget; U152.busy(el, true); await tick(); try { await fn(...a); U152.panelNote(el, ''); } catch (e) { console.warn(e); toast('✖ ' + (e && e.message ? e.message : e), true); U152.panelNote(el, e && e.message ? e.message : String(e)); } finally { U152.busy(el, false); } };
 
 // ───────── loading (HTTP Range: only the fp32 tensors, skipping the bool attn.bias buffers) ─────────
 const REPO = 'https://huggingface.co/roneneldan/TinyStories-8M/resolve', ST_URL = `${REPO}/refs%2Fpr%2F1/model.safetensors`;

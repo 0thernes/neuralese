@@ -16,10 +16,29 @@ function Adopt(p: { id: string; onShow?: () => void; class?: string }): JSX.Elem
   onCleanup(() => { const el = $(p.id); if (el && host.contains(el)) $('v17-park')?.appendChild(el); });
   return <div class={p.class ?? 'adopt'} ref={host} />;
 }
+const STAGE_TABS = new Set(['viz', 'v3d']);
+// The pre-v17 WebGL stage (bloom, depth of field, adaptive tier) draws on #gl. The v17 shell used to
+// hide that canvas. While a 3D tab is mounted, the canvas fills the panel and resizes with it.
+function dockStage(host: HTMLDivElement): () => void {
+  const gl = document.getElementById('gl');
+  if (!gl) return () => {};
+  host.appendChild(gl);
+  gl.classList.add('docked');
+  const fit = (): void => { window.dispatchEvent(new Event('resize')); };
+  const ro = new ResizeObserver(fit);
+  ro.observe(host);
+  fit();
+  return () => { ro.disconnect(); gl.classList.remove('docked'); const park = $('v17-park'); if (park) park.appendChild(gl); };
+}
 export function LegacyPanel(p: { k: string }): JSX.Element {
+  let stage!: HTMLDivElement;
   onMount(() => { activeLegacy.add(p.k); });
   onCleanup(() => { activeLegacy.delete(p.k); });
-  return <Adopt id={`pane_${p.k}`} class="adopt legacy-pane" onShow={() => showLegacy(p.k)} />;
+  onMount(() => { if (STAGE_TABS.has(p.k) && stage) { const undock = dockStage(stage); onCleanup(undock); } });
+  return <div class="legacy-stack" classList={{ stage: STAGE_TABS.has(p.k) }}>
+    <Show when={STAGE_TABS.has(p.k)}><div class="stage-host" ref={stage} data-feature="feature-view-stage" /></Show>
+    <Adopt id={`pane_${p.k}`} class="adopt legacy-pane" onShow={() => showLegacy(p.k)} />
+  </div>;
 }
 // legacy showTab(k) runs the tab's lazy renderers but makes k the only `.on` pane; restore every visible panel after.
 let showing = false;

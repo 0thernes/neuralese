@@ -12,7 +12,8 @@
     "types": ["bun", "vite/client"],
     "skipLibCheck": true,
     "isolatedModules": true,
-    "noEmit": true
+    "noEmit": true,
+    "paths": { "@app/*": ["./src/*"], "@design/*": ["./src/design-system/*"] }
   },
   "include": ["src", "tests", "vite.config.ts"]
 }
