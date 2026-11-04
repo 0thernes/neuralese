@@ -197,8 +197,8 @@ export async function neuronAtlas(Wc, docs, l, N = 400, k = 16, onp = () => {}) 
 export async function evalCorpus(eng, docs, N = 160, onp = () => {}) {
   const rows = []; for (let di = 0; di < docs.length && rows.length < N; di++) { const s = eng.newSeq(docs[di].length);
     for (let t = 0; t < docs[di].length - 1 && rows.length < N; t++) { const r = eng.step(s, docs[di][t]); const lp = logSoftmax(eng.outLogits ? eng.outLogits(r.h) : eng.logits(r.h)); let am = 0; for (let i = 1; i < lp.length; i++) if (lp[i] > lp[am]) am = i;
-      rows.push({ nll: -lp[docs[di][t + 1]], conf: Math.exp(lp[am]), correct: am === docs[di][t + 1], ent: entropy(lp) }); }
-    onp(rows.length / N); await tick(); }
+      rows.push({ nll: -lp[docs[di][t + 1]], conf: Math.exp(lp[am]), correct: am === docs[di][t + 1], ent: entropy(lp) }); const y = slice(); if (y) await y; }
+    onp(rows.length / N); }
   return rows;
 }
 // Reliability diagram + expected calibration error from evalCorpus rows.

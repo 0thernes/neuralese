@@ -6,7 +6,7 @@ import { Engine, defaultRuntime, logSoftmax, topK, SITES } from './engine.js?v=1
 import { RemoteEngine, withBias } from './engine-client.js?v=170';
 import { bindRemote } from './trace-remote.js?v=170';
 import { computeStats, actCovariance, fitTunedLens, lensGrid, dla, patchResid, patchHeads, pathPatchHeadsToLogits, ablationSweep, buildControlVector, vectorArithmetic, tokenStats } from './analysis.js?v=170';
-import { Editor, MATS, getMat, toSafetensors, quantize } from './surgery.js?v=170';
+import { Editor, MATS, getMat, toSafetensorsYield, quantize } from './surgery.js?v=170';
 import { defaultDecode, applyPenalties, filterDist, pick, contrastiveLogits, cfgLogits, beamSearch } from './decode.js?v=170';
 import { SAE } from './sae.js?v=170';
 import { computeRome, findSubject } from './rome.js?v=170';
@@ -68,8 +68,9 @@ const snap = () => ({ edits: structuredClone(ed.edits.map(({ _err, ...e }) => e)
 function restore(s) { R = structuredClone(s.R); eng.R = R; ed.setEdits(structuredClone(s.edits)); afterChange(); }
 // every state-changing action goes through commit → undoable, then a full refresh of dependent views
 function commit(label, fn) { const before = snap(); fn(); S.undo.push({ label, s: before }); S.redo = []; afterChange(); toast('✔ ' + label); audio.edit(editKind(label), { bits: +((label.match(/int(\d)/) || [])[1] || 0), coef: R.steer.length ? R.steer[R.steer.length - 1].coef : 1 }); }
-function undo() { const u = S.undo.pop(); if (!u) return; S.redo.push({ label: u.label, s: snap() }); restore(u.s); toast('↶ ' + u.label); audio.edit('undo'); }
-function redo() { const u = S.redo.pop(); if (!u) return; S.undo.push({ label: u.label, s: snap() }); restore(u.s); toast('↷ ' + u.label); audio.edit('undo'); }
+async function undo() { const u = S.undo.pop(); if (!u) return; S.redo.push({ label: u.label, s: snap() }); await restoreAsync(u.s); toast('↶ ' + u.label); audio.edit('undo'); }
+async function redo() { const u = S.redo.pop(); if (!u) return; S.undo.push({ label: u.label, s: snap() }); await restoreAsync(u.s); toast('↷ ' + u.label); audio.edit('undo'); }
+async function restoreAsync(s) { R = structuredClone(s.R); eng.R = R; await ed.setEditsAsync(structuredClone(s.edits)); afterChange(); }
 let regenT = null;
 let hashT; function afterChange() { markStale(); clearTimeout(hashT); hashT = setTimeout(() => V5?.out?.hashes?.().catch(() => {}), 400); renderOps(); renderSteerList(); renderProgram(); renderHeadGrid(); refreshWeights(); hud(); clearTimeout(regenT); if ($('autoRegen').checked) regenT = setTimeout(() => generate(), 120); }
 async function ensureStats() {
@@ -586,9 +587,9 @@ function wire() {
   on('bPos', 'click', () => commit(`pos scale ${$('psS').value} shift ${$('psH').value} freeze ${$('psF').value}`, () => (R.pos = { scale: +$('psS').value, shift: +$('psH').value, freeze: +$('psF').value })));
   on('bNa', 'click', async () => { const m = $('naM').value; if (m === 'mean') await ensureStats(); const n = +$('naN').value; if (!(n >= 0 && n < ff)) throw new Error('neuron 0..1023'); commit(`L${$('naL').value}N${n} ${m}`, () => R.neuronAbl.push({ l: +$('naL').value, n, mode: m, value: +$('naV').value })); });
   // ops
-  on('bReset', 'click', () => commit('reset everything', () => { R = defaultRuntime(); eng.R = R; ed.setEdits([]); }));
+  on('bReset', 'click', async () => { const before = snap(); R = defaultRuntime(); eng.R = R; await ed.setEditsAsync([]); S.undo.push({ label: 'reset everything', s: before }); S.redo = []; afterChange(); toast('✔ reset everything'); audio.edit('undo'); });
   on('bSnapE', 'click', exportSnap); on('snapI', 'change', (e) => importSnap(e.target.files[0]));
-  on('bST', 'click', () => download('model.safetensors', toSafetensors(M), 'application/octet-stream'));
+  on('bST', 'click', async () => download('model.safetensors', await toSafetensorsYield(M), 'application/octet-stream'));
   // 3D
   on('vzFit', 'click', () => viz?.fit?.()); for (const [id, k] of [['vzBloom', 'bloom'], ['vzDof', 'dof'], ['vzAuto', 'auto']]) on(id, 'change', () => { viz.fx[k] = $(id).checked; if (k !== 'auto') viz.quality = 'manual'; });
   setInterval(() => { const el = $('vzFps'); if (!el || !viz?.fps || !el.offsetParent) return; const f = viz.fps(); el.textContent = `${f.fps} fps · ${f.cpuMs} ms CPU/frame · ${f.quality} · pixel ratio ${f.pixelRatio} · GPU tier ${f.tier}`; $('vzBloom').checked = viz.fx.bloom; $('vzDof').checked = viz.fx.dof; }, 1000); for (const id of ['vzL', 'vzM', 'vzMode', 'vzDiff']) on(id, 'change', () => (id === 'vzL' ? setSel({ l: +$('vzL').value }) : refreshWeights()));

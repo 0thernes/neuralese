@@ -1,5 +1,5 @@
 // Weight surgery: a replayable list of edit ops applied to a fresh copy of the original weights.
-import { CFG, copyWeightsInto, mulberry32, gauss } from './model.js?v=170';
+import { CFG, copyWeightsInto, copyWeightsIntoYield, mulberry32, gauss } from './model.js?v=170';
 import { svd, svdReconstruct } from './linalg.js?v=170';
 import { resolve, fromPath } from './drill.js?v=170';
 const { d, ff, L } = CFG;
@@ -26,6 +26,8 @@ export class Editor {
   push(e) { e.id = e.id || this.nextId++; this.nextId = Math.max(this.nextId, e.id + 1); this.edits.push(e); this.apply(e); bump(this.mod); this.onRebuild && this.onRebuild(); return e; }
   setEdits(list) { this.edits = list; this.nextId = list.reduce((a, e) => Math.max(a, e.id + 1), 1); this.rebuild(); }
   rebuild() { copyWeightsInto(this.mod, this.orig); for (const e of this.edits) this.apply(e); bump(this.mod); this.onRebuild && this.onRebuild(); }
+  async rebuildAsync() { await copyWeightsIntoYield(this.mod, this.orig); for (const e of this.edits) this.apply(e); bump(this.mod); this.onRebuild && this.onRebuild(); }
+  async setEditsAsync(list) { this.edits = list; this.nextId = list.reduce((a, e) => Math.max(a, e.id + 1), 1); await this.rebuildAsync(); }
   // SVD of the ORIGINAL matrix (cached) – edits that need the current matrix compute fresh.
   svdOf(path, current = false) {
     const W = current ? this.mod : this.orig; const { a, rows, cols } = getMat(W, path);
@@ -100,5 +102,18 @@ export function toSafetensors(W) {
   let hs = JSON.stringify(hdr); while ((8 + hs.length) % 8) hs += ' ';
   const hb = new TextEncoder().encode(hs), out = new Uint8Array(8 + hb.length + off); new DataView(out.buffer).setBigUint64(0, BigInt(hb.length), true); out.set(hb, 8);
   let p = 8 + hb.length; for (const a of parts) { out.set(new Uint8Array(a.buffer, a.byteOffset, a.byteLength), p); p += a.byteLength; }
+  return out;
+}
+export async function toSafetensorsYield(W) {
+  const T = { 'transformer.wte.weight': [W.wte, [CFG.V, d]], 'transformer.wpe.weight': [W.wpe, [2048, d]], 'transformer.ln_f.weight': [W.lnfW, [d]], 'transformer.ln_f.bias': [W.lnfB, [d]] };
+  const names = { ln1w: 'ln_1.weight', ln1b: 'ln_1.bias', q: 'attn.attention.q_proj.weight', k: 'attn.attention.k_proj.weight', v: 'attn.attention.v_proj.weight', o: 'attn.attention.out_proj.weight', ob: 'attn.attention.out_proj.bias', ln2w: 'ln_2.weight', ln2b: 'ln_2.bias', fc: 'mlp.c_fc.weight', fcb: 'mlp.c_fc.bias', proj: 'mlp.c_proj.weight', projb: 'mlp.c_proj.bias' };
+  const shapes = { ln1w: [d], ln1b: [d], q: [d, d], k: [d, d], v: [d, d], o: [d, d], ob: [d], ln2w: [d], ln2b: [d], fc: [ff, d], fcb: [ff], proj: [d, ff], projb: [d] };
+  W.layers.forEach((P, l) => { for (const k in names) T[`transformer.h.${l}.${names[k]}`] = [P[k], shapes[k]]; });
+  const hdr = { __metadata__: { format: 'pt', source: 'NEURALESE edited TinyStories-8M' } }; let off = 0; const parts = [];
+  for (const [k, [a, sh]] of Object.entries(T)) { hdr[k] = { dtype: 'F32', shape: sh, data_offsets: [off, off + a.byteLength] }; off += a.byteLength; parts.push(a); }
+  let hs = JSON.stringify(hdr); while ((8 + hs.length) % 8) hs += ' ';
+  const hb = new TextEncoder().encode(hs), out = new Uint8Array(8 + hb.length + off); new DataView(out.buffer).setBigUint64(0, BigInt(hb.length), true); out.set(hb, 8);
+  let p = 8 + hb.length; const N = 1 << 20;
+  for (const a of parts) { const u = new Uint8Array(a.buffer, a.byteOffset, a.byteLength); for (let i = 0; i < u.length; i += N) { out.set(u.subarray(i, Math.min(u.length, i + N)), p + i); await new Promise((r) => setTimeout(r, 0)); } p += a.byteLength; }
   return out;
 }
