@@ -63,9 +63,9 @@ function Program(): JSX.Element {
     <p class="hint">{FORGE_HELP}</p>
     <textarea aria-label="NestLang program" spellcheck={false} value={forgeSource()} onInput={(e) => setForgeSource(e.currentTarget.value)} />
     <div class="adv-row">
-      <button class="pri" disabled={!!forgeBusy()} onClick={() => void execute(forgeSource(), scriptedPrompt('editor program'))}>Run program</button>
-      <button disabled={!!forgeBusy()} onClick={() => { setForgeSource(DEMO); void execute(DEMO, scriptedPrompt('sum of 22 copies of 35')); }}>Demo: 22 × 35</button>
-      <button disabled={!!forgeBusy()} onClick={() => void sample()}>Sample host, then hand off</button>
+      <button class="pri" onClick={() => void execute(forgeSource(), scriptedPrompt('editor program'))}>Run program</button>
+      <button onClick={() => { setForgeSource(DEMO); void execute(DEMO, scriptedPrompt('sum of 22 copies of 35')); }}>Demo: 22 × 35</button>
+      <button onClick={() => void sample()}>Sample host, then hand off</button>
     </div>
     <Bar />
     <Show when={forgeHost()}><p class="hint">{forgeHost()}</p></Show>
@@ -174,7 +174,7 @@ function Lanes(): JSX.Element {
   return <>
     <h3>WeightCPU and MDCC</h3>
     <p class="hint">Same eight arithmetic cells. WeightCPU compiles NestLang and clocks Forge. MDCC is a deterministic proposer plus host bigint. The proposer is not the language model. Pre-registered bar: both lanes exact, engine trace equal to the VM, bf16 not claimed.</p>
-    <button class="pri" disabled={!!forgeBusy()} onClick={() => void go()}>Run contrast</button>
+    <button class="pri" onClick={() => void go()}>Run contrast</button>
     <Bar />
     <Show when={forgeLanes()}>{(L) => <>
       <table>

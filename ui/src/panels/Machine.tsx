@@ -192,7 +192,7 @@ function Control(): JSX.Element {
     </select></label>
     <p class="hint">{PROGRAMS[wmProgram()]?.blurb}</p>
     <div class="adv-row">
-      <button class="pri" disabled={!!wmBusy()} onClick={() => go(wmProgram())}>Run</button>
+      <button class="pri" onClick={() => go(wmProgram())}>Run</button>
       <button disabled={!spanOf(run())} onClick={() => setWmCursor(Math.max(0, wmCursor() - 1))}>Step back</button>
       <button disabled={!spanOf(run())} onClick={() => setWmCursor(Math.min(Math.max(0, spanOf(run()) - 1), wmCursor() + 1))}>Step</button>
       <button disabled={!spanOf(run())} onClick={play}>{wmPlaying() ? 'Pause' : 'Play'}</button>
@@ -318,7 +318,7 @@ function Report(): JSX.Element {
     <Show when={run()} fallback={<p class="hint">Run a program from Cycle.</p>}>
       {(r) => <p class={r().exact ? 'hint' : 'warn'}>{r().program} · {r().exact ? 'exact' : 'not exact'} · rate {r().rate.toFixed(3)} · cycles {r().cycles} = reference {r().refCycles} · packet log {r().packetExact ? 'matches' : 'differs'} · precision faults {r().faults.length}</p>}
     </Show>
-    <div class="adv-row"><button disabled={!!busy()} onClick={runMeasure}>Measure a small batch</button><Show when={busy()}><span class="hint">{busy()}</span></Show></div>
+    <div class="adv-row"><button onClick={runMeasure}>Measure a small batch</button><Show when={busy()}><span class="hint">{busy()}</span></Show></div>
     <Show when={table()}>
       {(t) => <table>
         <thead><tr><th>component</th><th>exact</th><th>weight ms</th><th>reference ms</th><th>ratio</th></tr></thead>
