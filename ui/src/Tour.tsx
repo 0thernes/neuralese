@@ -6,6 +6,7 @@ const STEPS: [string, string][] = [
   ['Command palette', 'Press Ctrl/⌘+K (or /) and type to jump to any panel, workspace or action. This is the fastest way around.'],
   ['Panels', 'Split a panel right or down, drag tabs between groups, resize with the gutters (arrow keys work too). Layouts are saved per workspace; “reset layout” restores the default.'],
   ['One selection', 'Picking a layer, head, neuron or token anywhere updates every panel: the 3D cosmos, inspector, lens and attention views.'],
+  ['Machine Room', 'Weight-Machine is a board of weight gadgets checked against an int32 reference. Click a block for its weights, then its gates, then a simulated voltage curve. The voltage label says simulated.'],
 ];
 export const TOUR_KEY = 'neuralese.v17.toured';
 export function Tour(p: { open: boolean; setOpen: (b: boolean) => void }): JSX.Element {
