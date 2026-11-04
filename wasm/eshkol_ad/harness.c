@@ -26,7 +26,7 @@ static void mm(const int* X, const P W, int nOut, int nIn, const P* b, int* Y) {
 static int gelu(int x) { int x3 = MUL(MUL(x, x), x); int t = ad_tanh(tp, MUL(C(0.7978845608028654), ADD(x, MUL(C(0.044715), x3)))); return MUL(MUL(C(0.5), x), ADD(C(1), t)); }
 int main(void) {
   static VmRegionStack rs; vm_region_stack_init(&rs); tp = ad_tape_new(&rs);
-  if (scanf("%d %d %d %d %d %d %d %lf", &D, &H, &HD, &L, &FF, &V, &T, &EPS) != 8) return 2; ids = malloc(sizeof(int) * T); for (int t = 0; t < T; t++) if (scanf("%d", &ids[t]) != 1) return 2;
+  if (scanf("%d %d %d %d %d %d %d %lf", &D, &H, &HD, &L, &FF, &V, &T, &EPS) != 8) return 2; ids = malloc(sizeof(int) * T); for (int t = 0; t < T; t++) { if (scanf("%d", &ids[t]) != 1) return 2; if (ids[t] < 0 || ids[t] >= V) return 2; }
   P wte = rd(V * D), wpe = rd(T * D), lnfW = rd(D), lnfB = rd(D); P* lay = malloc(sizeof(P) * 13 * L);
   int sz[13] = { D, D, D * D, D * D, D * D, D * D, D, D, D, FF * D, FF, D * FF, D };
   for (int l = 0; l < L; l++) for (int k = 0; k < 13; k++) lay[l * 13 + k] = rd(sz[k]);
