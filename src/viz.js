@@ -58,7 +58,8 @@ export class Viz {
     this.ctl.dampingFactor = this.reduced ? 0.5 : 0.08; this.ctl.minDistance = 4; this.ctl.maxDistance = 140;
     // frame timing → fps meter + adaptive quality (drop DoF, then bloom, then pixel ratio when the 2 s average falls under target)
     const ft = (this.ft = { n: 0, t0: performance.now(), fps: 0, ms: 0, hist: [] }); let prev = performance.now(), tFlow = 0;
-    const loop = () => { requestAnimationFrame(loop); if (document.hidden) return; const now = performance.now(), dt = Math.min(0.1, (now - prev) / 1000); prev = now; if (!this.reduced) tFlow += dt;
+    const shown = () => { const c = r.domElement; if (document.body.classList.contains('v17-on') && !c.classList.contains('docked')) return false; return c.clientWidth > 0 && c.clientHeight > 0; };
+    const loop = () => { requestAnimationFrame(loop); if (document.hidden || !shown()) return; const now = performance.now(), dt = Math.min(0.1, (now - prev) / 1000); prev = now; if (!this.reduced) tFlow += dt;
       const c0 = performance.now(); this.tick(now); this.flow.mat.uniforms.t.value = tFlow; this.ctl.update(); this.render(); const cpu = performance.now() - c0;
       ft.n++; ft.ms += cpu; if (now - ft.t0 >= 1000) { ft.fps = (ft.n * 1000) / (now - ft.t0); ft.cpu = ft.ms / ft.n; ft.hist.push(ft.fps); if (ft.hist.length > 6) ft.hist.shift(); ft.n = 0; ft.ms = 0; ft.t0 = now; this.adapt(); } }; loop();
   }

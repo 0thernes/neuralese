@@ -53,11 +53,12 @@ test('learning center data: glossary ≥100 unique, cross-links resolve, labs us
   assert.ok(!md('<script>').includes('<script>'));
 });
 const MP = 'model/model.safetensors';
-test('model: logit bias, h-steer, blend of identical weights is identity', { skip: !fs.existsSync(MP) }, () => {
+test('model: logit bias, h-steer, blend of identical weights is identity', { skip: !fs.existsSync(MP) }, async () => {
   const buf = fs.readFileSync(MP), ab = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength); const n = Number(new DataView(ab).getBigUint64(0, true)); const header = JSON.parse(new TextDecoder().decode(new Uint8Array(ab, 8, n)));
   const W = buildWeights(parseSafetensors(new Uint8Array(ab), n, header)), R = defaultRuntime(), e = new Engine(W, R), ids = [7454, 2402, 257, 640];
   const h = e.run(ids).last.h, base = e.outLogits(h); R.logitBias = { 3797: 5 }; const b2 = e.outLogits(h); assert.ok(Math.abs(b2[3797] - base[3797] - 5) < 1e-4); assert.equal(b2[1], base[1]); R.logitBias = {};
   const tgt = 3797, u = Float32Array.from(W.wte.subarray(tgt * d, tgt * d + d)); R.hSteer = [{ vec: u, coef: 0.5, on: true }];
   const p1 = logSoftmax(e.outLogits(e.run(ids).last.h))[tgt]; R.hSteer = []; const p0 = logSoftmax(e.outLogits(e.run(ids).last.h))[tgt]; assert.ok(p1 > p0, 'h-steer raises target');
   const S2 = C.blendWeights(W, cloneWeights(W), 0.7); assert.equal(S2.layers[3].fc[100], W.layers[3].fc[100]);
+  const S3 = await C.blendWeightsAsync(W, cloneWeights(W), 0.7); assert.equal(S3.layers[3].fc[100], W.layers[3].fc[100]); assert.equal(S3.wte[1000], W.wte[1000]);
 });

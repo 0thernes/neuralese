@@ -4,6 +4,7 @@ import { lines, bars } from './charts.js?v=170';
 import { $, esc, fmt, opts, cv, tipq, prog, tick } from './lab-ui.js?v=170';
 import * as R from './research.js?v=170';
 import { cloneWeights } from './model.js?v=170';
+import { slice } from './coop.js?v=170';
 import { DS, docs, allDocs, setUserCorpus, clearUserCorpus } from './dataset.js?v=170';
 const P = (id) => `<div class="prog" id="${id}"><i></i></div>`;
 const NBKEY = 'neuralese.notebook.v7', MODEL_ID = 'roneneldan/TinyStories-8M@refs/pr/1';
@@ -134,7 +135,7 @@ export function install(A, out) {
       for (let off = 0; off < arr.length; off += CHUNK) {
         const copy = new Float32Array(arr.subarray(off, Math.min(arr.length, off + CHUNK)));
         w.postMessage({ op: 'chunk', name, off, len: arr.length, buf: copy }, [copy.buffer]);
-        await new Promise((r) => setTimeout(r, 0));
+        const y = slice(); if (y) await y;
       }
     };
     await send(prefix + 'wte', model.wte); await send(prefix + 'wpe', model.wpe); await send(prefix + 'lnfW', model.lnfW); await send(prefix + 'lnfB', model.lnfB);

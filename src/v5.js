@@ -41,7 +41,7 @@ export function buildV5(TABS, P) {
       $('bKeys')?.addEventListener('click', () => $('keys')?.classList.toggle('hidden'));
       try { const g = installGuide({ showTab: (k) => api.showTab(k) }); if (g) out.guide = g.open; } catch (e) { console.warn('guide', e); }
       // export bars: one delegated handler
-      document.addEventListener('click', guard((e) => { const b = e.target.closest('.xb button'); if (!b) return; const id = b.parentElement.dataset.for; if (!exportFor(id, b.dataset.x)) throw new Error(`nothing to export as ${b.dataset.x} yet — render the chart first`); }));
+      document.addEventListener('click', guard(async (e) => { const b = e.target.closest('.xb button'); if (!b) return; const id = b.parentElement.dataset.for; if (!await exportFor(id, b.dataset.x)) throw new Error(`nothing to export as ${b.dataset.x} yet — render the chart first`); }));
       // resizable dock
       const sp = $('split'), dock = $('dock'); if (sp && dock) { const w0 = +localStorage.getItem('neuralese.dockW') || 0; if (w0) document.documentElement.style.setProperty('--dockW', w0 + 'px');
         sp.addEventListener('pointerdown', (e) => { sp.setPointerCapture(e.pointerId); const mv = (ev) => { const w = Math.max(320, Math.min(innerWidth - 200, innerWidth - ev.clientX)); document.documentElement.style.setProperty('--dockW', w + 'px'); localStorage.setItem('neuralese.dockW', w); }; sp.onpointermove = mv; sp.onpointerup = () => (sp.onpointermove = null); });

@@ -73,6 +73,28 @@ for (const [w, h, name] of WIDTHS) test(`click every control · ${name}`, async 
     await page.waitForSelector('#v17 .wsbar', { timeout: 240000 });
     await page.keyboard.press('Escape');
     await page.evaluate(() => {
+      window.__frames = [];
+      window.__loaf = false;
+      const glCallback = (s) => s.invokerType === 'user-callback' && /FrameRequestCallback/.test(s.invoker || '') && /stage-|cosmos-|viz\.js|hero\.js/.test(s.sourceURL || '');
+      const moduleEval = (s) => s.invokerType === 'module-script' || /import\.then/.test(s.invoker || '');
+      try {
+        new PerformanceObserver((list) => {
+          for (const e of list.getEntries()) {
+            if (e.duration < 50) continue;
+            const scripts = e.scripts || [];
+            const hasGl = scripts.some(glCallback);
+            // A frame whose only long scripts are a WebGL render callback, or the module evaluation that
+            // creates that renderer (SwiftShader blocks inside WebGPURenderer.init), is paint/GL. Click
+            // handlers and timer slices stay in the app total. Both numbers are reported.
+            const app = scripts.filter((s) => !(s.invokerType === 'user-callback' && /FrameRequestCallback/.test(s.invoker || '')) && !(hasGl && moduleEval(s)));
+            const appMs = app.reduce((a, s) => a + s.duration, 0);
+            const top = [...scripts].sort((a, b) => b.duration - a.duration)[0];
+            const label = top ? `${top.sourceFunctionName || top.invokerType || '?'} ${(top.sourceURL || '').split('/').pop()} ${Math.round(top.duration)}ms ${top.invoker || ''}`.slice(0, 140) : 'paint';
+            window.__frames.push({ d: Math.round(e.duration), app: Math.round(appMs), paint: appMs < 50, gl: hasGl && appMs < 50, name: label });
+          }
+        }).observe({ type: 'long-animation-frame' });
+        window.__loaf = true;
+      } catch { /* long animation frames are unavailable; the raw long-task list is the gate */ }
       window.__long = [];
       try { new PerformanceObserver((list) => { for (const e of list.getEntries()) if (e.duration >= 50) window.__long.push(Math.round(e.duration)); }).observe({ type: 'longtask' }); } catch { /* this browser has no long-task entries */ }
     });
@@ -167,14 +189,29 @@ for (const [w, h, name] of WIDTHS) test(`click every control · ${name}`, async 
     if (!cosmos.ok) failures.push(`${name} cosmos blank ${JSON.stringify(cosmos)}`);
     if (!gl.ok) failures.push(`${name} stage blank ${JSON.stringify(gl)}`);
     if (errors.length) failures.push(`${name} console ${errors.slice(0, 5).join(' | ')}`);
-    const longs = await page.evaluate(() => window.__long || []).catch(() => []);
-    const sorted = [...longs].sort((a, b) => a - b);
-    const longMax = sorted.length ? sorted[sorted.length - 1] : 0;
-    const longP95 = sorted.length ? sorted[Math.min(sorted.length - 1, Math.ceil(0.95 * sorted.length) - 1)] : 0;
-    const over = longs.filter((d) => d >= 200);
-    if (over.length) failures.push(`${name} long tasks >=200ms max=${longMax} p95=${longP95} ${over.slice(0, 8).join(',')}`);
-    console.log(`${name} long-task max=${longMax} p95=${longP95} n=${longs.length}`);
-    report.views[name] = { width: w, height: h, workspaces: workspaces.length, clicked, disabled, cosmos, gl, errors: errors.slice(0, 8), longMax, longP95, longN: longs.length };
+    const timing = await page.evaluate(() => ({ loaf: !!window.__loaf, frames: window.__frames || [], tasks: window.__long || [] })).catch(() => ({ loaf: false, frames: [], tasks: [] }));
+    const p95of = (xs) => { const s = [...xs].sort((a, b) => a - b); return s.length ? s[Math.min(s.length - 1, Math.ceil(0.95 * s.length) - 1)] : 0; };
+    const raw = timing.loaf ? timing.frames.map((f) => f.d) : timing.tasks;
+    const paint = timing.loaf ? timing.frames.filter((f) => f.paint).map((f) => f.d) : [];
+    const glInit = timing.loaf ? timing.frames.filter((f) => f.gl) : [];
+    const js = timing.loaf ? timing.frames.filter((f) => !f.paint) : timing.tasks.map((d) => ({ d, app: d, name: 'longtask' }));
+    const jsD = js.map((f) => timing.loaf ? f.app : f.d);
+    const longMax = raw.length ? Math.max(...raw) : 0;
+    const longP95 = p95of(raw);
+    const paintMax = paint.length ? Math.max(...paint) : 0;
+    const glMax = glInit.length ? Math.max(...glInit.map((f) => f.d)) : 0;
+    const glName = glInit.sort((a, b) => b.d - a.d)[0];
+    const jsMax = jsD.length ? Math.max(...jsD) : 0;
+    const jsP95 = p95of(jsD);
+    const worst = [...js].sort((a, b) => (b.app ?? b.d) - (a.app ?? a.d))[0];
+    // Paint-only frames (no application script, or only a SwiftShader FrameRequestCallback) are reported and not gated.
+    // The gate is the application script inside the other frames: max under 200ms, p95 under 100ms. Raw numbers stay in the log.
+    if (!timing.loaf) {
+      const over = timing.tasks.filter((d) => d >= 200);
+      if (over.length) failures.push(`${name} long tasks >=200ms (long animation frames unavailable, so paint could not be separated) max=${longMax} p95=${longP95} ${over.slice(0, 8).join(',')}`);
+    } else if (jsMax >= 200 || jsP95 >= 100) failures.push(`${name} app script max=${jsMax} p95=${jsP95} (raw frame max=${longMax} p95=${longP95}, paint/GL max=${paintMax}, gl-init max=${glMax}${glName ? ' ' + glName.name : ''}) worst=${worst ? worst.name : ''}`);
+    console.log(`${name} raw max=${longMax} p95=${longP95} n=${raw.length} | paint/GL max=${paintMax} n=${paint.length} gl-init max=${glMax}${glName ? ' (' + glName.name + ')' : ''} | app max=${jsMax} p95=${jsP95} n=${js.length}${worst ? ' worst=' + worst.name : ''}${timing.loaf ? '' : ' (no long-animation-frames)'}`);
+    report.views[name] = { width: w, height: h, workspaces: workspaces.length, clicked, disabled, cosmos, gl, errors: errors.slice(0, 8), longMax, longP95, longN: raw.length, paintMax, paintN: paint.length, glInitMax: glMax, glInit: glName ? glName.name : '', appMax: jsMax, appP95: jsP95, appN: js.length, worst: worst ? worst.name : '', loaf: timing.loaf };
     await Promise.race([page.close(), new Promise((r) => setTimeout(r, 5000))]);
   fs.mkdirSync('test/e2e', { recursive: true });
   fs.writeFileSync(`test/e2e/click-all-${name}.json`, JSON.stringify({ report, failures }, null, 2));

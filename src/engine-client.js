@@ -1,3 +1,4 @@
+import { frame } from './coop.js?v=170';
 // v15.3 main-thread client for engine-worker.js. RemoteEngine mirrors the Engine calls used by generation, but async:
 //   const re = await RemoteEngine.create(); await re.sync('main', eng); const s = await re.newSeq('main', n); const r = await re.step(s, tok, {trace})
 // r = {h, trace, l}: l are the raw logits (Engine.logits); add R.logitBias on the main thread for Engine.outLogits.
@@ -12,7 +13,7 @@ export async function weightsChecksum(W) {
     for (let i = 0; i < u.length; i += N) {
       const end = Math.min(u.length, i + N);
       for (let j = i; j < end; j++) h = Math.imul(h ^ u[j], 16777619);
-      if (u.length > N) await new Promise((r) => setTimeout(r, 0));
+      if (u.length > N) await frame();
     }
   };
   await mix(W.wte); await mix(W.wpe); await mix(W.lnfW); await mix(W.lnfB);
@@ -22,7 +23,7 @@ export async function weightsChecksum(W) {
 async function copyArr(a) {
   if (!a || a.length <= 65536) return a.slice();
   const out = new Float32Array(a.length);
-  for (let i = 0; i < a.length; i += 65536) { out.set(a.subarray(i, Math.min(a.length, i + 65536)), i); await new Promise((r) => setTimeout(r, 0)); }
+  for (let i = 0; i < a.length; i += 65536) { out.set(a.subarray(i, Math.min(a.length, i + 65536)), i); await frame(); }
   return out;
 }
 async function plainW(W) {

@@ -1,5 +1,6 @@
 // Weight surgery: a replayable list of edit ops applied to a fresh copy of the original weights.
 import { CFG, copyWeightsInto, copyWeightsIntoYield, mulberry32, gauss } from './model.js?v=170';
+import { frame } from './coop.js?v=170';
 import { svd, svdReconstruct } from './linalg.js?v=170';
 import { resolve, fromPath } from './drill.js?v=170';
 const { d, ff, L } = CFG;
@@ -114,6 +115,6 @@ export async function toSafetensorsYield(W) {
   let hs = JSON.stringify(hdr); while ((8 + hs.length) % 8) hs += ' ';
   const hb = new TextEncoder().encode(hs), out = new Uint8Array(8 + hb.length + off); new DataView(out.buffer).setBigUint64(0, BigInt(hb.length), true); out.set(hb, 8);
   let p = 8 + hb.length; const N = 1 << 20;
-  for (const a of parts) { const u = new Uint8Array(a.buffer, a.byteOffset, a.byteLength); for (let i = 0; i < u.length; i += N) { out.set(u.subarray(i, Math.min(u.length, i + N)), p + i); await new Promise((r) => setTimeout(r, 0)); } p += a.byteLength; }
+  for (const a of parts) { const u = new Uint8Array(a.buffer, a.byteOffset, a.byteLength); for (let i = 0; i < u.length; i += N) { out.set(u.subarray(i, Math.min(u.length, i + N)), p + i); await frame(); } p += a.byteLength; }
   return out;
 }

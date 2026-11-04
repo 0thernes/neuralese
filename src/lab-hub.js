@@ -6,6 +6,7 @@ import { lines } from './charts.js?v=170';
 import { $, esc, tipq } from './lab-ui.js?v=170';
 import { MODELS, TOOL_MATRIX, TFJS_VERSION, ORT_WASM, pca3, cosine, resample, wav, wer, TRANSFORMS, byKey, cer } from './hub/models.js?v=170';
 import { toEdit } from './hub/finetune.js?v=170';
+import { slice } from './coop.js?v=170';
 const kv = (rows) => `<table class="kv">${rows.map(([a, b]) => `<tr><td>${a}</td><td>${b}</td></tr>`).join('')}</table>`;
 const ok = (b) => (b ? '<span class="good">✔ pass</span>' : '<span class="warn">✖ fail</span>');
 const st = (id) => `<div class="sm" id="${id}St" aria-live="polite"></div>`;
@@ -114,12 +115,14 @@ export function install(A, out) {
   on('hgGo', 'click', () => out.hgen());
   // fine-tune
   let lastFT = null;
-  out.finetune = (text, steps, lr) => new Promise((res, rej) => { const ids = A.tok().encode(text ?? $('hfIn').value), W = A.W(); const w = new Worker(new URL('./hub/ft-worker.js?v=170', import.meta.url), { type: 'module' }); const curve = []; say('hf', `${ids.length} tokens · precomputing frozen activations…`); $('hfApply').disabled = true;
+  const copyW = async (W) => { const c = async (a) => { const o = new Float32Array(a.length), N = 65536; for (let i = 0; i < a.length; i += N) { o.set(a.subarray(i, Math.min(a.length, i + N)), i); const y = slice(); if (y) await y; } return o; }; const layers = []; for (const P of W.layers) { const o = {}; for (const k of Object.keys(P)) o[k] = await c(P[k]); layers.push(o); } return { wte: await c(W.wte), wpe: await c(W.wpe), lnfW: await c(W.lnfW), lnfB: await c(W.lnfB), layers }; };
+  const bufs = (W) => { const b = [W.wte.buffer, W.wpe.buffer, W.lnfW.buffer, W.lnfB.buffer]; for (const P of W.layers) for (const a of Object.values(P)) b.push(a.buffer); return b; };
+  out.finetune = async (text, steps, lr) => { const ids = A.tok().encode(text ?? $('hfIn').value), W = await copyW(A.W()); return new Promise((res, rej) => { const w = new Worker(new URL('./hub/ft-worker.js?v=170', import.meta.url), { type: 'module' }); const curve = []; say('hf', `${ids.length} tokens · precomputing frozen activations…`); $('hfApply').disabled = true;
     w.onmessage = (e) => { if (e.data.evt) { curve.push(e.data.held); say('hf', `step ${e.data.step}: held-out CE ${e.data.held.toFixed(4)}`); lines($('hfCh'), [{ label: 'held-out CE', ys: curve }], { title: 'held-out cross-entropy per Adam step' }); return; } w.terminate(); if (!e.data.ok) return rej(new Error(e.data.error)); const r = e.data.result; lastFT = r;
       $('hfOut').innerHTML = kv([['trainable parameters', r.params], ['chunks train / held-out', `${r.trainChunks} / ${r.heldChunks} (${r.heldTokens} held-out targets)`], ['held-out CE before → after', `${r.before.toFixed(4)} → ${r.after.toFixed(4)}`], ['change, 95% bootstrap CI', `${r.delta.est.toFixed(4)} [${r.delta.lo.toFixed(4)}, ${r.delta.hi.toFixed(4)}]`], ['criterion', 'CI upper bound < 0'], ['result', ok(r.improved)], ['‖Δθ‖₂', r.editL2.toFixed(4)]]);
       $('hfApply').disabled = false; say('hf', 'done'); keep('finetune', `fine-tune ${r.curve.length - 1} steps`, { before: r.before, after: r.after, improved: r.improved }); res(r); };
     w.onerror = (e) => { w.terminate(); rej(new Error('fine-tune worker: ' + (e.message || 'failed'))); };
-    w.postMessage({ W, ids, opts: { steps: steps ?? +$('hfN').value, lr: lr ?? +$('hfLr').value } }); });
+    w.postMessage({ W, ids, opts: { steps: steps ?? +$('hfN').value, lr: lr ?? +$('hfLr').value } }, bufs(W)); }); };
   on('hfGo', 'click', () => out.finetune()); on('hfApply', 'click', () => { if (!lastFT) throw new Error('run a fine-tune first'); const e = toEdit(lastFT, lastFT.curve.length - 1); A.commit(A.ed().label ? A.ed().label(e) : 'fine-tune', () => A.ed().push(e)); });
   const auto = { hub: out.hubInfo }; A.onTab = ((prev) => (k) => { prev?.(k); if (auto[k]) auto[k](); })(A.onTab);
   A.ext = Object.assign(A.ext || {}, {
