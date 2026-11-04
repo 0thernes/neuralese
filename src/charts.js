@@ -20,8 +20,56 @@ const MAPS = {
 };
 const DIV_DARK = ['#9ccfff', '#4f8fe0', '#2b4f8a', '#1a2233', '#8a3a28', '#d9653a', '#ffc078'].map(hex), DIV_LIGHT = ['#1d4f9c', '#4a86d4', '#a9c8ee', '#f4f5f7', '#f0b09a', '#d4593a', '#8f2412'].map(hex);
 function ramp(stops, x) { x = Math.max(0, Math.min(1, x)); const f = x * (stops.length - 1), i = Math.min(stops.length - 2, Math.floor(f)), t = f - i, a = stops[i], b = stops[i + 1]; return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t]; }
+function rasterHeat(cv, c, M, g, done) {
+  const { R, C, w, h, padL, padT, cw, ch, mx, seq } = g;
+  const Off = typeof OffscreenCanvas === 'function' ? OffscreenCanvas : null;
+  const off = Off ? new Off(C, R) : Object.assign(document.createElement('canvas'), { width: C, height: R });
+  const ic = off.getContext('2d', { willReadFrequently: true });
+  const img = ic.createImageData(C, R), data = img.data;
+  const stops = seq ? (MAPS[g.cmap] || MAPS.viridis) : (g.light ? DIV_LIGHT : DIV_DARK);
+  const empty = g.light ? [229, 231, 235] : [5, 7, 12];
+  const gen = (cv._paintGen = (cv._paintGen || 0) + 1);
+  let row = 0;
+  const blit = () => {
+    if (cv._paintGen !== gen || !cv.isConnected) return;
+    ic.putImageData(img, 0, 0);
+    c.setTransform(devicePixelRatio || 1, 0, 0, devicePixelRatio || 1, 0, 0);
+    c.fillStyle = BG(); c.fillRect(0, 0, w, h);
+    c.imageSmoothingEnabled = false;
+    c.drawImage(off, padL, padT, Math.max(1, C * cw), Math.max(1, R * ch));
+  };
+  const step = () => {
+    if (cv._paintGen !== gen || !cv.isConnected) return;
+    const t0 = performance.now();
+    while (row < R && performance.now() - t0 < 16) {
+      const mr = M[row], base = row * C * 4;
+      for (let j = 0; j < C; j++) {
+        const v = mr[j]; let rgb = empty;
+        if (isFinite(v)) { if (seq) rgb = ramp(stops, mx ? v / mx : 0); else { const x = Math.max(-1, Math.min(1, v / (mx || 1))); rgb = ramp(stops, (x + 1) / 2); } }
+        const p = base + j * 4; data[p] = rgb[0]; data[p + 1] = rgb[1]; data[p + 2] = rgb[2]; data[p + 3] = 255;
+      }
+      row++;
+    }
+    blit();
+    if (row < R) setTimeout(step, 0);
+    else if (done) done();
+  };
+  step();
+}
 const rgb = (c) => `rgb(${c[0] | 0},${c[1] | 0},${c[2] | 0})`;
 export const cmap = (name, x) => rgb(ramp(MAPS[name] || MAPS.viridis, x));
+export const viridisBytes = (t) => ramp(MAPS.viridis, Math.max(0, Math.min(1, t)));
+export function stampGrid(ctx, x, y, dw, dh, cols, rows, colorAt) {
+  if (!cols || !rows || dw <= 0 || dh <= 0) return;
+  const Off = typeof OffscreenCanvas === 'function' ? OffscreenCanvas : null;
+  const off = Off ? new Off(cols, rows) : Object.assign(document.createElement('canvas'), { width: cols, height: rows });
+  const ic = off.getContext('2d'); const img = ic.createImageData(cols, rows), d = img.data;
+  for (let i = 0; i < rows; i++) for (let j = 0; j < cols; j++) {
+    const c = colorAt(i, j) || [0, 0, 0, 0]; const p = (i * cols + j) * 4;
+    d[p] = c[0]; d[p + 1] = c[1]; d[p + 2] = c[2]; d[p + 3] = c[3] ?? 255;
+  }
+  ic.putImageData(img, 0, 0); ctx.imageSmoothingEnabled = false; ctx.drawImage(off, x, y, dw, dh);
+}
 // signed value in [-mx, mx] → diverging blue · neutral · orange (neutral matches the chart background in each theme)
 export function divColor(v, mx) { const x = Math.max(-1, Math.min(1, v / (mx || 1))); return rgb(ramp(light() ? DIV_LIGHT : DIV_DARK, (x + 1) / 2)); }
 // [0,1] → viridis
@@ -41,11 +89,17 @@ export function heatmap(cv, M, o = {}) {
   let mx = o.max; if (mx == null) { mx = 0; for (const r of M) for (const v of r) if (isFinite(v)) mx = Math.max(mx, Math.abs(v)); }
   const seq = o.diverging === false, col = (v) => (!isFinite(v) ? (light() ? '#e5e7eb' : '#05070c') : seq ? cmap(o.cmap || 'viridis', v / (mx || 1)) : divColor(v, mx));
   c.fillStyle = BG(); c.fillRect(0, 0, w, h); const gap = cw > 6 && ch > 6 ? 1 : 0, rad = cw > 10 && ch > 10 ? 2 : 0;
-  for (let i = 0; i < R; i++) for (let j = 0; j < C; j++) { c.fillStyle = col(M[i][j]); const x = padL + j * cw, y = padT + i * ch; if (rad) { rrect(c, x, y, cw - gap, ch - gap, rad); c.fill(); } else c.fillRect(x, y, Math.ceil(cw) - gap, Math.ceil(ch) - gap); }
-  c.fillStyle = FG(); c.font = `9.5px ${MONO()}`; c.textBaseline = 'middle'; c.textAlign = 'right'; const rs = Math.max(1, Math.ceil(11 / ch));
-  for (let i = 0; i < R; i += rs) c.fillText(String(o.rows ? o.rows[i] : i).slice(0, 7), padL - 5, padT + i * ch + ch / 2);
-  if (o.cols) { c.textAlign = 'left'; c.textBaseline = 'alphabetic'; const step = Math.max(1, Math.ceil(C / ((w - padL - padR) / 34))); for (let j = 0; j < C; j += step) c.fillText(String(o.cols[j]).slice(0, 6), padL + j * cw + 1, padT - 5); }
-  if (cb && mx > 0) colorbar(c, w - padR + 10, padT, 9, Math.min(h - padT - 6, 160), seq ? 0 : -mx, mx, (v) => col(v));
+  const labels = () => {
+    c.setTransform(devicePixelRatio || 1, 0, 0, devicePixelRatio || 1, 0, 0);
+    c.fillStyle = FG(); c.font = `9.5px ${MONO()}`; c.textBaseline = 'middle'; c.textAlign = 'right'; const rs = Math.max(1, Math.ceil(11 / ch));
+    for (let i = 0; i < R; i += rs) c.fillText(String(o.rows ? o.rows[i] : i).slice(0, 7), padL - 5, padT + i * ch + ch / 2);
+    if (o.cols) { c.textAlign = 'left'; c.textBaseline = 'alphabetic'; const step = Math.max(1, Math.ceil(C / ((w - padL - padR) / 34))); for (let j = 0; j < C; j += step) c.fillText(String(o.cols[j]).slice(0, 6), padL + j * cw + 1, padT - 5); }
+    if (cb && mx > 0) colorbar(c, w - padR + 10, padT, 9, Math.min(h - padT - 6, 160), seq ? 0 : -mx, mx, (v) => col(v));
+  };
+  // A head×token map is hundreds of thousands of cells. fillRect plus a colour string per cell
+  // was a 0.5–2s main-thread task. Large maps rasterise on an OffscreenCanvas in 16ms slices.
+  if (R * C > 4096 && C > 0) rasterHeat(cv, c, M, { R, C, w, h, padL, padT, cw, ch, mx, seq, cmap: o.cmap, light: light() }, labels);
+  else { for (let i = 0; i < R; i++) for (let j = 0; j < C; j++) { c.fillStyle = col(M[i][j]); const x = padL + j * cw, y = padT + i * ch; if (rad) { rrect(c, x, y, cw - gap, ch - gap, rad); c.fill(); } else c.fillRect(x, y, Math.ceil(cw) - gap, Math.ceil(ch) - gap); } labels(); }
   if (o.mark) { c.strokeStyle = css('--w', '#f5b94a'); c.lineWidth = 2; c.shadowColor = c.strokeStyle; c.shadowBlur = 8; c.strokeRect(padL + o.mark[1] * cw, padT + o.mark[0] * ch, cw, ch); c.shadowBlur = 0; }
   if (o.sync && cv._hl >= 0) { const ax = o.syncAxis || 'both'; c.strokeStyle = TX(); c.lineWidth = 1; c.globalAlpha = 0.85; if (ax !== 'col' && cv._hl < R) c.strokeRect(padL + 0.5, padT + cv._hl * ch + 0.5, C * cw - 1, ch - 1); if (ax !== 'row' && cv._hl < C) c.strokeRect(padL + cv._hl * cw + 0.5, padT + 0.5, cw - 1, R * ch - 1); c.globalAlpha = 1; }
   listen(cv, o.sync, (i) => { if (i !== cv._hl) { cv._hl = i; cv._redraw(); } });
@@ -79,7 +133,7 @@ export function lines(cv, series, o = {}) {
     c.save(); c.beginPath(); c.rect(padL, 0, w - padL - padR + 1, h); c.clip();
     series.forEach((s, si) => { const color = s.color || SERIES[si % SERIES.length]; const pts = []; for (let i = Math.max(0, view.a - 1); i <= Math.min(s.ys.length - 1, view.b + 1); i++) { const y = val(si, i); if (isFinite(y)) pts.push([X(i), Y(y)]); } if (!pts.length) return;
       if (series.length <= 2 && (s.width || 1) >= 1 && color.length <= 7) { const g = c.createLinearGradient(0, padT, 0, h - padB); g.addColorStop(0, color + '38'); g.addColorStop(1, color + '00'); c.fillStyle = g; c.beginPath(); c.moveTo(pts[0][0], h - padB); for (const [x, y] of pts) c.lineTo(x, y); c.lineTo(pts[pts.length - 1][0], h - padB); c.closePath(); c.fill(); }
-      c.strokeStyle = color; c.lineWidth = Math.max(1.25, (s.width || 1) * 1.4); if (series.length <= 4) { c.shadowColor = color; c.shadowBlur = 6; } c.beginPath(); pts.forEach(([x, y], i) => (i ? c.lineTo(x, y) : c.moveTo(x, y))); c.stroke(); c.shadowBlur = 0;
+      c.strokeStyle = color; c.lineWidth = Math.max(1.25, (s.width || 1) * 1.4); c.beginPath(); pts.forEach(([x, y], i) => (i ? c.lineTo(x, y) : c.moveTo(x, y))); c.stroke();
       if (pts.length === 1) { c.fillStyle = color; c.beginPath(); c.arc(pts[0][0], pts[0][1], 3, 0, 7); c.fill(); } });
     c.restore();
     title(c, o.title, padL);

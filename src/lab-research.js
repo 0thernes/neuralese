@@ -126,6 +126,21 @@ export function install(A, out) {
   const renderNb = () => { $('nbCells').innerHTML = cells.map((c, i) => `<div class="cell"><div class="r"><span class="sm">[${i}]</span><button data-run="${i}">▶ run</button><button data-del="${i}" aria-label="delete cell ${i}">✕</button></div><textarea rows="${Math.min(12, c.split('\n').length + 1)}" data-i="${i}" style="width:100%;font-family:monospace" aria-label="cell ${i}">${esc(c)}</textarea><pre class="sm" id="nbO${i}">${esc(outs[i]?.text || '')}</pre><canvas class="ch" id="nbC${i}" style="${outs[i]?.plot ? '' : 'display:none'}"></canvas></div>`).join('');
     $('nbCells').querySelectorAll('textarea').forEach((t) => (t.oninput = () => { cells[+t.dataset.i] = t.value; saveNb(); })); $('nbCells').querySelectorAll('[data-run]').forEach((b) => (b.onclick = () => out.nbRun(+b.dataset.run).catch(() => {})));
     $('nbCells').querySelectorAll('[data-del]').forEach((b) => (b.onclick = () => { cells.splice(+b.dataset.del, 1); outs.splice(+b.dataset.del, 1); saveNb(); renderNb(); })); };
+  const needsW = (code) => /\blab\s*\.\s*[MW]\b|\bresearch\s*\./.test(code);
+  const sendModel = async (w, id, model, prefix) => {
+    const CHUNK = 65536;
+    const send = async (name, arr) => {
+      if (!arr) return;
+      for (let off = 0; off < arr.length; off += CHUNK) {
+        const copy = new Float32Array(arr.subarray(off, Math.min(arr.length, off + CHUNK)));
+        w.postMessage({ op: 'chunk', name, off, len: arr.length, buf: copy }, [copy.buffer]);
+        await new Promise((r) => setTimeout(r, 0));
+      }
+    };
+    await send(prefix + 'wte', model.wte); await send(prefix + 'wpe', model.wpe); await send(prefix + 'lnfW', model.lnfW); await send(prefix + 'lnfB', model.lnfB);
+    for (let l = 0; l < model.layers.length; l++) for (const k of Object.keys(model.layers[l])) await send(prefix + 'L' + l + '.' + k, model.layers[l][k]);
+    void id;
+  };
   out.nbRun = (i) => new Promise((resolve, reject) => { const o = (outs[i] = { text: '', plot: null }), pre = $('nbO' + i), cvs = $('nbC' + i);
     const w = nbWorker(), id = ++nbSeq;
     const onMsg = (e) => { const m = e.data; if (!m || m.id !== id) return;
@@ -133,10 +148,12 @@ export function install(A, out) {
       if (m.plot) { const ys = m.plot; const s = Array.isArray(ys) && ys.length && ys[0]?.ys ? ys : [{ ys: Array.from(ys), label: 'y' }]; o.plot = s; cvs.style.display = ''; lines(cvs, s); }
       if (m.err) { w.removeEventListener('message', onMsg); o.text += '✖ ' + m.err; pre.textContent = o.text; reject(new Error(m.err)); }
       if (m.done) { w.removeEventListener('message', onMsg); if (m.value != null) { o.text += (typeof m.value === 'string' ? m.value : JSON.stringify(m.value)) + '\n'; pre.textContent = o.text; } resolve(o); }
+      if (m.weights) w.postMessage({ op: 'run', id, code: cells[i] });
     };
     w.addEventListener('message', onMsg);
-    w.postMessage({ op: 'weights', W: A.W(), M: A.M(), user: DS.user });
-    w.postMessage({ op: 'run', id, code: cells[i] });
+    if (!needsW(cells[i])) { w.postMessage({ op: 'run', id, code: cells[i] }); return; }
+    const same = A.W() === A.M();
+    sendModel(w, id, A.M(), same ? '' : 'M.').then(() => same ? null : sendModel(w, id, A.W(), 'W.')).then(() => w.postMessage({ op: 'weights-done', id, shared: same, user: DS.user })).catch((e) => { w.removeEventListener('message', onMsg); reject(e); });
   });
   on('nbAdd', 'click', () => { cells.push('print(lab.ed().edits.length, "edits")'); saveNb(); renderNb(); }); on('nbAll', 'click', async () => { for (let i = 0; i < cells.length; i++) await out.nbRun(i); });
   const nbMd = () => cells.map((c, i) => '```js\n' + c + '\n```\n' + (outs[i]?.text ? '```\n' + outs[i].text + '```\n' : '')).join('\n');

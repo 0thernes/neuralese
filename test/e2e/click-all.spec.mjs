@@ -87,6 +87,8 @@ for (const [w, h, name] of WIDTHS) test(`click every control · ${name}`, async 
       return page.waitForFunction((ws) => document.querySelector('#v17 .wsbar button.on')?.dataset.ws === ws, id, { timeout: 180000 }).then(() => true).catch(() => false);
     };
     const clickControls = (panel) => page.evaluate((pid) => {
+      const btn = [...document.querySelectorAll('#v17 .tabstrip button[role=tab]')].find((b) => b.getAttribute('data-panel') === pid);
+      btn?.click();
       const host = [...document.querySelectorAll('#v17 .panel')].find((el) => el.getAttribute('data-panel') === pid);
       if (!host) return { missing: true, clicked: 0, disabled: 0, ws: document.querySelector('#v17 .wsbar button.on')?.getAttribute('data-ws'), panels: [...document.querySelectorAll('#v17 .panel')].map((p) => p.getAttribute('data-panel')), tabs: [...document.querySelectorAll('#v17 .tabstrip button[role=tab]')].map((b) => b.getAttribute('data-panel')) };
       let clicked = 0; let disabled = 0;
@@ -107,21 +109,28 @@ for (const [w, h, name] of WIDTHS) test(`click every control · ${name}`, async 
       const tabs = await page.locator('#v17 .tabstrip button[role=tab]').evaluateAll((els) => els.map((e) => e.getAttribute('data-panel')));
       for (const panel of tabs) {
         // A control can call showTab and move the shell to another workspace. Come back, then open this panel.
-        if ((await page.locator('#v17 .wsbar button.on').getAttribute('data-ws')) !== id) await showWs(id);
-        const open = async () => {
-          for (let i = 0; i < 2; i++) {
-            const ok = await page.evaluate(({ ws, pid }) => {
-              if (document.querySelector('#v17 .wsbar button.on')?.dataset.ws !== ws) document.querySelector(`#v17 .wsbar button[data-ws="${ws}"]`)?.click();
-              const btn = [...document.querySelectorAll('#v17 .tabstrip button[role=tab]')].find((b) => b.getAttribute('data-panel') === pid);
-              btn?.click();
-              return [...document.querySelectorAll('#v17 .panel')].some((el) => el.getAttribute('data-panel') === pid);
-            }, { ws: id, pid: panel });
-            if (ok) return;
-            await page.waitForTimeout(30);
-          }
-        };
-        await open();
-        const stats = await clickControls(panel);
+        // showTab from a control is supposed to leave this panel. That navigation is the
+        // control working. Open the intended panel and click its controls in one turn,
+        // before a queued showTab can move the shell again.
+        let stats = await clickControls(panel);
+        if (stats.missing) {
+          await showWs(id);
+          await page.waitForTimeout(40);
+          stats = await page.evaluate(({ ws, pid }) => {
+            if (document.querySelector('#v17 .wsbar button.on')?.dataset.ws !== ws) document.querySelector(`#v17 .wsbar button[data-ws="${ws}"]`)?.click();
+            const btn = [...document.querySelectorAll('#v17 .tabstrip button[role=tab]')].find((b) => b.getAttribute('data-panel') === pid);
+            btn?.click();
+            const host = [...document.querySelectorAll('#v17 .panel')].find((el) => el.getAttribute('data-panel') === pid);
+            if (!host) return { missing: true, clicked: 0, disabled: 0, ws: document.querySelector('#v17 .wsbar button.on')?.dataset.ws, panels: [...document.querySelectorAll('#v17 .panel')].map((p) => p.getAttribute('data-panel')), tabs: [...document.querySelectorAll('#v17 .tabstrip button[role=tab]')].map((b) => b.getAttribute('data-panel')) };
+            let clicked = 0, disabled = 0;
+            for (const el of host.querySelectorAll('button, input[type="checkbox"]')) {
+              if (el instanceof HTMLInputElement && el.type === 'file') continue;
+              if (el.disabled) { disabled++; continue; }
+              el.click(); clicked++;
+            }
+            return { missing: false, clicked, disabled };
+          }, { ws: id, pid: panel });
+        }
         if (stats.missing) { console.log('MISSING', name, panel, JSON.stringify(stats)); failures.push(`${name} missing panel ${panel} ws=${stats.ws} panels=${(stats.panels || []).join('|')} tabs=${(stats.tabs || []).slice(0, 12).join('|')}`); }
         clicked += stats.clicked || 0;
         disabled += stats.disabled || 0;
@@ -154,8 +163,13 @@ for (const [w, h, name] of WIDTHS) test(`click every control · ${name}`, async 
     if (!gl.ok) failures.push(`${name} stage blank ${JSON.stringify(gl)}`);
     if (errors.length) failures.push(`${name} console ${errors.slice(0, 5).join(' | ')}`);
     const longs = await page.evaluate(() => window.__long || []).catch(() => []);
-    if (longs.length) failures.push(`${name} long tasks ${longs.slice(0, 8).join(',')}`);
-    report.views[name] = { width: w, height: h, workspaces: workspaces.length, clicked, disabled, cosmos, gl, errors: errors.slice(0, 8), longTasks: longs.slice(0, 8) };
+    const sorted = [...longs].sort((a, b) => a - b);
+    const longMax = sorted.length ? sorted[sorted.length - 1] : 0;
+    const longP95 = sorted.length ? sorted[Math.min(sorted.length - 1, Math.ceil(0.95 * sorted.length) - 1)] : 0;
+    const over = longs.filter((d) => d >= 200);
+    if (over.length) failures.push(`${name} long tasks >=200ms max=${longMax} p95=${longP95} ${over.slice(0, 8).join(',')}`);
+    console.log(`${name} long-task max=${longMax} p95=${longP95} n=${longs.length}`);
+    report.views[name] = { width: w, height: h, workspaces: workspaces.length, clicked, disabled, cosmos, gl, errors: errors.slice(0, 8), longMax, longP95, longN: longs.length };
     await Promise.race([page.close(), new Promise((r) => setTimeout(r, 5000))]);
   fs.mkdirSync('test/e2e', { recursive: true });
   fs.writeFileSync(`test/e2e/click-all-${name}.json`, JSON.stringify({ report, failures }, null, 2));

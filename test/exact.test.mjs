@@ -27,10 +27,10 @@ test('edit + undo (rebuild by replay from original) is bitwise exact for every e
   assert.equal(bitEq(M, W), true, 'all undone == original');
   ed.setEdits(EDITS.map((e, i) => ({ ...e, id: i + 1 }))); assert.equal(bitEq(M, full), true, 'redo all == first application');
 });
-test('analyses that perturb weights in place restore them bitwise (drill FD/ablation, loss slice, HVP)', () => {
+test('analyses that perturb weights in place restore them bitwise (drill FD/ablation, loss slice, HVP)', async () => {
   const M = cloneWeights(W), ids = [50256, 7454, 2402, 257, 640, 612, 373, 257, 1310];
-  inspect(M, fromPath('L3.attn.q.H5'), [ids], {}); assert.equal(bitEq(M, W), true, 'drill unit');
-  inspect(M, fromPath('L2.mlp.fc'), [ids], { spectralMax: 0 }); assert.equal(bitEq(M, W), true, 'drill matrix');
-  lossSlice(M, [ids], { mats: [[3, 'fc']], n: 3, span: 0.7, maxT: 9 }); assert.equal(bitEq(M, W), true, 'loss slice');
+  await inspect(M, fromPath('L3.attn.q.H5'), [ids], {}); assert.equal(bitEq(M, W), true, 'drill unit');
+  await inspect(M, fromPath('L2.mlp.fc'), [ids], { spectralMax: 0 }); assert.equal(bitEq(M, W), true, 'drill matrix');
+  await lossSlice(M, [ids], { mats: [[3, 'fc']], n: 3, span: 0.7, maxT: 9 }); assert.equal(bitEq(M, W), true, 'loss slice');
   hvp(M, ids, 7, 'ob', new Float32Array(256).fill(0.1)); assert.equal(bitEq(M, W), true, 'hvp');
 });

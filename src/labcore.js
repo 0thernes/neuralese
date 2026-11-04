@@ -100,8 +100,8 @@ export function spectral(A, rows, cols) {
 export function repeatedTokens(n = 30, seed = 7) { const r = mulberry32(seed); const a = Array.from({ length: n }, () => 1000 + Math.floor(r() * 20000)); return [...a, ...a]; }
 // Real scoring on the given engine. Returns per-layer per-head scores and a label.
 // prev: mean attn(t→t−1) on text; sink: mean attn(t→0); induction: mean attn(n+i → i+1) on a repeated random sequence; duplicate: mean attn(n+i → i).
-export function headScores(eng, textIds, n = 30) {
-  const tx = eng.run(textIds, { trace: true }).traces, rp = eng.run(repeatedTokens(n), { trace: true }).traces, slots = eng.R.program.length;
+export function scoreHeads(eng, tx, rp, n = 30) {
+  const slots = eng.R.program.length;
   const out = [];
   for (let s = 0; s < slots; s++) { const row = [];
     for (let h = 0; h < H; h++) {
@@ -112,6 +112,9 @@ export function headScores(eng, textIds, n = 30) {
       sc.label = best[1] >= 0.3 ? best[0] : sc.entropy > 0.7 ? 'diffuse' : 'mixed'; sc.layer = eng.R.program[s].layer; row.push(sc);
     } out.push(row); }
   return out;
+}
+export function headScores(eng, textIds, n = 30) {
+  return scoreHeads(eng, eng.run(textIds, { trace: true }).traces, eng.run(repeatedTokens(n), { trace: true }).traces, n);
 }
 // Attention rollout (Abnar & Zuidema 2020): per slot head-mean attention, Â = ½A + ½I, rows renormalised, multiplied through the stack. traces from Engine.run(...,{trace:true}).
 export function attentionRollout(traces, slots) {

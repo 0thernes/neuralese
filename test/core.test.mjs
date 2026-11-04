@@ -61,7 +61,7 @@ test('SVD top-k edit produces a rank-k matrix; undo restores bit-exact', () => {
   ed.setEdits([]); assert.equal(maxDiff(MOD.layers[2].v, ORIG.layers[2].v), 0);
 });
 test('stats + tuned lens beats logit lens on intermediate layers', async () => {
-  STATS = await computeStats(ORIG, CORPUS, 500); fitTunedLens(STATS, 1e-3);
+  STATS = await computeStats(ORIG, CORPUS, 500); await fitTunedLens(STATS, 1e-3);
   const e = clean(); e.stats = STATS; const ids = CORPUS[39].slice(0, 40); const tr = e.run(ids, { trace: true }).traces;
   const G = lensGrid(e, tr, { k: 1 }), T = lensGrid(e, tr, { k: 1, tuned: STATS.tuned });
   const kl = (G2) => { let s = 0; for (let p = 0; p < tr.length; p++) { const fin = G2[p][8].lp; for (const r of [2, 3, 4]) { const q = G2[p][r].lp; for (let i = 0; i < fin.length; i++) { const pf = Math.exp(fin[i]); if (pf > 1e-6) s += pf * (fin[i] - q[i]); } } } return s / tr.length / 3; };
@@ -135,4 +135,4 @@ test('safetensors export round-trips', () => {
   const n2 = Number(new DataView(bytes.buffer).getBigUint64(0, true)); const h2 = JSON.parse(new TextDecoder().decode(bytes.subarray(8, 8 + n2)));
   const W2 = buildWeights(parseSafetensors(bytes.buffer.slice(8 + n2), n2, h2)); assert.equal(maxDiff(W2.layers[1].o, MOD.layers[1].o), 0); assert.equal(maxDiff(W2.wte, MOD.wte), 0); ed.setEdits([]);
 });
-test('token stats: perplexity finite, entropies sane', () => { const e = clean(); const ids = CORPUS[38].slice(0, 30); const T = tokenStats(e, e.run(ids, { trace: true }).traces, ids); assert.ok(T.ppl > 1 && T.ppl < 50, 'ppl ' + T.ppl); console.log('  corpus-story perplexity', T.ppl.toFixed(2)); });
+test('token stats: perplexity finite, entropies sane', async () => { const e = clean(); const ids = CORPUS[38].slice(0, 30); const T = await tokenStats(e, e.run(ids, { trace: true }).traces, ids); assert.ok(T.ppl > 1 && T.ppl < 50, 'ppl ' + T.ppl); console.log('  corpus-story perplexity', T.ppl.toFixed(2)); });

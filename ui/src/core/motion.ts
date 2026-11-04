@@ -11,10 +11,13 @@ export function stepSpring(s: Spring, dt: number, k = 120, c = 22): boolean {
 type VT = { finished?: Promise<unknown>; ready?: Promise<unknown>; updateCallbackDone?: Promise<unknown> };
 type VTDoc = Document & { startViewTransition?: (cb: () => void) => VT };
 export function viewTransition(cb: () => void): void {
-  const d = document as VTDoc; if (!d.startViewTransition || reducedMotion()) { cb(); return; }
-  // A second transition while one is running throws. The click still has to land.
+  // The View Transition callback runs on a later frame. A tab click in between was overwritten
+  // by the stale callback, so the panel the control asked for was not active yet. Apply the
+  // navigation immediately; the transition call only animates and must not own the state.
+  cb();
+  const d = document as VTDoc; if (!d.startViewTransition || reducedMotion()) return;
   let vt: VT;
-  try { vt = d.startViewTransition(cb); } catch { cb(); return; }
+  try { vt = d.startViewTransition(() => {}); } catch { return; }
   const quiet = (): void => { /* a newer transition superseded this one */ };
   vt.finished?.catch(quiet); vt.ready?.catch(quiet); vt.updateCallbackDone?.catch(quiet);
 }

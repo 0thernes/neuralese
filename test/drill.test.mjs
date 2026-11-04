@@ -15,10 +15,10 @@ test('hierarchy: counts, paths and index resolution', () => {
   for (const s of ['L3.attn.q.H5.r2.w17', 'L0.mlp.fcb.w3', 'L7.ln2.ln2w', 'L2']) assert.equal(D.toPath(D.fromPath(s)), s);
   assert.equal(D.crumbs(D.fromPath('L3.attn.q.H5.r2.w17')).length, 7);
 });
-test('inspector: finite difference agrees with analytic gradient, ablation restores weights', () => {
+test('inspector: finite difference agrees with analytic gradient, ablation restores weights', async () => {
   const docs = CORPUS.slice(0, 2).map((x) => x.slice(0, 16)), node = D.fromPath('L5.mlp.fc.N100'), before = W.layers[5].fc.slice(100 * 256, 101 * 256);
-  const r = D.inspect(W, node, docs, { eps: 1e-3 }); console.log(JSON.stringify(r.grad));
+  const r = await D.inspect(W, node, docs, { eps: 1e-3 }); console.log(JSON.stringify(r.grad));
   assert.ok(r.grad.fdRelErr < 0.05, 'fd rel err ' + r.grad.fdRelErr); assert.equal(r.count, 256);
   assert.deepEqual(Array.from(W.layers[5].fc.slice(100 * 256, 101 * 256)), Array.from(before)); assert.ok(r.provenance.length > 0 && r.logitDirect.up.length === 8);
-  const m = D.inspect(W, D.fromPath('L2.attn.v'), docs.slice(0, 1)); assert.ok(m.spectral && m.spectral.effRank > 1);
+  const m = await D.inspect(W, D.fromPath('L2.attn.v'), docs.slice(0, 1)); assert.ok(m.spectral && m.spectral.effRank > 1);
 });

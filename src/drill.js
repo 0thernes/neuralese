@@ -59,24 +59,24 @@ export function fromPath(s) { const n = {}; if (!s || s === 'model') return n; f
   else if ((m = t.match(/^[HNi](\d+)$/))) n.unit = +m[1]; else if ((m = t.match(/^([rc])(\d+)$/))) { n.lineAxis = m[1]; n.line = +m[2]; } else if ((m = t.match(/^w(\d+)$/))) n.w = +m[1]; else throw new Error('bad path segment ' + t); } return n; }
 
 // ── inspector: everything measured on the same parameter set ──
-import { forward, logitsAt, grad } from './grad.js?v=170';
+import { forwardAsync, logitsAt, gradAsync } from './grad.js?v=170';
 import { moments, spectral } from './science.js?v=170';
-function tokenLosses(W, ids) { const A = forward(W, ids), out = []; for (let t = 0; t < ids.length - 1; t++) { const lg = logitsAt(W, A, t); let m = -Infinity; for (const x of lg) if (x > m) m = x; let z = 0; for (const x of lg) z += Math.exp(x - m); out.push(m + Math.log(z) - lg[ids[t + 1]]); } return out; }
+async function tokenLosses(W, ids) { const A = await forwardAsync(W, ids), out = []; for (let t = 0; t < ids.length - 1; t++) { const lg = logitsAt(W, A, t); let m = -Infinity; for (const x of lg) if (x > m) m = x; let z = 0; for (const x of lg) z += Math.exp(x - m); out.push(m + Math.log(z) - lg[ids[t + 1]]); } return out; }
 const mean = (a) => a.reduce((x, y) => x + y, 0) / (a.length || 1);
-export function inspect(W, n, docs, { eps = 1e-2, spectralMax = 300000, tok = null } = {}) {
+export async function inspect(W, n, docs, { eps = 1e-2, spectralMax = 300000, tok = null } = {}) {
   const parts = resolve(W, n), theta = gather(W, parts), N = theta.length, res = { path: toPath(n) || 'model', level: LEVELS[level(n)], count: N, stats: moments(theta) };
   const mv = matrixView(W, n); if (mv && mv.rows * mv.cols <= spectralMax && Math.min(mv.rows, mv.cols) >= 2) { const sp = spectral(mv.a, mv.rows, mv.cols); res.spectral = { ...sp, S: Array.from(sp.S).slice(0, 64), shape: [mv.rows, mv.cols] }; }
   // gradients / Fisher / saliency on the docs (mean next-token CE)
-  let gsum = new Float64Array(N), g2 = new Float64Array(N), base = []; for (const ids of docs) { const r = grad(W, ids, { kind: 'ce' }, { weights: true }); const g = gather(r.G, parts); for (let i = 0; i < N; i++) { gsum[i] += g[i] / docs.length; g2[i] += g[i] * g[i] / docs.length; } base.push(r.value); }
+  let gsum = new Float64Array(N), g2 = new Float64Array(N), base = []; for (const ids of docs) { const r = await gradAsync(W, ids, { kind: 'ce' }, { weights: true }); const g = gather(r.G, parts); for (let i = 0; i < N; i++) { gsum[i] += g[i] / docs.length; g2[i] += g[i] * g[i] / docs.length; } base.push(r.value); }
   let gn = 0, fis = 0, sal = 0, gu = 0, tn = 0; for (let i = 0; i < N; i++) { gn += gsum[i] ** 2; fis += g2[i]; sal += Math.abs(theta[i] * gsum[i]); tn += theta[i] ** 2; } tn = Math.sqrt(tn);
   for (let i = 0; i < N; i++) gu += gsum[i] * theta[i] / (tn || 1);
-  const L0 = mean(base), lossAt = (s, dir) => { scatterAdd(W, parts, dir, s); try { return mean(docs.map((ids) => grad(W, ids, { kind: 'ce' }).value)); } finally { scatterSet(W, parts, theta); } };
+  const L0 = mean(base), lossAt = async (s, dir) => { scatterAdd(W, parts, dir, s); try { const vals = []; for (const ids of docs) vals.push((await gradAsync(W, ids, { kind: 'ce' })).value); return mean(vals); } finally { scatterSet(W, parts, theta); } };
   const u = theta.map((x) => x / (tn || 1)), step = eps * (tn / Math.sqrt(N) || 1) * Math.sqrt(N);
-  const fd = tn ? (lossAt(step, u) - lossAt(-step, u)) / (2 * step) : 0;
+  const fd = tn ? ((await lossAt(step, u)) - (await lossAt(-step, u))) / (2 * step) : 0;
   res.grad = { loss: L0, gradNorm: Math.sqrt(gn), fisherTrace: fis, fisherMean: fis / N, saliency: sal, dirDeriv: gu, finiteDiff: fd, fdStep: step, fdRelErr: Math.abs(fd - gu) / Math.max(1e-9, Math.abs(gu)) };
   // ablation (zero the set) + per-token provenance
-  const tlBase = docs.map((ids) => tokenLosses(W, ids)), saved = theta.slice(); scatterAdd(W, parts, saved, -1);
-  let tlAbl; try { tlAbl = docs.map((ids) => tokenLosses(W, ids)); } finally { scatterSet(W, parts, saved); }
+  const tlBase = []; for (const ids of docs) tlBase.push(await tokenLosses(W, ids)); const saved = theta.slice(); scatterAdd(W, parts, saved, -1);
+  let tlAbl; try { tlAbl = []; for (const ids of docs) tlAbl.push(await tokenLosses(W, ids)); } finally { scatterSet(W, parts, saved); }
   const deltas = []; docs.forEach((ids, di) => tlBase[di].forEach((b, t) => deltas.push({ doc: di, t, tok: ids[t + 1], ctx: ids[t], d: tlAbl[di][t] - b })));
   res.ablation = { dLoss: mean(deltas.map((x) => x.d)), maxUp: Math.max(...deltas.map((x) => x.d)), n: deltas.length };
   deltas.sort((a, b) => Math.abs(b.d) - Math.abs(a.d)); res.provenance = deltas.slice(0, 12).map((x) => ({ ...x, str: tok ? tok.tokenStr(x.tok) : String(x.tok), ctxStr: tok ? tok.tokenStr(x.ctx) : String(x.ctx) }));
