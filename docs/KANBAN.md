@@ -14,7 +14,7 @@ Solo board. No assignees, no approvals. An item moves only when the named check 
 
 ## In progress
 
-- Nothing. Unstarted tracks stay in Backlog.
+- Finish list still open: live bug list with causes, Playwright click-all on the preview URL, parity restores, redesign screenshots, engineering docs, ten scored passes, Runs workspace, verified Deep Analytics views. P0 table stakes do not start until that list is evidenced.
 
 ## Ready
 
@@ -22,6 +22,52 @@ Solo board. No assignees, no approvals. An item moves only when the named check 
 - Browser e2e that opens every `features.json` route and fails on a page error. CI stays tag or manual dispatch.
 
 ## Backlog
+
+P0 table stakes from `docs/roadmap/TABLE_STAKES_100.md`. Not started. Alex’s “have” mark is noted and was not re-audited here.
+
+- TS-P0-01 Named hook points on every module (#1, partial).
+- TS-P0-02 run_with_cache (#2, partial).
+- TS-P0-03 Hook interventions add/replace/zero (#3, partial).
+- TS-P0-04 Unified HF loader (#5, partial).
+- TS-P0-05 Arch adapters GPT-2/Llama/Qwen/Pythia (#6, partial).
+- TS-P0-06 Batched inference with padding masks (#8, partial).
+- TS-P0-07 Deterministic seeds (#9, partial).
+- TS-P0-08 Sharded activation store (#10, partial).
+- TS-P0-09 Dataset streaming and tokenization (#11, partial).
+- TS-P0-10 Logit lens (#14, yes).
+- TS-P0-11 Tuned lens (#15, yes).
+- TS-P0-12 Direct logit attribution (#16, partial).
+- TS-P0-13 Activation patching (#17, yes).
+- TS-P0-14 Linear probes with a split (#25, yes).
+- TS-P0-15 Attention pattern viewer (#30, partial).
+- TS-P0-16 Neuron activation viewer (#32, partial).
+- TS-P0-17 Feature dashboards (#33, partial).
+- TS-P0-18 SAE training ReLU/TopK/JumpReLU (#34, yes).
+- TS-P0-19 SAE eval metrics (#35, partial).
+- TS-P0-20 CAA steering (#41, yes).
+- TS-P0-21 ActAdd (#42, yes).
+- TS-P0-22 Ablation sweeps zero/mean/resample (#44, partial).
+- TS-P0-23 Experiment tracker (#46, yes).
+- TS-P0-24 Artifact versioning (#47, partial).
+- TS-P0-25 Run comparison (#49, partial).
+- TS-P0-26 Checkpoint resume (#53, partial).
+- TS-P0-27 Grad accumulation and clipping (#54, partial).
+- TS-P0-28 LR schedulers and warmup (#55, partial).
+- TS-P0-29 Tiny-model recipes (#57, yes).
+- TS-P0-30 Benchmark harness (#61, no).
+- TS-P0-31 Held-out perplexity (#63, yes).
+- TS-P0-32 Stats tests and CIs (#68, partial).
+- TS-P0-33 Random and shuffled controls (#69, yes).
+- TS-P0-34 Notebook integration (#71, partial).
+- TS-P0-35 Prompt playground with token probs (#72, partial).
+- TS-P0-36 Token probability heatmap (#73, partial).
+- TS-P0-37 Per-layer profiler, FLOPs and latency (#80, partial).
+- TS-P0-38 Hub download and caching (#83, partial).
+- TS-P0-39 CLI for all experiments (#86, partial).
+- TS-P0-40 Hook tests against a reference (#88, partial).
+- TS-P0-41 Golden-output regression tests (#89, partial).
+- TS-P0-42 Head-ablation importance table (#98, partial).
+- TS-P0-43 Safetensors IO (#100, partial).
 
 Research tracks. Hypothesis, metric, ladder, and dependencies are in `docs/engineering/RESEARCH_TRACKS.md`. None of these are implemented as specified.
 
