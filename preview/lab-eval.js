@@ -3,7 +3,7 @@ import * as C from './labcore.js?v=170';
 import { topK } from './engine.js?v=170';
 import { CORPUS } from './corpus.js?v=170';
 import { lines, bars } from './charts.js?v=170';
-import { $, $$, esc, fmt, opts, cv, tipq, PAL, prog, canvasFit, chartBg, exportFor, runs, L } from './lab-ui.js?v=170';
+import { $, $$, esc, fmt, opts, cv, tipq, PAL, prog, canvasFit, chartBg, exportFor, runs, lab, L } from './lab-ui.js?v=170';
 
 export const markup = {
   timeline: ['TIMELINE', 'Token timeline', `<fieldset><legend>per-token timeline of the last generation ${tipq('Recorded from the raw (pre-filter) distribution of the hacked model at every generated step, including the first generation after load.')}</legend><div class="r"><button class="pri" id="xT">refresh</button><span id="xTInfo" class="sm"></span></div>${cv('xTP', 'p(chosen) teal · top-1 p pink')}${cv('xTH', 'entropy (nats) teal · surprisal −ln p pink')}${cv('xTM', 'top-1 − top-2 probability margin')}</fieldset>`],
@@ -11,7 +11,7 @@ export const markup = {
   impact: ['IMPACT', 'Edit impact', `<fieldset><legend>edit-impact dashboard ${tipq('Clean model (original weights, default runtime) vs the current hacked model on the same input.')}</legend><div class="r"><input id="xIP" style="flex:1" value="Once upon a time, there was a little girl named Lily. She loved to"/><button class="pri" id="xI">measure</button></div><div id="xIInfo"></div>
 ${cv('xIL', 'logit-lens KL(hacked‖clean) per slot, last token')}${cv('xIPos', 'final-layer KL per position')}${cv('xIS', 'largest probability shifts at the last token')}<div class="two"><div><b>clean (greedy)</b><div id="xIA" class="otext"></div></div><div><b>hacked (greedy)</b><div id="xIB" class="otext"></div></div></div></fieldset>`],
   prof: ['PROFILER', 'Performance profiler', `<fieldset><legend>per-op profiler ${tipq('Wall time between successive engine hooks during real forward steps of the current model, plus final LayerNorm + unembedding.')}</legend><div class="r"><label>tokens</label><input type="number" id="xPN" value="24"/><button class="pri" id="xP">profile</button><span id="xPInfo" class="sm"></span></div>${cv('xPFl', 'flame chart: one row per token, x = time inside the step')}${cv('xPAgg', 'total ms per op')}<div id="xPTab" class="sm"></div></fieldset>`],
-  runs: ['RUNS', 'Experiment tracker', `<fieldset><legend>experiment tracker ${tipq('Every calibration, impact, sweep, profile, α-scan and terminal batch is logged here (localStorage). Tick runs to compare.')}</legend><div class="r"><label>metric</label><select id="xRm"></select><button id="xRr">refresh</button><button id="xRcsv">export CSV</button><button id="xRjson">export JSON</button><button class="dan" id="xRclr">clear</button></div>${cv('xRch', 'metric across selected runs')}${cv('xRsw', 'sweep curves (perplexity) of selected runs')}<div id="xRtab" class="scroll"></div></fieldset>`],
+  runs: ['RUNS', 'Experiment tracker', `<fieldset><legend>experiment tracker ${tipq('Every calibration, impact, sweep, profile, α-scan and terminal batch is logged here (localStorage). Tick runs to compare.')}</legend><div class="r"><label>metric</label><select id="xRm"></select><button id="xRr">refresh</button><button id="xRcsv">export CSV</button><button id="xRjson">export JSON</button><button id="xRlab">export lab store</button><button class="dan" id="xRclr">clear</button></div>${cv('xRch', 'metric across selected runs')}${cv('xRsw', 'sweep curves (perplexity) of selected runs')}<div id="xRtab" class="scroll"></div></fieldset>`],
 };
 
 export function install(A, out) {
@@ -66,4 +66,5 @@ export function install(A, out) {
   on('xRr', 'click', out.runs); on('xRm', 'change', out.runs); on('xRclr', 'click', () => { runs.save([]); out.runs(); });
   on('xRcsv', 'click', () => { out.runs(); exportFor('xRtab', 'csv'); });
   on('xRjson', 'click', () => A.download('neuralese-runs.json', JSON.stringify(runs.all(), null, 1)));
+  on('xRlab', 'click', () => A.download('neuralese-lab.json', JSON.stringify(lab.dump(), null, 1)));
 }

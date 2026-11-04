@@ -110,7 +110,7 @@ code,kbd,pre,textarea,.otext,.term,#tmIn,td,.mono,#hud b,.ver,#wHash,.chip,#topk
 /* header */
 header#top{height:44px;gap:var(--s3);padding:0 var(--s3);background:var(--hdr);backdrop-filter:blur(14px) saturate(140%);-webkit-backdrop-filter:blur(14px) saturate(140%);border-bottom:1px solid var(--b)}
 .logo{font-weight:800;letter-spacing:.24em;font-size:13px;display:flex;align-items:center;gap:2px}.logo span{color:var(--a)}
-.logo i{font-style:normal;font-weight:600;letter-spacing:.02em;font-size:10px;color:#04201c;background:var(--a);border-radius:999px;padding:1px 6px;margin-left:6px}
+.logo i{font-style:normal;font-weight:600;letter-spacing:.02em;font-size:10px;color:#f7fffc;background:#0b6b5e;border-radius:999px;padding:1px 6px;margin-left:6px}
 .ver{border-radius:999px;padding:2px 8px;font-size:10px;color:var(--m);background:var(--p2);border-color:var(--b);white-space:nowrap}
 #hud{gap:var(--s3);font-size:var(--fs-s);align-items:center}#hud b{font-weight:600;color:var(--t)}
 #wHash{font-size:10px}
@@ -390,5 +390,17 @@ canvas.ch{transition:box-shadow var(--dur) var(--ease)}canvas.ch:hover{box-shado
 #xArchSvg .clk{cursor:pointer}
 #xTree .t1{font:600 10px monospace;fill:#e2e8f0}
 #xTree .t2{font:8px monospace;fill:#e5e7eb}
-.whash{white-space:nowrap;opacity:.7}
+.whash{white-space:nowrap;opacity:1;color:#d5deea}
 .anomb{opacity:0;transition:opacity .6s;font-size:11px;color:#7dd3fc;border:1px solid #1e3a5f;border-radius:3px;padding:1px 6px;margin-left:8px}
+
+/* v17 scientific pass: one control size, flat surfaces, tabular numbers. Nothing removed. */
+fieldset{background:color-mix(in srgb, var(--p2) 92%, transparent);border:1px solid var(--b);border-radius:var(--rad);padding:var(--s3)}
+fieldset>legend{font-size:var(--fs-s);letter-spacing:.04em;color:var(--t2);padding:0 6px}
+#panes button,#dock2 button{border:1px solid var(--b2);background:var(--p2);color:var(--t);border-radius:var(--rad-s);min-height:28px;padding:2px 8px}
+#panes button.pri,#panes button.pri:hover{background:var(--a);color:#04201c;border-color:var(--a)}
+#panes table,#dock2 table{font-variant-numeric:tabular-nums;border-collapse:collapse}
+#panes th{text-align:left;font-weight:600;color:var(--t2);font-size:var(--fs-xs);letter-spacing:.04em}
+#panes td,#panes th{padding:3px 6px;border-bottom:1px solid var(--b)}
+#insp,#dock2{font-variant-numeric:tabular-nums}
+#wHash.sm{color:#e8eef8;background:#080c16;opacity:1}
+.ohead b{color:#fff;background:#8d2d4e}

@@ -11,12 +11,22 @@ import { beamSearch } from './decode.js?v=170';
 import { CFG } from './model.js?v=170';
 import { geometryFromSeq } from './adversary/geometry.js?v=170';
 import { runFaultOp, runWalkOp, runWalkCellOp, runForgeOp, runSignificandOp, runVoltageOp } from './walk/session.js?v=170';
+import { cancelJobs } from './coop.js?v=170';
 const E = {}, seqs = new Map(); let nextSid = 1;
 function statsOf(s) { if (!s) return null; const d = s.meanZ[0].length, N = s.N, Z = s.Z;
   return { ...s, sampleZ(l, rng) { const i = Math.floor(rng() * N); return Z[l].subarray(i * d, i * d + d); } }; }
+function runHeavy(m) {
+  import('./heavy.js?v=170').then(async ({ dispatchHeavy }) => {
+    const onp = (frac, note) => self.postMessage({ id: m.id, progress: true, frac, note });
+    const out = await dispatchHeavy(E[m.key], m, onp);
+    self.postMessage({ id: m.id, out });
+  }).catch((err) => self.postMessage({ id: m.id, err: String(err && err.stack || err) }));
+}
 self.onmessage = (ev) => {
   const m = ev.data;
   if (!m || typeof m !== 'object') return;
+  if (m.op === 'cancelJob') { cancelJobs(); return; }
+  if (m.op === 'heavy') { runHeavy(m); return; }
   let out, tr = [];
   const needSeq = m.op === 'step' || m.op === 'steps' || m.op === 'beam' || m.op === 'kvgeom';
   try {
