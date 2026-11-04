@@ -43,4 +43,7 @@ export async function moe(sample = 0): Promise<NestedResult> {
   const grp = new THREE.Group(); grp.add(cloud(pos, colors, 0.45));
   return { group: grp, center: new THREE.Vector3(0, s.layers.length * 1.5, 0), dist: 30, info: `MoE-in-MoE routing for “${s.text.slice(0, 60)}…”: ${s.layers.length} layers × ${s.layers[0]?.e.length ?? 0} tokens; depth = group, colour = expert, height = group gate probability.` };
 }
-export function mount(st: Stage, r: NestedResult): void { st.scene.clear(); st.scene.add(r.group); st.focus(r.center, r.dist); }
+export function mount(st: Stage, r: NestedResult): void {
+  for (const o of [...st.scene.children]) o.traverse((n) => { const mesh = n as THREE.Points; mesh.geometry?.dispose(); const mat = mesh.material; if (Array.isArray(mat)) mat.forEach((m) => m.dispose()); else mat?.dispose(); });
+  st.scene.clear(); st.scene.add(r.group); st.focus(r.center, r.dist);
+}

@@ -1,5 +1,6 @@
 // Shared helpers for the v5 research tabs (markup builders, export, run tracker).
 import { CFG } from './model.js?v=170';
+import { createLab, fromTracker } from './agent/schema.js?v=170';
 export const { d, H, hd, L, ff, V } = CFG;
 export const $ = (id) => document.getElementById(id), $$ = (s, r = document) => [...r.querySelectorAll(s)];
 export const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
@@ -28,9 +29,15 @@ export function exportFor(id, kind) {
   return false;
 }
 const RKEY = 'neuralese.runs.v5';
+const LABKEY = 'neuralese.lab.v1';
+export const lab = createLab({
+  load() { try { return JSON.parse(localStorage.getItem(LABKEY) || ''); } catch { return { runs: [], artifacts: [] }; } },
+  save(state) { try { localStorage.setItem(LABKEY, JSON.stringify(state)); } catch { /* quota */ } },
+});
+function mirror(row) { try { if (!lab.getRun(row.id)) lab.logRun(fromTracker(row)); } catch { /* the tracker still has the row */ } }
 export const runs = {
   all() { try { return JSON.parse(localStorage.getItem(RKEY) || '[]'); } catch { return []; } },
-  add(r) { const a = runs.all(); const x = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), t: new Date().toISOString(), sel: true, ...r }; a.push(x); runs.save(a.slice(-300)); return x; },
-  save(a) { try { localStorage.setItem(RKEY, JSON.stringify(a)); } catch { /* quota: drop oldest */ localStorage.setItem(RKEY, JSON.stringify(a.slice(-50))); } },
+  add(r) { const a = runs.all(); const x = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), t: new Date().toISOString(), sel: true, ...r }; a.push(x); runs.save(a.slice(-300)); mirror(x); return x; },
+  save(a) { try { localStorage.setItem(RKEY, JSON.stringify(a)); } catch { /* quota: drop oldest */ localStorage.setItem(RKEY, JSON.stringify(a.slice(-50))); } for (const row of a) mirror(row); },
 };
 export const GROUPS = [['RUN', ['home', 'v16', 'gen', 'steer', 'ctrl', 'audio']], ['MODEL', ['arch', 'params', 'weights']], ['INTERPRET', ['an', 'attn', 'resid', 'circuit', 'neurons', 'embed', 'sae', 'saed', 'nlens', 'nlval', 'nlext']], ['INTERVENE', ['causal', 'surg', 'rt', 'sweep', 'ops']], ['EVALUATE', ['timeline', 'calib', 'impact', 'prof', 'runs']], ['SCIENCE', ['drill', 'grad', 'heads', 'geom', 'land']], ['RESEARCH', ['repro', 'stats', 'acdc', 'probe', 'data', 'evalh', 'nb', 'report', 'log']], ['TSOTCHKE', ['tsk', 'qrng', 'qgeom', 'types', 'taylor', 'claims']], ['NESTED', ['nriscv', 'nslm', 'nmoe', 'nxlens']], ['FRONTIER', ['fx', 'fsc', 'fmind', 'frsi', 'fgrok', 'fatlas', 'fclaims']], ['VIEW', ['viz', 'v3d']], ['HUB', ['hub', 'hinterp', 'hemb', 'hspeech', 'hvision', 'hgen', 'hft']], ['TOOLS', ['term', 'learn', 'gpu', 'zoo', 'share']]];

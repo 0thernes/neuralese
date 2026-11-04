@@ -85,7 +85,22 @@ export function createLab(persist) {
     return { ...meta, text: art.text };
   }
   function dump() { return JSON.parse(JSON.stringify(state)); }
-  return { logRun, patchRun, listRuns, getRun, lineage, putArtifact, getArtifact, dump };
+  function importState(dumpIn) {
+    const rows = Array.isArray(dumpIn) ? dumpIn.map(fromTracker) : (dumpIn?.runs || (dumpIn?.tracker || []).map(fromTracker));
+    for (const r of rows) {
+      if (!r || !r.id || state.runs.some((x) => x.id === r.id)) continue;
+      state.runs.push(solo({ artifactIds: [], gitSha: null, seed: null, config: {}, metrics: {}, parentId: null, sweepId: null, agent: null, target: 'local', remote: null, ...r }));
+    }
+    for (const a of dumpIn?.artifacts || []) { if (a && a.id && !state.artifacts.some((x) => x.id === a.id)) state.artifacts.push(a); }
+    save();
+    return state.runs.length;
+  }
+  return { logRun, patchRun, listRuns, getRun, lineage, putArtifact, getArtifact, dump, importState };
+}
+
+export function fromTracker(r) {
+  if (r && r.project && r.created) return r;
+  return { id: r.id, project: r.kind || 'page', name: r.label || r.kind || 'run', created: r.t || new Date().toISOString(), config: r, metrics: r.metrics || {} };
 }
 
 export function createMemoryLab() {

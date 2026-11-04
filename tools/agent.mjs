@@ -27,10 +27,10 @@ function arg(name, fallback = '') {
 }
 const dir = arg('--lab', path.join(process.cwd(), '.neuralese'));
 const lab = fileLab(dir);
-const cmd = process.argv.find((a) => ['list', 'launch', 'sweep', 'report', 'call', 'mcp', 'tools'].includes(a));
+const cmd = process.argv.find((a) => ['list', 'launch', 'sweep', 'report', 'call', 'mcp', 'tools', 'import'].includes(a));
 if (!cmd || cmd === 'tools') {
   console.log(JSON.stringify(TOOLS, null, 2));
-  if (!cmd) console.error('commands: list | launch | sweep | report | call | mcp | tools');
+  if (!cmd) console.error('commands: list | launch | sweep | report | call | mcp | tools | import');
   process.exit(cmd ? 0 : 1);
 }
 if (cmd === 'list') {
@@ -54,6 +54,9 @@ if (cmd === 'list') {
   const out = await callTool(lab, name, JSON.parse(raw));
   console.log(JSON.stringify(out, null, 2));
   process.exit(out.ok ? 0 : 1);
+} else if (cmd === 'import') {
+  const dump = JSON.parse(fs.readFileSync(arg('--file'), 'utf8'));
+  console.log(JSON.stringify({ runs: lab.importState(dump) }));
 } else if (cmd === 'mcp') {
   const rl = readline.createInterface({ input: process.stdin });
   for await (const line of rl) {

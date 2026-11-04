@@ -1,4 +1,5 @@
 import { test, expect, chromium } from '@playwright/test';
+import AxeBuilder from '@axe-core/playwright';
 import fs from 'node:fs';
 import zlib from 'node:zlib';
 
@@ -44,7 +45,7 @@ async function nonBlank(page, selector) {
   return pngVaries(png);
 }
 
-test('every workspace control, three widths, no console errors', async () => {
+for (const [w, h, name] of WIDTHS) test(`click every control · ${name}`, async () => {
   test.setTimeout(3600000);
   const browser = await chromium.launch({
     executablePath: process.env.CHROME || '/opt/google/chrome/chrome',
@@ -53,8 +54,8 @@ test('every workspace control, three widths, no console errors', async () => {
   });
   const report = { url: URL, views: {} };
   const failures = [];
-  for (const [w, h, name] of WIDTHS) {
-    const page = await browser.newPage({ viewport: { width: w, height: h } });
+    const context = await browser.newContext({ viewport: { width: w, height: h } });
+    const page = await context.newPage();
     page.setDefaultTimeout(180000);
     const errors = [];
     page.on('console', (m) => { if (m.type() === 'error' && !/favicon/i.test(m.text())) errors.push(m.text().slice(0, 300)); });
@@ -71,6 +72,13 @@ test('every workspace control, three widths, no console errors', async () => {
     await page.goto(URL, { waitUntil: 'domcontentloaded', timeout: 90000 });
     await page.waitForSelector('#v17 .wsbar', { timeout: 240000 });
     await page.keyboard.press('Escape');
+    await page.evaluate(() => {
+      window.__long = [];
+      try { new PerformanceObserver((list) => { for (const e of list.getEntries()) if (e.duration >= 50) window.__long.push(Math.round(e.duration)); }).observe({ type: 'longtask' }); } catch { /* this browser has no long-task entries */ }
+    });
+    const axe = await new AxeBuilder({ page }).include('#top').include('#v17').analyze();
+    const serious = axe.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical');
+    if (serious.length) failures.push(`${name} axe ${serious.map((v) => v.id + ':' + v.nodes.length).slice(0, 8).join(',')}`);
     const workspaces = await page.locator('.wsbar button[data-ws]').evaluateAll((els) => els.map((e) => e.getAttribute('data-ws')));
     expect(workspaces.length).toBeGreaterThanOrEqual(13);
     const showWs = async (id) => {
@@ -129,7 +137,8 @@ test('every workspace control, three widths, no console errors', async () => {
     }
     // Heavy buttons keep the main thread after they yield. A fresh page is the check that the
     // stage still draws; the clicks above already ran on this page.
-    const shot = await browser.newPage({ viewport: { width: w, height: h } });
+    const shotContext = await browser.newContext({ viewport: { width: w, height: h } });
+    const shot = await shotContext.newPage();
     shot.setDefaultTimeout(60000);
     const shotErrors = [];
     shot.on('console', (m) => { if (m.type() === 'error' && !/favicon/i.test(m.text())) shotErrors.push(m.text().slice(0, 300)); });
@@ -152,11 +161,12 @@ test('every workspace control, three widths, no console errors', async () => {
     if (!cosmos.ok) failures.push(`${name} cosmos blank ${JSON.stringify(cosmos)}`);
     if (!gl.ok) failures.push(`${name} stage blank ${JSON.stringify(gl)}`);
     if (errors.length) failures.push(`${name} console ${errors.slice(0, 5).join(' | ')}`);
-    report.views[name] = { width: w, height: h, workspaces: workspaces.length, clicked, disabled, cosmos, gl, errors: errors.slice(0, 8) };
+    const longs = await page.evaluate(() => window.__long || []).catch(() => []);
+    if (longs.length) failures.push(`${name} long tasks ${longs.slice(0, 8).join(',')}`);
+    report.views[name] = { width: w, height: h, workspaces: workspaces.length, clicked, disabled, cosmos, gl, errors: errors.slice(0, 8), longTasks: longs.slice(0, 8) };
     await Promise.race([page.close(), new Promise((r) => setTimeout(r, 5000))]);
-  }
   fs.mkdirSync('test/e2e', { recursive: true });
-  fs.writeFileSync('test/e2e/click-all-output.json', JSON.stringify({ report, failures }, null, 2));
+  fs.writeFileSync(`test/e2e/click-all-${name}.json`, JSON.stringify({ report, failures }, null, 2));
   console.log(JSON.stringify(report, null, 2));
   expect(failures, failures.join('\n')).toEqual([]);
   await browser.close();

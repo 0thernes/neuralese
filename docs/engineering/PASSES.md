@@ -19,4 +19,19 @@ While the click-everything run was failing on the Model workspace, one more bug 
 
 The suite was run once, on the preview, after these fixes. It was not repeated between each pass: one pass is a few lines, and one full click of every control takes about 36 minutes. Result of `PREVIEW_URL=https://0thernes.github.io/neuralese/preview/?notour npx playwright test` on 4 Nov 2026: **1 passed (35.9m)**. Each of mobile 390×844, tablet 768×1024, and desktop 1440×900 clicked 580 enabled controls, left 10 disabled controls alone, had an empty console-error list, and a fresh load showed a non-blank cosmos (658px, 455px, 398px tall) and a non-blank docked `#gl`. Output: `test/e2e/click-all-output.json`.
 
-Remaining, not fixed in these passes: long CPU buttons (analyze, SAE train, the fault study) still block the main thread after the first yield, so a click-everything run is slow. Edge-level ACDC, MEMIT, UMAP, and t-SNE were never in v12–v17.3. The page lab and the CLI lab are still two stores. Notebook cells still run arbitrary JS by design.
+## Further passes
+
+| Pass | Area | Found | Fixed | What |
+|---|---|---|---|---|
+| 11 | Engine / worker | 5 | 5 | Analyze, SAE training, residual patching, head patching, and ROME ran as long synchronous stretches. They now run in the engine worker (`heavy` op) with progress messages and cancel (`Stop` and the SAE stop button). The main-thread fallback, SVD, and the patch loops return to the event loop every 32ms via `slice()`. |
+| 12 | Data | 1 | 1 | The page tracker (`neuralese.runs.v5`) and the CLI lab (`lab.json`) were different shapes. New page runs are mirrored into `createLab` (`neuralese.lab.v1`). Export lab store downloads that file. `node tools/agent.mjs --lab DIR import --file neuralese-lab.json` loads it. |
+| 13 | Tests | 1 | 1 | `test/zoo.test.mjs` threw ENOENT when `model/ts1M.safetensors` was absent. It now runs `tools/fetch-model.mjs` and, if that does not produce the file, skips with that reason. |
+| 14 | Security | 1 | 1 | Notebook cells were page-origin modules with the full lab API. They now run in `notebook-worker.js` with weight copies, `research`, `docs`, `print`, and `plot`. No DOM, no editor, no `commit`. |
+| 15 | 3D, accessibility | 6 | 6 | Cosmos and the nested view could finish `createStage` after unmount and leak the context. Nested `scene.clear()` dropped geometries without `dispose()`. Axe reported a prohibited `aria-label`, separator values, a tablist whose tabs were wrapped, and contrast on the version badge, the weight hash, and the HACKED chip. |
+| 16 | Visual | 3 | 3 | Panels, tables, and buttons did not share one size or tabular figures. The docked stage was capped so the controls took 46% of the panel. Fieldsets, tables, and buttons now use the same tokens, and the stage host is at least 320px with controls capped at 34%. Bloom and depth of field stay on the legacy renderer; adaptive quality still drops them when the GPU tier is low. |
+
+Screenshots of overview, the model stage, and the lens, before this pass and after, are in the pull request. The before set is the previous preview. The after set is this build.
+
+`npm audit` reports 7 moderate vulnerabilities and no high or critical ones. They are in the existing dependency tree. This pass did not run `npm audit fix --force`.
+
+Remaining: Edge-level ACDC, MEMIT, UMAP, and t-SNE were never shipped tabs. The fault study and some chart draws can still occupy the main thread. A notebook cell that needs the weights copies them once, and that copy can be a long task. The 43 P0 cards are not implemented. Electron and Capacitor release builds were not executed in this environment (no Android SDK signing secrets, no full Electron pack). `contextIsolation` is already on in `desktop/main.cjs`.

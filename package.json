@@ -28,6 +28,7 @@
   "puppeteer-core": "25.16.0"
  },
  "devDependencies": {
+  "@axe-core/playwright": "4.10.2",
   "@capacitor/android": "7.6.9",
   "@capacitor/cli": "7.6.9",
   "@capacitor/core": "7.6.9",

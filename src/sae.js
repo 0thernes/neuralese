@@ -1,6 +1,8 @@
 // Sparse autoencoder trained in-browser on residual activations (ReLU SAE, L1 penalty, unit-norm decoder, Adam).
 import { CFG, mulberry32, gauss } from './model.js?v=170';
+import { slice } from './coop.js?v=170';
 const { d } = CFG;
+function breathe() { return slice(); }
 export class SAE {
   constructor(layer, m, seed = 1) {
     this.layer = layer; this.m = m; const rng = mulberry32(seed);
@@ -48,7 +50,9 @@ export class SAE {
         step++; const b1 = 0.9, b2 = 0.999, c1 = 1 - b1 ** step, c2 = 1 - b2 ** step;
         P.forEach((p, pi) => { const g = G[pi], mm = mom[pi], vv = vel[pi]; for (let i = 0; i < p.length; i++) { mm[i] = b1 * mm[i] + (1 - b1) * g[i]; vv[i] = b2 * vv[i] + (1 - b2) * g[i] * g[i]; p[i] -= (lr * mm[i] / c1) / (Math.sqrt(vv[i] / c2) + 1e-8); } });
         this.normDec();
-        if (step % 8 === 0) { onp({ ep, frac: (ep + (b0 + B) / N) / epochs, loss: lossAcc / cnt, mse: mseAcc / cnt, l0: l0Acc / cnt }); await new Promise((r) => setTimeout(r, 0)); if (shouldStop()) return this.hist; }
+        onp({ ep, frac: (ep + (b0 + B) / N) / epochs, loss: lossAcc / cnt, mse: mseAcc / cnt, l0: l0Acc / cnt });
+        { const y = breathe(); if (y) await y; }
+        if (shouldStop()) return this.hist;
       }
       this.hist.push({ ep, loss: lossAcc / cnt, mse: mseAcc / cnt, l0: l0Acc / cnt });
     }

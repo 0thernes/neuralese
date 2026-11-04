@@ -2,8 +2,9 @@
 import { CFG, mulberry32 } from './model.js?v=170';
 import { Engine, defaultRuntime, layerNorm, logSoftmax, topK, entropy } from './engine.js?v=170';
 import { cholSolve, pca1, dot } from './linalg.js?v=170';
+import { slice } from './coop.js?v=170';
 const { d, H, hd, L, ff } = CFG;
-const tick = () => new Promise((r) => setTimeout(r, 0));
+function breathe() { return slice(); }
 
 // ───────── corpus statistics (always computed on the CLEAN model with default runtime) ─────────
 export async function computeStats(Wclean, corpus, maxTok = 1200, onp = () => {}) {
@@ -18,8 +19,9 @@ export async function computeStats(Wclean, corpus, maxTok = 1200, onp = () => {}
       const r = eng.step(s, docs[di][t], { trace: true }); const tr = r.trace;
       for (let l = 0; l < L; l++) { Z[l].set(tr.z[l], k * d); Rp[l].set(tr.resid_post[l], k * d); const a = tr.mlp_act[l], ma = meanAct[l]; for (let i = 0; i < ff; i++) ma[i] += a[i]; }
       fin.set(tr.final, k * d); ids[k] = docs[di][t]; docOf[k] = di; posOf[k] = t; k++;
+      { const y = breathe(); if (y) await y; }
     }
-    onp(k / N); await tick();
+    onp(k / N); { const y = breathe(); if (y) await y; }
   }
   const meanZ = Z.map((z) => { const m = new Float32Array(d); for (let i = 0; i < N; i++) for (let j = 0; j < d; j++) m[j] += z[i * d + j] / N; return m; });
   meanAct.forEach((m) => m.forEach((v, i) => (m[i] = v / N)));
@@ -36,8 +38,9 @@ export async function actCovariance(Wclean, stats, l, onp = () => {}) {
     const s = eng.newSeq(stats.docs[di].length);
     for (const t of stats.docs[di]) {
       eng.step(s, t, { hook: (site, slot, layer, tt, a) => { if (site !== 'mlp_act' || layer !== l) return; for (let i = 0; i < ff; i++) { const ai = a[i]; if (!ai) continue; const o = i * ff; for (let j = 0; j <= i; j++) C[o + j] += ai * a[j]; } n++; } });
+      { const y = breathe(); if (y) await y; }
     }
-    onp((di + 1) / stats.docs.length); await tick();
+    onp((di + 1) / stats.docs.length); { const y = breathe(); if (y) await y; }
   }
   for (let i = 0; i < ff; i++) for (let j = 0; j <= i; j++) { C[i * ff + j] /= n; C[j * ff + i] = C[i * ff + j]; }
   return C;
@@ -130,8 +133,9 @@ export async function patchResid(eng, clean, corr, ans, wrong, onp = () => {}) {
       const src = cr.traces[p].resid_pre[s];
       const m = runMetric(eng, corr, ans, wrong, (site, slot, l, t, x) => { if (site === 'resid_pre' && slot === s && t === p) x.set(src); });
       row.push({ raw: m, norm: (m - X) / (C - X || 1e-9) });
+      { const y = breathe(); if (y) await y; }
     }
-    M.push(row); onp((s + 1) / S); await tick();
+    M.push(row); onp((s + 1) / S); { const y = breathe(); if (y) await y; }
   }
   return { clean: C, corrupt: X, M };
 }
@@ -144,13 +148,14 @@ export async function patchHeads(eng, clean, corr, ans, wrong, onp = () => {}) {
     for (let h = 0; h < H; h++) {
       const m = runMetric(eng, corr, ans, wrong, (site, slot, l, t, z) => { if (site === 'z' && slot === s) { const src = cr.traces[t].z[s]; for (let j = h * hd; j < (h + 1) * hd; j++) z[j] = src[j]; } });
       row.push({ raw: m, norm: (m - X) / (C - X || 1e-9) });
+      { const y = breathe(); if (y) await y; }
     }
-    M.push(row); onp((s + 1) / S); await tick();
+    M.push(row); onp((s + 1) / S); { const y = breathe(); if (y) await y; }
   }
   return { clean: C, corrupt: X, M };
 }
 // Path patching sender head -> logits (direct path only): add O_h (z_clean − z_corr) at the last position to the corrupted final residual.
-export function pathPatchHeadsToLogits(eng, clean, corr, ans, wrong) {
+export async function pathPatchHeadsToLogits(eng, clean, corr, ans, wrong) {
   if (clean.length !== corr.length) throw new Error('clean/corrupted prompts must tokenize to the same length');
   const cr = eng.run(clean, { trace: true }), xr = eng.run(corr, { trace: true }), C = metricFromH(eng, cr.last.h, ans, wrong), X = metricFromH(eng, xr.last.h, ans, wrong);
   const tc = cr.traces[clean.length - 1], tx = xr.traces[corr.length - 1], M = [], hbuf = new Float32Array(d);
@@ -161,6 +166,7 @@ export function pathPatchHeadsToLogits(eng, clean, corr, ans, wrong) {
       if (tc.z[s]) for (let i = 0; i < d; i++) { let v = 0; const o = i * d; for (let j = h * hd; j < (h + 1) * hd; j++) v += P.o[o + j] * (tc.z[s][j] - tx.z[s][j]); x[i] += v; }
       layerNorm(x, eng.W.lnfW, eng.W.lnfB, hbuf); const m = metricFromH(eng, hbuf, ans, wrong);
       row.push({ raw: m, norm: (m - X) / (C - X || 1e-9) });
+      { const y = breathe(); if (y) await y; }
     }
     M.push(row);
   }
@@ -171,8 +177,8 @@ export async function ablationSweep(eng, ids, ans, wrong, type, onp = () => {}) 
   const base = runMetric(eng, ids, ans, wrong), M = [];
   for (let l = 0; l < L; l++) {
     const row = [];
-    for (let h = 0; h < H; h++) { const prev = eng.R.headAbl[l][h]; eng.R.headAbl[l][h] = type; const m = runMetric(eng, ids, ans, wrong); eng.R.headAbl[l][h] = prev; row.push({ raw: m, norm: (m - base) / (Math.abs(base) || 1e-9) }); }
-    M.push(row); onp((l + 1) / L); await tick();
+    for (let h = 0; h < H; h++) { const prev = eng.R.headAbl[l][h]; eng.R.headAbl[l][h] = type; const m = runMetric(eng, ids, ans, wrong); eng.R.headAbl[l][h] = prev; row.push({ raw: m, norm: (m - base) / (Math.abs(base) || 1e-9) }); { const y = breathe(); if (y) await y; } }
+    M.push(row); onp((l + 1) / L); { const y = breathe(); if (y) await y; }
   }
   return { base, M };
 }

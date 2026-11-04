@@ -74,9 +74,10 @@ export function CosmosPanel(): JSX.Element {
   const [data, setData] = createSignal<CosmosData | null>(null);
   const owner = getOwner();
   onMount(async () => {
+    let dead = false; onCleanup(() => { dead = true; });
     try {
       const [{ createStage }, { createCosmos }] = await Promise.all([import('../three/stage'), import('../three/cosmos')]);
-      const st = await createStage(host, () => cssVar('--c-bg')); const cfg = legacy()?.cfg ?? { L: 8, H: 16, ff: 1024, d: 256 };
+      const st = await createStage(host, () => cssVar('--c-bg')); if (dead) { st.dispose(); return; } const cfg = legacy()?.cfg ?? { L: 8, H: 16, ff: 1024, d: 256 };
       const cos = createCosmos(st, cfg.L, cfg.H, cfg.ff); st.focus({ x: 0, y: cfg.L * 2, z: 0 } as never, 46);
       runWithOwner(owner, () => {
       const refresh = (): void => { const tr = legacy()?.lastTraces ?? []; const c = cosmosData(tr, { L: cfg.L, H: cfg.H, ff: cfg.ff, d: cfg.d }, sel().token ?? tr.length - 1); setData(c); cos.update(c, theme() === 'light'); };
@@ -93,7 +94,7 @@ export function CosmosPanel(): JSX.Element {
   });
   return (
     <div class="cosmos">
-      <div class="cosmos-stage" ref={host} aria-label="model cosmos: drag to orbit, wheel or +/- to zoom, click a unit to select it" />
+      <div class="cosmos-stage" role="region" ref={host} aria-label="model cosmos: drag to orbit, wheel or plus and minus to zoom, click a unit to select it" />
       <div class="cosmos-hud" aria-live="polite"><b>Model cosmos</b> · {status()} · zoom: {lod()}<Show when={hover()}> · {hover()}</Show>
         <Show when={data()} fallback={<div class="warn">No trace yet: generate text (Ctrl/⌘+Enter) and the strata fill with that run's real activations.</div>}>
           {(c) => <div>token {c().token + 1}/{c().T} · neurons (grid): MLP activation · heads (ring): ‖head output‖ · ribbons: ‖residual‖ per token (gold = selected)</div>}
@@ -107,9 +108,10 @@ export function NestedPanel(): JSX.Element {
   let host!: HTMLDivElement; const [info, setInfo] = createSignal('choose an experiment'); const [which, setWhich] = createSignal<'riscv' | 'slm' | 'moe'>('moe');
   const owner = getOwner();
   onMount(async () => {
+    let dead = false; onCleanup(() => { dead = true; });
     try {
       const [{ createStage }, N] = await Promise.all([import('../three/stage'), import('../three/nested')]);
-      const st = await createStage(host, () => cssVar('--c-bg'));
+      const st = await createStage(host, () => cssVar('--c-bg')); if (dead) { st.dispose(); return; }
       runWithOwner(owner, () => createEffect(async () => { const w = which(); setInfo('loading ' + w + '…'); try { const r = w === 'riscv' ? await N.riscv() : w === 'slm' ? await N.slm() : await N.moe(); N.mount(st, r); setInfo(r.info); } catch (e) { setInfo('✖ ' + (e as Error).message); } }));
       runWithOwner(owner, () => onCleanup(() => st.dispose()));
     } catch (e) { setInfo('3D unavailable: ' + (e as Error).message); }
@@ -119,7 +121,7 @@ export function NestedPanel(): JSX.Element {
       <div class="seg" role="radiogroup" aria-label="nested experiment">
         <For each={[['riscv', 'RISC-V in a transformer'], ['slm', 'SLM-in-SLM'], ['moe', 'MoE-in-MoE']] as const}>{([k, t]) => <button role="radio" aria-checked={which() === k} classList={{ on: which() === k }} onClick={() => setWhich(k)}>{t}</button>}</For>
       </div>
-      <div class="cosmos-stage" ref={host} aria-label="nested experiment 3D view" />
+      <div class="cosmos-stage" role="region" ref={host} aria-label="nested experiment 3D view" />
       <div class="cosmos-hud" aria-live="polite">{info()}</div>
     </div>
   );

@@ -45,7 +45,7 @@ test('activation patching (resid × position) matches PyTorch', async () => {
 test('head patching + path patching (head→logits) match PyTorch', async () => {
   const p = REF.patch, e = clean(); const r = await patchHeads(e, tok.encode(p.clean), tok.encode(p.corr), p.ans, p.wrong);
   r.M.forEach((row, l) => row.forEach((c, h) => close(c.raw, REF.patch_heads[l][h], 2e-3, `L${l}H${h}`)));
-  const q = pathPatchHeadsToLogits(e, tok.encode(p.clean), tok.encode(p.corr), p.ans, p.wrong);
+  const q = await pathPatchHeadsToLogits(e, tok.encode(p.clean), tok.encode(p.corr), p.ans, p.wrong);
   q.M.forEach((row, l) => row.forEach((c, h) => close(c.raw, REF.path_heads[l][h], 2e-3, `path L${l}H${h}`)));
 });
 test('SVD: singular values match numpy, reconstruction error tiny', () => {
