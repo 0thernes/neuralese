@@ -1,7 +1,10 @@
 // Quantitative analyses for NEURALESE v6. Every function is deterministic given a seed and documented with its definition.
 import { CFG } from './model.js?v=170';
 import { svd } from './linalg.js?v=170';
-import { forward, logitsAt, dims } from './grad.js?v=170';
+import { forwardAsync, logitsAt, dims } from './grad.js?v=170';
+import { slice } from './coop.js?v=170';
+// Node tests stay one synchronous call. The page yields a macrotask once 32ms have passed.
+function breath() { return typeof document === 'undefined' ? null : slice(); }
 export function rng(seed = 1) { let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 const gauss = (r) => Math.sqrt(-2 * Math.log(r() + 1e-12)) * Math.cos(2 * Math.PI * r());
 
@@ -69,22 +72,34 @@ function mul(A, B, n, k, m) { const C = new Float64Array(n * m); for (let i = 0;
 const tr = (A, n, m) => { const T = new Float64Array(n * m); for (let i = 0; i < n; i++) for (let j = 0; j < m; j++) T[j * n + i] = A[i * m + j]; return T; };
 const trace = (A, n) => { let s = 0; for (let i = 0; i < n; i++) s += A[i * n + i]; return s; };
 // Embedding Gram E = W_Eᵀ W_E (d×d) over all V tokens (tied unembedding ⇒ W_U = W_E). Raw embeddings, LayerNorm ignored (standard approximation).
-export function embedGram(W) { const { d, H, hd, ff, V } = dims(W); const E = new Float64Array(d * d); for (let t = 0; t < V; t++) { const o = t * d; for (let i = 0; i < d; i++) { const a = W.wte[o + i]; if (!a) continue; for (let j = i; j < d; j++) E[i * d + j] += a * W.wte[o + j]; } } for (let i = 0; i < d; i++) for (let j = 0; j < i; j++) E[i * d + j] = E[j * d + i]; return E; }
+export async function embedGram(W) {
+  const { d, V } = dims(W); const E = new Float64Array(d * d);
+  for (let t = 0; t < V; t++) {
+    const o = t * d; for (let i = 0; i < d; i++) { const a = W.wte[o + i]; if (!a) continue; for (let j = i; j < d; j++) E[i * d + j] += a * W.wte[o + j]; }
+    if ((t & 511) === 511) { const y = breath(); if (y) await y; }
+  }
+  for (let i = 0; i < d; i++) for (let j = 0; j < i; j++) E[i * d + j] = E[j * d + i];
+  return E;
+}
 // OV copying score (Elhage et al. 2021): Σλ / Σ|λ| of the full OV circuit W_U O_h V_h W_E; nonzero spectrum = eig(V_h E O_h) (hd×hd).
 // QK "same-token" score: same for W_Eᵀ Q_hᵀ K_h W_E → eig(K_h E Q_hᵀ).
-export function headEigenScores(W, E = embedGram(W)) { const { d, H, hd, ff, V } = dims(W);
+export async function headEigenScores(W, E) {
+  if (!E) E = await embedGram(W);
+  const { d, H, hd } = dims(W);
   const out = [];
   for (let l = 0; l < W.layers.length; l++) { const P = W.layers[l], row = [];
     for (let h = 0; h < H; h++) { const V_ = Vh(P, h, d, hd), O_ = Oh(P, h, d, hd), Q_ = Qh(P, h, d, hd), K_ = Kh(P, h, d, hd);
       const ov = mul(mul(V_, E, hd, d, d), O_, hd, d, hd), qk = mul(mul(K_, E, hd, d, d), tr(Q_, hd, d), hd, d, hd);
       const sc = (M) => { const ev = eig(M, hd), s = ev.reduce((a, [re]) => a + re, 0), ab = ev.reduce((a, [re, im]) => a + Math.hypot(re, im), 0); return { score: s / (ab || 1), eig: ev }; };
-      const a = sc(ov), b = sc(qk); row.push({ ov: a.score, qk: b.score, ovEig: a.eig, qkEig: b.eig, ovTrace: trace(ov, hd) }); }
+      const a = sc(ov), b = sc(qk); row.push({ ov: a.score, qk: b.score, ovEig: a.eig, qkEig: b.eig, ovTrace: trace(ov, hd) });
+      const y = breath(); if (y) await y;
+    }
     out.push(row); }
   return out;
 }
 // Composition scores between head h1 in layer l1 and h2 in a later layer (Elhage et al.): ‖M₂ · OV₁‖_F / (‖M₂‖_F ‖OV₁‖_F).
 // Q: M₂ = (Q₂ᵀK₂)ᵀ, K: M₂ = Q₂ᵀK₂, V: M₂ = OV₂. All computed through hd×hd traces; LayerNorm ignored.
-export function compositionScores(W) { const { d, H, hd, ff, V } = dims(W);
+export async function compositionScores(W) { const { d, H, hd } = dims(W);
   const L = W.layers.length, F = []; for (let l = 0; l < L; l++) for (let h = 0; h < H; h++) { const P = W.layers[l]; F.push({ l, h, Q: Qh(P, h, d, hd), K: Kh(P, h, d, hd), V: Vh(P, h, d, hd), O: Oh(P, h, d, hd) }); }
   const G = (A, n, k) => mul(A, tr(A, n, k), n, k, n);    // A Aᵀ
   const pre = F.map((f) => { const VVt = G(f.V, hd, d), OtO = mul(tr(f.O, d, hd), f.O, hd, d, hd), QQt = G(f.Q, hd, d), KKt = G(f.K, hd, d);
@@ -97,23 +112,25 @@ export function compositionScores(W) { const { d, H, hd, ff, V } = dims(W);
     // Q-comp: X = Kᵀ Q ⇒ XᵀX = Qᵀ K Kᵀ Q ; K-comp: X = Qᵀ K ⇒ XᵀX = Kᵀ Q Qᵀ K ; V-comp: X = O₂V₂ ⇒ XᵀX = V₂ᵀ O₂ᵀO₂ V₂
     const qx = mul(mul(tr(b.Q, hd, d), b.KKt, d, hd, hd), b.Q, d, hd, d), kx = mul(mul(tr(b.K, hd, d), b.QQt, d, hd, hd), b.K, d, hd, d), vx = mul(mul(tr(b.V, hd, d), b.OtO, d, hd, hd), b.V, d, hd, d);
     const den = a.ovN; res.Q.push({ from: [a.l, a.h], to: [b.l, b.h], s: nrm(qx) / (den * b.qkN || 1) }); res.K.push({ from: [a.l, a.h], to: [b.l, b.h], s: nrm(kx) / (den * b.qkN || 1) });
-    const ov2 = Math.sqrt(Math.max(0, trace(mul(b.OtO, b.VVt, hd, hd, hd), hd))); res.V.push({ from: [a.l, a.h], to: [b.l, b.h], s: nrm(vx) / (den * ov2 || 1) }); }
+    const ov2 = Math.sqrt(Math.max(0, trace(mul(b.OtO, b.VVt, hd, hd, hd), hd))); res.V.push({ from: [a.l, a.h], to: [b.l, b.h], s: nrm(vx) / (den * ov2 || 1) });
+    const y = breath(); if (y) await y;
+  }
   // Baseline: expected score for random matrices of the same shapes (≈ sqrt(rank/d)-ish); report mean for context.
   for (const k of ['Q', 'K', 'V']) res[k].sort((x, y) => y.s - x.s);
   return res;
 }
 // ── induction / previous-token detection on repeated random token sequences ──
-export function inductionScores(W, { n = 20, reps = 4, seed = 3 } = {}) { const { d, H, hd, ff, V } = dims(W);
+export async function inductionScores(W, { n = 20, reps = 4, seed = 3 } = {}) { const { H } = dims(W);
   const r = rng(seed), L = W.layers.length, per = Array.from({ length: L }, () => Array.from({ length: H }, () => ({ ind: [], prev: [] })));
-  for (let k = 0; k < reps; k++) { const half = Array.from({ length: n }, () => 1000 + Math.floor(r() * 20000)), ids = [50256, ...half, ...half], T = ids.length, A = forward(W, ids);
+  for (let k = 0; k < reps; k++) { const half = Array.from({ length: n }, () => 1000 + Math.floor(r() * 20000)), ids = [50256, ...half, ...half], T = ids.length, A = await forwardAsync(W, ids); const y = breath(); if (y) await y;
     for (let l = 0; l < L; l++) for (let h = 0; h < H; h++) { let si = 0, sp = 0, c = 0; const att = A.layers[l].att;
       for (let t = n + 1; t < T; t++) { const row = (h * T + t) * T; si += att[row + t - n + 1]; sp += att[row + t - 1]; c++; }
       per[l][h].ind.push(si / c); per[l][h].prev.push(sp / c); } }
   return per.map((row) => row.map((x) => ({ ind: bootstrap(x.ind, undefined, 400), prev: bootstrap(x.prev, undefined, 400) })));
 }
 // ── representation geometry on residual streams ──
-export function residuals(W, docs, maxT = 48) { const { d, H, hd, ff, V } = dims(W); const L = W.layers.length, reps = Array.from({ length: L + 1 }, () => []);
-  for (const ids of docs) { const A = forward(W, ids.slice(0, maxT)), T = A.T; for (let l = 0; l <= L; l++) { const X = l < L ? A.layers[l].xin : A.xf; for (let t = 1; t < T; t++) reps[l].push(X.slice(t * d, t * d + d)); } }
+export async function residuals(W, docs, maxT = 48) { const { d } = dims(W); const L = W.layers.length, reps = Array.from({ length: L + 1 }, () => []);
+  for (const ids of docs) { const A = await forwardAsync(W, ids.slice(0, maxT)), T = A.T; for (let l = 0; l <= L; l++) { const X = l < L ? A.layers[l].xin : A.xf; for (let t = 1; t < T; t++) reps[l].push(X.slice(t * d, t * d + d)); } const y = breath(); if (y) await y; }
   return reps; }
 // linear CKA (Kornblith 2019) between n×d representations: ‖YᵀX‖² / (‖XᵀX‖ ‖YᵀY‖) after centering
 export function cka(X, Y) { const d = X[0].length, n = X.length, c = (Z) => { const m = new Float64Array(d); for (const z of Z) for (let i = 0; i < d; i++) m[i] += z[i] / n; return Z.map((z) => z.map((v, i) => v - m[i])); };
@@ -125,27 +142,35 @@ export function twoNN(X) { const d = X[0].length, n = X.length; let s = 0, c = 0
 export function anisotropy(X, pairs = 2000, seed = 5) { const d = X[0].length, r = rng(seed), n = X.length; let s = 0; const cos = (a, b) => { let p = 0, x = 0, y = 0; for (let k = 0; k < d; k++) { p += a[k] * b[k]; x += a[k] * a[k]; y += b[k] * b[k]; } return p / Math.sqrt(x * y); };
   const vals = []; for (let k = 0; k < pairs; k++) { const i = Math.floor(r() * n); let j = Math.floor(r() * n); if (j === i) j = (j + 1) % n; vals.push(cos(X[i], X[j])); s += vals[vals.length - 1]; } return bootstrap(vals, undefined, 300); }
 // logit lens KL(final ‖ lens_l) averaged over positions, per layer l=0..L (l=L is 0 by construction)
-export function logitLensKL(W, docs, maxT = 32) { const { d, H, hd, ff, V } = dims(W); const L = W.layers.length, kl = Array.from({ length: L + 1 }, () => []);
+export async function logitLensKL(W, docs, maxT = 32) { const { d, V } = dims(W); const L = W.layers.length, kl = Array.from({ length: L + 1 }, () => []);
   const lsm = (x) => { let m = -Infinity; for (const v of x) if (v > m) m = v; let s = 0; for (const v of x) s += Math.exp(v - m); const z = m + Math.log(s); return x.map((v) => v - z); };
   const lnU = (x) => { let m = 0; for (const v of x) m += v; m /= d; let vv = 0; for (const v of x) vv += (v - m) ** 2; const r = 1 / Math.sqrt(vv / d + CFG.eps); return x.map((v, i) => (v - m) * r * W.lnfW[i] + W.lnfB[i]); };
   const un = (h) => { const o = new Float32Array(V); for (let v = 0; v < V; v++) { let s = 0; for (let i = 0; i < d; i++) s += W.wte[v * d + i] * h[i]; o[v] = s; } return o; };
-  for (const ids of docs) { const A = forward(W, ids.slice(0, maxT)), T = A.T; for (let t = 0; t < T; t += 3) { const pf = lsm(logitsAt(W, A, t)); for (let l = 0; l <= L; l++) { const X = l < L ? A.layers[l].xin : A.xf, ql = lsm(un(lnU(X.slice(t * d, t * d + d)))); let s = 0; for (let v = 0; v < V; v++) s += Math.exp(pf[v]) * (pf[v] - ql[v]); kl[l].push(s); } } }
+  for (const ids of docs) { const A = await forwardAsync(W, ids.slice(0, maxT)), T = A.T; const y0 = breath(); if (y0) await y0; for (let t = 0; t < T; t += 3) { const pf = lsm(logitsAt(W, A, t)); for (let l = 0; l <= L; l++) { const X = l < L ? A.layers[l].xin : A.xf, ql = lsm(un(lnU(X.slice(t * d, t * d + d)))); let s = 0; for (let v = 0; v < V; v++) s += Math.exp(pf[v]) * (pf[v] - ql[v]); kl[l].push(s); const y = breath(); if (y) await y; } } }
   return kl.map((v) => bootstrap(v, undefined, 300)); }
 // ── loss landscape: L(θ + αu + βv) on one matrix (or 'all' layer matrices) along filter-normalized random or top-SVD directions ──
-export function lossSlice(W, docs, { mats = [[7, 'fc']], dir = 'random', n = 9, span = 1, twoD = false, seed = 11, maxT = 24 } = {}) {
+export async function lossSlice(W, docs, { mats = [[7, 'fc']], dir = 'random', n = 9, span = 1, twoD = false, seed = 11, maxT = 24 } = {}) {
   const r = rng(seed), mk = () => mats.map(([l, k]) => { const a = W.layers[l][k], u = new Float32Array(a.length); if (dir === 'svd' && (k in { q: 1, k: 1, v: 1, o: 1, fc: 1, proj: 1 })) return null; for (let i = 0; i < u.length; i++) u[i] = gauss(r); let nu = 0, na = 0; for (let i = 0; i < u.length; i++) { nu += u[i] ** 2; na += a[i] ** 2; } const s = Math.sqrt(na / nu); for (let i = 0; i < u.length; i++) u[i] *= s; return u; });
   let U = mk(), Vd = twoD ? mk() : null;
   if (dir === 'svd') { const sv = mats.map(([l, k]) => { const { d, ff } = dims(W), a = W.layers[l][k], [rows, cols] = k === 'fc' ? [ff, d] : k === 'proj' ? [d, ff] : [d, d], R = svd(a, rows, cols); const rank1 = (j) => { const u = new Float32Array(a.length); for (let i = 0; i < rows; i++) for (let c = 0; c < cols; c++) u[i * cols + c] = R.U[j][i] * R.V[j][c] * R.S[0]; return u; }; return [rank1(0), rank1(1)]; }); U = sv.map((x) => x[0]); Vd = twoD ? sv.map((x) => x[1]) : null; }
-  const orig = mats.map(([l, k]) => W.layers[l][k].slice()); const loss = () => { let s = 0; for (const ids of docs) { const A = forward(W, ids.slice(0, maxT)); const T = A.T; for (let t = 0; t < T - 1; t++) { const lg = logitsAt(W, A, t); let m = -Infinity; for (const x of lg) if (x > m) m = x; let z = 0; for (const x of lg) z += Math.exp(x - m); s += (m + Math.log(z) - lg[ids[t + 1]]) / (T - 1) / docs.length; } } return s; };
+  const orig = mats.map(([l, k]) => W.layers[l][k].slice());
+  const loss = async () => {
+    let s = 0;
+    for (const ids of docs) {
+      const A = await forwardAsync(W, ids.slice(0, maxT)); const T = A.T; const y0 = breath(); if (y0) await y0;
+      for (let t = 0; t < T - 1; t++) { const lg = logitsAt(W, A, t); let m = -Infinity; for (const x of lg) if (x > m) m = x; let z = 0; for (const x of lg) z += Math.exp(x - m); s += (m + Math.log(z) - lg[ids[t + 1]]) / (T - 1) / docs.length; const y = breath(); if (y) await y; }
+    }
+    return s;
+  };
   const grid = [], ax = Array.from({ length: n }, (_, i) => -span + (2 * span * i) / (n - 1));
-  try { for (const b of twoD ? ax : [0]) { const row = []; for (const a of ax) { mats.forEach(([l, k], m) => { const w = W.layers[l][k], o = orig[m]; for (let i = 0; i < w.length; i++) w[i] = o[i] + a * U[m][i] + (Vd ? b * Vd[m][i] : 0); }); row.push(loss()); } grid.push(row); } }
+  try { for (const b of twoD ? ax : [0]) { const row = []; for (const a of ax) { mats.forEach(([l, k], m) => { const w = W.layers[l][k], o = orig[m]; for (let i = 0; i < w.length; i++) w[i] = o[i] + a * U[m][i] + (Vd ? b * Vd[m][i] : 0); }); row.push(await loss()); } grid.push(row); } }
   finally { mats.forEach(([l, k], m) => W.layers[l][k].set(orig[m])); }
   return { ax, grid, twoD, dir, mats };
 }
 // ── superposition / interference geometry of neuron write directions (proj columns, ff=1024 in d=256) ──
 // Feature dimensionality D_i = ‖w_i‖² / Σ_j (ŵ_i·w_j)²  (Elhage 2022 "Toy models"), interference = |cos(w_i,w_j)| distribution.
-export function superposition(W, l) { const { d, H, hd, ff, V } = dims(W); const P = W.layers[l], n = ff, cols = Array.from({ length: n }, (_, j) => { const v = new Float64Array(d); for (let i = 0; i < d; i++) v[i] = P.proj[i * n + j]; return v; });
+export async function superposition(W, l) { const { d, ff } = dims(W); const P = W.layers[l], n = ff, cols = Array.from({ length: n }, (_, j) => { const v = new Float64Array(d); for (let i = 0; i < d; i++) v[i] = P.proj[i * n + j]; return v; });
   const nr = cols.map((v) => Math.sqrt(v.reduce((a, b) => a + b * b, 0))); const D = new Float64Array(n), hist = new Array(20).fill(0); let maxCos = 0, sumCos = 0, cnt = 0;
-  for (let i = 0; i < n; i++) { let s = 0; for (let j = 0; j < n; j++) { let p = 0; for (let k = 0; k < d; k++) p += cols[i][k] * cols[j][k]; s += (p / (nr[i] || 1)) ** 2; if (j > i) { const c = Math.abs(p / (nr[i] * nr[j] || 1)); hist[Math.min(19, Math.floor(c * 20))]++; sumCos += c; cnt++; if (c > maxCos) maxCos = c; } } D[i] = nr[i] ** 2 / (s || 1); }
+  for (let i = 0; i < n; i++) { let s = 0; for (let j = 0; j < n; j++) { let p = 0; for (let k = 0; k < d; k++) p += cols[i][k] * cols[j][k]; s += (p / (nr[i] || 1)) ** 2; if (j > i) { const c = Math.abs(p / (nr[i] * nr[j] || 1)); hist[Math.min(19, Math.floor(c * 20))]++; sumCos += c; cnt++; if (c > maxCos) maxCos = c; } } D[i] = nr[i] ** 2 / (s || 1); if ((i & 31) === 31) { const y = breath(); if (y) await y; } }
   const dimsPerFeature = Array.from(D).reduce((a, b) => a + b, 0); return { D, hist, meanAbsCos: sumCos / cnt, maxCos, sumD: dimsPerFeature, randomBaselineCos: Math.sqrt(2 / (Math.PI * d)) };
 }

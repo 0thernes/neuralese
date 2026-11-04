@@ -3,8 +3,24 @@ import { CFG, mulberry32 } from './model.js?v=170';
 import { Engine, defaultRuntime, layerNorm, logSoftmax, topK, entropy } from './engine.js?v=170';
 import { cholSolve, pca1, dot } from './linalg.js?v=170';
 import { slice } from './coop.js?v=170';
+import { remoteEngine } from './trace-remote.js?v=170';
 const { d, H, hd, L, ff } = CFG;
 function breathe() { return slice(); }
+// One token per slice so a traced forward is not a single 0.5–2s task.
+export async function steppedRun(eng, ids, opts) {
+  const RE = !opts?.hook && !opts?.detail ? remoteEngine() : null;
+  if (RE) {
+    const key = opts?.key || 'main';
+    await RE.sync(key, eng);
+    const seq = await RE.newSeq(key, opts?.nPrompt ?? 0); const traces = []; let last;
+    for (const t of ids) { last = await RE.step(seq, t, { trace: !!opts?.trace }); if (opts?.trace) traces.push(last.trace); const y = breathe(); if (y) await y; }
+    RE.free([seq]).catch(() => {});
+    return { last, traces, ids: seq.ids };
+  }
+  const s = eng.newSeq(opts?.nPrompt ?? 0); const traces = []; let last;
+  for (const t of ids) { last = eng.step(s, t, opts); if (opts?.trace) traces.push(last.trace); const y = breathe(); if (y) await y; }
+  return { last, traces, ids: s.ids };
+}
 
 // ───────── corpus statistics (always computed on the CLEAN model with default runtime) ─────────
 export async function computeStats(Wclean, corpus, maxTok = 1200, onp = () => {}) {
@@ -47,7 +63,7 @@ export async function actCovariance(Wclean, stats, l, onp = () => {}) {
 }
 
 // Tuned-lens-style translators: per layer affine map resid_post[l] -> final residual, ridge least squares on the corpus.
-export function fitTunedLens(stats, lambda = 1e-2) {
+export async function fitTunedLens(stats, lambda = 1e-2) {
   const N = stats.N, D = d + 1, Y = stats.final, maps = [];
   for (let l = 0; l < L; l++) {
     const X = stats.resid[l], A = new Float64Array(D * D), B = new Float64Array(D * d);
@@ -56,6 +72,7 @@ export function fitTunedLens(stats, lambda = 1e-2) {
       for (let a = 0; a < D; a++) { const xa = a < d ? X[xo + a] : 1; if (!xa) continue; const ar = a * D;
         for (let b = 0; b <= a; b++) A[ar + b] += xa * (b < d ? X[xo + b] : 1);
         const br = a * d; for (let j = 0; j < d; j++) B[br + j] += xa * Y[xo + j]; }
+      if ((i & 7) === 7) { const y = breathe(); if (y) await y; }
     }
     let tr = 0; for (let a = 0; a < D; a++) tr += A[a * D + a];
     for (let a = 0; a < D; a++) { for (let b = 0; b < a; b++) A[b * D + a] = A[a * D + b]; A[a * D + a] += lambda * tr / D; }
@@ -66,12 +83,13 @@ export function fitTunedLens(stats, lambda = 1e-2) {
 export function applyTuned(M, x) { const y = new Float32Array(d); for (let a = 0; a <= d; a++) { const xa = a < d ? x[a] : 1; const o = a * d; for (let j = 0; j < d; j++) y[j] += xa * M[o + j]; } return y; }
 
 // Logit lens grid. rows = [embed, slot0..slotN-1]; for each token position returns top-k ids/probs + entropy.
-export function lensGrid(eng, traces, { k = 5, tuned = null, positions = null } = {}) {
+export function lensGrid(eng, traces, { k = 5, tuned = null, positions = null, onlyRow = null } = {}) {
   const pos = positions || traces.map((_, i) => i); const out = [];
   for (const p of pos) {
     const tr = traces[p]; const col = [];
     const vecs = [tr.embed, ...tr.resid_post];
     vecs.forEach((x, r) => {
+      if (onlyRow != null && r !== onlyRow) { col.push(null); return; }
       let xx = x; if (tuned && r > 0 && tuned[tr.slotLayer[r - 1]] && r < vecs.length) xx = r === vecs.length - 1 ? x : applyTuned(tuned[tr.slotLayer[r - 1]], x);
       const lp = logSoftmax(eng.lensLogits(xx)); const ids = topK(lp, k);
       col.push({ ids, probs: ids.map((i) => Math.exp(lp[i])), ent: entropy(lp), lp });
@@ -218,7 +236,7 @@ export function vectorArithmetic(expr, vectors) {
   }
   return out;
 }
-export function tokenStats(eng, traces, ids) {
+export async function tokenStats(eng, traces, ids) {
   // per position: entropy of next-token dist, surprisal of actual next token, resid norms per slot, cosine to previous slot
   const rows = [];
   for (let p = 0; p < traces.length; p++) {
@@ -228,6 +246,7 @@ export function tokenStats(eng, traces, ids) {
     const acts = []; tr.mlp_act.forEach((a, s) => { if (!a) return; for (let n = 0; n < ff; n++) acts.push([a[n], s, n]); });
     acts.sort((a, b) => b[0] - a[0]);
     rows.push({ ent: entropy(lp), nll: nx != null ? -lp[nx] : null, norms, cos, topNeurons: acts.slice(0, 8), top: topK(lp, 5).map((i) => [i, Math.exp(lp[i])]) });
+    { const y = breathe(); if (y) await y; }
   }
   const nl = rows.filter((r) => r.nll != null); const ppl = Math.exp(nl.reduce((a, b) => a + b.nll, 0) / (nl.length || 1));
   return { rows, ppl };

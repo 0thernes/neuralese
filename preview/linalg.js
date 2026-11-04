@@ -54,10 +54,11 @@ export async function svdYield(A, rows, cols, opts) {
   const Vcol = Array.from({ length: n }, (_, j) => { const v = new Float64Array(n); v[j] = 1; return v; });
   let sweeps = 0;
   for (; sweeps < maxSweeps; sweeps++) {
-    let off = 0;
+    let off = 0, pair = 0;
     for (let p = 0; p < n - 1; p++) for (let q = p + 1; q < n; q++) {
       const up = Ucol[p], uq = Ucol[q]; let a = 0, b = 0, g = 0;
       for (let i = 0; i < m; i++) { a += up[i] * up[i]; b += uq[i] * uq[i]; g += up[i] * uq[i]; }
+      if ((pair++ & 31) === 31) { const yld = slice(); if (yld) await yld; }
       if (Math.abs(g) <= tol * Math.sqrt(a * b) || g === 0) continue;
       off = Math.max(off, Math.abs(g) / Math.sqrt(a * b));
       const zeta = (b - a) / (2 * g), t = Math.sign(zeta || 1) / (Math.abs(zeta) + Math.sqrt(1 + zeta * zeta)), c = 1 / Math.sqrt(1 + t * t), s = c * t;

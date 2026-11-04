@@ -1,11 +1,12 @@
 // INTERPRET group: attention grid/rollout/head classes, residual geometry, circuit graph, neuron atlas, embeddings, SAE dashboard.
 import * as C from './labcore.js?v=170';
 import { logSoftmax, topK, entropy } from './engine.js?v=170';
-import { dla } from './analysis.js?v=170';
+import { dla, steppedRun } from './analysis.js?v=170';
 import { CORPUS } from './corpus.js?v=170';
 import { allDocs } from './dataset.js?v=170';
-import { heatmap, lines, bars, scatter, showTip, seqColor, arcs, heatStrip } from './charts.js?v=170';
+import { heatmap, lines, bars, scatter, showTip, seqColor, arcs, heatStrip, stampGrid, viridisBytes } from './charts.js?v=170';
 import { $, esc, fmt, opts, lOpts, XB, cv, tipq, pal, PAL, prog, svgEl, tick, tokId, canvasFit, d, H, L, ff, V } from './lab-ui.js?v=170';
+import { slice } from './coop.js?v=170';
 const IOI = 'When Mary and John went to the store, John gave a drink to';
 export const markup = {
   attn: ['ATTENTION', 'Attention patterns', `<fieldset><legend>input</legend><div class="r"><input id="xAP" style="flex:1" value="${IOI}"/><button class="pri" id="xA">run</button></div><div id="xAInfo" class="sm"></div></fieldset>
@@ -32,9 +33,9 @@ export function install(A, out) {
   const drawOne = (s, h) => { const T = AT.ids.length, M = Array.from({ length: T }, (_, q) => Array.from({ length: T }, (_, k) => AT.tr[q].pattern[s]?.[h]?.[k] ?? 0)), lab = AT.ids.map(tstr);
     heatmap($('xAOne'), M, { rows: lab, cols: lab, diverging: false, max: 1, padL: 70, label: (i, j) => `slot ${s} H${h}: "${lab[i]}" → "${lab[j]}" = ${M[i][j].toFixed(4)}`, sync: 'atok' });
     arcs($('xAArc'), lab, M, { sync: 'atok', title: `slot ${s} · head ${h}` }); heatStrip($('xAStrip'), lab, lab.map((_, k) => M.reduce((a, r) => a + r[k], 0) / Math.max(1, T - k)), { sync: 'atok', name: 'mean attention received' }); };
-  out.attn = () => { const eng = A.eng(), ids = A.tok().encode($('xAP').value).slice(0, 48); if (ids.length < 2) throw new Error('need at least 2 tokens'); const tr = eng.run(ids, { trace: true }).traces, slots = eng.R.program.length, T = ids.length; AT = { ids, tr };
+  out.attn = async () => { const eng = A.eng(), ids = A.tok().encode($('xAP').value).slice(0, 48); if (ids.length < 2) throw new Error('need at least 2 tokens'); const tr = (await steppedRun(eng, ids, { trace: true })).traces, slots = eng.R.program.length, T = ids.length; AT = { ids, tr };
     const cvs = $('xAGrid'), w0 = cvs.clientWidth || 420, tile = Math.max(6, Math.floor((w0 - 20) / H)), [c, w] = canvasFit(cvs, tile * slots + 4); c.fillStyle = '#000'; c.fillRect(0, 0, w, tile * slots + 4);
-    const cell = (tile - 2) / T; for (let s = 0; s < slots; s++) for (let h = 0; h < H; h++) { const x0 = 18 + h * tile, y0 = s * tile; for (let q = 0; q < T; q++) for (let k = 0; k <= q; k++) { const v = tr[q].pattern[s]?.[h]?.[k] ?? 0; if (v < 0.02) continue; c.fillStyle = seqColor(Math.sqrt(v)); c.fillRect(x0 + k * cell, y0 + q * cell, Math.max(1, cell), Math.max(1, cell)); } }
+    const cell = (tile - 2) / T; for (let s = 0; s < slots; s++) { for (let h = 0; h < H; h++) { const x0 = 18 + h * tile, y0 = s * tile; stampGrid(c, x0, y0, Math.max(1, cell * T), Math.max(1, cell * T), T, T, (q, k) => { if (k > q) return [0, 0, 0, 0]; const v = tr[q].pattern[s]?.[h]?.[k] ?? 0; if (v < 0.02) return [0, 0, 0, 0]; const rgb = viridisBytes(Math.sqrt(v)); return [rgb[0], rgb[1], rgb[2], 255]; }); } const y = slice(); if (y) await y; }
     c.fillStyle = '#7d8aa6'; c.font = '9px monospace'; for (let s = 0; s < slots; s++) c.fillText(String(eng.R.program[s].layer), 2, s * tile + tile / 2 + 3);
     cvs._csv = () => ['slot,head,query,key,weight', ...tr.flatMap((t, q) => t.pattern.flatMap((ps, s) => (ps || []).flatMap((p, h) => Array.from(p, (v, k) => `${s},${h},${q},${k},${v}`))))].join('\n');
     const at = (e) => { const r = cvs.getBoundingClientRect(), h = Math.floor((e.clientX - r.left - 18) / tile), s = Math.floor((e.clientY - r.top) / tile); return h >= 0 && h < H && s >= 0 && s < slots ? [s, h] : null; };
@@ -56,7 +57,7 @@ export function install(A, out) {
       cvs._csv = () => ['slot,layer,head,label,prev,induction,duplicate,sink,entropy', ...HS.flatMap((row, s) => row.map((x, h) => [s, x.layer, h, x.label, x.prev, x.induction, x.duplicate, x.sink, x.entropy].join(',')))].join('\n');
     } else heatmap(cvs, HS.map((r) => r.map((x) => x[m])), { diverging: false, rows: HS.map((r) => 'L' + r[0].layer), label: (s, h) => `L${HS[s][h].layer}H${h} ${m} = ${HS[s][h][m].toFixed(4)} (${HS[s][h].label})`, onClick: (s, h) => A.setSel({ l: HS[s][h].layer, h }) });
     const cnt = {}; HS.flat().forEach((x) => (cnt[x.label] = (cnt[x.label] || 0) + 1)); $('xHSLeg').innerHTML = Object.entries(CL).map(([k, c]) => `<span style="color:${c}">■</span> ${k} ${cnt[k] || 0}`).join(' · '); };
-  out.heads = () => { HS = C.headScores(A.eng(), A.tok().encode($('xAP').value + ' Once upon a time, there was a little girl named Lily. She loved to play with her ball in the park.')); drawHS(); return HS; };
+  out.heads = async () => { const eng = A.eng(), ids = A.tok().encode($('xAP').value + ' Once upon a time, there was a little girl named Lily. She loved to play with her ball in the park.'), n = 30; const tx = (await steppedRun(eng, ids, { trace: true })).traces, rp = (await steppedRun(eng, C.repeatedTokens(n), { trace: true })).traces; HS = C.scoreHeads(eng, tx, rp, n); drawHS(); return HS; };
   on('xHS', 'click', out.heads); on('xHSm', 'change', drawHS);
 
   // RESIDUAL
@@ -64,7 +65,7 @@ export function install(A, out) {
   const drawPca = () => { if (!RS) return; const [a, b] = $('xRAx').value.split(',').map(Number), { P, T, S, lab } = RS, pts = [], lns = [];
     for (let t = 0; t < T; t++) { const traj = []; for (let s = 0; s <= S; s++) { const p = P.proj[t * (S + 1) + s]; pts.push({ x: p[a], y: p[b], c: s === 0 ? '#94a3b8' : pal(s - 1), r: s === S ? 3.5 : 2, label: `"${lab[t]}" ${s === 0 ? 'embedding' : 'after slot ' + (s - 1)}`, text: s === S && T <= 24 ? lab[t] : '' }); traj.push([p[a], p[b]]); } lns.push({ pts: traj, color: '#47556966' }); }
     scatter($('xRPca'), pts, { lines: lns, h: 320 }); $('xRInfo').textContent = `explained variance PC1 ${(100 * P.explained[0]).toFixed(1)}% · PC2 ${(100 * P.explained[1]).toFixed(1)}% · PC3 ${(100 * P.explained[2]).toFixed(1)}%`; };
-  out.resid = () => { const eng = A.eng(), ids = A.tok().encode($('xRP').value).slice(0, 64), tr = eng.run(ids, { trace: true }).traces, S = eng.R.program.length, T = ids.length, lab = ids.map(tstr), nm = ['emb', ...[...Array(S).keys()].map((s) => 's' + s)];
+  out.resid = async () => { const eng = A.eng(), ids = A.tok().encode($('xRP').value).slice(0, 64), tr = (await steppedRun(eng, ids, { trace: true })).traces, S = eng.R.program.length, T = ids.length, lab = ids.map(tstr), nm = ['emb', ...[...Array(S).keys()].map((s) => 's' + s)];
     const vecs = tr.map((t) => [t.embed, ...t.resid_post]); heatmap($('xRN'), vecs.map((v) => v.map((x) => Math.hypot(...x))), { rows: lab, cols: nm, diverging: false, padL: 70 });
     const cs = Array.from({ length: S + 1 }, () => new Array(S + 1).fill(0)); for (const v of vecs) { const m = C.cosineMatrix(v); for (let i = 0; i <= S; i++) for (let j = 0; j <= S; j++) cs[i][j] += m[i][j] / T; }
     heatmap($('xRC'), cs, { rows: nm, cols: nm, max: 1 });
@@ -72,7 +73,7 @@ export function install(A, out) {
   on('xR', 'click', out.resid); on('xRAx', 'change', drawPca);
 
   // CIRCUIT
-  out.circuit = () => { const eng = A.eng(), tok = A.tok(), W = A.M(), ids = tok.encode($('xCP').value); if (!ids.length) throw new Error('empty prompt'); const run = eng.run(ids, { trace: true }), tr = run.traces[ids.length - 1], lp = logSoftmax(eng.outLogits(run.last.h));
+  out.circuit = async () => { const eng = A.eng(), tok = A.tok(), W = A.M(), ids = tok.encode($('xCP').value); if (!ids.length) throw new Error('empty prompt'); const run = await steppedRun(eng, ids, { trace: true }), tr = run.traces[ids.length - 1], lp = logSoftmax(eng.outLogits(run.last.h));
     const tgt = $('xCT').value ? tokId(tok, $('xCT').value) : topK(lp, 1)[0], r = dla(eng, tr, tgt), N = Math.max(4, Math.min(40, +$('xCN').value || 14)), thr = +$('xCE').value || 0.1;
     const heads = r.heads.slice(0, N), mlpBy = new Map(); for (const n of r.neurons) mlpBy.set(n.slot, (mlpBy.get(n.slot) || 0) + n.v);
     const mlps = [...mlpBy].map(([slot, v]) => ({ slot, l: eng.R.program[slot].layer, v })).sort((a, b) => Math.abs(b.v) - Math.abs(a.v)).slice(0, 4);

@@ -4,6 +4,7 @@ import { GPT2Tokenizer } from './tokenizer.js?v=170';
 import { CFG, buildWeights, parseSafetensors, cloneWeights, mulberry32 } from './model.js?v=170';
 import { Engine, defaultRuntime, logSoftmax, topK, SITES } from './engine.js?v=170';
 import { RemoteEngine, withBias } from './engine-client.js?v=170';
+import { bindRemote } from './trace-remote.js?v=170';
 import { computeStats, actCovariance, fitTunedLens, lensGrid, dla, patchResid, patchHeads, pathPatchHeadsToLogits, ablationSweep, buildControlVector, vectorArithmetic, tokenStats } from './analysis.js?v=170';
 import { Editor, MATS, getMat, toSafetensors, quantize } from './surgery.js?v=170';
 import { defaultDecode, applyPenalties, filterDist, pick, contrastiveLogits, cfgLogits, beamSearch } from './decode.js?v=170';
@@ -76,7 +77,7 @@ async function ensureStats() {
   stats = await computeStats(W, CORPUS, n, (f) => prog('statP', f)); eng.stats = stats; engClean.stats = stats;
   $('statInfo').textContent = `${stats.N} tokens · ${stats.docs.length} stories`; prog('statP', 1); hud(); return stats;
 }
-async function ensureTuned() { await ensureStats(); if (!stats.tuned) { $('statInfo').textContent += ' · fitting tuned lens…'; await tick(); fitTunedLens(stats, 1e-3); $('statInfo').textContent = `${stats.N} tok · tuned lens ✔`; } return stats.tuned; }
+async function ensureTuned() { await ensureStats(); if (!stats.tuned) { $('statInfo').textContent += ' · fitting tuned lens…'; await tick(); await fitTunedLens(stats, 1e-3); $('statInfo').textContent = `${stats.N} tok · tuned lens ✔`; } return stats.tuned; }
 async function ensureCov(l) { if (!cov.has(l)) { await ensureStats(); cov.set(l, await actCovariance(W, stats, l, (f) => prog('romeP', f * 0.3))); } return cov.get(l); }
 const prog = (id, f) => { const e = $(id); if (e) e.firstElementChild.style.width = (f * 100).toFixed(0) + '%'; };
 function hud() {
@@ -219,7 +220,7 @@ function attachTips(box) { box.onmousemove = (e) => { const t = e.target._info; 
 let RE = null, RE_P = null, RE_FAIL = null;
 async function genBackend() {
   if (!RE && !RE_FAIL && !/[?&]noworker\b/.test(location.search)) { // one shared creation promise: concurrent generate() calls must not race two workers
-    RE_P = RE_P || RemoteEngine.create(); try { RE = await RE_P; } catch (e) { RE_FAIL = String(e.message || e); console.warn('engine worker unavailable, using main thread:', RE_FAIL); } }
+    RE_P = RE_P || RemoteEngine.create(); try { RE = await RE_P; bindRemote(RE); } catch (e) { RE_FAIL = String(e.message || e); console.warn('engine worker unavailable, using main thread:', RE_FAIL); } }
   if (RE) { await RE.sync('main', eng); if (!RE.cleanSynced) { RE.cleanSynced = RE.sync('clean', engClean); } await RE.cleanSynced; S.perf.backend = 'worker';
     return { seq: (k, n) => RE.newSeq(k, n), step: (s, id, trace) => RE.step(s, id, { trace }), steps: (s, ids, trace) => RE.steps(s, ids, { trace }), beam: (s, h, o) => RE.beam(s, h, o), kvgeom: (s, phase) => RE.kvgeom(s, phase), done: (ss) => { RE.free(ss).catch(() => {}); } }; }
   S.perf.backend = 'main-thread';
@@ -332,7 +333,11 @@ const vecToJSON = _v2j, vecFromJSON = _j2v; // v12.1: lossless (was toFixed(6), 
 const tstr = (id) => JSON.stringify(tok.tokenStr(id)).slice(1, -1);
 async function traced(ids) {
   if (!RE && !RE_FAIL) { try { await genBackend(); } catch { /* main thread */ } }
-  if (RE) { await RE.sync('main', eng); const seq = await RE.newSeq('main', ids.length); const r = await RE.steps(seq, ids, true); RE.free([seq]).catch(() => {}); return r.traces; }
+  if (RE) {
+    await RE.sync('main', eng); const seq = await RE.newSeq('main', ids.length); const traces = [];
+    for (const t of ids) { const r = await RE.step(seq, t, true); traces.push(r.trace); const y = slice(); if (y) await y; }
+    RE.free([seq]).catch(() => {}); return traces;
+  }
   const s = eng.newSeq(ids.length), trs = [];
   for (const t of ids) { trs.push(eng.step(s, t, { trace: true }).trace); const y = slice(); if (y) await y; }
   return trs;
@@ -347,24 +352,33 @@ async function offload(kind, payload, onp) {
 function stopJobs() { cancelJobs(); RE?.cancelJob(); saeStop = true; }
 async function analyze() {
   const ids = tok.encode($('anText').value); if (!ids.length) return; if (ids.length > 64) throw new Error('analysis input capped at 64 tokens');
-  const t0 = performance.now(); const trs = await traced(ids), slots = R.program.length; const tuned = $('anTuned').checked ? await ensureTuned() : null;
+  const t0 = performance.now(); const mark = (n) => { if (!/[?&]profile\b/.test(location.search)) return; const t = performance.now(); (window.__an = window.__an || []).push([n, Math.round(t - (window.__anT || t0))]); window.__anT = t; };
+  const trs = await traced(ids), slots = R.program.length; mark('traced'); const tuned = $('anTuned').checked ? await ensureTuned() : null; mark('tuned');
   S.an = { ids, trs }; const grid = [];
-  for (let p = 0; p < trs.length; p++) { grid.push(lensGrid(eng, trs, { k: 5, tuned, positions: [p] })[0]); const y = slice(); if (y) await y; }
+  for (let p = 0; p < trs.length; p++) {
+    const nRows = 1 + (trs[p].resid_post?.length || 0), col = [];
+    for (let r = 0; r < nRows; r++) { col[r] = lensGrid(eng, trs, { k: 5, tuned, positions: [p], onlyRow: r })[0][r]; const y = slice(); if (y) await y; }
+    grid.push(col);
+  }
+  mark('grid');
   const rows = ['embed', ...R.program.map((s, i) => `s${i}:L${s.layer}`)];
   let html = '<tr><th></th>' + ids.map((id) => `<th>${esc(tstr(id))}</th>`).join('') + '</tr>';
   rows.forEach((rn, r) => { html += `<tr><th>${rn}</th>` + grid.map((col, p) => { const c = col[r]; return `<td data-p="${p}" data-r="${r}" style="background:${seqColor(c.probs[0])}">${esc(tstr(c.ids[0]))}</td>`; }).join('') + '</tr>'; });
   const T = $('lensT'); T.innerHTML = html; T.onmousemove = (e) => { const td = e.target.closest('td'); if (!td) return showTip(e, ''); const c = grid[+td.dataset.p][+td.dataset.r]; showTip(e, `${rows[+td.dataset.r]} @ pos ${td.dataset.p} (${tuned ? 'tuned' : 'logit'} lens)  H=${c.ent.toFixed(2)} nats\n` + c.ids.map((id, i) => `${JSON.stringify(tok.tokenStr(id)).padEnd(14)} ${c.probs[i].toFixed(4)}`).join('\n')); }; T.onmouseleave = () => showTip(null, '');
   // DLA
   let pos = +$('anPos').value; if (pos < 0) pos = ids.length + pos; const tr = trs[pos]; const lp = logSoftmax(eng.logits(tr.h));
-  const tgt = $('anTgt').value ? tok.encode($('anTgt').value)[0] : topK(lp, 1)[0]; const r = dla(eng, tr, tgt), logit = eng.logitOf(tr.h, tgt);
+  { const y = slice(); if (y) await y; }
+  const tgt = $('anTgt').value ? tok.encode($('anTgt').value)[0] : topK(lp, 1)[0]; const r = dla(eng, tr, tgt), logit = eng.logitOf(tr.h, tgt); mark('dla');
   $('dlaSum').innerHTML = `target <b>${esc(JSON.stringify(tok.tokenStr(tgt)))}</b> @ pos ${pos} (p=${Math.exp(lp[tgt]).toFixed(4)}) · logit ${logit.toFixed(4)} = Σ ${r.total.toFixed(4)} (err ${(logit - r.total).toExponential(1)}) · embed ${r.embed.toFixed(3)} · biases ${r.biases.reduce((a, b) => a + b.v, 0).toFixed(3)} · other(steer/SAE) ${r.other.toFixed(3)}`;
   const HM = Array.from({ length: slots }, () => Array(H).fill(0)); for (const x of r.heads) HM[x.slot][x.h] = x.v;
   heatmap($('dlaHeads'), HM, { rows: rows.slice(1), cols: [...Array(H).keys()], label: (i, j) => `slot ${i} L${R.program[i].layer} H${j}: ${HM[i][j].toFixed(4)}`, onClick: (i, j) => setSel({ l: R.program[i].layer, h: j }) });
   $('dlaHT').innerHTML = '<tr><th>head</th><th>DLA</th></tr>' + r.heads.slice(0, 12).map((x) => `<tr><td>L${x.l}H${x.h}</td><td style="color:${x.v > 0 ? '#5eead4' : '#f87171'}">${x.v.toFixed(4)}</td></tr>`).join('');
   $('dlaNT').innerHTML = '<tr><th>neuron</th><th>DLA</th></tr>' + r.neurons.slice(0, 12).map((x) => `<tr><td>L${x.l}N${x.n}</td><td style="color:${x.v > 0 ? '#5eead4' : '#f87171'}">${x.v.toFixed(4)}</td></tr>`).join('');
   drawAttention();
+  { const y = slice(); if (y) await y; }
   // trajectories + entropy + neurons
-  const st = tokenStats(eng, trs, ids), pal = ['#5eead4', '#f472b6', '#fbbf24', '#60a5fa', '#a78bfa', '#f87171', '#34d399', '#e879f9'];
+  const st = await tokenStats(eng, trs, ids); mark('stats');
+  const pal = ['#5eead4', '#f472b6', '#fbbf24', '#60a5fa', '#a78bfa', '#f87171', '#34d399', '#e879f9'];
   const xs = rows; lines($('normC'), st.rows.map((x, p) => ({ ys: x.norms, color: p === ids.length - 1 ? '#fff' : pal[p % 8] + '88', width: p === ids.length - 1 ? 2 : 1, label: p === ids.length - 1 ? 'last' : null })), { xs, title: '‖resid‖ per slot (each line = one token, white = last)' });
   lines($('cosC'), st.rows.map((x, p) => ({ ys: x.cos, color: p === ids.length - 1 ? '#fff' : pal[p % 8] + '88', width: p === ids.length - 1 ? 2 : 1, label: p === ids.length - 1 ? 'last' : null })), { xs: xs.slice(1), title: 'cos(x_s, x_{s−1})' });
   lines($('entC'), [{ ys: st.rows.map((x) => x.ent), color: '#5eead4', label: 'entropy' }, { ys: st.rows.map((x) => x.nll ?? NaN), color: '#f472b6', label: 'surprisal next' }], { xs: ids.map(tstr), title: 'entropy (teal) / −log p(next actual) (pink), nats' });
@@ -375,9 +389,19 @@ async function analyze() {
 }
 function drawAttention() {
   if (!S.an) return; const trs = S.an.trs, T = trs.length, slots = R.program.length;
-  const big = Array.from({ length: slots * T }, () => Array(H * T).fill(0));
-  for (let s = 0; s < slots; s++) for (let q = 0; q < T; q++) { const pats = trs[q].pattern[s]; if (!pats) continue; for (let h = 0; h < H; h++) for (let k = 0; k <= q; k++) big[s * T + q][h * T + k] = pats[h][k] ?? 0; }
-  heatmap($('attAll'), big, { diverging: false, max: 1, padL: 4, padT: 2, h: Math.min(520, slots * T * 3 + 10), rows: Array(slots * T).fill(''), label: (i, j) => `slot ${(i / T) | 0} H${(j / T) | 0} q=${i % T} k=${j % T}: ${big[i][j].toFixed(3)}`, onClick: (i, j) => { $('attS').value = (i / T) | 0; $('attH').value = (j / T) | 0; setSel({ l: R.program[(i / T) | 0].layer, h: (j / T) | 0 }); } });
+  const big = Array.from({ length: slots * T }, () => new Float32Array(H * T));
+  const gen = (drawAttention.gen = (drawAttention.gen || 0) + 1); let slot = 0;
+  const step = () => {
+    if (drawAttention.gen !== gen) return;
+    const t0 = performance.now();
+    while (slot < slots && performance.now() - t0 < 16) {
+      for (let q = 0; q < T; q++) { const pats = trs[q].pattern[slot]; if (!pats) continue; const row = big[slot * T + q]; for (let h = 0; h < H; h++) for (let k = 0; k <= q; k++) row[h * T + k] = pats[h][k] ?? 0; }
+      slot++;
+    }
+    if (slot < slots) setTimeout(step, 0);
+    else heatmap($('attAll'), big, { diverging: false, max: 1, padL: 4, padT: 2, h: Math.min(520, slots * T * 3 + 10), rows: Array(slots * T).fill(''), label: (i, j) => `slot ${(i / T) | 0} H${(j / T) | 0} q=${i % T} k=${j % T}: ${big[i][j].toFixed(3)}`, onClick: (i, j) => { $('attS').value = (i / T) | 0; $('attH').value = (j / T) | 0; setSel({ l: R.program[(i / T) | 0].layer, h: (j / T) | 0 }); } });
+  };
+  step();
   const s = Math.min(+$('attS').value, slots - 1), h = +$('attH').value, one = Array.from({ length: T }, (_, q) => Array.from({ length: T }, (_, k) => trs[q].pattern[s]?.[h]?.[k] ?? 0)), lab = S.an.ids.map(tstr);
   heatmap($('attOne'), one, { diverging: false, max: 1, rows: lab, cols: lab, padL: 60, h: Math.max(160, T * 14 + 20), label: (q, k) => `slot ${s} H${h}: ${lab[q]} → ${lab[k]}  ${one[q][k].toFixed(4)}` });
 }
