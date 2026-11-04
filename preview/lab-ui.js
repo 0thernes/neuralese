@@ -1,10 +1,11 @@
 // Shared helpers for the v5 research tabs (markup builders, export, run tracker).
 import { CFG } from './model.js?v=170';
+import { frame } from './coop.js?v=170';
 import { createLab, fromTracker } from './agent/schema.js?v=170';
 export const { d, H, hd, L, ff, V } = CFG;
 export const $ = (id) => document.getElementById(id), $$ = (s, r = document) => [...r.querySelectorAll(s)];
 export const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
-export const tick = () => new Promise((r) => setTimeout(r, 0));
+export const tick = () => frame();
 export const fmt = (x, p = 3) => (x == null || !isFinite(x) ? '–' : Math.abs(x) >= 1e4 || (Math.abs(x) < 1e-3 && x !== 0) ? (+x).toExponential(2) : (+x).toFixed(p));
 export const human = (n) => (n >= 1e9 ? (n / 1e9).toFixed(2) + 'G' : n >= 1e6 ? (n / 1e6).toFixed(2) + 'M' : n >= 1e3 ? (n / 1e3).toFixed(1) + 'k' : String(n));
 export const opts = (a, v) => a.map((x) => { const [k, t] = Array.isArray(x) ? x : [x, x]; return `<option value="${k}"${k == v ? ' selected' : ''}>${t}</option>`; }).join('');
@@ -20,12 +21,12 @@ export function tokId(tok, s) { const ids = tok.encode(s); if (!ids.length) thro
 export function parseLayers(s) { const out = new Set(); for (const p of String(s).split(',')) { const m = p.trim().match(/^(\d+)(?:-(\d+))?$/); if (!m) throw new Error('bad layer list ' + s); for (let l = +m[1]; l <= +(m[2] ?? m[1]); l++) if (l < L) out.add(l); } if (!out.size) throw new Error('no valid layers'); return out; }
 export function canvasFit(cvs, h) { const w = cvs.clientWidth || 420; cvs.width = w * devicePixelRatio; cvs.height = h * devicePixelRatio; cvs.style.height = h + 'px'; const c = cvs.getContext('2d'); c.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0); return [c, w]; }
 export const chartBg = () => getComputedStyle(document.documentElement).getPropertyValue('--chart-bg').trim() || '#060a12';
-export function exportFor(id, kind) {
+export async function exportFor(id, kind) {
   const el = $(id); if (!el) return false; const name = `neuralese-${id}-${Date.now()}`;
   const dl = (blob, ext) => { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${name}.${ext}`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); };
   if (kind === 'png') { if (el.tagName !== 'CANVAS') return false; el.toBlob((b) => b && dl(b, 'png')); return true; }
   if (kind === 'svg') { const s = el.tagName === 'svg' ? el : el.querySelector('svg'); if (!s) return false; dl(new Blob([new XMLSerializer().serializeToString(s)], { type: 'image/svg+xml' }), 'svg'); return true; }
-  if (kind === 'csv') { const c = el._csv ? el._csv() : null; if (!c) return false; dl(new Blob([c], { type: 'text/csv' }), 'csv'); return true; }
+  if (kind === 'csv') { const c = el._csv ? await el._csv() : null; if (!c) return false; await tick(); dl(new Blob([c], { type: 'text/csv' }), 'csv'); return true; }
   return false;
 }
 const RKEY = 'neuralese.runs.v5';

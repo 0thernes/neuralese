@@ -10,7 +10,7 @@ import { Editor, MATS, getMat, toSafetensorsYield, quantize } from './surgery.js
 import { defaultDecode, applyPenalties, filterDist, pick, contrastiveLogits, cfgLogits, beamSearch } from './decode.js?v=170';
 import { SAE } from './sae.js?v=170';
 import { computeRome, findSubject } from './rome.js?v=170';
-import { slice, cancelJobs, resetCancel } from './coop.js?v=170';
+import { slice, cancelJobs, resetCancel, frame } from './coop.js?v=170';
 import { svdYield } from './linalg.js?v=170';
 import { CORPUS } from './corpus.js?v=170';
 import { heatmap, lines, bars, showTip, seqColor, divColor, markStale, heatStrip, emit } from './charts.js?v=170';
@@ -26,7 +26,7 @@ import { CITATIONS, FAULT_SPEC, runFaultOp, runWalkCellOp, runWalkOp } from './w
 const audio = new AudioEngine();
 const { d, H, L, ff, V } = CFG;
 const $ = (id) => document.getElementById(id), $$ = (s, r = document) => [...r.querySelectorAll(s)];
-const tick = () => new Promise((r) => setTimeout(r, 0));
+const tick = () => frame();
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const toast = (m, bad) => { const t = $('toast'); t.textContent = m; t.style.borderColor = bad ? '#f87171' : ''; t.classList.toggle('bad', !!bad); t.style.display = 'block'; clearTimeout(toast.h); toast.h = setTimeout(() => (t.style.display = 'none'), bad ? 6000 : 2500); };
 // Yield once so the busy state paints and so a click returns to the event loop before a long compute.
@@ -399,7 +399,7 @@ function drawAttention() {
       for (let q = 0; q < T; q++) { const pats = trs[q].pattern[slot]; if (!pats) continue; const row = big[slot * T + q]; for (let h = 0; h < H; h++) for (let k = 0; k <= q; k++) row[h * T + k] = pats[h][k] ?? 0; }
       slot++;
     }
-    if (slot < slots) setTimeout(step, 0);
+    if (slot < slots) frame().then(step);
     else heatmap($('attAll'), big, { diverging: false, max: 1, padL: 4, padT: 2, h: Math.min(520, slots * T * 3 + 10), rows: Array(slots * T).fill(''), label: (i, j) => `slot ${(i / T) | 0} H${(j / T) | 0} q=${i % T} k=${j % T}: ${big[i][j].toFixed(3)}`, onClick: (i, j) => { $('attS').value = (i / T) | 0; $('attH').value = (j / T) | 0; setSel({ l: R.program[(i / T) | 0].layer, h: (j / T) | 0 }); } });
   };
   step();

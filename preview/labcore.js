@@ -2,9 +2,9 @@
 // These functions compute from the weights/engine passed in at call time (no cached or precomputed results inside this module).
 import { CFG, mulberry32, cloneWeights } from './model.js?v=170';
 import { Engine, defaultRuntime, logSoftmax, layerNorm, entropy } from './engine.js?v=170';
-import { slice } from './coop.js?v=170';
+import { slice, frame } from './coop.js?v=170';
 const { d, H, hd, L, ff, V } = CFG;
-const tick = () => new Promise((r) => setTimeout(r, 0));
+const tick = () => frame();
 
 // ───────── architecture & parameters ─────────
 // Parameter breakdown measured from the actual tensors in W (lengths), grouped for treemaps.
@@ -228,6 +228,18 @@ export function blendWeights(W, M, alpha, scratch) {
   scratch = scratch || cloneWeights(W); const mix = (a, b, o) => { for (let i = 0; i < a.length; i++) o[i] = a[i] + alpha * (b[i] - a[i]); };
   mix(W.wte, M.wte, scratch.wte); mix(W.wpe, M.wpe, scratch.wpe); mix(W.lnfW, M.lnfW, scratch.lnfW); mix(W.lnfB, M.lnfB, scratch.lnfB);
   W.layers.forEach((P, l) => { for (const k in P) mix(P[k], M.layers[l][k], scratch.layers[l][k]); }); return scratch;
+}
+// Same blend, but the wte copy is ~50MB. Yield between slices so it is not one animation frame.
+export async function blendWeightsAsync(W, M, alpha, scratch) {
+  const chunk = async (src) => { const o = new Float32Array(src.length), N = 262144; for (let i = 0; i < src.length; i += N) { o.set(src.subarray(i, Math.min(src.length, i + N)), i); const y = slice(); if (y) await y; } return o; };
+  if (!scratch) {
+    scratch = { wte: await chunk(W.wte), wpe: await chunk(W.wpe), lnfW: await chunk(W.lnfW), lnfB: await chunk(W.lnfB), layers: [] };
+    for (const P of W.layers) { const o = {}; for (const k of Object.keys(P)) o[k] = await chunk(P[k]); scratch.layers.push(o); }
+  }
+  const mix = async (a, b, o) => { const N = 65536; for (let i = 0; i < a.length; i += N) { const end = Math.min(a.length, i + N); for (let j = i; j < end; j++) o[j] = a[j] + alpha * (b[j] - a[j]); const y = slice(); if (y) await y; } };
+  await mix(W.wte, M.wte, scratch.wte); await mix(W.wpe, M.wpe, scratch.wpe); await mix(W.lnfW, M.lnfW, scratch.lnfW); await mix(W.lnfB, M.lnfB, scratch.lnfB);
+  for (let l = 0; l < W.layers.length; l++) for (const k of Object.keys(W.layers[l])) await mix(W.layers[l][k], M.layers[l][k], scratch.layers[l][k]);
+  return scratch;
 }
 // Per-op profiler: wall time between successive engine hooks (= real compute of each op) for one forward step per token.
 export function profile(eng, ids) {
