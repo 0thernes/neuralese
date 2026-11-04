@@ -4,11 +4,11 @@
 
 import { canonical, sha256Hex } from '../prereg.js';
 import { CELLS, CRITERIA, DEMO_SOURCE, programFor } from './cells.js';
-import { PRECISION, runEngine } from './engine.js';
-import { ISA_VERSION, NESTLANG_VERSION } from './isa.js';
+import { PRECISION, runEngine, runEngineAsync } from './engine.js';
+import { ISA_VERSION, NESTLANG_VERSION, STEP_LIMIT } from './isa.js';
 import { hostExec, propose } from './mdcc.js';
 import { compile } from './nestlang.js';
-import { runVM } from './vm.js';
+import { runVM, runVMAsync } from './vm.js';
 
 export const DELIMITER = '⟦forge⟧';
 export const HELP = 'Exact ≠ the right program. A clocked engine spends one step per instruction, so it is slow on purpose. NestLang here is a few named values, 256 ROM words and 256 RAM words. bf16 bit-exactness is not claimed.';
@@ -78,43 +78,88 @@ export function openRun(source, { lmTokens = [], seed = 1 } = {}) {
   };
 }
 
+export async function openRunAsync(source, { lmTokens = [], seed = 1 } = {}, shouldStop = () => false) {
+  const compiled = compile(source);
+  const lm = lmTokens.map((text) => ({ lane: 'lm', kind: 'LM', text: String(text) }));
+  if (!compiled.ok) {
+    return {
+      ok: false, source, seed, errors: compiled.errors, compiled, vm: null, engine: null, engine64: null,
+      eq32: false, eq64: false, diff32: { why: 'typecheck' }, tokens: [...lm, { lane: 'engine', kind: 'FAIL', text: 'FAIL ' + compiled.errors.map((e) => e.code + ': ' + e.msg).join('; ') }],
+    };
+  }
+  const vm = await runVMAsync(compiled.rom, STEP_LIMIT, shouldStop);
+  if (shouldStop()) throw new Error('cancelled');
+  const engine = await runEngineAsync(compiled.rom, Float32Array, STEP_LIMIT, shouldStop);
+  if (shouldStop()) throw new Error('cancelled');
+  const engine64 = await runEngineAsync(compiled.rom, Float64Array, STEP_LIMIT, shouldStop);
+  const eq32 = tracesEqual(vm, engine);
+  const eq64 = tracesEqual(vm, engine64);
+  return {
+    ok: true, source, seed, errors: [], compiled, vm, engine, engine64, eq32, eq64,
+    diff32: eq32 ? null : firstDiff(vm, engine),
+    tokens: [...lm, ...engineTokens(engine.trace, engine.fail || (eq32 ? null : 'trace-mismatch'))],
+    result: vm.result,
+  };
+}
+
 const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
 
-export function runLanes(cells = CELLS) {
-  const tW = now();
-  let correct = 0, match = 0, tokens = 0;
-  const weightRows = [];
-  for (const c of cells) {
-    const run = openRun(programFor(c), { lmTokens: [c.task, DELIMITER], seed: 1 });
-    const hit = run.ok && run.vm.fail == null && run.vm.result === c.expect && run.eq32 && run.eq64;
-    if (hit) correct += 1;
-    if (run.eq32 && run.eq64) match += 1;
-    tokens += run.tokens.filter((t) => t.lane === 'engine').length;
-    weightRows.push({ id: c.id, expect: c.expect, got: run.vm ? run.vm.result : null, eq32: run.eq32, eq64: run.eq64, faults: run.engine ? run.engine.faults.length : null, ok: hit });
-  }
-  const msW = now() - tW;
-  const tM = now();
-  let mdccCorrect = 0, mdccTokens = 0;
-  const mdccRows = [];
+function weightRow(c, run) {
+  const hit = run.ok && run.vm.fail == null && run.vm.result === c.expect && run.eq32 && run.eq64;
+  return {
+    hit, match: run.eq32 && run.eq64, tokens: run.tokens.filter((t) => t.lane === 'engine').length,
+    row: { id: c.id, expect: c.expect, got: run.vm ? run.vm.result : null, eq32: run.eq32, eq64: run.eq64, faults: run.engine ? run.engine.faults.length : null, ok: hit },
+  };
+}
+function mdccRowsOf(cells) {
+  let correct = 0, tokens = 0;
+  const rows = [];
   for (const c of cells) {
     const plan = propose(c.task);
     let got = null, ok = false;
     if (plan.op) {
       got = hostExec(plan);
       ok = got === BigInt(c.expect) && plan.op === c.op && plan.a === c.a && plan.b === c.b;
-      mdccTokens += plan.tokens + 1;
+      tokens += plan.tokens + 1;
     }
-    if (ok) mdccCorrect += 1;
-    mdccRows.push({ id: c.id, ok, got: got === null ? null : got.toString(), plan });
+    if (ok) correct += 1;
+    rows.push({ id: c.id, ok, got: got === null ? null : got.toString() });
   }
-  const msM = now() - tM;
+  return { correct, tokens, rows };
+}
+function packLanes(cells, scored, msW, mdcc, msM) {
   const n = cells.length;
+  const correct = scored.filter((s) => s.hit).length;
+  const match = scored.filter((s) => s.match).length;
+  const tokens = scored.reduce((a, s) => a + s.tokens, 0);
   return {
     criteria: CRITERIA,
     weightcpu: { correct, n, accuracy: correct / n, ms: msW, tokens, memoryWords: 256, engineMatch: match / n },
-    mdcc: { correct: mdccCorrect, n, accuracy: mdccCorrect / n, ms: msM, tokens: mdccTokens, memoryWords: 0 },
-    weightRows, mdccRows,
+    mdcc: { correct: mdcc.correct, n, accuracy: mdcc.correct / n, ms: msM, tokens: mdcc.tokens, memoryWords: 0 },
+    weightRows: scored.map((s) => s.row),
+    mdccRows: mdcc.rows,
   };
+}
+export function runLanes(cells = CELLS) {
+  const tW = now();
+  const scored = cells.map((c) => weightRow(c, openRun(programFor(c), { lmTokens: [c.task, DELIMITER], seed: 1 })));
+  const msW = now() - tW;
+  const tM = now();
+  const mdcc = mdccRowsOf(cells);
+  return packLanes(cells, scored, msW, mdcc, now() - tM);
+}
+export async function runLanesAsync(cells = CELLS, shouldStop = () => false, onProgress = () => {}) {
+  const tW = now();
+  const scored = [];
+  for (let i = 0; i < cells.length; i++) {
+    if (shouldStop()) throw new Error('cancelled');
+    onProgress(cells[i].id, (i + 1) / cells.length);
+    scored.push(weightRow(cells[i], await openRunAsync(programFor(cells[i]), { lmTokens: [cells[i].task, DELIMITER], seed: 1 }, shouldStop)));
+  }
+  const msW = now() - tW;
+  const tM = now();
+  const mdcc = mdccRowsOf(cells);
+  return packLanes(cells, scored, msW, mdcc, now() - tM);
 }
 
 export async function reproBundle(run, extra = {}) {

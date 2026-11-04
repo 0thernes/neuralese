@@ -20,8 +20,9 @@ export function installModes(viz) {
   // v12.1: every preset keeps its viewing direction but its distance/centre are fitted to what is actually visible
   // (the dock covers the right of the canvas; the view is offset so the scene is centred in the uncovered area).
   const visibleObjs = () => (group ? [group] : base().filter((o) => o.visible && !o.userData?.noFit));
-  const frame = () => { const canvas = viz.renderer.domElement; if (canvas.classList.contains('docked')) { const w = Math.max(2, canvas.clientWidth), h = Math.max(2, canvas.clientHeight); viz.cam.aspect = w / h; viz.cam.clearViewOffset(); viz.cam.updateProjectionMatrix(); return { w, h, aspect: w / h, offX: 0, offY: 0 }; }
-    const W = innerWidth, Hh = innerHeight, cs = getComputedStyle(document.documentElement), dock = document.getElementById('dock'), dw = dock && getComputedStyle(dock).display !== 'none' ? dock.getBoundingClientRect().width : parseFloat(cs.getPropertyValue('--dockW')) || 0, o = document.getElementById('out'), oh = o && getComputedStyle(o).display !== 'none' ? o.getBoundingClientRect().height : 0, r = visibleRect(W, Hh, dw >= W ? 0 : dw, oh, document.getElementById('top')?.getBoundingClientRect().height || 34);
+  const frame = () => { const canvas = viz.renderer.domElement; const cs = getComputedStyle(document.documentElement); const dw = parseFloat(cs.getPropertyValue('--dockW')) || 0;
+    if (canvas.classList.contains('docked') || document.body.classList.contains('v17-on')) { const w = Math.max(2, canvas.clientWidth || innerWidth - dw), h = Math.max(2, canvas.clientHeight || innerHeight); viz.cam.aspect = w / Math.max(1, h); viz.cam.clearViewOffset(); viz.cam.updateProjectionMatrix(); return { w, h, aspect: w / Math.max(1, h), offX: 0, offY: 0 }; }
+    const W = innerWidth, Hh = innerHeight, r = visibleRect(W, Hh, dw >= W ? 0 : dw, 0, 44);
     viz.cam.aspect = W / Hh; viz.cam.setViewOffset(W, Hh, r.offX, -r.offY, W, Hh); viz.cam.updateProjectionMatrix(); return r; };
   viz.bounds = () => {
     if (!group) return new THREE.Box3(new THREE.Vector3(-8, -2, -8), new THREE.Vector3(16, 8 * 2.4 + 4, 8));

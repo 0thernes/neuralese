@@ -11,6 +11,8 @@ import { defaultDecode, applyPenalties, filterDist, pick, contrastiveLogits, cfg
 import { SAE } from './sae.js?v=170';
 import { computeRome, findSubject } from './rome.js?v=170';
 import { slice, cancelJobs, resetCancel, frame } from './coop.js?v=170';
+import * as mf from './mf-client.js?v=170';
+mf.ping().catch(() => {});
 import { svdYield } from './linalg.js?v=170';
 import { CORPUS } from './corpus.js?v=170';
 import { heatmap, lines, bars, showTip, seqColor, divColor, markStale, heatStrip, emit } from './charts.js?v=170';
@@ -661,7 +663,8 @@ function wire() {
         if (RE) { try { await RE.sync('clean', engClean); return RE.walkStudy('clean', ids); } catch (e) { console.warn('study worker failed', e); } }
         return runFaultOp(engClean, ids);
       },
-      deepMeta: () => ({ hypothesis: FAULT_SPEC.hypothesis, citations: CITATIONS }) };
+      deepMeta: () => ({ hypothesis: FAULT_SPEC.hypothesis, citations: CITATIONS }),
+      mf };
     Object.defineProperties(window.NEURALESE, Object.getOwnPropertyDescriptors({ showTab, setSel, get sel() { return { ...S.sel }; }, order: V5.order, long: V5.long, cfg: CFG, get lastTraces() { return S.lastTraces; }, get lastIds() { return S.lastIds || null; } })); document.dispatchEvent(new CustomEvent('neuralese:ready')); // v17 shell bridge (typed in ui/src/bridge.ts)
     if (/#x=/.test(location.hash)) { try { await V5.out.shareLoad(location.hash); } catch (e) { toast('share link: ' + e.message); } }
     await generate();

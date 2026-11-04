@@ -122,14 +122,19 @@ function endRun(s) {
 }
 export function runMachine(opts = {}) {
   const s = beginRun(opts);
-  while (s.weight.cycle < s.limit && s.ref.cycle < s.limit && !s.stop) stepRun(s);
+  while (s.weight.cycle < s.limit && s.ref.cycle < s.limit && !s.stop) {
+    if (opts.shouldStop?.()) break;
+    stepRun(s);
+  }
   return endRun(s);
 }
 export async function runMachinePaced(opts = {}) {
   const s = beginRun(opts);
   while (s.weight.cycle < s.limit && s.ref.cycle < s.limit && !s.stop) {
+    if (opts.shouldStop?.()) break;
     stepRun(s);
     const y = slice(); if (y) await y;
+    opts.onProgress?.(s.weight.cycle, s.limit);
   }
   return endRun(s);
 }
@@ -274,8 +279,12 @@ export function packetStatusAt(p, cycle) {
   return p.status === 'drop' ? 'drop' : 'done';
 }
 
-export async function measure(opts = {}) {
-  const breath = async () => { const y = slice(); if (y) await y; };
+export async function measure(opts = {}, hooks = {}) {
+  const breath = async (label, frac) => {
+    if (hooks.cancelled?.()) throw new Error('cancelled');
+    if (label) hooks.onProgress?.(label, frac);
+    const y = slice(); if (y) await y;
+  };
   const seed = opts.seed >>> 0 || 1;
   const rng = mulberry32(seed);
   const nCpu = opts.cpu ?? 24;
