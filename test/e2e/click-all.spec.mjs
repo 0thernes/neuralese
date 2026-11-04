@@ -82,21 +82,15 @@ for (const [w, h, name] of WIDTHS) test(`click every control · ${name}`, async 
     const workspaces = await page.locator('.wsbar button[data-ws]').evaluateAll((els) => els.map((e) => e.getAttribute('data-ws')));
     expect(workspaces.length).toBeGreaterThanOrEqual(13);
     const showWs = async (id) => {
-      for (let attempt = 0; attempt < 3; attempt++) {
-        const found = await page.evaluate((ws) => { window.__wsHold = 0; const b = document.querySelector(`#v17 .wsbar button[data-ws="${ws}"]`); if (!b) return false; b.click(); return true; }, id);
-        if (!found) return false;
-        // A control can call showTab after it yields. Stay on this workspace only once that callback has landed.
-        const stable = await page.waitForFunction((ws) => {
-          const now = document.querySelector('#v17 .wsbar button.on')?.dataset.ws;
-          if (now !== ws) { window.__wsHold = 0; return false; }
-          window.__wsHold = (window.__wsHold || 0) + 1;
-          return window.__wsHold >= 3;
-        }, id, { timeout: 20000 }).then(() => true).catch(() => false);
-        if (stable) return true;
-        await page.reload({ waitUntil: 'domcontentloaded' });
-        await page.waitForSelector('#v17 .wsbar', { timeout: 240000 });
-      }
-      return false;
+      const found = await page.evaluate((ws) => { window.__wsHold = 0; const b = document.querySelector(`#v17 .wsbar button[data-ws="${ws}"]`); if (!b) return false; b.click(); return true; }, id);
+      if (!found) return false;
+      // A control can call showTab after it yields. Stay only once that callback has landed.
+      return page.waitForFunction((ws) => {
+        const now = document.querySelector('#v17 .wsbar button.on')?.dataset.ws;
+        if (now !== ws) { window.__wsHold = 0; return false; }
+        window.__wsHold = (window.__wsHold || 0) + 1;
+        return window.__wsHold >= 3;
+      }, id, { timeout: 120000 }).then(() => true).catch(() => false);
     };
     const clickControls = (panel) => page.evaluate((pid) => {
       const host = [...document.querySelectorAll('#v17 .panel')].find((el) => el.getAttribute('data-panel') === pid);
