@@ -66,4 +66,18 @@ The same click suite, one browser, on https://0thernes.github.io/neuralese/previ
 
 The run did not pass. The 2–5 s offender, on every width, is the Machine Room button **Measure a small batch** (`measure` in `src/machine/machine.js`). The Long Animation Frames entry is an anonymous `TimerHandler:setTimeout` of 2035 / 2365 / 2811 ms, and the control recorded on that frame is that button. The same run's next scripts are Run, MoE-in-MoE, Lower to gates, the terminal Run, and a Forge trace step. Paint/GL max is the SwiftShader stage (`shell.js` `import.then` up to 874 ms on desktop, and `viz.js` `loop` 343 ms on mobile) and is not in the app columns. The root site was not replaced (`/` still serves `2527d67`). No tag and no release.
 
+| Pass | Area | Found | Fixed | What |
+|---|---|---|---|---|
+| 19 | Main thread | 6 | 6 | Measure, machine Run, Forge Run, lane contrast, Lower to gates, and the MoE point cloud run in `mf-worker.js`. The page gets a structured clone (MoE positions are transferred) plus progress and cancel. A Forge trace step asks the worker for that step's RAM instead of keeping every image on the page. The trace list shows the steps around the cursor. Spectral reports for one matrix go through the same worker. |
+
+One `npx playwright test`, workers 1, on https://0thernes.github.io/neuralese/preview/?notour (commit `f71474c`, 4 Nov 2026). Same gate as pass 18: application-script max under 200 ms and p95 under 100 ms. Paint/GL frames (application script under 50 ms, including a stage `import.then` next to a render callback) are printed and not gated. Root site still `2527d67`. No tag and no release.
+
+| Width | Clicked | Disabled | Console errors | Axe serious/critical | Cosmos | `#gl` | Raw max | Raw p95 | Paint/GL max | App max | App p95 | Worst application script |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Mobile 390×844 | 515 | 8 | 1 cache write | none | 390×658 | 390×478 | 2432 ms | 835 ms | 473 ms | 2424 ms | 1175 ms | Measure a small batch |
+| Tablet 768×1024 | 514 | 9 | 0 | none | 388×426 | 373×572 | 2354 ms | 466 ms | 887 ms | 2353 ms | 899 ms | Measure a small batch |
+| Desktop 1440×900 | 515 | 8 | 0 | none | 737×369 | 709×490 | 2200 ms | 512 ms | 890 ms | 2199 ms | 1085 ms | Measure a small batch |
+
+The run did not pass. An isolated click of Measure a small batch, after the worker was warm, did not produce an application script over 50 ms (the 2.6 s of compute stayed in the worker). In the full suite the longest frame is still labeled Measure a small batch: an anonymous `TimerHandler:setTimeout` of 2424 / 2353 / 2199 ms. The next names in that run are fmLive, Clock one, Bible, Index, terminal Run, Run contrast, and the camera presets. Mobile also logged one `net::ERR_CACHE_WRITE_FAILURE`. Axe stayed clean.
+
 Edge-level ACDC, MEMIT, UMAP, and t-SNE were never shipped tabs. The 43 P0 cards are not implemented. Electron and Capacitor release builds were not packed here. `contextIsolation` is already on in `desktop/main.cjs`.
