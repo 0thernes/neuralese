@@ -1,5 +1,6 @@
 // In-app terminal: a small, safe command language over the real app API (no eval). Shared by the batch runner.
 import { $, esc, MATS_OK } from './term-util.js?v=170';
+import { ping } from './mf-client.js?v=170';
 export const VERSION = '17.3.0';
 import { CMDS as SCI_CMDS } from './lab-science.js?v=170';
 import { CMDS as RES_CMDS } from './lab-research.js?v=170';
@@ -125,7 +126,7 @@ export function mountTerminal(A, T) {
     else if (e.key === 'ArrowDown') { hi = Math.min(T.hist.length, hi + 1); inp.value = T.hist[hi] || ''; e.preventDefault(); }
     else if (e.key === 'Tab') { e.preventDefault(); const c = complete(inp.value); if (c.length === 1) inp.value = c[0] + ' '; else if (c.length) print(c.join('   '), 'sm'); }
   });
-  $('tmRun').addEventListener('click', async () => { for (const l of $('tmScript').value.split('\n')) await run(l); });
+  $('tmRun').addEventListener('click', async () => { for (const l of $('tmScript').value.split('\n')) { await run(l); await ping().catch(() => {}); } });
   print(`NEURALESE v${VERSION} terminal — type "help". Tab completes, ↑/↓ history, "run a; b; c" chains.`, 'sm');
   return run;
 }

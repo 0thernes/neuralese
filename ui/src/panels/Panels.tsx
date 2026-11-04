@@ -112,7 +112,19 @@ export function NestedPanel(): JSX.Element {
     try {
       const [{ createStage }, N] = await Promise.all([import('../three/stage'), import('../three/nested')]);
       const st = await createStage(host, () => cssVar('--c-bg')); if (dead) { st.dispose(); return; }
-      runWithOwner(owner, () => createEffect(async () => { const w = which(); setInfo('loading ' + w + '…'); try { const r = w === 'riscv' ? await N.riscv() : w === 'slm' ? await N.slm() : await N.moe(); N.mount(st, r); setInfo(r.info); } catch (e) { setInfo('✖ ' + (e as Error).message); } }));
+      runWithOwner(owner, () => createEffect(async () => {
+        const w = which(); setInfo('loading ' + w + '…');
+        try {
+          if (w === 'moe' && legacy()?.mf) {
+            const data = await legacy()!.mf!.moe(0);
+            if (dead) return;
+            N.mountArrays(st, data); setInfo(data.info); return;
+          }
+          const r = w === 'riscv' ? await N.riscv() : w === 'slm' ? await N.slm() : await N.moe();
+          if (dead) return;
+          N.mount(st, r); setInfo(r.info);
+        } catch (e) { setInfo('✖ ' + (e as Error).message); }
+      }));
       runWithOwner(owner, () => onCleanup(() => st.dispose()));
     } catch (e) { setInfo('3D unavailable: ' + (e as Error).message); }
   });

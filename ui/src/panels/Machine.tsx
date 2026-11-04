@@ -1,6 +1,7 @@
 import { createEffect, createMemo, createSignal, For, getOwner, onCleanup, onMount, runWithOwner, Show, type JSX } from 'solid-js';
-import { COMPONENTS, LIMITS, measure, packetStatusAt, PRECISION, PROGRAMS, saveStorage, zoomView, type WmMeasure, type WmPacket, type ZoomView } from '../../../src/machine/machine.js';
+import { COMPONENTS, LIMITS, packetStatusAt, PRECISION, PROGRAMS, saveStorage, zoomView, type WmMeasure, type WmPacket, type ZoomView } from '../../../src/machine/machine.js';
 import { launch, setWmBusy, setWmCursor, setWmErr, setWmPipe, setWmPlaying, setWmProgram, setWmRun, setWmSelected, setWmZoom, WM_HELP, wmBusy, wmCursor, wmErr, wmPipe, wmPlaying, wmProgram, wmRun, wmSelected, wmZoom } from '../core/machine';
+import { legacy } from '../core/bridge';
 import { theme } from '../core/store';
 
 const ZOOMS = ['board', 'weights', 'gates', 'voltage'] as const;
@@ -11,10 +12,13 @@ function num(v: number | null | undefined, d = 2): string {
   return v.toFixed(d);
 }
 
-function frameOf() {
-  const run = wmRun();
-  if (!run?.frames.length) return null;
-  return run.frames[Math.min(wmCursor(), run.frames.length - 1)] ?? null;
+function spanOf(run: { frameCount?: number; frames?: unknown[] } | null | undefined): number {
+  return run?.frameCount || run?.frames?.length || 0;
+}
+function frameOf(): any {
+  const run = wmRun() as { shown?: { fb?: number[]; cycle?: number; console?: string }; frameCount?: number; frames?: { fb?: number[] }[] } | null;
+  if (!run || !spanOf(run)) return null;
+  return run.shown ?? run.frames?.[Math.min(wmCursor(), Math.max(0, (run.frames?.length || 1) - 1))] ?? null;
 }
 
 function go(id: string, fault: object | null = null): void {
@@ -24,10 +28,11 @@ function go(id: string, fault: object | null = null): void {
     void (async () => {
     try {
       const run = await launch(id, { pipeline: wmPipe(), fault });
+      if (!run || (run as { cancelled?: boolean }).cancelled) return;
       setWmRun(run);
-      setWmCursor(Math.max(0, run.frames.length - 1));
+      setWmCursor(Math.max(0, spanOf(run) - 1));
       if (!run.exact) setWmErr(spreadText(run));
-    } catch (e) { setWmErr((e as Error).message); }
+    } catch (e) { if ((e as Error).message !== 'cancelled') setWmErr((e as Error).message); }
     finally { setWmBusy(''); }
     })();
   });
@@ -152,7 +157,7 @@ function Control(): JSX.Element {
     if (wmPlaying()) { setWmPlaying(false); window.clearInterval(timer); return; }
     setWmPlaying(true);
     timer = window.setInterval(() => {
-      const n = wmRun()?.frames.length ?? 0;
+      const n = spanOf(wmRun());
       if (!n) return;
       const next = wmCursor() + 1;
       if (next >= n) { setWmPlaying(false); window.clearInterval(timer); return; }
@@ -163,14 +168,16 @@ function Control(): JSX.Element {
   const fault = (kind: string): void => {
     if (kind === 'ram') {
       void (async () => {
+        try {
         const clean = await launch('rot-probe', { fault: null });
         const store = clean.packets.find((p) => p.op === 'write' && p.dst === 'ram');
         const at = (store?.arrive ?? 4) + 1;
         setWmProgram('rot-probe');
         setWmRun(clean);
         const bad = await launch('rot-probe', { fault: { kind: 'ram-bit', word: store?.addr ?? 3, bit: 0, atCycle: at } });
-        setWmRun(bad); setWmCursor(Math.max(0, bad.frames.length - 1));
+        setWmRun(bad); setWmCursor(Math.max(0, spanOf(bad) - 1));
         setWmErr(spreadText(bad));
+        } catch (e) { if ((e as Error).message !== 'cancelled') setWmErr((e as Error).message); }
       })();
       return;
     }
@@ -186,9 +193,9 @@ function Control(): JSX.Element {
     <p class="hint">{PROGRAMS[wmProgram()]?.blurb}</p>
     <div class="adv-row">
       <button class="pri" disabled={!!wmBusy()} onClick={() => go(wmProgram())}>Run</button>
-      <button disabled={!run()?.frames.length} onClick={() => setWmCursor(Math.max(0, wmCursor() - 1))}>Step back</button>
-      <button disabled={!run()?.frames.length} onClick={() => setWmCursor(Math.min((run()?.frames.length ?? 1) - 1, wmCursor() + 1))}>Step</button>
-      <button disabled={!run()?.frames.length} onClick={play}>{wmPlaying() ? 'Pause' : 'Play'}</button>
+      <button disabled={!spanOf(run())} onClick={() => setWmCursor(Math.max(0, wmCursor() - 1))}>Step back</button>
+      <button disabled={!spanOf(run())} onClick={() => setWmCursor(Math.min(Math.max(0, spanOf(run()) - 1), wmCursor() + 1))}>Step</button>
+      <button disabled={!spanOf(run())} onClick={play}>{wmPlaying() ? 'Pause' : 'Play'}</button>
       <label class="chk"><input type="checkbox" checked={wmPipe()} onChange={(e) => { setWmPipe(e.currentTarget.checked); go(wmProgram()); }} /> pipeline</label>
     </div>
     <div class="adv-row">
@@ -212,6 +219,17 @@ function Control(): JSX.Element {
 
 function Io(): JSX.Element {
   let cv: HTMLCanvasElement | undefined;
+  createEffect(() => {
+    const run = wmRun() as { id?: number; shownIndex?: number } | null;
+    const i = wmCursor();
+    if (!run?.id || run.shownIndex === i) return;
+    void legacy()?.mf?.machineFrame(run.id, i).then((got) => {
+      if (!got) return;
+      const cur = wmRun() as { id?: number } | null;
+      if (!cur || cur.id !== run.id) return;
+      setWmRun({ ...cur, shown: got, shownIndex: i } as never);
+    });
+  });
   const paint = (): void => {
     const canvas = cv; const fb = frameOf()?.fb; if (!canvas) return;
     const ctx = canvas.getContext('2d'); if (!ctx || !fb) return;
@@ -288,12 +306,10 @@ function Report(): JSX.Element {
   const [table, setTable] = createSignal<WmMeasure | null>(null);
   const [busy, setBusy] = createSignal('');
   const runMeasure = (): void => {
+    const mf = legacy()?.mf;
+    if (!mf) { setWmErr('machine worker is not ready'); return; }
     setBusy('timing a small exact-match batch…');
-    void (async () => {
-      try { setTable(await measure({ seed: 11, cpu: 8, ram: 8, ssd: 4, gpu: 2, tpu: 2, bus: 16, mlp: 1 })); }
-      catch (e) { setWmErr((e as Error).message); }
-      finally { setBusy(''); }
-    })();
+    void mf.measure({ seed: 11, cpu: 8, ram: 8, ssd: 4, gpu: 2, tpu: 2, bus: 16, mlp: 1 }, (p) => { if (p.label) setBusy(String(p.label)); }).then((table) => { if (!(table as { cancelled?: boolean })?.cancelled) setTable(table as WmMeasure); }).catch((e: Error) => setWmErr(e.message)).finally(() => setBusy(''));
   };
   const run = createMemo(() => wmRun());
   return <>

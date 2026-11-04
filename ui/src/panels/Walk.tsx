@@ -1,7 +1,7 @@
 import { createEffect, createMemo, createSignal, For, getOwner, onCleanup, onMount, runWithOwner, Show, type JSX } from 'solid-js';
 import { CHAPTERS } from '../../../src/walk/chapters.js';
 import { CMOS_BANNER, assessInverter, cmosParams, type CmosParams, type InverterReport } from '../../../src/walk/cmos.js';
-import { lowerForge, significandProduct, vmOperands, type ForgeGate, type SigProduct } from '../../../src/walk/forgealu.js';
+import { significandProduct, vmOperands, type ForgeGate, type SigProduct } from '../../../src/walk/forgealu.js';
 import { legacy } from '../core/bridge';
 import { forgeCursor, forgeRun } from '../core/forge';
 import { sel, selection, theme } from '../core/store';
@@ -102,7 +102,7 @@ function gateBoxes(cell: WalkCell | null): { id: number; op: string; y: number }
     const sig = significandProduct(cell.term.w, cell.term.x, { limit: 48 });
     if (sig.ok && sig.shown && sig.shown.length) return sig.shown;
   }
-  return lowerForge('ADD', 3, 5, { limit: 48 }).shown ?? null;
+  return null;
 }
 
 function Read(): JSX.Element {
@@ -268,14 +268,19 @@ function ForgeLink(): JSX.Element {
   const [b, setB] = createSignal(35);
   const [gate, setGate] = createSignal<ForgeGate | null>(null);
   const [sig, setSig] = createSignal<SigProduct | null>(null);
+  const lower = (opName: string, av: number, bv: number): void => {
+    const mf = legacy()?.mf;
+    if (!mf) { setWalkErr('forge worker is not ready'); return; }
+    setWalkBusy('lowering ' + opName + ' to gates…');
+    void mf.lower(opName, av, bv).then((g) => { setGate(g as ForgeGate); setWalkZoom('gates'); }).catch((e: Error) => { if (e.message !== 'cancelled') setWalkErr(e.message); }).finally(() => setWalkBusy(''));
+  };
   const take = (): void => {
     const run = forgeRun();
     const rom = run?.compiled?.rom;
     if (!rom) { setWalkErr('Run a Forge program first, or type the op below.'); return; }
     const op = vmOperands(rom, Math.min(forgeCursor(), Math.max(0, rom.length - 1)));
     setName(op.name); setA(op.a); setB(op.b);
-    setGate(lowerForge(op.name, op.a, op.b));
-    setWalkZoom('gates');
+    lower(op.name, op.a, op.b);
   };
   return <>
     <h3>Forge instruction → gates</h3>
@@ -285,7 +290,7 @@ function ForgeLink(): JSX.Element {
       <label class="hint">op <input aria-label="alu op" value={name()} onInput={(e) => setName(e.currentTarget.value.toUpperCase())} /></label>
       <label class="hint">a <input type="number" value={a()} onInput={(e) => setA(+e.currentTarget.value)} /></label>
       <label class="hint">b <input type="number" value={b()} onInput={(e) => setB(+e.currentTarget.value)} /></label>
-      <button class="pri" onClick={() => { setGate(lowerForge(name(), a(), b())); setWalkZoom('gates'); }}>Lower to gates</button>
+      <button class="pri" onClick={() => lower(name(), a(), b())}>Lower to gates</button>
     </div>
     <Show when={gate()}>{(g) => <p class={g().match ? 'hint' : 'warn'}>{g().note}</p>}</Show>
     <Show when={walkCell()?.term}>

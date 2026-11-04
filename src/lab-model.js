@@ -56,7 +56,8 @@ export function install(A, out) {
   out.weights = async (l0, m0, h0) => { const l = +(l0 ?? $('xWL').value), m = m0 ?? $('xWM').value, hv = h0 ?? $('xWH').value, h = hv === '' || hv == null ? '' : +hv; $('xWL').value = l; $('xWM').value = m;
     const Wc = matOf(A.M(), l, m, h), Wo = matOf(A.W(), l, m, h), mc = C.moments(Wc.a), mo = C.moments(Wo.a), lo = -Math.max(mo.absmax, mc.absmax), hc = C.histogram(Wc.a, 80, lo, -lo), ho = C.histogram(Wo.a, 80, lo, -lo);
     lines($('xWHist'), [{ ys: ho.counts.map((c) => Math.log10(1 + c)), color: '#5eead4', label: 'original' }, { ys: hc.counts.map((c) => Math.log10(1 + c)), color: '#f472b6', label: 'current' }], { xs: ho.edges.map((e) => e.toFixed(3)) });
-    const sc = C.spectral(Wc.a, Wc.rows, Wc.cols); await tick(); const so = C.spectral(Wo.a, Wo.rows, Wo.cols);
+    const spec = await import('./mf-client.js?v=170');
+    const sc = await spec.spectral(Wc.a, Wc.rows, Wc.cols); const so = await spec.spectral(Wo.a, Wo.rows, Wo.cols);
     lines($('xWSv'), [{ ys: so.sv.map((s) => Math.log10(s + 1e-12)), color: '#5eead4', label: 'original' }, { ys: sc.sv.map((s) => Math.log10(s + 1e-12)), color: '#f472b6', label: 'current' }]);
     const tail = (S) => S.esd.filter((v) => v >= S.xmin && v > 0).sort((a, b) => b - a);
     scatter($('xWEsd'), [...tail(so).map((v, i) => ({ x: Math.log10(v), y: Math.log10(i + 1), c: '#5eead4', r: 2, label: `original λ=${v.toExponential(2)} rank ${i + 1}` })), ...tail(sc).map((v, i) => ({ x: Math.log10(v), y: Math.log10(i + 1), c: '#f472b6', r: 2, label: `current λ=${v.toExponential(2)} rank ${i + 1}` }))], { h: 180 });
