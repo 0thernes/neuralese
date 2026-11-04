@@ -2,6 +2,7 @@
 // Exact means every architectural field matches and the weight path recorded no precision fault.
 // Wall-clock overhead is measured by running the two machines separately.
 
+import { slice } from '../coop.js?v=170';
 import { enc } from '../forge/isa.js';
 import { matvec } from '../engine.js';
 import { mulberry32 } from '../model.js';
@@ -62,40 +63,41 @@ function romOf(opts) {
   throw new Error('program or rom required');
 }
 
-export function runMachine(opts = {}) {
+function beginRun(opts) {
   const rom = romOf(opts);
   const limit = opts.limit || STEP_LIMIT;
   const common = { rom, ram: opts.ram || null, storage: opts.storage || null, pipeline: !!opts.pipeline };
   const weight = createWeight({ ...common, fault: opts.fault || null, ArrayType: opts.ArrayType });
   const ref = createRef(common);
-  const frames = [];
-  let diverge = null;
-  let matched = 0;
-  let compared = 0;
-  while (weight.cycle < limit && ref.cycle < limit) {
-    const wDone = !!(weight.halted || weight.fail);
-    const rDone = !!(ref.halted || ref.fail);
-    if (wDone && rDone) break;
-    if (!wDone) stepWeight(weight);
-    if (!rDone) stepRef(ref);
-    const aw = archWeight(weight);
-    const ar = archRef(ref);
-    const d = diffArch(aw, ar);
-    compared++;
-    if (!d) matched++;
-    else if (!diverge) diverge = { cycle: weight.cycle, ...d };
-    if (opts.trace) {
-      frames.push({
-        cycle: aw.cycle, pc: aw.pc, regs: aw.regs.slice(), console: aw.console, halted: aw.halted,
-        fail: aw.fail, result: aw.result, ei: aw.ei, irq: aw.irq, fb: aw.fb.slice(),
-        busy: { ssd: weight.ssdS.phase, gpu: weight.gpuS.phase, tpu: weight.tpuS.phase },
-        eq: !d,
-      });
-    }
-    if (d && opts.stopOnDiff) break;
+  return { opts, limit, weight, ref, frames: [], diverge: null, matched: 0, compared: 0, stop: false };
+}
+function stepRun(s) {
+  const { opts, weight, ref } = s;
+  const wDone = !!(weight.halted || weight.fail);
+  const rDone = !!(ref.halted || ref.fail);
+  if (wDone && rDone) { s.stop = true; return; }
+  if (!wDone) stepWeight(weight);
+  if (!rDone) stepRef(ref);
+  const aw = archWeight(weight);
+  const ar = archRef(ref);
+  const d = diffArch(aw, ar);
+  s.compared++;
+  if (!d) s.matched++;
+  else if (!s.diverge) s.diverge = { cycle: weight.cycle, ...d };
+  if (opts.trace) {
+    s.frames.push({
+      cycle: aw.cycle, pc: aw.pc, regs: aw.regs.slice(), console: aw.console, halted: aw.halted,
+      fail: aw.fail, result: aw.result, ei: aw.ei, irq: aw.irq, fb: aw.fb.slice(),
+      busy: { ssd: weight.ssdS.phase, gpu: weight.gpuS.phase, tpu: weight.tpuS.phase },
+      eq: !d,
+    });
   }
-  if (!weight.halted && !weight.fail && weight.cycle >= limit) weight.fail = 'step-limit';
-  if (!ref.halted && !ref.fail && ref.cycle >= limit) ref.fail = 'step-limit';
+  if (d && opts.stopOnDiff) s.stop = true;
+}
+function endRun(s) {
+  const { opts, weight, ref } = s;
+  if (!weight.halted && !weight.fail && weight.cycle >= s.limit) weight.fail = 'step-limit';
+  if (!ref.halted && !ref.fail && ref.cycle >= s.limit) ref.fail = 'step-limit';
   const aw = archWeight(weight);
   const ar = archRef(ref);
   const pw = packetsWeight(weight);
@@ -104,21 +106,42 @@ export function runMachine(opts = {}) {
   return {
     version: WM_VERSION,
     program: opts.program || null,
-    exact: !diverge && precisionOk && aw.cycle === ar.cycle && aw.fail === ar.fail,
+    exact: !s.diverge && precisionOk && aw.cycle === ar.cycle && aw.fail === ar.fail,
     packetExact: packetsEqual(pw, pr),
     precisionOk,
-    matched, compared, rate: compared ? matched / compared : 1,
-    diverge, cycles: aw.cycle, refCycles: ar.cycle,
+    matched: s.matched, compared: s.compared, rate: s.compared ? s.matched / s.compared : 1,
+    diverge: s.diverge, cycles: aw.cycle, refCycles: ar.cycle,
     weight: aw, ref: ar,
     faults: weight.faults.slice(),
     injected: weight.injected.slice(),
     packets: pw,
-    frames,
+    frames: s.frames,
     weightState: weight,
     refState: ref,
   };
 }
+export function runMachine(opts = {}) {
+  const s = beginRun(opts);
+  while (s.weight.cycle < s.limit && s.ref.cycle < s.limit && !s.stop) stepRun(s);
+  return endRun(s);
+}
+export async function runMachinePaced(opts = {}) {
+  const s = beginRun(opts);
+  while (s.weight.cycle < s.limit && s.ref.cycle < s.limit && !s.stop) {
+    stepRun(s);
+    const y = slice(); if (y) await y;
+  }
+  return endRun(s);
+}
 
+async function pace(m, limit, step) {
+  while (!m.halted && !m.fail && m.cycle < limit) {
+    step(m);
+    const y = slice(); if (y) await y;
+  }
+  if (!m.halted && !m.fail && m.cycle >= limit) m.fail = 'step-limit';
+  return m;
+}
 export function timeProgram(opts) {
   const rom = romOf(opts);
   const limit = opts.limit || STEP_LIMIT;
@@ -130,6 +153,20 @@ export function timeProgram(opts) {
   const msWeight = performance.now() - t0;
   const t1 = performance.now();
   runRef(ref, limit);
+  const msRef = performance.now() - t1;
+  return { msWeight, msRef, cycles: weight.cycle, refCycles: ref.cycle, overhead: msRef > 0 ? msWeight / msRef : null };
+}
+export async function timeProgramPaced(opts) {
+  const rom = romOf(opts);
+  const limit = opts.limit || STEP_LIMIT;
+  const common = { rom, ram: opts.ram || null, storage: opts.storage || null, pipeline: !!opts.pipeline };
+  const weight = createWeight({ ...common, fault: opts.fault || null });
+  const ref = createRef(common);
+  const t0 = performance.now();
+  await pace(weight, limit, stepWeight);
+  const msWeight = performance.now() - t0;
+  const t1 = performance.now();
+  await pace(ref, limit, stepRef);
   const msRef = performance.now() - t1;
   return { msWeight, msRef, cycles: weight.cycle, refCycles: ref.cycle, overhead: msRef > 0 ? msWeight / msRef : null };
 }
@@ -237,7 +274,8 @@ export function packetStatusAt(p, cycle) {
   return p.status === 'drop' ? 'drop' : 'done';
 }
 
-export function measure(opts = {}) {
+export async function measure(opts = {}) {
+  const breath = async () => { const y = slice(); if (y) await y; };
   const seed = opts.seed >>> 0 || 1;
   const rng = mulberry32(seed);
   const nCpu = opts.cpu ?? 24;
@@ -256,11 +294,12 @@ export function measure(opts = {}) {
       const w = createWeight({ rom });
       const r = createRef({ rom });
       const t0 = performance.now();
-      runWeight(w, 64);
+      await pace(w, 64, stepWeight);
       msW += performance.now() - t0;
       const t1 = performance.now();
-      runRef(r, 64);
+      await pace(r, 64, stepRef);
       msR += performance.now() - t1;
+      await breath();
       cycles += w.cycle;
       if (!diffArch(archWeight(w), archRef(r)) && w.faults.length === 0) exact++;
     }
@@ -329,13 +368,14 @@ export function measure(opts = {}) {
       const w = createWeight({ rom, ram });
       const r = createRef({ rom, ram });
       const t0 = performance.now();
-      runWeight(w, 400);
+      await pace(w, 400, stepWeight);
       msW += performance.now() - t0;
       const t1 = performance.now();
-      runRef(r, 400);
+      await pace(r, 400, stepRef);
       msR += performance.now() - t1;
+      await breath();
       cycles += w.cycle;
-      const run = runMachine({ program: 'gpu-vec', ram, limit: 400 });
+      const run = await runMachinePaced({ program: 'gpu-vec', ram, limit: 400 });
       let ok = run.exact && run.packetExact;
       for (let k = 0; k < LANES && ok; k++) if (run.weight.ram[32 + k] !== ((a[k] + b[k]) | 0)) ok = false;
       if (ok) exact++;
@@ -361,6 +401,7 @@ export function measure(opts = {}) {
       msW += wdt; msR += rdt; cycles += cmp.cycles;
       if (cmp.exact && cmp.schedule) exact++;
       void dt;
+      await breath();
     }
     rows.push({ component: 'TPU', trials: nTpu, exact, mismatches: nTpu - exact, msWeight: msW, msRef: msR, cyclesWeight: cycles, cyclesRef: cycles, overhead: overheadOf(msW, msR) });
   }
@@ -400,6 +441,7 @@ export function measure(opts = {}) {
       msW += performance.now() - t0;
       cycles += mlp.cycles;
       if (mlp.exact && mlp.faults.length === 0) exact++;
+      await breath();
     }
     rows.push({
       component: 'MLP', trials: nMlp, exact, mismatches: nMlp - exact, msWeight: msW, msRef: null, cyclesWeight: cycles, cyclesRef: cycles, overhead: null,
@@ -411,8 +453,9 @@ export function measure(opts = {}) {
   for (const id of ['hello', 'memtest', 'gpu-pattern', 'tpu', 'multi', 'irq']) {
     const ram = id === 'tpu' ? identityRam() : null;
     const limit = id === 'gpu-pattern' || id === 'tpu' || id === 'memtest' ? 12000 : STEP_LIMIT;
-    const run = runMachine({ program: id, ram, limit });
-    const timed = timeProgram({ program: id, ram, limit });
+    const run = await runMachinePaced({ program: id, ram, limit });
+    const timed = await timeProgramPaced({ program: id, ram, limit });
+    await breath();
     programs.push({
       id, exact: run.exact, packetExact: run.packetExact, rate: run.rate,
       cycles: run.cycles, refCycles: run.refCycles,

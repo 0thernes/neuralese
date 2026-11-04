@@ -5,12 +5,16 @@ let t0 = 0;
 export function cancelJobs() { stop = true; }
 export function resetCancel() { stop = false; t0 = 0; }
 export function cancelled() { return stop; }
+// One continuation per paint. If several slice() calls each scheduled their own frame callback,
+// Chrome ran all of those timers before the next paint and the frame was still 1–3s.
+let paint = Promise.resolve();
 function nextFrame() {
-  // scheduler.yield() starts a new task but Chrome still runs several of those tasks before the next
-  // paint, so a long job stayed one long animation frame (the 2–5s frames). A frame callback, then a
-  // timer, resolves only after that paint.
-  if (typeof requestAnimationFrame === 'function') return new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve, 0)));
-  return new Promise((resolve) => setTimeout(resolve, 0));
+  const wait = paint.then(() => new Promise((resolve) => {
+    if (typeof requestAnimationFrame !== 'function') { setTimeout(resolve, 0); return; }
+    requestAnimationFrame(() => setTimeout(resolve, 0));
+  }));
+  paint = wait.then(() => {}, () => {});
+  return wait;
 }
 // Always let the browser paint before the next chunk. setTimeout(0) does not.
 export function frame() { return nextFrame(); }

@@ -131,6 +131,8 @@ function Mem(): JSX.Element {
 
 function Tokens(): JSX.Element {
   const pick = (i: number): void => { setForgeCursor(i); try { selection.set({ token: i, prompt: forgeSource().slice(0, 80) }); } catch { /* token index is still shown here */ } };
+  let traceHost: HTMLDivElement | undefined;
+  createEffect(() => { const c = forgeCursor(); const root = traceHost; if (!root) return; for (const b of root.querySelectorAll('button.tok')) b.classList.toggle('on', Number((b as HTMLButtonElement).dataset.i) === c); });
   return <>
     <h3>LM tokens and engine tokens</h3>
     <p class="hint">Left: tokens before the handoff. Right: one instruction and four value bytes per clock, then HALT or FAIL, then END. Selecting a row sets the shared token index (step {sel().token ?? '—'}).</p>
@@ -142,7 +144,7 @@ function Tokens(): JSX.Element {
       </div>
       <div>
         <b>Engine</b>
-        <For each={forgeRun()?.vm?.trace ?? []}>{(s, i) => <button class="tok" classList={{ on: i() === forgeCursor() }} onClick={() => pick(i())}>pc {s.pc} {s.name} → {s.result}</button>}</For>
+        <div ref={traceHost}><For each={forgeRun()?.vm?.trace ?? []}>{(s, i) => <button class="tok" data-i={i()} onClick={() => pick(i())}>pc {s.pc} {s.name} → {s.result}</button>}</For></div>
       </div>
     </div>
   </>;

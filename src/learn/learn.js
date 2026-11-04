@@ -2,6 +2,7 @@
 import { GLOSSARY } from './glossary.js?v=170';
 import { BIBLE } from './bible.js?v=170';
 import { COURSE } from './course.js?v=170';
+import { slice } from '../coop.js?v=170';
 export { GLOSSARY, BIBLE, COURSE };
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
@@ -33,10 +34,10 @@ export function mountLearn(A) {
     course() { const p = progress.get(); body.innerHTML = `<p class="sm">${bar()}/${COURSE.length} lessons passed · labs run real commands in the terminal · <button id="lnReset">reset progress</button></p>` + COURSE.map((l) => `<div class="lcard" data-l="${l.id}" tabindex="0" role="button"><b>${esc(l.title)}</b> <span class="sm">${l.level} · ${l.minutes} min</span> ${p[l.id]?.pass ? '<span class="ok">✔ passed</span>' : p[l.id] ? `<span class="sm">${p[l.id].best}/${l.quiz.length}</span>` : ''}</div>`).join('');
       body.querySelectorAll('.lcard').forEach((c) => { c.onclick = () => lesson(c.dataset.l); c.onkeydown = (e) => e.key === 'Enter' && lesson(c.dataset.l); });
       $('lnReset').onclick = () => { progress.reset(); views.course(); }; },
-    bible() { body.innerHTML = `<nav class="toc">${BIBLE.map((b) => `<a href="#" data-b="${b.id}">${esc(b.title)}</a>`).join(' · ')}</nav>` + BIBLE.map((b) => `<section id="bb_${b.id}"><h3>${esc(b.title)}</h3>${md(b.body)}</section>`).join('');
-      body.querySelectorAll('[data-b]').forEach((a) => (a.onclick = (e) => { e.preventDefault(); $('bb_' + a.dataset.b).scrollIntoView(); })); },
-    gloss(focus) { body.innerHTML = `<p class="sm">${GLOSSARY.length} terms</p><dl class="gloss">` + GLOSSARY.map(([t, d, r]) => `<dt id="gl_${slug(t)}">${esc(t)}</dt><dd>${esc(d)}${r.length ? `<br><span class="sm">see: ${r.map((x) => `<a href="#" data-g="${esc(x)}">${esc(x)}</a>`).join(', ')}</span>` : ''}</dd>`).join('') + '</dl>';
-      body.querySelectorAll('[data-g]').forEach((a) => (a.onclick = (e) => { e.preventDefault(); goTerm(a.dataset.g); })); if (focus) goTerm(focus); },
+    bible() { body.replaceChildren(); const nav = document.createElement('nav'); nav.className = 'toc'; nav.innerHTML = BIBLE.map((b) => `<a href="#" data-b="${b.id}">${esc(b.title)}</a>`).join(' · '); body.appendChild(nav);
+      void (async () => { for (const b of BIBLE) { const sec = document.createElement('section'); sec.id = 'bb_' + b.id; sec.innerHTML = `<h3>${esc(b.title)}</h3>${md(b.body)}`; body.appendChild(sec); const y = slice(); if (y) await y; } nav.querySelectorAll('[data-b]').forEach((a) => (a.onclick = (e) => { e.preventDefault(); $('bb_' + a.dataset.b)?.scrollIntoView(); })); })(); },
+    gloss(focus) { body.replaceChildren(); const note = document.createElement('p'); note.className = 'sm'; note.textContent = GLOSSARY.length + ' terms'; const dl = document.createElement('dl'); dl.className = 'gloss'; body.append(note, dl);
+      void (async () => { for (let i = 0; i < GLOSSARY.length; i++) { const [t, d, r] = GLOSSARY[i]; const dt = document.createElement('dt'); dt.id = 'gl_' + slug(t); dt.textContent = t; const dd = document.createElement('dd'); dd.innerHTML = esc(d) + (r.length ? `<br><span class="sm">see: ${r.map((x) => `<a href="#" data-g="${esc(x)}">${esc(x)}</a>`).join(', ')}</span>` : ''); dl.append(dt, dd); if ((i & 15) === 15) { const y = slice(); if (y) await y; } } dl.querySelectorAll('[data-g]').forEach((a) => (a.onclick = (e) => { e.preventDefault(); goTerm(a.dataset.g); })); if (focus) goTerm(focus); })(); },
     index() { const ix = buildIndex(); let cur = ''; body.innerHTML = '<div class="idx">' + ix.map((x) => { const L0 = x.key[0].toUpperCase(); const h = L0 !== cur ? `<h4>${esc((cur = L0))}</h4>` : ''; return h + `<a href="#" data-r="${esc(x.ref)}">${esc(x.key)}</a> <span class="sm">${x.kind}</span><br>`; }).join('') + '</div>'; wireRefs(); },
   };
   const slug = (t) => t.toLowerCase().replace(/[^a-z0-9]+/g, '-');

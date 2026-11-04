@@ -21,13 +21,15 @@ function go(id: string, fault: object | null = null): void {
   setWmErr(''); setWmBusy('stepping the weight machine and the int32 reference…'); setWmPlaying(false);
   setWmProgram(id);
   queueMicrotask(() => {
+    void (async () => {
     try {
-      const run = launch(id, { pipeline: wmPipe(), fault });
+      const run = await launch(id, { pipeline: wmPipe(), fault });
       setWmRun(run);
       setWmCursor(Math.max(0, run.frames.length - 1));
       if (!run.exact) setWmErr(spreadText(run));
     } catch (e) { setWmErr((e as Error).message); }
     finally { setWmBusy(''); }
+    })();
   });
 }
 
@@ -160,14 +162,16 @@ function Control(): JSX.Element {
   onCleanup(() => window.clearInterval(timer));
   const fault = (kind: string): void => {
     if (kind === 'ram') {
-      const clean = launch('rot-probe', { fault: null });
-      const store = clean.packets.find((p) => p.op === 'write' && p.dst === 'ram');
-      const at = (store?.arrive ?? 4) + 1;
-      setWmProgram('rot-probe');
-      setWmRun(clean);
-      const bad = launch('rot-probe', { fault: { kind: 'ram-bit', word: store?.addr ?? 3, bit: 0, atCycle: at } });
-      setWmRun(bad); setWmCursor(Math.max(0, bad.frames.length - 1));
-      setWmErr(spreadText(bad));
+      void (async () => {
+        const clean = await launch('rot-probe', { fault: null });
+        const store = clean.packets.find((p) => p.op === 'write' && p.dst === 'ram');
+        const at = (store?.arrive ?? 4) + 1;
+        setWmProgram('rot-probe');
+        setWmRun(clean);
+        const bad = await launch('rot-probe', { fault: { kind: 'ram-bit', word: store?.addr ?? 3, bit: 0, atCycle: at } });
+        setWmRun(bad); setWmCursor(Math.max(0, bad.frames.length - 1));
+        setWmErr(spreadText(bad));
+      })();
       return;
     }
     if (kind === 'drop') { go('hello', { kind: 'drop', dst: 'console' }); return; }
@@ -285,11 +289,11 @@ function Report(): JSX.Element {
   const [busy, setBusy] = createSignal('');
   const runMeasure = (): void => {
     setBusy('timing a small exact-match batch…');
-    queueMicrotask(() => {
-      try { setTable(measure({ seed: 11, cpu: 8, ram: 8, ssd: 4, gpu: 2, tpu: 2, bus: 16, mlp: 1 })); }
+    void (async () => {
+      try { setTable(await measure({ seed: 11, cpu: 8, ram: 8, ssd: 4, gpu: 2, tpu: 2, bus: 16, mlp: 1 })); }
       catch (e) { setWmErr((e as Error).message); }
       finally { setBusy(''); }
-    });
+    })();
   };
   const run = createMemo(() => wmRun());
   return <>

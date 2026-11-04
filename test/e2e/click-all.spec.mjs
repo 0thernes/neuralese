@@ -90,7 +90,7 @@ for (const [w, h, name] of WIDTHS) test(`click every control · ${name}`, async 
             const appMs = app.reduce((a, s) => a + s.duration, 0);
             const top = [...scripts].sort((a, b) => b.duration - a.duration)[0];
             const label = top ? `${top.sourceFunctionName || top.invokerType || '?'} ${(top.sourceURL || '').split('/').pop()} ${Math.round(top.duration)}ms ${top.invoker || ''}`.slice(0, 140) : 'paint';
-            window.__frames.push({ d: Math.round(e.duration), app: Math.round(appMs), paint: appMs < 50, gl: hasGl && appMs < 50, name: label });
+            window.__frames.push({ d: Math.round(e.duration), app: Math.round(appMs), paint: appMs < 50, gl: hasGl && appMs < 50, name: label, click: window.__click || '' });
           }
         }).observe({ type: 'long-animation-frame' });
         window.__loaf = true;
@@ -109,18 +109,20 @@ for (const [w, h, name] of WIDTHS) test(`click every control · ${name}`, async 
       return page.waitForFunction((ws) => document.querySelector('#v17 .wsbar button.on')?.dataset.ws === ws, id, { timeout: 180000 }).then(() => true).catch(() => false);
     };
     const clickControls = (panel) => page.evaluate(async (pid) => {
+      const paint = () => new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve, 0)));
       const btn = [...document.querySelectorAll('#v17 .tabstrip button[role=tab]')].find((b) => b.getAttribute('data-panel') === pid);
       btn?.click();
-      await new Promise((r) => setTimeout(r, 0));
+      await paint();
       const host = [...document.querySelectorAll('#v17 .panel')].find((el) => el.getAttribute('data-panel') === pid);
       if (!host) return { missing: true, clicked: 0, disabled: 0, ws: document.querySelector('#v17 .wsbar button.on')?.getAttribute('data-ws'), panels: [...document.querySelectorAll('#v17 .panel')].map((p) => p.getAttribute('data-panel')), tabs: [...document.querySelectorAll('#v17 .tabstrip button[role=tab]')].map((b) => b.getAttribute('data-panel')) };
       let clicked = 0; let disabled = 0;
       for (const el of host.querySelectorAll('button, input[type="checkbox"]')) {
         if (el instanceof HTMLInputElement && el.type === 'file') continue;
         if (el.disabled) { disabled++; continue; }
+        window.__click = (el.id || el.getAttribute('data-hubload') || el.textContent || '').trim().slice(0, 48);
         el.click();
         clicked++;
-        await new Promise((r) => setTimeout(r, 0));
+        await paint();
       }
       return { missing: false, clicked, disabled };
     }, panel);
@@ -141,19 +143,21 @@ for (const [w, h, name] of WIDTHS) test(`click every control · ${name}`, async 
           await showWs(id);
           await page.waitForTimeout(40);
           stats = await page.evaluate(async ({ ws, pid }) => {
+            const paint = () => new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve, 0)));
             if (document.querySelector('#v17 .wsbar button.on')?.dataset.ws !== ws) document.querySelector(`#v17 .wsbar button[data-ws="${ws}"]`)?.click();
-            await new Promise((r) => setTimeout(r, 0));
+            await paint();
             const btn = [...document.querySelectorAll('#v17 .tabstrip button[role=tab]')].find((b) => b.getAttribute('data-panel') === pid);
             btn?.click();
-            await new Promise((r) => setTimeout(r, 0));
+            await paint();
             const host = [...document.querySelectorAll('#v17 .panel')].find((el) => el.getAttribute('data-panel') === pid);
             if (!host) return { missing: true, clicked: 0, disabled: 0, ws: document.querySelector('#v17 .wsbar button.on')?.dataset.ws, panels: [...document.querySelectorAll('#v17 .panel')].map((p) => p.getAttribute('data-panel')), tabs: [...document.querySelectorAll('#v17 .tabstrip button[role=tab]')].map((b) => b.getAttribute('data-panel')) };
             let clicked = 0, disabled = 0;
             for (const el of host.querySelectorAll('button, input[type="checkbox"]')) {
               if (el instanceof HTMLInputElement && el.type === 'file') continue;
               if (el.disabled) { disabled++; continue; }
+              window.__click = (el.id || el.getAttribute('data-hubload') || el.textContent || '').trim().slice(0, 48);
               el.click(); clicked++;
-              await new Promise((r) => setTimeout(r, 0));
+              await paint();
             }
             return { missing: false, clicked, disabled };
           }, { ws: id, pid: panel });
@@ -209,8 +213,10 @@ for (const [w, h, name] of WIDTHS) test(`click every control · ${name}`, async 
     if (!timing.loaf) {
       const over = timing.tasks.filter((d) => d >= 200);
       if (over.length) failures.push(`${name} long tasks >=200ms (long animation frames unavailable, so paint could not be separated) max=${longMax} p95=${longP95} ${over.slice(0, 8).join(',')}`);
-    } else if (jsMax >= 200 || jsP95 >= 100) failures.push(`${name} app script max=${jsMax} p95=${jsP95} (raw frame max=${longMax} p95=${longP95}, paint/GL max=${paintMax}, gl-init max=${glMax}${glName ? ' ' + glName.name : ''}) worst=${worst ? worst.name : ''}`);
-    console.log(`${name} raw max=${longMax} p95=${longP95} n=${raw.length} | paint/GL max=${paintMax} n=${paint.length} gl-init max=${glMax}${glName ? ' (' + glName.name + ')' : ''} | app max=${jsMax} p95=${jsP95} n=${js.length}${worst ? ' worst=' + worst.name : ''}${timing.loaf ? '' : ' (no long-animation-frames)'}`);
+    } else if (jsMax >= 200 || jsP95 >= 100) failures.push(`${name} app script max=${jsMax} p95=${jsP95} (raw frame max=${longMax} p95=${longP95}, paint/GL max=${paintMax}, gl-init max=${glMax}${glName ? ' ' + glName.name : ''}) worst=${worst ? worst.name : ''}${worst && worst.click ? ' @' + worst.click : ''}`);
+    const topApp = [...js].sort((a, b) => (b.app ?? b.d) - (a.app ?? a.d)).slice(0, 8);
+    console.log(`${name} raw max=${longMax} p95=${longP95} n=${raw.length} | paint/GL max=${paintMax} n=${paint.length} gl-init max=${glMax}${glName ? ' (' + glName.name + ')' : ''} | app max=${jsMax} p95=${jsP95} n=${js.length}${worst ? ' worst=' + worst.name + (worst.click ? ' @' + worst.click : '') : ''}${timing.loaf ? '' : ' (no long-animation-frames)'}`);
+    if (topApp.length) console.log(`${name} top`, topApp.map((f) => `${f.app ?? f.d}ms @${f.click || '?'} ${f.name}`).join(' | '));
     report.views[name] = { width: w, height: h, workspaces: workspaces.length, clicked, disabled, cosmos, gl, errors: errors.slice(0, 8), longMax, longP95, longN: raw.length, paintMax, paintN: paint.length, glInitMax: glMax, glInit: glName ? glName.name : '', appMax: jsMax, appP95: jsP95, appN: js.length, worst: worst ? worst.name : '', loaf: timing.loaf };
     await Promise.race([page.close(), new Promise((r) => setTimeout(r, 5000))]);
   fs.mkdirSync('test/e2e', { recursive: true });
