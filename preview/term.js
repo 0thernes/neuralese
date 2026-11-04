@@ -85,7 +85,7 @@ export function makeTerminal(A, out) {
       case 'undo': A.undo(); return `undo · ${A.ed().edits.length} edits`; case 'redo': A.redo(); return 'redo';
       case 'reset': A.reset(); return 'reset: model is bit-identical to the original';
       case 'analyze': A.showTab('an'); await A.analyze(); return 'analysis done (ANALYZE tab)';
-      case 'impact': { if (rest) $('xIP').value = rest; const r = out.impact(); return `final KL ${r.finalKL.toExponential(3)} nats · TV ${r.tv.toFixed(4)} · per-slot KL ${r.perLayer.map((x) => x.toExponential(1)).join(' ')}`; }
+      case 'impact': { if (rest) $('xIP').value = rest; const r = await out.impact(); return `final KL ${r.finalKL.toExponential(3)} nats · TV ${r.tv.toFixed(4)} · per-slot KL ${r.perLayer.map((x) => x.toExponential(1)).join(' ')}`; }
       case 'calib': { const r = await out.calib(a[0] ? num(a[0], 'N', 16, 1000) : 160); return `clean ppl ${r.clean.ppl.toFixed(3)} acc ${(100 * r.clean.acc).toFixed(1)}% ECE ${(100 * r.clean.ece).toFixed(2)}%\ncurrent ppl ${r.cur.ppl.toFixed(3)} acc ${(100 * r.cur.acc).toFixed(1)}% ECE ${(100 * r.cur.ece).toFixed(2)}%`; }
       case 'heads': { const hs = out.heads(), c = {}; hs.flat().forEach((x) => (c[x.label] = (c[x.label] || 0) + 1)); const top = (k) => hs.flat().map((x, i) => [x[k], `L${x.layer}H${i % 16}`]).sort((p, q) => q[0] - p[0]).slice(0, 3).map(([v, n]) => `${n} ${v.toFixed(2)}`).join(', '); return Object.entries(c).map(([k, v]) => `${k}: ${v}`).join(' · ') + `\ntop prev: ${top('prev')}\ntop induction: ${top('induction')}`; }
       case 'attn': A.showTab('attn'); out.attn(); return 'attention rendered';

@@ -1,6 +1,7 @@
 // Condition runner: equal-length system prompts, dual-phase key geometry, FWL, logistic AUROC.
 // Neuron hunt and steering-vs-random share the same locked pre-registration.
 import { canonical, sha256Hex } from '../prereg.js?v=170';
+import { slice } from '../coop.js?v=170';
 import {
   FEATURE_NAMES, KV_CADENCE, deltaValues, geometryFromTokenKeys, geometryVerdict, lopoAUROC,
   permutationAUROC, residualize, syntheticSelfTest,
@@ -230,6 +231,11 @@ export async function finishBundle(prereg, geometry, neurons) {
   return { ...bundle, notebook_markdown: notebookMarkdown(bundle) };
 }
 
+async function play(eng, ids, opts) {
+  const seq = eng.newSeq(opts?.nPrompt ?? ids.length); const traces = []; let last;
+  for (const t of ids) { last = eng.step(seq, t, opts); if (opts?.trace) traces.push(last.trace); const y = slice(); if (y) await y; }
+  return { seq, last, traces };
+}
 function argmax(logits) {
   let id = 0, best = -Infinity;
   for (let i = 0; i < logits.length; i++) if (logits[i] > best) { best = logits[i]; id = i; }
@@ -262,7 +268,7 @@ export function attachAdversary({ eng, tok, cfg, eos = 50256 }) {
       const prev = e.prefixCache;
       e.prefixCache = false;
       const complete = async ({ ids, genTokens }) => {
-        const run = e.run(ids);
+        const run = await play(e, ids, {});
         const promptKeys = copyKeys(run.seq);
         let h = run.last.h;
         const genIds = [];
@@ -271,6 +277,7 @@ export function attachAdversary({ eng, tok, cfg, eos = 50256 }) {
           if (id === eos) break;
           genIds.push(id);
           h = e.step(run.seq, id).h;
+          const y = slice(); if (y) await y;
         }
         return { promptKeys, fullKeys: copyKeys(run.seq), genIds, text: decode(genIds) };
       };
@@ -281,7 +288,7 @@ export function attachAdversary({ eng, tok, cfg, eos = 50256 }) {
       const prev = e.prefixCache;
       e.prefixCache = false;
       const activate = async (ids) => {
-        const traces = e.run(ids, { trace: true }).traces;
+        const traces = (await play(e, ids, { trace: true })).traces;
         const L = cfg.L, ff = cfg.ff;
         const sum = Array.from({ length: L }, () => new Float64Array(ff));
         let n = 0;
@@ -303,7 +310,7 @@ export function attachAdversary({ eng, tok, cfg, eos = 50256 }) {
           if (site !== 'mlp_act') return;
           for (const p of pushes) if (p.layer === layer && p.neuron >= 0 && p.neuron < x.length) x[p.neuron] += p.magnitude;
         };
-        const run = e.run(ids, { hook });
+        const run = await play(e, ids, { hook });
         let h = run.last.h;
         const gen = [];
         for (let t = 0; t < nGen; t++) {
@@ -311,6 +318,7 @@ export function attachAdversary({ eng, tok, cfg, eos = 50256 }) {
           if (id === eos) break;
           gen.push(id);
           h = e.step(run.seq, id, { hook }).h;
+          const y = slice(); if (y) await y;
         }
         return decode(gen);
       };

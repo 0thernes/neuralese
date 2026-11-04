@@ -2,6 +2,7 @@
 // These functions compute from the weights/engine passed in at call time (no cached or precomputed results inside this module).
 import { CFG, mulberry32, cloneWeights } from './model.js?v=170';
 import { Engine, defaultRuntime, logSoftmax, layerNorm, entropy } from './engine.js?v=170';
+import { slice } from './coop.js?v=170';
 const { d, H, hd, L, ff, V } = CFG;
 const tick = () => new Promise((r) => setTimeout(r, 0));
 
@@ -187,7 +188,7 @@ export async function neuronAtlas(Wc, docs, l, N = 400, k = 16, onp = () => {}) 
     for (let i = 0; i < n; i++) { const a = acts[i * ff + j]; mean += a; if (a > 0) fire++; if (a > mx) mx = a; if (top.length < k || a > top[top.length - 1][1]) { top.push([i, a]); top.sort((x, y) => y[1] - x[1]); if (top.length > k) top.pop(); } }
     const mass = new Map(); let tot = 0; for (const [i, a] of top) { const w = Math.max(0, a); mass.set(ids[i], (mass.get(ids[i]) || 0) + w); tot += w; }
     let Hh = 0; for (const w of mass.values()) { const p = w / (tot || 1); if (p > 0) Hh -= p * Math.log(p); }
-    neurons.push({ n: j, max: mx, mean: mean / n, freq: fire / n, top: top.map(([i, a]) => ({ i, a, id: ids[i], doc: where[i][0], pos: where[i][1] })), poly: Math.exp(Hh) }); }
+    neurons.push({ n: j, max: mx, mean: mean / n, freq: fire / n, top: top.map(([i, a]) => ({ i, a, id: ids[i], doc: where[i][0], pos: where[i][1] })), poly: Math.exp(Hh) }); if ((j & 31) === 31) { const y = slice(); if (y) await y; } }
   return { l, N: n, neurons };
 }
 
@@ -210,11 +211,12 @@ export function calibration(rows, bins = 10) {
 }
 export function klLogits(lpP, lpQ) { let k = 0; for (let i = 0; i < lpP.length; i++) { const p = Math.exp(lpP[i]); if (p > 1e-12) k += p * (lpP[i] - lpQ[i]); } return Math.max(0, k); }
 // Edit impact: per-slot logit-lens KL(hacked‖clean) at the last position, per-position final KL, and top probability shifts.
-export function editImpact(engC, engH, ids) {
-  const a = engC.run(ids, { trace: true }).traces, b = engH.run(ids, { trace: true }).traces, T = ids.length;
+export async function editImpact(engC, engH, ids) {
+  const play = async (eng) => { const s = eng.newSeq(ids.length), tr = []; let last; for (const t of ids) { last = eng.step(s, t, { trace: true }); tr.push(last.trace); const y = slice(); if (y) await y; } return tr; };
+  const a = await play(engC), b = await play(engH), T = ids.length;
   const sl = Math.min(engC.R.program.length, engH.R.program.length), perLayer = [];
   for (let s = 0; s < sl; s++) perLayer.push(klLogits(logSoftmax(engH.lensLogits(b[T - 1].resid_post[s])), logSoftmax(engC.lensLogits(a[T - 1].resid_post[s]))));
-  const perPos = a.map((t, i) => klLogits(logSoftmax(engH.logits(b[i].h)), logSoftmax(engC.logits(t.h))));
+  const perPos = []; for (let i = 0; i < a.length; i++) { perPos.push(klLogits(logSoftmax(engH.logits(b[i].h)), logSoftmax(engC.logits(a[i].h)))); const y = slice(); if (y) await y; }
   const pC = logSoftmax(engC.logits(a[T - 1].h)), pH = logSoftmax(engH.logits(b[T - 1].h)), dif = [];
   for (let i = 0; i < pC.length; i++) { const dlt = Math.exp(pH[i]) - Math.exp(pC[i]); if (Math.abs(dlt) > 1e-4) dif.push([i, dlt, Math.exp(pC[i]), Math.exp(pH[i])]); }
   dif.sort((x, y) => Math.abs(y[1]) - Math.abs(x[1]));
