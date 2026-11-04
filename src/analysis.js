@@ -191,10 +191,11 @@ function siteAct(tr, site, l, agg, from) {
   if (agg === 'last') return vs[vs.length - 1];
   const m = new Float32Array(d); for (const v of vs) for (let i = 0; i < d; i++) m[i] += v[i] / vs.length; return m;
 }
-export function buildControlVector(eng, tok, pairs, { site = 'resid_post', method = 'mean', agg = 'last' } = {}) {
+export async function buildControlVector(eng, tok, pairs, { site = 'resid_post', method = 'mean', agg = 'last' } = {}) {
   const diffs = Array.from({ length: L }, () => []);
   for (const [pos, neg] of pairs) {
-    const tp = eng.run(tok.encode(pos), { trace: true }).traces, tn = eng.run(tok.encode(neg), { trace: true }).traces;
+    const tp = eng.run(tok.encode(pos), { trace: true }).traces; { const y = breathe(); if (y) await y; }
+    const tn = eng.run(tok.encode(neg), { trace: true }).traces; { const y = breathe(); if (y) await y; }
     for (let l = 0; l < L; l++) { const a = siteAct(tp, site, l, agg, 0), b = siteAct(tn, site, l, agg, 0); diffs[l].push(Float32Array.from(a, (v, i) => v - b[i])); }
   }
   const vecs = diffs.map((D) => {
