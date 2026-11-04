@@ -23,7 +23,12 @@ export function installModes(viz) {
   const frame = () => { const canvas = viz.renderer.domElement; if (canvas.classList.contains('docked')) { const w = Math.max(2, canvas.clientWidth), h = Math.max(2, canvas.clientHeight); viz.cam.aspect = w / h; viz.cam.clearViewOffset(); viz.cam.updateProjectionMatrix(); return { w, h, aspect: w / h, offX: 0, offY: 0 }; }
     const W = innerWidth, Hh = innerHeight, cs = getComputedStyle(document.documentElement), dock = document.getElementById('dock'), dw = dock && getComputedStyle(dock).display !== 'none' ? dock.getBoundingClientRect().width : parseFloat(cs.getPropertyValue('--dockW')) || 0, o = document.getElementById('out'), oh = o && getComputedStyle(o).display !== 'none' ? o.getBoundingClientRect().height : 0, r = visibleRect(W, Hh, dw >= W ? 0 : dw, oh, document.getElementById('top')?.getBoundingClientRect().height || 34);
     viz.cam.aspect = W / Hh; viz.cam.setViewOffset(W, Hh, r.offX, -r.offY, W, Hh); viz.cam.updateProjectionMatrix(); return r; };
-  viz.bounds = () => { const b = new THREE.Box3(); const sc = group ? group.scale.clone() : null; if (group) group.scale.setScalar(1); for (const o of visibleObjs()) { o.updateMatrixWorld(true); b.expandByObject(o); } if (sc) group.scale.copy(sc); return b; };
+  viz.bounds = () => {
+    if (!group) return new THREE.Box3(new THREE.Vector3(-8, -2, -8), new THREE.Vector3(16, 8 * 2.4 + 4, 8));
+    const b = new THREE.Box3(); const sc = group.scale.clone(); group.scale.setScalar(1); group.updateMatrixWorld(true);
+    for (const o of group.children) { if (o.isInstancedMesh || o.isLOD) { const box = new THREE.Box3().setFromObject(o); b.union(box); } else b.expandByObject(o); }
+    group.scale.copy(sc); return b;
+  };
   viz.preset = (name, ms = 900, fit = true) => { const p = PRESETS[name]; if (!p) throw new Error('unknown camera preset ' + name + ' (' + Object.keys(PRESETS).join(', ') + ')'); let p1 = new THREE.Vector3(...p[0]), q1 = new THREE.Vector3(...p[1]);
     if (fit) { const r = frame(), b = viz.bounds(); if (!b.isEmpty()) { const sph = b.getBoundingSphere(new THREE.Sphere()), dir = p1.clone().sub(q1).normalize(); q1 = sph.center.clone(); p1 = q1.clone().add(dir.multiplyScalar(fitDistance(Math.max(sph.radius, 0.5), viz.cam.fov, r.aspect))); viz.fitted = { name, radius: sph.radius, dist: p1.distanceTo(q1), aspect: r.aspect }; } }
     tween = { t0: performance.now(), ms, p0: viz.cam.position.clone(), p1, q0: viz.ctl.target.clone(), q1 }; return name; };
