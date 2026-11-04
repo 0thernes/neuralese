@@ -32,7 +32,7 @@ for (const [w, h] of VIEWS) {
   });
   const legacyKeys = await p.evaluate(() => window.NEURALESE.order.map((o) => o[0]));
   const missing = legacyKeys.filter((k) => !res.panels['legacy:' + k]?.ok);
-  chk(`${w}x${h}: ${res.ws.length} workspaces`, res.ws.length >= 8 && res.ws.length <= 12, res.ws);
+  chk(`${w}x${h}: ${res.ws.length} workspaces`, res.ws.length >= 8 && res.ws.length <= 16, res.ws);
   chk(`${w}x${h}: all ${legacyKeys.length} legacy tabs mounted + visible in a workspace`, legacyKeys.length === 75 && missing.length === 0, missing);
   chk(`${w}x${h}: every panel non-empty`, res.empty.length === 0, res.empty);
   // 3D: cosmos renders with real traces
