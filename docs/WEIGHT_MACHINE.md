@@ -2,7 +2,7 @@
 
 Weight-Machine is a small computer whose parts are weight gadgets. The host wires the parts together and steps them one cycle at a time. An int32 reference machine, in `src/machine/ref.js`, is the ground truth. The float32 gadget machine in `src/machine/weight.js` is checked against it. This is the same arrangement as Forge: exact means the traces match, not that a program was the right answer to a question.
 
-It is not a release. The version in `package.json` stays 17.2.0. Nothing here is tagged.
+It shipped in Neuralese 17.3.0. The version bump, the tag, and the Pages bundle are that release. The measurements below are the run recorded before the tag.
 
 ## What is claimed
 

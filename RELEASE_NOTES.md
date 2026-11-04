@@ -1,3 +1,52 @@
+# Neuralese v17.3.0: Weight-Machine
+
+Weight-Machine is a board of weight gadgets in the v17 shell. The host wires the parts and steps them. An int32 reference machine is the ground truth. Method, the measured overhead, and the simulated-versus-real line: `docs/WEIGHT_MACHINE.md`.
+
+Minecraft redstone computers and Cisco Packet Tracer suggested the shape of a visible computer and a visible packet. No schematic, save file, or topology was copied. The citations are in that doc.
+
+## What shipped in the app
+- **Machine Room** workspace, opened from the bar or the command palette (no Alt digit; Alt+1…9 and Alt+0 are unchanged). Panels: the 3D board, Cycle, Console / framebuffer, Packets, Gadget zoom, Exact match, and the shared selection inspector.
+- Forge, Deep Walk, and Adversary stay where they were. All 75 legacy tabs stay where they were.
+- WM-ISA/1 extends ForgeISA/1 with opcode 15 (`SYS`) for the console, device status, SSD, GPU, and TPU, plus one IRQ line and an optional two-stage pipeline.
+- RAM is 256 words. A read is hard attention. A write is a delta rule. The SSD is 32 pages of 16 words. Its float32 bit bank is the saved state file, and a reboot reads it back.
+- The GPU is 16 lanes of one gadget. The pattern shader fills a 32×32 framebuffer. The TPU is an 8×8 output-stationary array of int8 MAC gadgets. One integer ReLU layer on it matches `matvec` from the normal engine. TinyStories GELU was not compared.
+- The bus grants one master per cycle and delivers two cycles later. Wide RAM bundles are labeled `wide` in the packet list.
+- `src/machine` is in the Pages and desktop bundle (`tools/build-www.mjs`).
+
+## Measured on the release tree
+One `measure({ seed: 11 })` run. The test locks exact counts, not the milliseconds. Ratios against a reference under a millisecond move from run to run.
+
+| component | exact | weight | reference | weight / reference |
+|---|---|---|---|---|
+| CPU, 24 short ALU programs, 96 cycles | 24/24 | 6.03 ms | 0.87 ms | 7.0× |
+| RAM, 40 attention write+read | 40/40 | 1.75 ms | 0.006 ms | about 300× |
+| SSD, 20 paged write+read | 20/20 | 2.85 ms | 0.006 ms | about 500× |
+| GPU, 8 vecadds, 64 cycles | 8/8 | 11.0 ms | 0.50 ms | 22× |
+| TPU, 4 random int8 matmuls, 88 cycles | 4/4 | 12.1 ms | 0.31 ms | 39× |
+| Bus grant and route, 64 masks | 64/64 | 0.30 ms | 0.039 ms | 7.6× |
+| MLP, 2 layers, also `engine.matvec` | 2/2 | 5.58 ms together | | |
+
+| program | cycles (both) | weight | reference | weight / reference |
+|---|---|---|---|---|
+| hello | 49 | 0.72 ms | 0.087 ms | 8.2× |
+| memtest | 613 | 13.8 ms | 1.28 ms | 11× |
+| gpu-pattern | 132 | 0.47 ms | 0.20 ms | 2.4× |
+| tpu | 32 | 6.31 ms | 0.12 ms | 52× |
+| multi | 81 | 1.50 ms | 0.15 ms | 9.7× |
+| irq | 43 | 1.38 ms | 0.047 ms | 29× |
+
+Hello prints `hello world`. The memory test halts at 1. The TPU identity halts at 1. The bus program halts at 13 and prints `M`. The IRQ program halts at 7. Storage write, save, reboot, and read returns 4242. NestLang `7+13` halts at 20. The Forge demo `22 × 35` halts at 770. Clean runs recorded zero precision faults. A RAM bit flip, a dropped console packet, and a stuck TPU bit each disagree with the clean reference.
+
+bf16 was not run. A softmax is not used. The voltage panel is the Deep Walk square-law CMOS model. It is simulated. It is not a measurement of the CPU or GPU running the page.
+
+## Checks run here
+- `npm test` on this tree, including `test/machine.test.mjs`, `test/forge.test.mjs`, and `test/walk.test.mjs`. Skips are arch and encoder families whose weights were not downloaded.
+- `cd ui && bun run typecheck && bun test tests`. The shell in `src/shell/` was rebuilt after the version bump so `__APP_VERSION__` is 17.3.0.
+- CI is still tag and `workflow_dispatch` only.
+
+## Release
+Tag `v17.3.0` on the version-bump commit (no force-push). That tag runs `.github/workflows/release.yml` (`VER` 17.3.0, `VERSION_CODE` 1730). Pages is `.github/workflows/pages.yml`. Confirm the assets before describing an installer as signed.
+
 # Neuralese v17.2.0: Forge CPU and Deep Walk
 
 Forge is an original NestLang / ForgeISA track in the v17 shell. Not a port of QwenBend or Qwenputer. Method and the measured contrast: `docs/NEST_CPU.md`.
