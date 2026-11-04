@@ -109,11 +109,15 @@ for (const [w, h, name] of WIDTHS) test(`click every control · ${name}`, async 
         // A control can call showTab and move the shell to another workspace. Come back, then open this panel.
         if ((await page.locator('#v17 .wsbar button.on').getAttribute('data-ws')) !== id) await showWs(id);
         const open = async () => {
-          for (let i = 0; i < 3; i++) {
-            await page.evaluate((pid) => { const btn = [...document.querySelectorAll('#v17 .tabstrip button[role=tab]')].find((b) => b.getAttribute('data-panel') === pid); btn?.click(); }, panel);
-            const ok = await page.waitForFunction((pid) => [...document.querySelectorAll('#v17 .panel')].some((el) => el.getAttribute('data-panel') === pid), panel, { timeout: 8000 }).then(() => true).catch(() => false);
+          for (let i = 0; i < 2; i++) {
+            const ok = await page.evaluate(({ ws, pid }) => {
+              if (document.querySelector('#v17 .wsbar button.on')?.dataset.ws !== ws) document.querySelector(`#v17 .wsbar button[data-ws="${ws}"]`)?.click();
+              const btn = [...document.querySelectorAll('#v17 .tabstrip button[role=tab]')].find((b) => b.getAttribute('data-panel') === pid);
+              btn?.click();
+              return [...document.querySelectorAll('#v17 .panel')].some((el) => el.getAttribute('data-panel') === pid);
+            }, { ws: id, pid: panel });
             if (ok) return;
-            await showWs(id);
+            await page.waitForTimeout(30);
           }
         };
         await open();

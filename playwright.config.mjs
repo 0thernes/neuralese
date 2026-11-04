@@ -6,7 +6,7 @@ export default defineConfig({
   expect: { timeout: 20000 },
   retries: 0,
   fullyParallel: true,
-  workers: 3,
+  workers: 2,
   reporter: [['line'], ['json', { outputFile: 'test/e2e/playwright-report.json' }]],
   use: {
     headless: true,
