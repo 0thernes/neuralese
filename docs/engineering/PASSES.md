@@ -50,4 +50,20 @@ One `npx playwright test` on https://0thernes.github.io/neuralese/preview/?notou
 
 The run did not pass. The gate is no task of 200 ms or more. 50 ms is still the goal, and the p95 of tasks that already last at least 50 ms is 728–804 ms. Isolated checks after the yields: attention 69 ms, analyze 77 ms, composition 127 ms, Fisher 122 ms, the hunt and the geometry run 0 tasks ≥ 200 ms. The suite still records 200–1400 ms tasks on chart export, hub model load, calibration, the parameter sweep, and safetensors-sized copies, and one task per width of 2–5 s. The root site was not replaced (`/` still serves `2527d67`). No tag and no release.
 
-Remaining: those long tasks. Edge-level ACDC, MEMIT, UMAP, and t-SNE were never shipped tabs. The 43 P0 cards are not implemented. Electron and Capacitor release builds were not packed here. `contextIsolation` is already on in `desktop/main.cjs`.
+Remaining after that run: chart export, hub loads, calibration, the parameter sweep, large copies, and one 2–5 s task per width.
+
+| Pass | Area | Found | Fixed | What |
+|---|---|---|---|---|
+| 18 | Main thread | 6 | 5 | Long Animation Frames named the 2–5 s task. It was not one function. `slice()` used `setTimeout(0)`, and Chrome ran the whole chain before the next paint, so a calibration or a sweep was one frame (tablet raw max 4823 ms) whose scripts were `coop.js` `TimerHandler:setTimeout`. `scheduler.yield()` still packed several of those continuations into one frame. `slice()` now waits for a paint, and only one continuation is queued per paint. The weight hash streams SHA-256 instead of copying every tensor into one buffer. The sweep blend, the attention CSV, and the fine-tune copy yield between slices. Calibration, the sweep, and the attention CSV then stayed under 200 ms of application script in an isolated check (calibration p95 88 ms, sweep max 81 ms). |
+
+The same click suite, one browser, on https://0thernes.github.io/neuralese/preview/?notour (commit `1dbea11`, 4 Nov 2026). The gate was not raised. A frame is excluded only when its application script is under 50 ms, which is a SwiftShader paint or a WebGL render callback (`viz.js` `loop`, or `shell.js` `import.then` next to a stage frame callback — renderer init). Those frames are still printed. Everything else is gated: application-script max under 200 ms and p95 under 100 ms. If Long Animation Frames were missing, the gate would fall back to raw long tasks and say paint could not be separated.
+
+| Width | Clicked | Disabled | Console errors | Axe serious/critical | Cosmos | `#gl` | Raw max | Raw p95 | Paint/GL max | App max | App p95 | Worst application script |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Mobile 390×844 | 582 | 9 | 0 | none | 390×658 | 390×478 | 2050 ms | 862 ms | 646 ms | 2035 ms | 1215 ms | `measure` · Measure a small batch |
+| Tablet 768×1024 | 582 | 9 | 0 | none | 388×426 | 373×572 | 2367 ms | 549 ms | 948 ms | 2365 ms | 1225 ms | `measure` · Measure a small batch |
+| Desktop 1440×900 | 582 | 9 | 0 | none | 737×369 | 709×490 | 2815 ms | 548 ms | 1358 ms | 2811 ms | 1012 ms | `measure` · Measure a small batch |
+
+The run did not pass. The 2–5 s offender, on every width, is the Machine Room button **Measure a small batch** (`measure` in `src/machine/machine.js`). The Long Animation Frames entry is an anonymous `TimerHandler:setTimeout` of 2035 / 2365 / 2811 ms, and the control recorded on that frame is that button. The same run's next scripts are Run, MoE-in-MoE, Lower to gates, the terminal Run, and a Forge trace step. Paint/GL max is the SwiftShader stage (`shell.js` `import.then` up to 874 ms on desktop, and `viz.js` `loop` 343 ms on mobile) and is not in the app columns. The root site was not replaced (`/` still serves `2527d67`). No tag and no release.
+
+Edge-level ACDC, MEMIT, UMAP, and t-SNE were never shipped tabs. The 43 P0 cards are not implemented. Electron and Capacitor release builds were not packed here. `contextIsolation` is already on in `desktop/main.cjs`.
