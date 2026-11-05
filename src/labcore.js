@@ -173,6 +173,30 @@ export function nearestTokens(W, vec, k = 12, exclude = -1) {
     if (best.length < k || s > best[best.length - 1][1]) { best.push([i, s]); best.sort((a, b) => b[1] - a[1]); if (best.length > k) best.pop(); } }
   return best;
 }
+export async function nearestTokensAsync(W, vec, k = 12, exclude = -1) {
+  let n = _normCache && _normCache.W === W.wte ? _normCache.n : null;
+  if (!n) { n = new Float32Array(W.wte.length / d); for (let i = 0; i < n.length; i++) { let s = 0; for (let j = 0; j < d; j++) s += W.wte[i * d + j] ** 2; n[i] = Math.sqrt(s) || 1; if ((i & 2047) === 2047) await tick(); } _normCache = { W: W.wte, n }; }
+  const vn = Math.hypot(...vec) || 1, best = [];
+  for (let i = 0; i < n.length; i++) { if (i === exclude) continue; let s = 0; const o = i * d; for (let j = 0; j < d; j++) s += W.wte[o + j] * vec[j]; s /= n[i] * vn;
+    if (best.length < k || s > best[best.length - 1][1]) { best.push([i, s]); best.sort((a, b) => b[1] - a[1]); if (best.length > k) best.pop(); }
+    if ((i & 2047) === 2047) await tick(); }
+  return best;
+}
+export async function pcaKAsync(X, n, dim, k = 3, iters = 60) {
+  const mu = new Float64Array(dim); for (let i = 0; i < n; i++) { for (let j = 0; j < dim; j++) mu[j] += X[i * dim + j] / n; if ((i & 255) === 255) await tick(); }
+  const C = new Float64Array(dim * dim);
+  for (let i = 0; i < n; i++) { for (let a = 0; a < dim; a++) { const xa = X[i * dim + a] - mu[a]; if (!xa) continue; for (let b = a; b < dim; b++) C[a * dim + b] += xa * (X[i * dim + b] - mu[b]); } if ((i & 15) === 15) await tick(); }
+  for (let a = 0; a < dim; a++) for (let b = 0; b < a; b++) C[a * dim + b] = C[b * dim + a]; let totVar = 0; for (let a = 0; a < dim; a++) totVar += C[a * dim + a];
+  const comps = [], vars = [];
+  for (let c = 0; c < k; c++) { let v = new Float64Array(dim).map((_, i) => Math.sin(i * (c + 1) + 1)), lam = 0;
+    for (let it = 0; it < iters; it++) { const w = new Float64Array(dim); for (let a = 0; a < dim; a++) { let s = 0; for (let b = 0; b < dim; b++) s += C[a * dim + b] * v[b]; w[a] = s; }
+      for (const u of comps) { let p = 0; for (let a = 0; a < dim; a++) p += w[a] * u[a]; for (let a = 0; a < dim; a++) w[a] -= p * u[a]; }
+      lam = Math.hypot(...w); v = w.map((x) => x / (lam || 1)); if ((it & 3) === 3) await tick(); }
+    comps.push(v); vars.push(lam / (totVar || 1)); }
+  const proj = [];
+  for (let i = 0; i < n; i++) { proj.push(comps.map((u) => { let s = 0; for (let j = 0; j < dim; j++) s += (X[i * dim + j] - mu[j]) * u[j]; return s; })); if ((i & 255) === 255) await tick(); }
+  return { comps, mu, explained: vars, proj };
+}
 export const embedOf = (W, id) => W.wte.subarray(id * d, id * d + d);
 
 // ───────── neurons ─────────
@@ -181,7 +205,7 @@ export const embedOf = (W, id) => W.wte.subarray(id * d, id * d + d);
 export async function neuronAtlas(Wc, docs, l, N = 400, k = 16, onp = () => {}) {
   const eng = new Engine(Wc, defaultRuntime()); const acts = new Float32Array(N * ff), ids = new Int32Array(N), where = []; let n = 0;
   for (let di = 0; di < docs.length && n < N; di++) { const s = eng.newSeq(docs[di].length);
-    for (let t = 0; t < docs[di].length && n < N; t++) { eng.step(s, docs[di][t], { hook: (site, slot, layer, tt, x) => { if (site === 'mlp_act' && layer === l) acts.set(x, n * ff); } }); ids[n] = docs[di][t]; where.push([di, t]); n++; }
+    for (let t = 0; t < docs[di].length && n < N; t++) { eng.step(s, docs[di][t], { hook: (site, slot, layer, tt, x) => { if (site === 'mlp_act' && layer === l) acts.set(x, n * ff); } }); ids[n] = docs[di][t]; where.push([di, t]); n++; if ((t & 3) === 3) await tick(); }
     onp(n / N); await tick(); }
   const neurons = [];
   for (let j = 0; j < ff; j++) { let mx = -Infinity, mean = 0, fire = 0; const top = [];
@@ -243,11 +267,19 @@ export async function blendWeightsAsync(W, M, alpha, scratch) {
 }
 // Per-op profiler: wall time between successive engine hooks (= real compute of each op) for one forward step per token.
 export function profile(eng, ids) {
-  const s = eng.newSeq(ids.length), rows = []; const order = ['resid_pre', 'z', 'attn_out', 'mlp_act', 'mlp_out', 'resid_post'], name = { z: 'ln1+qkv+attn', attn_out: 'o-proj', mlp_act: 'ln2+fc+gelu', mlp_out: 'proj', resid_post: 'resid/steer', resid_pre: 'embed/prev' };
+  const s = eng.newSeq(ids.length), rows = []; const name = { z: 'ln1+qkv+attn', attn_out: 'o-proj', mlp_act: 'ln2+fc+gelu', mlp_out: 'proj', resid_post: 'resid/steer', resid_pre: 'embed/prev' };
   for (const id of ids) { let last = performance.now(); const t0 = last, seg = [];
     const r = eng.step(s, id, { hook: (site, slot, l) => { const now = performance.now(); seg.push({ op: name[site] || site, slot, l, ms: now - last, start: last - t0 }); last = now; } });
     const u0 = performance.now(); eng.logits(r.h); const u1 = performance.now(); seg.push({ op: 'lnf+unembed', slot: -1, l: L, ms: u1 - last, start: last - t0 });
     rows.push({ T: s.T, seg, total: u1 - t0 }); }
+  const agg = {}; for (const r of rows) for (const g of r.seg) agg[g.op] = (agg[g.op] || 0) + g.ms; return { rows, agg };
+}
+export async function profileAsync(eng, ids) {
+  const s = eng.newSeq(ids.length), rows = []; const name = { z: 'ln1+qkv+attn', attn_out: 'o-proj', mlp_act: 'ln2+fc+gelu', mlp_out: 'proj', resid_post: 'resid/steer', resid_pre: 'embed/prev' };
+  for (const id of ids) { let last = performance.now(); const t0 = last, seg = [];
+    const r = eng.step(s, id, { hook: (site, slot, l) => { const now = performance.now(); seg.push({ op: name[site] || site, slot, l, ms: now - last, start: last - t0 }); last = now; } });
+    eng.logits(r.h); const u1 = performance.now(); seg.push({ op: 'lnf+unembed', slot: -1, l: L, ms: u1 - last, start: last - t0 });
+    rows.push({ T: s.T, seg, total: u1 - t0 }); await tick(); }
   const agg = {}; for (const r of rows) for (const g of r.seg) agg[g.op] = (agg[g.op] || 0) + g.ms; return { rows, agg };
 }
 export const memoryInfo = () => (typeof performance !== 'undefined' && performance.memory ? { used: performance.memory.usedJSHeapSize, total: performance.memory.totalJSHeapSize, limit: performance.memory.jsHeapSizeLimit } : null);

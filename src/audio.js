@@ -71,10 +71,12 @@ export class AudioEngine {
     this.master = C.createGain(); this.comp = C.createDynamicsCompressor(); this.comp.threshold.value = -20; this.comp.ratio.value = 3; this.comp.attack.value = 0.01;
     this.an = C.createAnalyser(); this.an.fftSize = 512; this.master.connect(this.comp).connect(this.an).connect(C.destination); this.abuf = new Uint8Array(this.an.frequencyBinCount);
     this.rev = C.createConvolver(); this.revGain = C.createGain(); this.revGain.gain.value = 0.25; this.rev.connect(this.revGain).connect(this.master); this.makeIR();
+    await new Promise((r) => setTimeout(r, 0));
     this.bus = {}; for (const k of ['score', 'tokens', 'choir', 'sfx']) { const g = C.createGain(); g.connect(this.master); const s = C.createGain(); s.gain.value = 0.5; g.connect(s).connect(this.rev); this.bus[k] = g; }
     // warm pad: triangle/sine triad per chord tone → gentle lowpass
     this.padF = C.createBiquadFilter(); this.padF.type = 'lowpass'; this.padF.Q.value = 0.5; this.padF.frequency.value = 900; this.padG = C.createGain(); this.padG.gain.value = 0; this.padF.connect(this.padG).connect(this.bus.score);
     this.pad = []; for (let i = 0; i < 4; i++) { const o = C.createOscillator(); o.type = i % 2 ? 'sine' : 'triangle'; o.start(t); const g = C.createGain(); g.gain.value = 0.08; o.connect(g).connect(this.padF); this.pad.push(o); }
+    await new Promise((r) => setTimeout(r, 0));
     // divergence: consonant interval voice above the pad
     this.divO = C.createOscillator(); this.divO.type = 'sine'; this.divG = C.createGain(); this.divG.gain.value = 0; this.divO.connect(this.divG).connect(this.padF); this.divO.start(t);
     // layer choir: 8 soft sines (one per layer), gain ← layer residual norm; head texture: soft FM shimmer, index ← attention entropy

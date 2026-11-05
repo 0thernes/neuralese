@@ -1,6 +1,6 @@
 // v16 tabs: HUB interpretability (logit lens / CLIP embedding lens, attention rollout, linear probes on ViT, CLIP-vision and
 // Whisper-encoder internals, via our own HF-matched forwards in a worker) and "What's new in v16" with the opt-in WebGPU path.
-import { $, esc, tipq } from './lab-ui.js?v=170';
+import { $, esc, tipq, tick } from './lab-ui.js?v=170';
 const kv = (rows) => `<table class="kv">${rows.map(([a, b]) => `<tr><td>${a}</td><td>${b}</td></tr>`).join('')}</table>`;
 const CLIP_MEAN = [0.48145466, 0.4578275, 0.40821073], CLIP_STD = [0.26862954, 0.26130258, 0.27577711];
 export const WORKS = [
@@ -29,6 +29,7 @@ function worker() { if (W) return W; W = new Worker(new URL('./arch/encoder-work
   W.onmessage = ({ data }) => { const p = pend[data.id]; if (!p) return; if (data.progress) return p.say?.(data.progress); delete pend[data.id]; data.err ? p.rej(new Error(data.err)) : p.res(data.ok); }; return W; }
 const call = (op, args, say, transfer = []) => new Promise((res, rej) => { const id = ++seq; pend[id] = { res, rej, say }; worker().postMessage({ id, op, args }, transfer); });
 function testImage(S = 224) { const c = new OffscreenCanvas(S, S), g = c.getContext('2d'); g.fillStyle = '#2b6cb0'; g.fillRect(0, 0, S, S); g.fillStyle = '#f6e05e'; g.beginPath(); g.arc(S * 0.62, S * 0.4, S * 0.22, 0, 7); g.fill(); g.fillStyle = '#2f855a'; g.fillRect(0, S * 0.75, S, S * 0.25); return c; }
+function testPixels(key, S = 224) { return new Promise((resolve, reject) => { const w = new Worker(URL.createObjectURL(new Blob([`onmessage=async(e)=>{const S=224,key=e.data.key,c=new OffscreenCanvas(S,S),g=c.getContext('2d');g.fillStyle='#2b6cb0';g.fillRect(0,0,S,S);g.fillStyle='#f6e05e';g.beginPath();g.arc(S*0.62,S*0.4,S*0.22,0,7);g.fill();g.fillStyle='#2f855a';g.fillRect(0,S*0.75,S,S*0.25);const d=g.getImageData(0,0,S,S).data,MEAN=[0.48145466,0.4578275,0.40821073],STD=[0.26862954,0.26130258,0.27577711],px=new Float32Array(3*S*S);for(let i=0;i<S*S;i++)for(let ch=0;ch<3;ch++){const v=d[i*4+ch]/255;px[ch*S*S+i]=key==='clip'?(v-MEAN[ch])/STD[ch]:(v-0.5)/0.5;}const buf=await (await c.convertToBlob()).arrayBuffer();postMessage({px,buf},[px.buffer,buf]);}`], { type: 'application/javascript' }))); w.onmessage = async (e) => { const bmp = await createImageBitmap(new Blob([e.data.buf])), canvas = new OffscreenCanvas(S, S); canvas.getContext('2d').drawImage(bmp, 0, 0); bmp.close(); w.terminate(); resolve({ px: e.data.px, canvas }); }; w.onerror = (err) => { w.terminate(); reject(err); }; w.postMessage({ key }); }); }
 function pixels(src, key, S = 224) { const c = new OffscreenCanvas(S, S), g = c.getContext('2d'), w = src.width, h = src.height;
   if (key === 'clip') { const s = S / Math.min(w, h); g.drawImage(src, (S - w * s) / 2, (S - h * s) / 2, w * s, h * s); } else g.drawImage(src, 0, 0, S, S);
   const d = g.getImageData(0, 0, S, S).data, px = new Float32Array(3 * S * S);
@@ -44,7 +45,7 @@ export function install(A, out) {
   const on = A.on, say = (s) => { const e = $('hiSt'); if (e) e.textContent = s; };
   let input = null; on('hiFile', 'change', () => { input = $('hiFile').files?.[0] || null; say(input ? `selected ${input.name}` : ''); }); on('hiTest', 'click', () => { input = null; if ($('hiFile')) $('hiFile').value = ''; say('using the built-in test input'); });
   out.hubInterp = async (key = $('hiM')?.value || 'vit') => { const isImg = key !== 'whisper'; let r;
-    if (isImg) { const src = input && input.type.startsWith('image/') ? await createImageBitmap(input) : testImage(), { px, canvas } = pixels(src, key); r = await call('run', { key, input: px }, say, [px.buffer]); if ($('hiCv')) overlay($('hiCv'), canvas, r.rollout, r.g); }
+    if (isImg) { let src, px, canvas; if (input && input.type.startsWith('image/')) { src = await createImageBitmap(input); ({ px, canvas } = pixels(src, key)); } else ({ px, canvas } = await testPixels(key)); r = await call('run', { key, input: px }, say, [px.buffer]); await tick(); if ($('hiCv')) overlay($('hiCv'), canvas, r.rollout, r.g); }
     else { const a = await audio16k(input && input.type.startsWith('audio/') ? input : null); r = await call('run', { key, audio: a }, say); if ($('hiCv')) matrix($('hiCv'), r.attn, r.S); }
     const head = [['weights', esc(r.verified)], ['tokens × layers × heads', `${r.N} × ${r.L} × ${r.H}`], ['forward time', `${(r.ms / 1000).toFixed(1)} s (float64 JS in a worker)`]];
     let body = ''; if (r.lens) body = kv([['<b>layer</b>', '<b>logit lens top-3 (CLS → final LN → classifier)</b>'], ...r.lens.map((t, l) => [l === 0 ? 'embed' : 'L' + l, t.map(([n, p]) => `${esc(n)} <span class="sm">${(100 * p).toFixed(1)}%</span>`).join(' · ')])]);

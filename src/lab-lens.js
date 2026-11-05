@@ -56,8 +56,10 @@ export function install(A, out) {
     if ((m = q.trim().match(/^L(\d)N(\d+)$/i))) return neuronCard(+m[1], +m[2]); if ((m = q.trim().match(/^L(\d)H(\d+)$/i))) return headCard(+m[1], +m[2]);
     const ids = new Set(); for (const [v, s] of Object.entries(S.tok)) if (s === q || s.trim().toLowerCase() === q.trim().toLowerCase()) ids.add(+v);
     if (!ids.size) { $('nlHits').textContent = `no token "${q}" appears in any stored top-10 read`; return; }
-    const hits = []; S.layers.forEach((Ld, l) => { if (where !== 'heads') Ld.neurons.forEach((nr) => { for (const [k] of READS) { if (where !== 'any' && where !== k) continue; const arr = k === 'drivers' ? nr.drivers || [] : nr[k]?.[0] || []; const r = arr.findIndex((v) => ids.has(v)); if (r >= 0) hits.push({ l, n: nr.n, k, r }); } });
-      if (where === 'any' || where === 'heads') Ld.heads.forEach((hr) => { for (const [k] of HREADS) { const r = (hr[k]?.[0] || []).findIndex((v) => ids.has(v)); if (r >= 0) hits.push({ l, h: hr.h, k, r }); } }); });
+    const hits = [];
+    for (let l = 0; l < S.layers.length; l++) { const Ld = S.layers[l]; if (where !== 'heads') for (const nr of Ld.neurons) { for (const [k] of READS) { if (where !== 'any' && where !== k) continue; const arr = k === 'drivers' ? nr.drivers || [] : nr[k]?.[0] || []; const r = arr.findIndex((v) => ids.has(v)); if (r >= 0) hits.push({ l, n: nr.n, k, r }); } }
+      if (where === 'any' || where === 'heads') for (const hr of Ld.heads) { for (const [k] of HREADS) { const r = (hr[k]?.[0] || []).findIndex((v) => ids.has(v)); if (r >= 0) hits.push({ l, h: hr.h, k, r }); } }
+      await tick(); }
     hits.sort((a, b) => a.r - b.r || a.l - b.l); S.hits = hits;
     $('nlHits').innerHTML = `${hits.length} hits for ${[...ids].map((v) => `<span class="chip">${esc(ts(v))}</span>`).join(' ')} (rank shown) · ` + hits.slice(0, 160).map((x, i) => `<a href="#" data-i="${i}">${x.h == null ? `L${x.l}N${x.n}` : `L${x.l}H${x.h}`}<sub>${x.k}#${x.r + 1}</sub></a>`).join(' ');
     atlas.draw(); };
@@ -76,12 +78,19 @@ export function install(A, out) {
         Ld.heads.forEach((hr) => P.push({ l, h: hr.h, v: 1, x, y: (hr.h - 7.5) / 40, z: 0, head: true })); });
       for (const p of P) { const [sx, sy, z, f] = proj(p.x, p.y, p.z, W, Hh); p.sx = sx; p.sy = sy; p.zz = z; p.f = f; }
       P.sort((a, b) => b.zz - a.zz);
-      for (const p of P) { const sel = p.l === S.sel.l && (p.head ? p.h === S.sel.head : p.n === S.sel.n), hit = hitSet.has(p.head ? `${p.l}:h${p.h}` : `${p.l}:${p.n}`);
-        const s = Math.max(1, (p.head ? 3.5 : 1 + 2.2 * p.v) * p.f / 120); ctx.globalAlpha = sel || hit ? 1 : 0.25 + 0.6 * p.v;
-        ctx.fillStyle = sel ? '#ffffff' : hit ? '#fbbf24' : p.head ? pal(p.l) : seqColor(p.v);
-        if (p.head) ctx.fillRect(p.sx - s, p.sy - s, 2 * s, 2 * s); else { ctx.beginPath(); ctx.arc(p.sx, p.sy, sel || hit ? s + 2 : s, 0, 7); ctx.fill(); }
-        pts.push(p); }
-      ctx.globalAlpha = 1; ctx.fillStyle = '#cfd8ea'; ctx.font = '11px system-ui'; for (let l = 0; l < L; l++) { const [sx, sy] = proj((l - (L - 1) / 2) / (L / 2) * 1.25, -1.15, 0, W, Hh); ctx.fillText('L' + l, sx - 6, sy); }
+      draw.gen = (draw.gen || 0) + 1; const paintGen = draw.gen;
+      const paintAt = (i) => {
+        if (paintGen !== draw.gen) return;
+        const t1 = performance.now();
+        for (; i < P.length; i++) { const p = P[i]; const sel = p.l === S.sel.l && (p.head ? p.h === S.sel.head : p.n === S.sel.n), hit = hitSet.has(p.head ? `${p.l}:h${p.h}` : `${p.l}:${p.n}`);
+          const s = Math.max(1, (p.head ? 3.5 : 1 + 2.2 * p.v) * p.f / 120); ctx.globalAlpha = sel || hit ? 1 : 0.25 + 0.6 * p.v;
+          ctx.fillStyle = sel ? '#ffffff' : hit ? '#fbbf24' : p.head ? pal(p.l) : seqColor(p.v);
+          if (p.head) ctx.fillRect(p.sx - s, p.sy - s, 2 * s, 2 * s); else { ctx.beginPath(); ctx.arc(p.sx, p.sy, sel || hit ? s + 2 : s, 0, 7); ctx.fill(); }
+          pts.push(p);
+          if (performance.now() - t1 > 12) { tick().then(() => paintAt(i + 1)); return; } }
+        ctx.globalAlpha = 1; ctx.fillStyle = '#cfd8ea'; ctx.font = '11px system-ui'; for (let l = 0; l < L; l++) { const [sx, sy] = proj((l - (L - 1) / 2) / (L / 2) * 1.25, -1.15, 0, W, Hh); ctx.fillText('L' + l, sx - 6, sy); }
+      };
+      paintAt(0);
       $('nlAInfo').textContent = `colour = ${COLOR.find((x) => x[0] === key)[1]} (99th pct = ${fmt(hi, 3)}) · ${hitSet.size} search hits highlighted`; }
     function loop() { if ($('nlSpin').checked && c.offsetParent && !drag) { yaw += 0.004; draw(); } raf = requestAnimationFrame(loop); }
     c.addEventListener('mousedown', (e) => { drag = { x: e.clientX, y: e.clientY, moved: 0 }; c.style.cursor = 'grabbing'; });
@@ -107,7 +116,9 @@ export function install(A, out) {
     const lp = (z) => { let mx = -Infinity; for (const x of z) if (x > mx) mx = x; let s = 0; for (const x of z) s += Math.exp(x - mx); const c = mx + Math.log(s); return z.map((x) => x - c); };
     // v14.x weak-spot fix: average Δlog-prob over every position (not just the last), and rank only tokens in the DB vocabulary (frequent
     // TinyStories tokens), so rare-token softmax noise cannot crowd the top-10. Same Δ definition as the pre-registered Test A.
-    const rows = [...Array(T).keys()].slice(Math.min(16, T >> 1)), V = CFG.V, B = NL.forward(S.M, ids, { logits: true, logitRows: rows }).logits, St = NL.forward(S.M, ids, { logits: true, logitRows: rows, steer: { layer: l, vec, from: 0, to: T } }).logits;
+    const rows = [...Array(T).keys()].slice(Math.min(16, T >> 1)), V = CFG.V;
+    await tick(); const B = NL.forward(S.M, ids, { logits: true, logitRows: rows }).logits;
+    await tick(); const St = NL.forward(S.M, ids, { logits: true, logitRows: rows, steer: { layer: l, vec, from: 0, to: T } }).logits;
     const dl = new Float32Array(V); rows.forEach((_, r) => { const b = lp(B.subarray(r * V, (r + 1) * V)), s = lp(St.subarray(r * V, (r + 1) * V)); for (let v = 0; v < V; v++) dl[v] += (s[v] - b[v]) / rows.length; });
     const keptIds = Object.keys(S.tok).map(Number), mask = new Uint8Array(V); keptIds.forEach((v) => (mask[v] = 1)); const top = NL.topK(dl, 10, keptIds.length ? mask : null);
     const pred = nr.out_R[0], hitR = pred.filter((v) => top.includes(v)).length, hitLg = nr.out_logit[0].filter((v) => top.includes(v)).length;

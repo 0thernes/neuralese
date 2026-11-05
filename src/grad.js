@@ -66,7 +66,8 @@ export async function forwardAsync(W, ids, o = {}) { const { d, H, hd, ff } = di
     for (let h = 0; h < H; h++) { const off = h * hd; for (let t = 0; t < T; t++) { const lo = Math.max(0, t + 1 - win), row = (h * T + t) * T; let mx = -Infinity;
       for (let j = lo; j <= t; j++) { let s = 0; for (let i = 0; i < hd; i++) s += C.q[t * d + off + i] * C.k[j * d + off + i]; C.att[row + j] = s; if (s > mx) mx = s; }
       let sum = 0; for (let j = lo; j <= t; j++) { const e = Math.exp(C.att[row + j] - mx); C.att[row + j] = e; sum += e; }
-      for (let j = lo; j <= t; j++) { const a = (C.att[row + j] /= sum); for (let i = 0; i < hd; i++) Z[t * d + off + i] += a * C.v[j * d + off + i]; } } }
+      for (let j = lo; j <= t; j++) { const a = (C.att[row + j] /= sum); for (let i = 0; i < hd; i++) Z[t * d + off + i] += a * C.v[j * d + off + i]; } }
+      if ((h & 3) === 3) { const y = pause(); if (y) await y; } }
     if (o.patch) o.patch('z', l, Z); C.z = Z;
     const AO = mm(Z, T, P.o, d, d, P.ob); if (o.patch) o.patch('attn_out', l, AO); for (let i = 0; i < X.length; i++) X[i] += AO[i];
     { const y = pause(); if (y) await y; }
@@ -78,7 +79,8 @@ export async function forwardAsync(W, ids, o = {}) { const { d, H, hd, ff } = di
   }
   A.xf = X; A.lnf = lnF(X, T, W.lnfW, W.lnfB); A.hf = A.lnf.Y; return A;
 }
-export function logitsAt(W, A, t) { const { d, H, hd, ff, V } = dims(W); const out = new Float32Array(V), h = A.hf; for (let v = 0; v < V; v++) { let s = 0; const o = v * d; for (let i = 0; i < d; i++) s += W.wte[o + i] * h[t * d + i]; out[v] = s; } return out; }
+export function logitsAt(W, A, t) { const { d, V } = dims(W); const out = new Float32Array(V), h = A.hf; for (let v = 0; v < V; v++) { let s = 0; const o = v * d; for (let i = 0; i < d; i++) s += W.wte[o + i] * h[t * d + i]; out[v] = s; } return out; }
+export async function logitsAtAsync(W, A, t) { const { d, V } = dims(W); const out = new Float32Array(V), h = A.hf; for (let v = 0; v < V; v++) { let s = 0; const o = v * d; for (let i = 0; i < d; i++) s += W.wte[o + i] * h[t * d + i]; out[v] = s; if ((v & 1023) === 1023) { const y = pause(); if (y) await y; } } return out; }
 const logSm = (l) => { let m = -Infinity; for (const x of l) if (x > m) m = x; let s = 0; for (const x of l) s += Math.exp(x - m); const z = m + Math.log(s); return l.map((x) => x - z); };
 
 // Objectives → dL/dlogits per position. 'ce': mean next-token cross-entropy over positions 0..T-2 (or o.positions).

@@ -12,7 +12,7 @@ export const activeLegacy = new Set<string>();
 // event handlers and state survive layout changes.
 function Adopt(p: { id: string; onShow?: () => void; class?: string }): JSX.Element {
   let host!: HTMLDivElement;
-  onMount(() => { const el = $(p.id); if (el) { host.appendChild(el); p.onShow?.(); } });
+  onMount(() => { const el = $(p.id); if (!el) return; setTimeout(() => { if (host.isConnected) { host.appendChild(el); p.onShow?.(); } }, 0); });
   onCleanup(() => { const el = $(p.id); if (el && host.contains(el)) $('v17-park')?.appendChild(el); });
   return <div class={p.class ?? 'adopt'} ref={host} />;
 }

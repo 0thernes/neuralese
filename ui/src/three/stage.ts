@@ -12,7 +12,7 @@ export async function createStage(host: HTMLElement, bg: () => string): Promise<
   // dispose() deliberately releases the context; only a loss while still mounted is worth reporting
   renderer.onDeviceLost = (info: { message?: string }) => { if (alive) console.warn('[cosmos] GPU device lost:', info?.message ?? 'unknown'); };
   renderer.setPixelRatio(Math.min(devicePixelRatio, tier === 'high' ? 2 : tier === 'mid' ? 1.5 : 1));
-  await renderer.init();
+  await new Promise<void>((resolve, reject) => requestAnimationFrame(() => { renderer.init().then(() => resolve(), reject); }));
   const backend = (renderer.backend as unknown as { isWebGPUBackend?: boolean }).isWebGPUBackend ? 'WebGPU' : 'WebGL2';
   const canvas = renderer.domElement; canvas.className = 'cosmos-canvas'; canvas.tabIndex = 0; host.appendChild(canvas);
   const scene = new THREE.Scene(); const camera = new THREE.PerspectiveCamera(45, 1, 0.05, 2000);
