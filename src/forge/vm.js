@@ -57,10 +57,24 @@ export class VM {
   }
 }
 
+function finishVM(vm, trace) {
+  return { trace, regs: Array.from(vm.x), ram: Array.from(vm.ram), pc: vm.pc, halted: vm.halted, fail: vm.fail, result: vm.result };
+}
 export function runVM(words, limit = STEP_LIMIT) {
   const vm = new VM(words);
   const trace = [];
   while (!vm.halted && !vm.fail && trace.length < limit) trace.push(vm.step());
   if (!vm.halted && !vm.fail) vm.fail = 'step-limit';
-  return { trace, regs: Array.from(vm.x), ram: Array.from(vm.ram), pc: vm.pc, halted: vm.halted, fail: vm.fail, result: vm.result };
+  return finishVM(vm, trace);
+}
+export async function runVMAsync(words, limit = STEP_LIMIT, shouldStop = () => false) {
+  const vm = new VM(words);
+  const trace = [];
+  while (!vm.halted && !vm.fail && trace.length < limit) {
+    if (shouldStop()) { vm.fail = 'cancelled'; break; }
+    trace.push(vm.step());
+    if ((trace.length & 31) === 0) await new Promise((r) => setTimeout(r, 0));
+  }
+  if (!vm.halted && !vm.fail) vm.fail = 'step-limit';
+  return finishVM(vm, trace);
 }

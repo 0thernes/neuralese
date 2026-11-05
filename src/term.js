@@ -1,5 +1,7 @@
 // In-app terminal: a small, safe command language over the real app API (no eval). Shared by the batch runner.
 import { $, esc, MATS_OK } from './term-util.js?v=170';
+import { ping } from './mf-client.js?v=170';
+import { frame } from './coop.js?v=170';
 export const VERSION = '17.3.0';
 import { CMDS as SCI_CMDS } from './lab-science.js?v=170';
 import { CMDS as RES_CMDS } from './lab-research.js?v=170';
@@ -48,12 +50,13 @@ export function complete(prefix) { const p = prefix.trimStart(); if (p.includes(
 
 for (const [k, v] of Object.entries({ ...SCI_CMDS, ...RES_CMDS, ...TSK_CMDS, ...FR_CMDS, ...HUB_CMDS })) if (!COMMANDS[k]) COMMANDS[k] = v;
 export function makeTerminal(A, out) {
-  const hist = JSON.parse(localStorage.getItem('neuralese.term.hist') || '[]');
+  let hist = [];
+  try { const saved = JSON.parse(localStorage.getItem('neuralese.term.hist') || '[]'); if (Array.isArray(saved)) hist = saved.filter((x) => typeof x === 'string'); } catch { hist = []; }
   const num = (x, name, lo = -Infinity, hi = Infinity) => { const v = +x; if (x == null || x === '' || !isFinite(v) || v < lo || v > hi) throw new Error(`${name} must be a number in [${lo}, ${hi}]`); return v; };
   const layer = (x) => num(x, 'layer', 0, 7) | 0, mat = (x) => { const m = String(x || '').match(/^L?(\d)\.(\w+)$/); if (!m || !MATS_OK.includes(m[2])) throw new Error('matrix must look like L3.q (' + MATS_OK.join('|') + ')'); return `L${m[1]}.${m[2]}`; };
   async function exec(line) {
     line = String(line).trim(); if (!line || line.startsWith('#')) return '';
-    if (hist[hist.length - 1] !== line) { hist.push(line); localStorage.setItem('neuralese.term.hist', JSON.stringify(hist.slice(-200))); }
+    if (hist[hist.length - 1] !== line) { hist.push(line); try { localStorage.setItem('neuralese.term.hist', JSON.stringify(hist.slice(-200))); } catch { /* a full disk must not kill the command */ } }
     const [cmd, ...a] = line.split(/\s+/), rest = line.slice(cmd.length).trim();
     switch (cmd) {
       case 'help': if (a[0]) { const c = COMMANDS[a[0]]; if (!c) throw new Error('unknown command ' + a[0]); return `${c[0]}\n  ${c[1]}`; } return Object.values(COMMANDS).map(([u, h]) => `${u.padEnd(44)} ${h}`).join('\n');
@@ -84,13 +87,13 @@ export function makeTerminal(A, out) {
       case 'undo': A.undo(); return `undo · ${A.ed().edits.length} edits`; case 'redo': A.redo(); return 'redo';
       case 'reset': A.reset(); return 'reset: model is bit-identical to the original';
       case 'analyze': A.showTab('an'); await A.analyze(); return 'analysis done (ANALYZE tab)';
-      case 'impact': { if (rest) $('xIP').value = rest; const r = out.impact(); return `final KL ${r.finalKL.toExponential(3)} nats · TV ${r.tv.toFixed(4)} · per-slot KL ${r.perLayer.map((x) => x.toExponential(1)).join(' ')}`; }
+      case 'impact': { if (rest) $('xIP').value = rest; const r = await out.impact(); return `final KL ${r.finalKL.toExponential(3)} nats · TV ${r.tv.toFixed(4)} · per-slot KL ${r.perLayer.map((x) => x.toExponential(1)).join(' ')}`; }
       case 'calib': { const r = await out.calib(a[0] ? num(a[0], 'N', 16, 1000) : 160); return `clean ppl ${r.clean.ppl.toFixed(3)} acc ${(100 * r.clean.acc).toFixed(1)}% ECE ${(100 * r.clean.ece).toFixed(2)}%\ncurrent ppl ${r.cur.ppl.toFixed(3)} acc ${(100 * r.cur.acc).toFixed(1)}% ECE ${(100 * r.cur.ece).toFixed(2)}%`; }
-      case 'heads': { const hs = out.heads(), c = {}; hs.flat().forEach((x) => (c[x.label] = (c[x.label] || 0) + 1)); const top = (k) => hs.flat().map((x, i) => [x[k], `L${x.layer}H${i % 16}`]).sort((p, q) => q[0] - p[0]).slice(0, 3).map(([v, n]) => `${n} ${v.toFixed(2)}`).join(', '); return Object.entries(c).map(([k, v]) => `${k}: ${v}`).join(' · ') + `\ntop prev: ${top('prev')}\ntop induction: ${top('induction')}`; }
+      case 'heads': { const hs = await out.heads(), c = {}; hs.flat().forEach((x) => (c[x.label] = (c[x.label] || 0) + 1)); const top = (k) => hs.flat().map((x, i) => [x[k], `L${x.layer}H${i % 16}`]).sort((p, q) => q[0] - p[0]).slice(0, 3).map(([v, n]) => `${n} ${v.toFixed(2)}`).join(', '); return Object.entries(c).map(([k, v]) => `${k}: ${v}`).join(' · ') + `\ntop prev: ${top('prev')}\ntop induction: ${top('induction')}`; }
       case 'attn': A.showTab('attn'); out.attn(); return 'attention rendered';
       case 'circuit': { A.showTab('circuit'); const r = out.circuit(); return `${r.nodes.length} nodes, ${r.edges.length} edges, target id ${r.tgt}`; }
       case 'neurons': { A.showTab('neurons'); const r = await out.neurons(layer(a[0]), a[1] ? num(a[1], 'N', 32, 2000) : 300); const top = [...r.neurons].sort((p, q) => q.max - p.max).slice(0, 5); return top.map((n) => `N${n.n} max ${n.max.toFixed(2)} freq ${(100 * n.freq).toFixed(1)}% poly ${n.poly.toFixed(2)}`).join('\n'); }
-      case 'nn': { const r = out.embed(' ' + rest.replace(/^\s+/, '')); return r.map(([i, s]) => `${JSON.stringify(A.tok().tokenStr(i))} ${s.toFixed(3)}`).join('\n'); }
+      case 'nn': { const r = await out.embed(' ' + rest.replace(/^\s+/, '')); return r.map(([i, s]) => `${JSON.stringify(A.tok().tokenStr(i))} ${s.toFixed(3)}`).join('\n'); }
       case 'spectrum': { const l = layer(a[0]); if (!MATS_OK.includes(a[1])) throw new Error('mat: ' + MATS_OK.join('|')); const s = out.weights(l, a[1], ''); return `σ1 ${s.spectralNorm.toFixed(3)} · stable rank ${s.stableRank.toFixed(2)} · eff rank ${s.effRank.toFixed(1)} · α ${s.alpha.toFixed(2)} (KS ${s.ks.toFixed(3)})`; }
       case 'ww': { const r = await out.ww(); return r.map((x) => `${x[0].padEnd(8)} α ${x[3].toFixed(2)}`).join('\n'); }
       case 'sweep': { const r = await out.sweep({ p: a[0], from: num(a[1], 'from'), to: num(a[2], 'to'), steps: a[3] ? num(a[3], 'steps', 2, 25) : 5, arg: a[4] || '', corpus: 32 }); return r.map((x) => `${a[0]}=${x.v.toFixed(3)}  ppl ${x.ppl.toFixed(3)}  KL ${x.kl.toExponential(2)}  p(target) ${x.pt.toFixed(4)}`).join('\n'); }
@@ -124,7 +127,7 @@ export function mountTerminal(A, T) {
     else if (e.key === 'ArrowDown') { hi = Math.min(T.hist.length, hi + 1); inp.value = T.hist[hi] || ''; e.preventDefault(); }
     else if (e.key === 'Tab') { e.preventDefault(); const c = complete(inp.value); if (c.length === 1) inp.value = c[0] + ' '; else if (c.length) print(c.join('   '), 'sm'); }
   });
-  $('tmRun').addEventListener('click', async () => { for (const l of $('tmScript').value.split('\n')) await run(l); });
+  $('tmRun').addEventListener('click', async () => { for (const l of $('tmScript').value.split('\n')) { await frame(); await run(l); await ping().catch(() => {}); } });
   print(`NEURALESE v${VERSION} terminal — type "help". Tab completes, ↑/↓ history, "run a; b; c" chains.`, 'sm');
   return run;
 }

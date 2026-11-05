@@ -3,7 +3,8 @@
 import { lines, bars } from './charts.js?v=170';
 import { $, esc, fmt, opts, cv, tipq, prog, tick } from './lab-ui.js?v=170';
 import * as R from './research.js?v=170';
-import { cloneWeights } from './model.js?v=170';
+import { cloneWeightsYield } from './model.js?v=170';
+import { slice } from './coop.js?v=170';
 import { DS, docs, allDocs, setUserCorpus, clearUserCorpus } from './dataset.js?v=170';
 const P = (id) => `<div class="prog" id="${id}"><i></i></div>`;
 const NBKEY = 'neuralese.notebook.v7', MODEL_ID = 'roneneldan/TinyStories-8M@refs/pr/1';
@@ -38,7 +39,7 @@ export const markup = {
   data: ['DATA', 'Datasets', `<fieldset><legend>active dataset <span id="daName" class="sm"></span> ${tipq('All docs-based tools (drill, gradients, geometry, landscape, neuron atlas, stats, probes, eval) read from this dataset. Upload plain text; documents are separated by blank lines. Data stays in this tab — nothing is uploaded anywhere.')}</legend>
 <div class="r"><input type="file" id="daF" accept=".txt,text/plain" aria-label="corpus file"/><button id="daU">use file</button><button id="daC">revert to built-in</button></div><textarea id="daT" rows="4" style="width:100%" aria-label="paste corpus" placeholder="…or paste documents separated by blank lines"></textarea><div class="r"><button id="daP">use pasted text</button><label>view doc</label><input type="number" id="daI" value="0" style="width:4em"/><button id="daV">show</button></div><div id="daOut"></div><div id="daDoc" class="toks"></div></fieldset>`],
   evalh: ['EVAL', 'Eval harness', `<fieldset><legend>scoreboard: clean vs current ${tipq('Perplexity (docs from the active dataset, first 32 tokens), 12 TinyStories cloze facts (top-1 accuracy and mean log p of the answer), and three 40-token greedy generations scored for distinct-1/2 and repeated 4-grams. Perplexity and facts use the edited weights; generations also include runtime interventions.')}</legend><div class="r"><label>docs</label><input type="number" id="evN" value="12" style="width:4em"/><button class="pri" id="evGo">evaluate</button></div>${P('evP')}<div id="evOut"></div>${cv('evCh', 'per-document CE: clean vs current')}</fieldset>`],
-  nb: ['NOTEBOOK', 'Notebook', `<fieldset><legend>JavaScript cells against the lab API ${tipq('Each cell is an async function body with lab (the full lab API: M(), W(), tok(), ed(), commit…), research (stats/acdc/probe/eval functions), docs(n,T), print(…) and plot(ys | [{ys,label}]) in scope. Cells run in this page with full access — only run code you trust. Cells are saved in localStorage.')}</legend><div id="nbCells"></div><div class="r"><button id="nbAdd">+ cell</button><button id="nbAll" class="pri">run all</button><button id="nbMd">export .md</button><button id="nbJs">export .ipynb</button></div></fieldset>`],
+  nb: ['NOTEBOOK', 'Notebook', `<fieldset><legend>JavaScript cells against the lab API ${tipq('Each cell is an async function body with lab.M() and lab.W() (copies of the weights), research, docs(n,T), print and plot. The cell runs in a worker with no DOM and no editor. Cells are saved in localStorage.')}</legend><div id="nbCells"></div><div class="r"><button id="nbAdd">+ cell</button><button id="nbAll" class="pri">run all</button><button id="nbMd">export .md</button><button id="nbJs">export .ipynb</button></div></fieldset>`],
   report: ['REPORT', 'Report generator', `<fieldset><legend>methods + results report</legend><div class="r"><input id="rgT" style="flex:1" value="NEURALESE experiment report" aria-label="report title"/><button class="pri" id="rgGo">build HTML report</button></div><div class="sm">Collects the manifest (hashes, edits, runtime, environment), every result computed this session in the RESEARCH tabs with its method text, and the charts as images, into one self-contained HTML file. Use the browser’s print → PDF for a PDF.</div><div id="rgOut" class="sm"></div></fieldset>`],
   log: ['LOG', 'Structured log & lab state', `<fieldset><legend>structured run log ${tipq('Every logged run (generation, sweeps, research tools) as one JSON object per line. Compare any two runs field by field.')}</legend><div class="r"><button id="lgJ">export JSONL</button><label>diff</label><select id="lgA" aria-label="run A"></select><select id="lgB" aria-label="run B"></select><button id="lgD">compare</button><button id="lgRef">refresh</button></div><div id="lgOut"></div></fieldset>
 <fieldset><legend>full lab state</legend><div class="r"><button id="lsE" class="pri">export state</button><input type="file" id="lsF" accept=".json" aria-label="lab state file"/><button id="lsI">import state</button></div><div class="sm">Includes edits, runtime interventions, prompt, notebook cells, the run log and the user dataset text (if any). Import re-applies edits as one undoable step.</div><div id="lsOut" class="sm"></div></fieldset>`],
@@ -69,7 +70,7 @@ export function install(A, out) {
   on('prRun', 'click', () => out.preregRun($('prDoc').value, $('prHash').value.trim()));
   // ── STATS ──
   out.statsHeads = async (L0, N0, B0) => { const l = Math.max(0, Math.min(7, +(L0 ?? $('stL').value) | 0)), N = Math.max(4, Math.min(200, +(N0 ?? $('stN').value) || 12)), B = Math.max(200, Math.min(20000, +(B0 ?? $('stB').value) || 2000)), alpha = +$('stA').value || 0.05;
-    const D = docs(N, 24), C = cloneWeights(A.M()), ce = async (f) => { const o = []; for (const d of D) { o.push(R.docCE(C, [d])[0]); await tick(); } return o; }, base = await ce(), H = 16, hd = C.lnfW.length / H, d = C.lnfW.length, O = C.layers[l].o, rows = [];
+    const D = docs(N, 24), C = await cloneWeightsYield(A.M()), ce = async (f) => { const o = []; for (const d of D) { o.push(R.docCE(C, [d])[0]); await tick(); } return o; }, base = await ce(), H = 16, hd = C.lnfW.length / H, d = C.lnfW.length, O = C.layers[l].o, rows = [];
     for (let h = 0; h < H; h++) { prog('stP', h / H); await tick(); const save = []; for (let r = 0; r < d; r++) for (let i = h * hd; i < h * hd + hd; i++) { save.push(O[r * d + i]); O[r * d + i] = 0; }
       let ab; try { ab = await ce(); } finally { let k = 0; for (let r = 0; r < d; r++) for (let i = h * hd; i < h * hd + hd; i++) O[r * d + i] = save[k++]; }
       const delta = ab.map((x, i) => x - base[i]), p = R.permPaired(ab, base, B, 11 + h); rows.push({ h, mean: p.diff, p: p.p, dz: R.cohenDPaired(ab, base), ci: R.bootCI(delta, 1000, 5 + h) }); }
@@ -84,20 +85,19 @@ export function install(A, out) {
   // ── ACDC ──
   on('acT', 'input', () => ($('acTv').textContent = (+$('acT').value).toFixed(3)));
   const acdcIn = () => { const c = tok().encode($('acC').value), x = tok().encode($('acX').value); if (c.length !== x.length) throw new Error(`clean has ${c.length} tokens, corrupt has ${x.length} — they must match`); return { c, x, obj: { kind: 'logitdiff', a: id1($('acA').value), b: id1($('acB').value) } }; };
-  out.acdc = async (tau0) => { if (tau0 != null) { $('acT').value = tau0; $('acTv').textContent = (+tau0).toFixed(3); } const { c, x, obj } = acdcIn(), tau = +$('acT').value, g = R.acdcGen(A.M(), c, x, obj, tau); let r, k = 0;
-    for (;;) { const s = g.next(); if (s.done) { r = s.value; break; } prog('acP', s.value); await tick(); void ++k; } prog('acP', 1);
+  out.acdc = async (tau0) => { if (tau0 != null) { $('acT').value = tau0; $('acTv').textContent = (+tau0).toFixed(3); } const { c, x, obj } = acdcIn(), tau = +$('acT').value, r = await R.acdcAsync(A.M(), c, x, obj, tau, (f) => prog('acP', f)); prog('acP', 1);
     const set = new Set(r.circuit), grid = []; for (let l = 0; l < 8; l++) for (let h = 0; h <= 16; h++) grid.push(set.has(h < 16 ? `L${l}H${h}` : `L${l}MLP`) ? 1 : 0);
     $('acOut').innerHTML = `<table class="kv"><tr><td>metric clean / corrupt / circuit</td><td>${fmt(r.mClean, 4)} / ${fmt(r.mCorr, 4)} / ${fmt(r.mCircuit, 4)}</td></tr><tr><td>faithfulness</td><td><b>${(100 * r.faithfulness).toFixed(1)}%</b></td></tr><tr><td>circuit</td><td>${r.circuit.length} of ${r.nNodes} nodes: ${r.circuit.map((s) => `<code>${s}</code>`).join(' ')}</td></tr><tr><td>cost</td><td>${r.evals} forward passes · τ=${tau}</td></tr></table>`;
     bars($('acCh'), grid, { label: (i) => `L${Math.floor(i / 17)}${i % 17 < 16 ? 'H' + (i % 17) : 'MLP'}: ${grid[i] ? 'in circuit' : 'pruned'}` }); $('acH').value = r.circuit.join(' ');
     keep('acdc', `Node-level ACDC: ${r.nNodes} nodes (heads via z-slice, MLPs via mlp_out) pruned in reverse topological order by interchange with the corrupt run; threshold τ=${tau} of the clean–corrupt metric gap; metric logit(${$('acA').value}) − logit(${$('acB').value}).`, { tau, nCircuit: r.circuit.length, faithfulness: r.faithfulness, mClean: r.mClean, mCorr: r.mCorr, circuit: r.circuit.join(' ') }); return r; };
   on('acGo', 'click', () => out.acdc());
-  out.scrub = (ids) => { const { c, x, obj } = acdcIn(), nodes = (ids ?? $('acH').value).split(/[\s,]+/).filter(Boolean), r = R.scrub(A.M(), c, x, obj, nodes);
+  out.scrub = async (ids) => { const { c, x, obj } = acdcIn(), nodes = (ids ?? $('acH').value).split(/[\s,]+/).filter(Boolean), r = await R.scrubAsync(A.M(), c, x, obj, nodes);
     $('acSOut').innerHTML = `faithfulness of hypothesis (${r.kept} nodes): <b>${(100 * r.faithfulness).toFixed(1)}%</b> <span class="sm">metric ${fmt(r.mHyp, 4)} vs clean ${fmt(r.mClean, 4)} / corrupt ${fmt(r.mCorr, 4)}</span>`; keep('scrub', 'Causal scrubbing-lite: listed nodes from the clean run, all other heads/MLPs resampled from the corrupt run.', { nodes: nodes.join(' '), faithfulness: r.faithfulness }); return r; };
   on('acS', 'click', () => out.scrub());
   // ── PROBES ──
   const lists = () => ['pbA', 'pbB', 'pbC'].map((k) => $(k).value.split(/[\s,]+/).filter(Boolean)).filter((l) => l.length);
   out.probe = async (layers) => { const L = lists(); if (L.length < 2) throw new Error('need at least two non-empty classes'); const site = $('pbS').value, N = Math.max(2, Math.min(200, +$('pbN').value || 40)), D = allDocs().slice(0, N), res = [];
-    const Ls = layers || [+$('pbL').value | 0]; prog('pbP', 0.05); await tick(); const all = Ls.map(() => ({ X: [], y: [], types: [] })); for (const [j, doc] of D.entries()) { const r1 = R.probeDataLayers(A.M(), tok(), [doc], L, Ls, site); r1.forEach((o, k) => { all[k].X.push(...o.X); all[k].y.push(...o.y); all[k].types.push(...o.types); }); if (j % 2) { prog('pbP', 0.05 + 0.15 * j / D.length); await tick(); } } for (const [k, l] of Ls.entries()) { prog('pbP', 0.2 + 0.8 * k / Ls.length); await tick(); res.push({ l, ...R.runProbe(all[k], L.length, { epochs: 150 }) }); } prog('pbP', 1);
+    const Ls = layers || [+$('pbL').value | 0]; prog('pbP', 0.05); const packed = await R.probeDataLayersAsync(A.M(), tok(), D, L, Ls, site); prog('pbP', 0.2); for (const [k, l] of Ls.entries()) { await tick(); res.push({ l, ...R.runProbe(packed[k], L.length, { epochs: 150 }) }); prog('pbP', 0.2 + 0.8 * (k + 1) / Ls.length); }
     $('pbOut').innerHTML = `<table><tr><th>layer</th><th>test acc</th><th>control acc</th><th>selectivity</th><th>train acc</th><th>majority</th><th>tokens / types</th></tr>${res.map((r) => `<tr><td>${r.l === 8 ? 'final' : r.l}</td><td>${(100 * r.real.test).toFixed(1)}%</td><td>${(100 * r.control.test).toFixed(1)}%</td><td><b>${(100 * r.selectivity).toFixed(1)}</b></td><td>${(100 * r.real.train).toFixed(1)}%</td><td>${(100 * r.majority).toFixed(1)}%</td><td>${r.real.nTrain + r.real.nTest} / ${r.nTypes}</td></tr>`).join('')}</table>`;
     lines($('pbCh'), [{ ys: res.map((r) => r.real.test), label: 'real' }, { ys: res.map((r) => r.control.test), label: 'control' }], { min: 0, max: 1, xs: res.map((r) => r.l) });
     keep('probe', `Softmax-regression probe (L2 1e-3, 150 epochs, standardised features) at ${site}, train/test split by word type (~30% types held out); control task = random per-type labels; ${L.length} classes, ${N} docs.`, { site, classes: L.length, best: Math.max(...res.map((r) => r.real.test)), bestSel: Math.max(...res.map((r) => r.selectivity)), byLayer: JSON.stringify(res.map((r) => ({ l: r.l, acc: +r.real.test.toFixed(3), ctl: +r.control.test.toFixed(3) }))) }); return res; };
@@ -117,18 +117,44 @@ export function install(A, out) {
     keep('eval', `Eval harness on ${N} docs × 32 tokens (${DS.name}), 12 cloze facts, 3 greedy 40-token generations.`, { docs: N, pplClean: a.ppl, pplCur: b.ppl, factClean: a.factTop1, factCur: b.factTop1, d2Clean: a.distinct2, d2Cur: b.distinct2, rep4Clean: a.rep4, rep4Cur: b.rep4 }); return { clean: a, cur: b }; };
   on('evGo', 'click', () => out.evalh());
   // ── NOTEBOOK ──
-  // v15.3: cells run as Blob-URL ES modules (CSP: script-src blob:) instead of new Function (which needed 'unsafe-eval').
-  const cellFn = async (code) => { const u = URL.createObjectURL(new Blob([`export default async (lab, research, docs, print, plot) => {\n${code}\n};`], { type: 'text/javascript' })); try { return (await import(/* @vite-ignore */ u)).default; } finally { URL.revokeObjectURL(u); } };
+  // Cells run in notebook-worker.js. The page only receives print lines and plot arrays.
+  let nbW = null, nbSeq = 0;
+  const nbWorker = () => nbW || (nbW = new Worker(new URL('./notebook-worker.js?v=170', import.meta.url), { type: 'module' }));
   const DEF = ['// perplexity of the current weights on 8 docs\nconst ce = research.docCE(lab.M(), docs(8, 24));\nprint("mean CE", ce.reduce((a, b) => a + b) / ce.length);\nplot(ce);', '// weights hash\nprint(await research.weightsHash(lab.M()));'];
   let cells; try { cells = JSON.parse(localStorage.getItem(NBKEY)) || DEF; } catch { cells = DEF; } const outs = [];
   const saveNb = () => { try { localStorage.setItem(NBKEY, JSON.stringify(cells)); } catch { /* quota */ } };
   const renderNb = () => { $('nbCells').innerHTML = cells.map((c, i) => `<div class="cell"><div class="r"><span class="sm">[${i}]</span><button data-run="${i}">▶ run</button><button data-del="${i}" aria-label="delete cell ${i}">✕</button></div><textarea rows="${Math.min(12, c.split('\n').length + 1)}" data-i="${i}" style="width:100%;font-family:monospace" aria-label="cell ${i}">${esc(c)}</textarea><pre class="sm" id="nbO${i}">${esc(outs[i]?.text || '')}</pre><canvas class="ch" id="nbC${i}" style="${outs[i]?.plot ? '' : 'display:none'}"></canvas></div>`).join('');
     $('nbCells').querySelectorAll('textarea').forEach((t) => (t.oninput = () => { cells[+t.dataset.i] = t.value; saveNb(); })); $('nbCells').querySelectorAll('[data-run]').forEach((b) => (b.onclick = () => out.nbRun(+b.dataset.run).catch(() => {})));
     $('nbCells').querySelectorAll('[data-del]').forEach((b) => (b.onclick = () => { cells.splice(+b.dataset.del, 1); outs.splice(+b.dataset.del, 1); saveNb(); renderNb(); })); };
-  out.nbRun = async (i) => { const o = (outs[i] = { text: '', plot: null }), pre = $('nbO' + i), cvs = $('nbC' + i), print = (...a) => { o.text += a.map((x) => (typeof x === 'string' ? x : JSON.stringify(x, (k, v) => (ArrayBuffer.isView(v) ? Array.from(v.slice(0, 64)) : v)))).join(' ') + '\n'; pre.textContent = o.text; };
-    const plot = (ys) => { const s = Array.isArray(ys) && ys.length && ys[0]?.ys ? ys : [{ ys: Array.from(ys), label: 'y' }]; o.plot = s; cvs.style.display = ''; lines(cvs, s); };
-    try { const fn = await cellFn(cells[i]); const r = await fn(A, R, docs, print, plot); if (r !== undefined) print(r); }
-    catch (e) { o.text += '✖ ' + e.message; pre.textContent = o.text; throw e; } return o; };
+  const needsW = (code) => /\blab\s*\.\s*[MW]\b|\bresearch\s*\./.test(code);
+  const sendModel = async (w, id, model, prefix) => {
+    const CHUNK = 65536;
+    const send = async (name, arr) => {
+      if (!arr) return;
+      for (let off = 0; off < arr.length; off += CHUNK) {
+        const copy = new Float32Array(arr.subarray(off, Math.min(arr.length, off + CHUNK)));
+        w.postMessage({ op: 'chunk', name, off, len: arr.length, buf: copy }, [copy.buffer]);
+        const y = slice(); if (y) await y;
+      }
+    };
+    await send(prefix + 'wte', model.wte); await send(prefix + 'wpe', model.wpe); await send(prefix + 'lnfW', model.lnfW); await send(prefix + 'lnfB', model.lnfB);
+    for (let l = 0; l < model.layers.length; l++) for (const k of Object.keys(model.layers[l])) await send(prefix + 'L' + l + '.' + k, model.layers[l][k]);
+    void id;
+  };
+  out.nbRun = (i) => new Promise((resolve, reject) => { const o = (outs[i] = { text: '', plot: null }), pre = $('nbO' + i), cvs = $('nbC' + i);
+    const w = nbWorker(), id = ++nbSeq;
+    const onMsg = (e) => { const m = e.data; if (!m || m.id !== id) return;
+      if (m.print) { o.text += m.print + '\n'; pre.textContent = o.text; }
+      if (m.plot) { const ys = m.plot; const s = Array.isArray(ys) && ys.length && ys[0]?.ys ? ys : [{ ys: Array.from(ys), label: 'y' }]; o.plot = s; cvs.style.display = ''; lines(cvs, s); }
+      if (m.err) { w.removeEventListener('message', onMsg); o.text += '✖ ' + m.err; pre.textContent = o.text; reject(new Error(m.err)); }
+      if (m.done) { w.removeEventListener('message', onMsg); if (m.value != null) { o.text += (typeof m.value === 'string' ? m.value : JSON.stringify(m.value)) + '\n'; pre.textContent = o.text; } resolve(o); }
+      if (m.weights) w.postMessage({ op: 'run', id, code: cells[i] });
+    };
+    w.addEventListener('message', onMsg);
+    if (!needsW(cells[i])) { w.postMessage({ op: 'run', id, code: cells[i] }); return; }
+    const same = A.W() === A.M();
+    sendModel(w, id, A.M(), same ? '' : 'M.').then(() => same ? null : sendModel(w, id, A.W(), 'W.')).then(() => w.postMessage({ op: 'weights-done', id, shared: same, user: DS.user })).catch((e) => { w.removeEventListener('message', onMsg); reject(e); });
+  });
   on('nbAdd', 'click', () => { cells.push('print(lab.ed().edits.length, "edits")'); saveNb(); renderNb(); }); on('nbAll', 'click', async () => { for (let i = 0; i < cells.length; i++) await out.nbRun(i); });
   const nbMd = () => cells.map((c, i) => '```js\n' + c + '\n```\n' + (outs[i]?.text ? '```\n' + outs[i].text + '```\n' : '')).join('\n');
   on('nbMd', 'click', () => dl('neuralese-notebook.md', nbMd(), 'text/markdown'));

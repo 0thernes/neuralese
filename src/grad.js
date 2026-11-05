@@ -3,6 +3,8 @@
 // Computes gradients w.r.t. activations at every hook site and (optionally) every weight. Runtime interventions are NOT
 // applied here: gradients describe the current weight set M with the default forward pass.
 import { CFG } from './model.js?v=170';
+import { slice, frame } from './coop.js?v=170';
+function pause() { return typeof document === 'undefined' ? null : slice(); }
 export const dims = (W) => W.cfg || CFG;
 const GC = 0.7978845608028654, GA = 0.044715;
 const gelu = (x) => 0.5 * x * (1 + Math.tanh(GC * (x + GA * x * x * x)));
@@ -19,7 +21,13 @@ function lnF(X, T, w, b) { const d = w.length; const Y = new Float32Array(T * d)
 function lnB(dY, c, T, w, dX, dw, db) { const d = w.length; for (let t = 0; t < T; t++) { const o = t * d, r = c.RS[t]; let s1 = 0, s2 = 0; const dxh = new Float32Array(d);
   for (let i = 0; i < d; i++) { const g = dY[o + i]; if (dw) { dw[i] += g * c.XH[o + i]; db[i] += g; } dxh[i] = g * w[i]; s1 += dxh[i]; s2 += dxh[i] * c.XH[o + i]; }
   s1 /= d; s2 /= d; for (let i = 0; i < d; i++) dX[o + i] += r * (dxh[i] - s1 - c.XH[o + i] * s2); } }
-const zerosLike = (W) => ({ wte: new Float32Array(W.wte.length), wpe: new Float32Array(W.wpe.length), lnfW: new Float32Array(W.lnfW.length), lnfB: new Float32Array(W.lnfB.length), layers: W.layers.map((P) => Object.fromEntries(Object.entries(P).map(([k, a]) => [k, new Float32Array(a.length)]))) });
+// The tied unembedding is ~50MB. Zeroing it is a long task, and only the unembed gradient writes it.
+const zerosLike = (W, embed) => ({ wte: embed ? new Float32Array(W.wte.length) : null, wpe: new Float32Array(W.wpe.length), lnfW: new Float32Array(W.lnfW.length), lnfB: new Float32Array(W.lnfB.length), layers: W.layers.map((P) => Object.fromEntries(Object.entries(P).map(([k, a]) => [k, new Float32Array(a.length)]))) });
+async function zerosLikeAsync(W, embed) {
+  const layers = [];
+  for (const P of W.layers) { const o = {}; for (const k of Object.keys(P)) { o[k] = new Float32Array(P[k].length); const y = pause(); if (y) await y; } layers.push(o); }
+  return { wte: embed ? new Float32Array(W.wte.length) : null, wpe: new Float32Array(W.wpe.length), lnfW: new Float32Array(W.lnfW.length), lnfB: new Float32Array(W.lnfB.length), layers };
+}
 
 // Forward over a whole sequence. o.x0: optional override of the input embeddings (T×d) — used by integrated gradients.
 // o.patch(site, l, X): optional in-place edit of activations (site ∈ resid_pre, z, attn_out, mlp_act, mlp_out) — used by AtP validation.
@@ -45,7 +53,34 @@ export function forward(W, ids, o = {}) { const { d, H, hd, ff, V } = dims(W);
   }
   A.xf = X; A.lnf = lnF(X, T, W.lnfW, W.lnfB); A.hf = A.lnf.Y; return A;
 }
-export function logitsAt(W, A, t) { const { d, H, hd, ff, V } = dims(W); const out = new Float32Array(V), h = A.hf; for (let v = 0; v < V; v++) { let s = 0; const o = v * d; for (let i = 0; i < d; i++) s += W.wte[o + i] * h[t * d + i]; out[v] = s; } return out; }
+// Same forward, returning to the event loop after each block so a long prompt is not one task.
+export async function forwardAsync(W, ids, o = {}) { const { d, H, hd, ff } = dims(W);
+  const T = ids.length, L = W.layers.length, A = { T, ids, layers: [] };
+  let X = new Float32Array(T * d);
+  if (o.x0) X.set(o.x0); else for (let t = 0; t < T; t++) for (let i = 0; i < d; i++) X[t * d + i] = W.wte[ids[t] * d + i] + W.wpe[t * d + i];
+  A.x0 = X.slice();
+  for (let l = 0; l < L; l++) {
+    const P = W.layers[l], C = {}; if (o.patch) o.patch('resid_pre', l, X); C.xin = X.slice();
+    C.ln1 = lnF(X, T, P.ln1w, P.ln1b); C.q = mm(C.ln1.Y, T, P.q, d, d); C.k = mm(C.ln1.Y, T, P.k, d, d); C.v = mm(C.ln1.Y, T, P.v, d, d);
+    const win = l % 2 ? CFG.window : 1e9; C.att = new Float32Array(H * T * T); const Z = new Float32Array(T * d);
+    for (let h = 0; h < H; h++) { const off = h * hd; for (let t = 0; t < T; t++) { const lo = Math.max(0, t + 1 - win), row = (h * T + t) * T; let mx = -Infinity;
+      for (let j = lo; j <= t; j++) { let s = 0; for (let i = 0; i < hd; i++) s += C.q[t * d + off + i] * C.k[j * d + off + i]; C.att[row + j] = s; if (s > mx) mx = s; }
+      let sum = 0; for (let j = lo; j <= t; j++) { const e = Math.exp(C.att[row + j] - mx); C.att[row + j] = e; sum += e; }
+      for (let j = lo; j <= t; j++) { const a = (C.att[row + j] /= sum); for (let i = 0; i < hd; i++) Z[t * d + off + i] += a * C.v[j * d + off + i]; } }
+      if ((h & 3) === 3) { if (typeof document !== 'undefined') await frame(); else { const y = pause(); if (y) await y; } } }
+    if (o.patch) o.patch('z', l, Z); C.z = Z;
+    const AO = mm(Z, T, P.o, d, d, P.ob); if (o.patch) o.patch('attn_out', l, AO); for (let i = 0; i < X.length; i++) X[i] += AO[i];
+    { const y = pause(); if (y) await y; }
+    C.xmid = X.slice(); C.ln2 = lnF(X, T, P.ln2w, P.ln2b); C.pre = mm(C.ln2.Y, T, P.fc, ff, d, P.fcb);
+    const Aa = new Float32Array(T * ff); for (let i = 0; i < Aa.length; i++) Aa[i] = gelu(C.pre[i]); if (o.patch) o.patch('mlp_act', l, Aa); C.act = Aa;
+    const MO = mm(Aa, T, P.proj, d, ff, P.projb); if (o.patch) o.patch('mlp_out', l, MO); for (let i = 0; i < X.length; i++) X[i] += MO[i];
+    A.layers.push(C);
+    const y = pause(); if (y) await y;
+  }
+  A.xf = X; A.lnf = lnF(X, T, W.lnfW, W.lnfB); A.hf = A.lnf.Y; return A;
+}
+export function logitsAt(W, A, t) { const { d, V } = dims(W); const out = new Float32Array(V), h = A.hf; for (let v = 0; v < V; v++) { let s = 0; const o = v * d; for (let i = 0; i < d; i++) s += W.wte[o + i] * h[t * d + i]; out[v] = s; } return out; }
+export async function logitsAtAsync(W, A, t) { const { d, V } = dims(W); const out = new Float32Array(V), h = A.hf; for (let v = 0; v < V; v++) { let s = 0; const o = v * d; for (let i = 0; i < d; i++) s += W.wte[o + i] * h[t * d + i]; out[v] = s; if ((v & 1023) === 1023) { const y = pause(); if (y) await y; } } return out; }
 const logSm = (l) => { let m = -Infinity; for (const x of l) if (x > m) m = x; let s = 0; for (const x of l) s += Math.exp(x - m); const z = m + Math.log(s); return l.map((x) => x - z); };
 
 // Objectives → dL/dlogits per position. 'ce': mean next-token cross-entropy over positions 0..T-2 (or o.positions).
@@ -58,9 +93,17 @@ export function objective(W, A, obj = { kind: 'ce' }) { const { d, H, hd, ff, V 
   else throw new Error('unknown objective ' + obj.kind);
   return { value, seeds };
 }
+export async function objectiveAsync(W, A, obj = { kind: 'ce' }) {
+  const { V } = dims(W); const T = A.T, seeds = new Map(); let value = 0;
+  if (obj.kind === 'ce') { const pos = obj.positions || [...Array(T - 1).keys()]; for (const t of pos) { const lp = logSm(logitsAt(W, A, t)), y = A.ids[t + 1]; value -= lp[y] / pos.length; const g = lp.map(Math.exp); g[y] -= 1; for (let i = 0; i < V; i++) g[i] /= pos.length; seeds.set(t, g); const yld = pause(); if (yld) await yld; } }
+  else if (obj.kind === 'logitdiff') { const t = obj.t ?? T - 1, l = logitsAt(W, A, t); value = l[obj.a] - l[obj.b]; const g = new Float32Array(V); g[obj.a] += 1; g[obj.b] -= 1; seeds.set(t, g); }
+  else if (obj.kind === 'logprob') { const t = obj.t ?? T - 1, lp = logSm(logitsAt(W, A, t)); value = lp[obj.a]; const g = lp.map((x) => -Math.exp(x)); g[obj.a] += 1; seeds.set(t, g); }
+  else throw new Error('unknown objective ' + obj.kind);
+  return { value, seeds };
+}
 // Backward. Returns activation gradients per layer (same keys as forward caches) and optionally weight gradients.
 export function backward(W, A, seeds, o = {}) { const { d, H, hd, ff, V } = dims(W);
-  const T = A.T, L = W.layers.length, G = o.weights ? zerosLike(W) : null, act = [];
+  const T = A.T, L = W.layers.length, G = o.weights ? zerosLike(W, !!o.unembed) : null, act = [];
   const dHf = new Float32Array(T * d);
   for (const [t, g] of seeds) { for (let v = 0; v < V; v++) { const gv = g[v]; if (!gv) continue; const wo = v * d; for (let i = 0; i < d; i++) dHf[t * d + i] += gv * W.wte[wo + i]; if (G && o.unembed) for (let i = 0; i < d; i++) G.wte[wo + i] += gv * A.hf[t * d + i]; } }
   const dX = new Float32Array(T * d); lnB(dHf, A.lnf, T, W.lnfW, dX, G && G.lnfW, G && G.lnfB);
@@ -82,10 +125,39 @@ export function backward(W, A, seeds, o = {}) { const { d, H, hd, ff, V } = dims
     const dH1 = new Float32Array(T * d); mmT(dQ, T, P.q, d, d, dH1); mmT(dK, T, P.k, d, d, dH1); mmT(dV, T, P.v, d, d, dH1);
     lnB(dH1, C.ln1, T, P.ln1w, dX, gP && gP.ln1w, gP && gP.ln1b); R.resid_pre = dX.slice(); act[l] = R;
   }
-  if (G) for (let t = 0; t < T; t++) for (let i = 0; i < d; i++) { G.wte[A.ids[t] * d + i] += dX[t * d + i]; G.wpe[t * d + i] += dX[t * d + i]; }
+  if (G) for (let t = 0; t < T; t++) for (let i = 0; i < d; i++) { if (G.wte) G.wte[A.ids[t] * d + i] += dX[t * d + i]; G.wpe[t * d + i] += dX[t * d + i]; }
   return { act, dx0: dX, G };
 }
 export function grad(W, ids, obj = { kind: 'ce' }, o = {}) { const A = forward(W, ids, o); const { value, seeds } = objective(W, A, obj); const B = backward(W, A, seeds, o); return { value, A, ...B }; }
+export async function backwardAsync(W, A, seeds, o = {}) { const { d, H, hd, ff, V } = dims(W);
+  const T = A.T, L = W.layers.length, G = o.weights ? await zerosLikeAsync(W, !!o.unembed) : null, act = [];
+  const dHf = new Float32Array(T * d);
+  for (const [t, g] of seeds) { for (let v = 0; v < V; v++) { const gv = g[v]; if (!gv) continue; const wo = v * d; for (let i = 0; i < d; i++) dHf[t * d + i] += gv * W.wte[wo + i]; if (G && o.unembed) for (let i = 0; i < d; i++) G.wte[wo + i] += gv * A.hf[t * d + i]; if ((v & 8191) === 8191) { const y = pause(); if (y) await y; } } const y = pause(); if (y) await y; }
+  const dX = new Float32Array(T * d); lnB(dHf, A.lnf, T, W.lnfW, dX, G && G.lnfW, G && G.lnfB);
+  for (let l = L - 1; l >= 0; l--) {
+    const P = W.layers[l], C = A.layers[l], gP = G && G.layers[l], R = { resid_post: dX.slice() };
+    R.mlp_out = dX.slice(); const dA = mmT(dX, T, P.proj, d, ff, new Float32Array(T * ff)); if (gP) outer(dX, C.act, T, d, ff, gP.proj, gP.projb); R.mlp_act = dA;
+    const dPre = new Float32Array(T * ff); for (let i = 0; i < dPre.length; i++) dPre[i] = dA[i] * dgelu(C.pre[i]); R.mlp_pre = dPre;
+    if (gP) outer(dPre, C.ln2.Y, T, ff, d, gP.fc, gP.fcb); const dH2 = mmT(dPre, T, P.fc, ff, d, new Float32Array(T * d));
+    lnB(dH2, C.ln2, T, P.ln2w, dX, gP && gP.ln2w, gP && gP.ln2b); R.resid_mid = dX.slice();
+    { const y = pause(); if (y) await y; }
+    R.attn_out = dX.slice(); if (gP) outer(dX, C.z, T, d, d, gP.o, gP.ob); const dZ = mmT(dX, T, P.o, d, d, new Float32Array(T * d)); R.z = dZ;
+    const dQ = new Float32Array(T * d), dK = new Float32Array(T * d), dV = new Float32Array(T * d), win = l % 2 ? CFG.window : 1e9;
+    for (let h = 0; h < H; h++) { const off = h * hd; for (let t = 0; t < T; t++) { const lo = Math.max(0, t + 1 - win), row = (h * T + t) * T; let dot = 0; const dAt = new Float32Array(t + 1);
+      for (let j = lo; j <= t; j++) { let s = 0; for (let i = 0; i < hd; i++) s += dZ[t * d + off + i] * C.v[j * d + off + i]; dAt[j] = s; const a = C.att[row + j]; dot += a * s; for (let i = 0; i < hd; i++) dV[j * d + off + i] += a * dZ[t * d + off + i]; }
+      for (let j = lo; j <= t; j++) { const ds = C.att[row + j] * (dAt[j] - dot); if (!ds) continue; for (let i = 0; i < hd; i++) { dQ[t * d + off + i] += ds * C.k[j * d + off + i]; dK[j * d + off + i] += ds * C.q[t * d + off + i]; } } } }
+    R.q = dQ; R.k = dK; R.v = dV;
+    if (gP) { outer(dQ, C.ln1.Y, T, d, d, gP.q); outer(dK, C.ln1.Y, T, d, d, gP.k); outer(dV, C.ln1.Y, T, d, d, gP.v); }
+    const dH1 = new Float32Array(T * d); mmT(dQ, T, P.q, d, d, dH1); mmT(dK, T, P.k, d, d, dH1); mmT(dV, T, P.v, d, d, dH1);
+    lnB(dH1, C.ln1, T, P.ln1w, dX, gP && gP.ln1w, gP && gP.ln1b); R.resid_pre = dX.slice(); act[l] = R;
+    const y = pause(); if (y) await y;
+  }
+  if (G) for (let t = 0; t < T; t++) for (let i = 0; i < d; i++) { if (G.wte) G.wte[A.ids[t] * d + i] += dX[t * d + i]; G.wpe[t * d + i] += dX[t * d + i]; }
+  return { act, dx0: dX, G };
+}
+export async function gradAsync(W, ids, obj = { kind: 'ce' }, o = {}) {
+  const A = await forwardAsync(W, ids, o); const { value, seeds } = await objectiveAsync(W, A, obj); const B = await backwardAsync(W, A, seeds, o); return { value, A, ...B };
+}
 
 // ── attribution methods ──
 // gradient × input on the input embeddings: per-token Σ_i x_i ∂m/∂x_i
@@ -114,11 +186,11 @@ export function activationPatchingHeads(W, clean, corr, obj) { const { d, H, hd,
   return out;
 }
 // Empirical Fisher diagonal (mean squared per-sequence CE gradient) and saliency |θ·g| per matrix, over a set of docs.
-export function fisherDiag(W, docs, maxT = 48, onp = () => {}) {
-  const F = zerosLike(W), S = zerosLike(W); let n = 0;
-  for (const doc of docs) { const r = grad(W, doc.slice(0, maxT), { kind: 'ce' }, { weights: true }); n++;
-    const acc = (g, f, s, w) => { for (let i = 0; i < g.length; i++) { f[i] += g[i] * g[i]; s[i] += g[i] * w[i]; } };
-    r.G.layers.forEach((P, l) => { for (const k in P) acc(P[k], F.layers[l][k], S.layers[l][k], W.layers[l][k]); }); acc(r.G.lnfW, F.lnfW, S.lnfW, W.lnfW); onp(n / docs.length); }
+export async function fisherDiag(W, docs, maxT = 48, onp = () => {}) {
+  const F = await zerosLikeAsync(W, false), S = await zerosLikeAsync(W, false); let n = 0;
+  for (const doc of docs) { const r = await gradAsync(W, doc.slice(0, maxT), { kind: 'ce' }, { weights: true }); n++;
+    const acc = async (g, f, s, w) => { const N = 65536; for (let i = 0; i < g.length; i += N) { const end = Math.min(g.length, i + N); for (let j = i; j < end; j++) { f[j] += g[j] * g[j]; s[j] += g[j] * w[j]; } if (g.length > N) await new Promise((res) => setTimeout(res, 0)); } };
+    for (const [l, P] of r.G.layers.entries()) for (const k in P) await acc(P[k], F.layers[l][k], S.layers[l][k], W.layers[l][k]); await acc(r.G.lnfW, F.lnfW, S.lnfW, W.lnfW); onp(n / docs.length); }
   const fin = (a) => { for (let i = 0; i < a.length; i++) a[i] /= n; };
   F.layers.forEach((P, l) => { for (const k in P) { fin(P[k]); fin(S.layers[l][k]); } }); fin(F.lnfW); fin(S.lnfW);
   return { F, S, n };

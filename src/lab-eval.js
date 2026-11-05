@@ -3,7 +3,7 @@ import * as C from './labcore.js?v=170';
 import { topK } from './engine.js?v=170';
 import { CORPUS } from './corpus.js?v=170';
 import { lines, bars } from './charts.js?v=170';
-import { $, $$, esc, fmt, opts, cv, tipq, PAL, prog, canvasFit, chartBg, exportFor, runs, L } from './lab-ui.js?v=170';
+import { $, $$, esc, fmt, opts, cv, tipq, PAL, prog, canvasFit, chartBg, exportFor, runs, lab, L } from './lab-ui.js?v=170';
 
 export const markup = {
   timeline: ['TIMELINE', 'Token timeline', `<fieldset><legend>per-token timeline of the last generation ${tipq('Recorded from the raw (pre-filter) distribution of the hacked model at every generated step, including the first generation after load.')}</legend><div class="r"><button class="pri" id="xT">refresh</button><span id="xTInfo" class="sm"></span></div>${cv('xTP', 'p(chosen) teal · top-1 p pink')}${cv('xTH', 'entropy (nats) teal · surprisal −ln p pink')}${cv('xTM', 'top-1 − top-2 probability margin')}</fieldset>`],
@@ -11,7 +11,7 @@ export const markup = {
   impact: ['IMPACT', 'Edit impact', `<fieldset><legend>edit-impact dashboard ${tipq('Clean model (original weights, default runtime) vs the current hacked model on the same input.')}</legend><div class="r"><input id="xIP" style="flex:1" value="Once upon a time, there was a little girl named Lily. She loved to"/><button class="pri" id="xI">measure</button></div><div id="xIInfo"></div>
 ${cv('xIL', 'logit-lens KL(hacked‖clean) per slot, last token')}${cv('xIPos', 'final-layer KL per position')}${cv('xIS', 'largest probability shifts at the last token')}<div class="two"><div><b>clean (greedy)</b><div id="xIA" class="otext"></div></div><div><b>hacked (greedy)</b><div id="xIB" class="otext"></div></div></div></fieldset>`],
   prof: ['PROFILER', 'Performance profiler', `<fieldset><legend>per-op profiler ${tipq('Wall time between successive engine hooks during real forward steps of the current model, plus final LayerNorm + unembedding.')}</legend><div class="r"><label>tokens</label><input type="number" id="xPN" value="24"/><button class="pri" id="xP">profile</button><span id="xPInfo" class="sm"></span></div>${cv('xPFl', 'flame chart: one row per token, x = time inside the step')}${cv('xPAgg', 'total ms per op')}<div id="xPTab" class="sm"></div></fieldset>`],
-  runs: ['RUNS', 'Experiment tracker', `<fieldset><legend>experiment tracker ${tipq('Every calibration, impact, sweep, profile, α-scan and terminal batch is logged here (localStorage). Tick runs to compare.')}</legend><div class="r"><label>metric</label><select id="xRm"></select><button id="xRr">refresh</button><button id="xRcsv">export CSV</button><button id="xRjson">export JSON</button><button class="dan" id="xRclr">clear</button></div>${cv('xRch', 'metric across selected runs')}${cv('xRsw', 'sweep curves (perplexity) of selected runs')}<div id="xRtab" class="scroll"></div></fieldset>`],
+  runs: ['RUNS', 'Experiment tracker', `<fieldset><legend>experiment tracker ${tipq('Every calibration, impact, sweep, profile, α-scan and terminal batch is logged here (localStorage). Tick runs to compare.')}</legend><div class="r"><label>metric</label><select id="xRm"></select><button id="xRr">refresh</button><button id="xRcsv">export CSV</button><button id="xRjson">export JSON</button><button id="xRlab">export lab store</button><button class="dan" id="xRclr">clear</button></div>${cv('xRch', 'metric across selected runs')}${cv('xRsw', 'sweep curves (perplexity) of selected runs')}<div id="xRtab" class="scroll"></div></fieldset>`],
 };
 
 export function install(A, out) {
@@ -37,7 +37,7 @@ export function install(A, out) {
   on('xQ', 'click', () => out.calib());
 
   const greedy = (eng, ids, n) => { const s = eng.newSeq(ids.length); let r; for (const t of ids) r = eng.step(s, t); const o = []; for (let i = 0; i < n; i++) { const id = topK(eng.outLogits(r.h), 1)[0]; o.push(id); if (id === 50256) break; r = eng.step(s, id); } return o; };
-  out.impact = (p) => { if (p != null) $('xIP').value = p; const tok = A.tok(), ids = tok.encode($('xIP').value); if (!ids.length) throw new Error('empty prompt'); const r = C.editImpact(A.engClean(), A.eng(), ids), lab = ids.map(tstr);
+  out.impact = async (p) => { if (p != null) $('xIP').value = p; const tok = A.tok(), ids = tok.encode($('xIP').value); if (!ids.length) throw new Error('empty prompt'); const r = await C.editImpact(A.engClean(), A.eng(), ids), lab = ids.map(tstr);
     bars($('xIL'), r.perLayer, { label: (i) => `slot ${i}: KL ${r.perLayer[i].toExponential(3)}` }); lines($('xIPos'), [{ ys: r.perPos, color: '#f472b6', label: 'KL' }], { xs: lab, min: 0 });
     bars($('xIS'), r.shifts.map((s) => s[1]), { label: (i) => `"${tstr(r.shifts[i][0])}" ${r.shifts[i][2].toFixed(4)} → ${r.shifts[i][3].toFixed(4)} (Δ ${r.shifts[i][1] >= 0 ? '+' : ''}${r.shifts[i][1].toFixed(4)})` });
     $('xIInfo').innerHTML = `final KL(hacked‖clean) <b>${r.finalKL.toExponential(3)}</b> nats · total variation ${r.tv.toFixed(4)} · entropy ${r.entC.toFixed(3)} → ${r.entH.toFixed(3)} · largest shift ${r.shifts[0] ? `"${esc(tstr(r.shifts[0][0]))}" ${r.shifts[0][1] >= 0 ? '+' : ''}${r.shifts[0][1].toFixed(4)}` : 'none (identical)'}`;
@@ -45,7 +45,7 @@ export function install(A, out) {
     A.logRun({ kind: 'impact', label: `impact "${$('xIP').value.slice(0, 24)}"`, metrics: { final_kl: r.finalKL, tv: r.tv, max_layer_kl: Math.max(...r.perLayer), edits: A.ed().edits.length } }); return r; };
   on('xI', 'click', () => out.impact());
 
-  out.prof = (n0) => { const ids = A.tok().encode('Once upon a time, there was a little girl named Lily. She loved to play outside in the sun with her friends every day.').slice(0, Math.max(2, Math.min(64, +(n0 ?? $('xPN').value) || 24))), pr = C.profile(A.eng(), ids);
+  out.prof = async (n0) => { const ids = A.tok().encode('Once upon a time, there was a little girl named Lily. She loved to play outside in the sun with her friends every day.').slice(0, Math.max(2, Math.min(64, +(n0 ?? $('xPN').value) || 24))), pr = await C.profileAsync(A.eng(), ids);
     const ops = Object.keys(pr.agg), col = Object.fromEntries(ops.map((o, i) => [o, PAL[i % 8]])), cvs = $('xPFl'), rh = 8, hh = pr.rows.length * rh + 24, [c, w] = canvasFit(cvs, hh); c.fillStyle = chartBg(); c.fillRect(0, 0, w, hh);
     const mx = Math.max(...pr.rows.map((r) => r.total)); pr.rows.forEach((r, i) => r.seg.forEach((s) => { c.fillStyle = col[s.op]; c.fillRect((s.start / mx) * (w - 4), i * rh, Math.max(1, (s.ms / mx) * (w - 4)), rh - 1); }));
     c.font = '9px monospace'; let x = 2; for (const o of ops) { c.fillStyle = col[o]; c.fillRect(x, hh - 12, 8, 8); c.fillStyle = '#94a3b8'; c.fillText(o, x + 10, hh - 4); x += c.measureText(o).width + 18; }
@@ -66,4 +66,5 @@ export function install(A, out) {
   on('xRr', 'click', out.runs); on('xRm', 'change', out.runs); on('xRclr', 'click', () => { runs.save([]); out.runs(); });
   on('xRcsv', 'click', () => { out.runs(); exportFor('xRtab', 'csv'); });
   on('xRjson', 'click', () => A.download('neuralese-runs.json', JSON.stringify(runs.all(), null, 1)));
+  on('xRlab', 'click', () => A.download('neuralese-lab.json', JSON.stringify(lab.dump(), null, 1)));
 }

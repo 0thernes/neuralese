@@ -1,10 +1,9 @@
-import { createEffect, For, onCleanup, onMount, Show, type JSX } from 'solid-js';
+import { createEffect, createSignal, For, onCleanup, onMount, Show, type JSX } from 'solid-js';
 import { legacy } from '../core/bridge';
 import { DEMO, FORGE_HELP, forgeBusy, forgeBundle, forgeClockMs, forgeCursor, forgeErr, forgeHost, forgeLanes, forgeRun, forgeSource, setForgeBundle, setForgeBusy, setForgeClockMs, setForgeCursor, setForgeErr, setForgeHost, setForgeLanes, setForgeRun, setForgeSource, type ForgeRun, type LaneReport } from '../core/forge';
 import { sel, selection } from '../core/store';
 import { PRECISION } from '../../../src/forge/engine.js';
 import { forwardOnce, greedyTokens, scriptedPrompt } from '../../../src/forge/host.js';
-import { openRun, reproBundle, runLanes } from '../../../src/forge/session.js';
 
 function dl(name: string, body: string): void {
   const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([body], { type: 'application/json' })); a.download = name; a.click();
@@ -13,17 +12,19 @@ function dl(name: string, body: string): void {
 function num(x: number | null | undefined, d = 3): string { return typeof x === 'number' && Number.isFinite(x) ? (Number.isInteger(x) ? String(x) : x.toFixed(d)) : '—'; }
 
 async function execute(src: string, lm: string[]): Promise<void> {
+  const mf = legacy()?.mf;
+  if (!mf) { setForgeErr('forge worker is not ready'); return; }
   setForgeErr(''); setForgeBusy('typecheck, then clock the engine…');
-  await Promise.resolve();
   try {
-    const run = openRun(src, { lmTokens: lm, seed: 1 }) as ForgeRun;
+    const out = await mf.forge({ source: src, lmTokens: lm, seed: 1 }, (p) => { if (p.label) setForgeBusy(p.label); });
+    if ((out as { cancelled?: boolean }).cancelled || !out.run) return;
+    const run = out.run as ForgeRun;
     setForgeRun(run); setForgeCursor(0);
-    const bundle = await reproBundle(run);
-    setForgeBundle(JSON.stringify(bundle, null, 2));
+    setForgeBundle(out.bundle);
     setForgeBusy('');
     if (!run.ok) setForgeErr(run.errors.map((e) => `${e.code}: ${e.msg}`).join(' · '));
     else if (!run.eq32) setForgeErr('float32 engine trace does not match the int32 VM');
-  } catch (e) { setForgeBusy(''); setForgeErr((e as Error).message); }
+  } catch (e) { setForgeBusy(''); if ((e as Error).message !== 'cancelled') setForgeErr((e as Error).message); }
 }
 
 function Bar(): JSX.Element {
@@ -52,7 +53,8 @@ function Program(): JSX.Element {
     if (!lg?.eng || !lg.tok) { setForgeHost('Demo mode: the host model is not loaded. The scripted line is not a model sample.'); void execute(forgeSource(), scriptedPrompt('sum of 22 copies of 35')); return; }
     setForgeBusy('sampling 8 greedy tokens from the loaded model…');
     try {
-      const s = greedyTokens(lg.eng, lg.tok, 'Sum 22 copies of 35.', 8);
+      const remote = await lg.hostGreedy?.('Sum 22 copies of 35.', 8);
+      const s = remote?.ids ? { tokens: remote.ids.map((id) => lg.tok!.tokenStr(id)), note: 'greedy TinyStories sample. This model is not trained to emit NestLang. The editor program is the one that is checked and clocked.' } : greedyTokens(lg.eng, lg.tok, 'Sum 22 copies of 35.', 8);
       setForgeHost(s.note + ' Tokens: ' + (s.tokens.join(' ') || '(none)'));
       await execute(forgeSource(), [...s.tokens, '⟦forge⟧']);
     } catch (e) { setForgeBusy(''); setForgeErr((e as Error).message); }
@@ -62,9 +64,9 @@ function Program(): JSX.Element {
     <p class="hint">{FORGE_HELP}</p>
     <textarea aria-label="NestLang program" spellcheck={false} value={forgeSource()} onInput={(e) => setForgeSource(e.currentTarget.value)} />
     <div class="adv-row">
-      <button class="pri" disabled={!!forgeBusy()} onClick={() => void execute(forgeSource(), scriptedPrompt('editor program'))}>Run program</button>
-      <button disabled={!!forgeBusy()} onClick={() => { setForgeSource(DEMO); void execute(DEMO, scriptedPrompt('sum of 22 copies of 35')); }}>Demo: 22 × 35</button>
-      <button disabled={!!forgeBusy()} onClick={() => void sample()}>Sample host, then hand off</button>
+      <button class="pri" onClick={() => void execute(forgeSource(), scriptedPrompt('editor program'))}>Run program</button>
+      <button onClick={() => { setForgeSource(DEMO); void execute(DEMO, scriptedPrompt('sum of 22 copies of 35')); }}>Demo: 22 × 35</button>
+      <button onClick={() => void sample()}>Sample host, then hand off</button>
     </div>
     <Bar />
     <Show when={forgeHost()}><p class="hint">{forgeHost()}</p></Show>
@@ -84,6 +86,8 @@ function Cpu(): JSX.Element {
     if (n) setForgeCursor(Math.min(forgeCursor() + 1, n - 1));
     const lg = legacy();
     if (!lg?.eng || !lg.tok) { setForgeClockMs(null); return; }
+    const remote = lg.hostForward?.();
+    if (remote) { void remote.then((r) => { if (r) setForgeClockMs(r.ms); else setForgeClockMs(forwardOnce(lg.eng!, lg.tok!).ms); }).catch((e: Error) => setForgeErr(e.message)); return; }
     try { setForgeClockMs(forwardOnce(lg.eng, lg.tok).ms); } catch (e) { setForgeErr((e as Error).message); }
   };
   return <>
@@ -107,9 +111,17 @@ function Cpu(): JSX.Element {
 
 function Mem(): JSX.Element {
   let cv: HTMLCanvasElement | undefined;
+  const [ramNow, setRamNow] = createSignal<number[] | null>(null);
+  createEffect(() => {
+    const run = forgeRun(); const i = forgeCursor();
+    const local = run?.vm?.trace[i]?.ram;
+    if (local) { setRamNow(local); return; }
+    if (run?.id == null) { setRamNow(run?.vm?.ram ?? null); return; }
+    void legacy()?.mf?.forgeStep(run.id, i).then((s) => { if (s?.ram) setRamNow(s.ram); });
+  });
   const paint = (): void => {
     const canvas = cv; if (!canvas) return;
-    const ram = stepOf(forgeRun())?.ram ?? forgeRun()?.vm?.ram;
+    const ram = ramNow() ?? forgeRun()?.vm?.ram;
     const ctx = canvas.getContext('2d'); if (!ctx || !ram) { ctx?.clearRect(0, 0, canvas.width, canvas.height); return; }
     const n = 16, cell = canvas.width / n;
     for (let i = 0; i < 256; i++) {
@@ -130,10 +142,16 @@ function Mem(): JSX.Element {
 }
 
 function Tokens(): JSX.Element {
-  const pick = (i: number): void => { setForgeCursor(i); try { selection.set({ token: i, prompt: forgeSource().slice(0, 80) }); } catch { /* token index is still shown here */ } };
+  const pick = (i: number): void => { const n = forgeRun()?.vm?.trace.length ?? 0; const k = Math.max(0, Math.min(n - 1, i | 0)); setForgeCursor(k); try { selection.set({ token: k, prompt: forgeSource().slice(0, 80) }); } catch { /* token index is still shown here */ } };
+  const windowed = () => {
+    const t = forgeRun()?.vm?.trace ?? [];
+    const c = forgeCursor();
+    const a = Math.max(0, Math.min(c - 12, Math.max(0, t.length - 25)));
+    return t.slice(a, a + 25).map((s, k) => ({ s, i: a + k }));
+  };
   return <>
     <h3>LM tokens and engine tokens</h3>
-    <p class="hint">Left: tokens before the handoff. Right: one instruction and four value bytes per clock, then HALT or FAIL, then END. Selecting a row sets the shared token index (step {sel().token ?? '—'}).</p>
+    <p class="hint">Left: tokens before the handoff. Right: one instruction and four value bytes per clock, then HALT or FAIL, then END. Selecting a row sets the shared token index (step {sel().token ?? '—'}). The list shows the steps around the cursor; the number box reaches any step.</p>
     <div class="cols">
       <div>
         <b>LM</b>
@@ -142,7 +160,8 @@ function Tokens(): JSX.Element {
       </div>
       <div>
         <b>Engine</b>
-        <For each={forgeRun()?.vm?.trace ?? []}>{(s, i) => <button class="tok" classList={{ on: i() === forgeCursor() }} onClick={() => pick(i())}>pc {s.pc} {s.name} → {s.result}</button>}</For>
+        <label class="hint">step <input type="number" min={0} aria-label="engine step" value={forgeCursor()} onInput={(e) => pick(+e.currentTarget.value)} /> / {forgeRun()?.vm?.trace.length ?? 0}</label>
+        <For each={windowed()}>{(row) => <button class="tok" classList={{ on: row.i === forgeCursor() }} onClick={() => pick(row.i)}>pc {row.s.pc} {row.s.name} → {row.s.result}</button>}</For>
       </div>
     </div>
   </>;
@@ -150,14 +169,15 @@ function Tokens(): JSX.Element {
 
 function Lanes(): JSX.Element {
   const go = async (): Promise<void> => {
+    const mf = legacy()?.mf;
+    if (!mf) { setForgeErr('forge worker is not ready'); return; }
     setForgeErr(''); setForgeBusy('running both lanes on the frozen cell set…');
-    await Promise.resolve();
-    try { setForgeLanes(runLanes() as LaneReport); setForgeBusy(''); } catch (e) { setForgeBusy(''); setForgeErr((e as Error).message); }
+    try { setForgeLanes(await mf.lanes((p) => { if (p.label) setForgeBusy(p.label); }) as LaneReport); setForgeBusy(''); } catch (e) { setForgeBusy(''); if ((e as Error).message !== 'cancelled') setForgeErr((e as Error).message); }
   };
   return <>
     <h3>WeightCPU and MDCC</h3>
     <p class="hint">Same eight arithmetic cells. WeightCPU compiles NestLang and clocks Forge. MDCC is a deterministic proposer plus host bigint. The proposer is not the language model. Pre-registered bar: both lanes exact, engine trace equal to the VM, bf16 not claimed.</p>
-    <button class="pri" disabled={!!forgeBusy()} onClick={() => void go()}>Run contrast</button>
+    <button class="pri" onClick={() => void go()}>Run contrast</button>
     <Bar />
     <Show when={forgeLanes()}>{(L) => <>
       <table>

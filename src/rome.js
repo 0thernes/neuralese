@@ -6,14 +6,18 @@
 import { CFG } from './model.js?v=170';
 import { logSoftmax } from './engine.js?v=170';
 import { cholSolve, dot, norm } from './linalg.js?v=170';
+import { slice } from './coop.js?v=170';
 const { d, ff, V } = CFG;
+function breathe() { return slice(); }
 export function findSubject(tok, ids, subject) {
   for (const s of [subject, ' ' + subject.trim(), subject.trim()]) { const sid = tok.encode(s); for (let i = ids.length - sid.length; i >= 0; i--) if (sid.every((x, j) => ids[i + j] === x)) return i + sid.length - 1; }
   return -1;
 }
-export async function computeRome(eng, tok, C, { prompt, subject, target, layer, lambda = 0.05, maxIter = 150, goal = 0.5, eta = 0.3 }, onp = () => {}) {
-  const ids = tok.encode(prompt), ps = findSubject(tok, ids, subject); if (ps < 0) throw new Error(`subject "${subject}" not found in prompt tokens`);
-  const tgt = tok.encode(target)[0]; const slot = eng.R.program.findIndex((s) => s.layer === layer && s.mlp); if (slot < 0) throw new Error('layer not in program');
+export async function computeRome(eng, tok, C, opts, onp = () => {}) {
+  const { prompt, subject, target, layer, lambda = 0.05, maxIter = 150, goal = 0.5, eta = 0.3 } = opts;
+  const ids = opts.ids || tok.encode(prompt), ps = opts.ps != null ? opts.ps : findSubject(tok, ids, subject); if (ps < 0) throw new Error(`subject "${subject}" not found in prompt tokens`);
+  const tgt = opts.tgt != null ? opts.tgt : tok.encode(target)[0]; const slot = eng.R.program.findIndex((s) => s.layer === layer && s.mlp); if (slot < 0) throw new Error('layer not in program');
+  C = opts.C || C;
   const tr = eng.run(ids, { trace: true }).traces; const k = Float64Array.from(tr[ps].mlp_act[slot]);
   let trc = 0; for (let i = 0; i < ff; i++) trc += C[i * ff + i]; const A = Float64Array.from(C); for (let i = 0; i < ff; i++) A[i * ff + i] += lambda * trc / ff;
   const ci = cholSolve(A, ff, k, 1); const den = dot(k, ci); const u = Float32Array.from(ci, (x) => x / den);
@@ -33,7 +37,7 @@ export async function computeRome(eng, tok, C, { prompt, subject, target, layer,
     for (let i = 0; i < d; i++) g[i] *= W.lnfW[i]; const gn = norm(g) || 1;
     const cand = dv.map((x, i) => x + eta * v0n * g[i] / gn); const lc = evalLp(cand);
     if (lc[tgt] > lp[tgt]) { dv.set(cand); lp = lc; p = Math.exp(lp[tgt]); } else break;
-    onp({ it, p }); await new Promise((r) => setTimeout(r, 0));
+    onp({ it, p }); { const y = breathe(); if (y) await y; }
   }
   // 2) SPSA refinement with Adam (2·K forward passes per step, gradient-free, works through attention)
   const m1 = new Float64Array(d), m2 = new Float64Array(d), K = 4, c = 0.05 * v0n, lr = 0.08 * v0n; let rng = 12345;
@@ -42,7 +46,7 @@ export async function computeRome(eng, tok, C, { prompt, subject, target, layer,
     const g = new Float64Array(d);
     for (let k = 0; k < K; k++) { const D = Float64Array.from({ length: d }, rnd); const fp = f(dv.map((x, i) => x + c * D[i])), fm = f(dv.map((x, i) => x - c * D[i])); for (let i = 0; i < d; i++) g[i] += ((fp - fm) / (2 * c)) * D[i] / K; }
     for (let i = 0; i < d; i++) { m1[i] = 0.9 * m1[i] + 0.1 * g[i]; m2[i] = 0.999 * m2[i] + 0.001 * g[i] * g[i]; dv[i] += lr * (m1[i] / (1 - 0.9 ** s)) / (Math.sqrt(m2[i] / (1 - 0.999 ** s)) + 1e-8); }
-    lp = evalLp(dv); p = Math.exp(lp[tgt]); onp({ it, p }); if (s % 4 === 0) await new Promise((r) => setTimeout(r, 0));
+    lp = evalLp(dv); p = Math.exp(lp[tgt]); onp({ it, p }); { const y = breathe(); if (y) await y; }
   }
   top = argmax(lp);
   return { kind: 'rome', l: layer, u: Array.from(u), v: Array.from(dv), subject, target, prompt, iters: it, p, top };

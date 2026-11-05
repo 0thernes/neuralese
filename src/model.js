@@ -1,4 +1,5 @@
 // Tiny GPT-Neo forward pass in plain JS. Weights are mutable Float32Arrays.
+import { frame } from './coop.js?v=170';
 export const CFG = { d: 256, H: 16, hd: 16, L: 8, ff: 1024, V: 50257, window: 256, eps: 1e-5 };
 
 export function parseSafetensors(buf, hdrLen, header) {
@@ -35,6 +36,18 @@ export function cloneWeights(W) {
 export function copyWeightsInto(dst, src) {
   dst.wte.set(src.wte); dst.wpe.set(src.wpe); dst.lnfW.set(src.lnfW); dst.lnfB.set(src.lnfB);
   dst.layers.forEach((L, i) => { for (const k in L) L[k].set(src.layers[i][k]); });
+}
+export async function cloneWeightsYield(W) {
+  const alloc = async (a) => { const o = new Float32Array(a.length); if (a.length > 262144) await frame(); return o; };
+  const dst = { wte: await alloc(W.wte), wpe: await alloc(W.wpe), lnfW: await alloc(W.lnfW), lnfB: await alloc(W.lnfB), layers: [] };
+  for (const L of W.layers) { const o = {}; for (const k of Object.keys(L)) o[k] = await alloc(L[k]); dst.layers.push(o); if (dst.layers.length % 2 === 0) await frame(); }
+  await copyWeightsIntoYield(dst, W);
+  return dst;
+}
+export async function copyWeightsIntoYield(dst, src) {
+  const put = async (d, s) => { const N = 262144; for (let i = 0; i < s.length; i += N) { d.set(s.subarray(i, Math.min(s.length, i + N)), i); if (s.length > N) await frame(); } };
+  await put(dst.wte, src.wte); await put(dst.wpe, src.wpe); await put(dst.lnfW, src.lnfW); await put(dst.lnfB, src.lnfB);
+  for (let i = 0; i < dst.layers.length; i++) for (const k of Object.keys(dst.layers[i])) await put(dst.layers[i][k], src.layers[i][k]);
 }
 
 function layerNorm(x, w, b, out) {

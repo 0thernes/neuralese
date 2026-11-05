@@ -160,15 +160,29 @@ export class ForgeEngine {
   }
 }
 
+function finishEngine(eng, trace) {
+  return {
+    trace, regs: eng.ints(), ram: eng.ramInts(), pc: bitsToUint(eng.pc, 8),
+    halted: eng.halted, fail: eng.fail, result: eng.result, faults: eng.faults.slice(), kind: eng.kind,
+  };
+}
 export function runEngine(words, ArrayType = Float32Array, limit = STEP_LIMIT) {
   const eng = new ForgeEngine(words, ArrayType);
   const trace = [];
   while (!eng.halted && !eng.fail && trace.length < limit && eng.faults.length === 0) trace.push(eng.step());
   if (!eng.halted && !eng.fail && eng.faults.length === 0) eng.fail = 'step-limit';
-  return {
-    trace, regs: eng.ints(), ram: eng.ramInts(), pc: bitsToUint(eng.pc, 8),
-    halted: eng.halted, fail: eng.fail, result: eng.result, faults: eng.faults.slice(), kind: eng.kind,
-  };
+  return finishEngine(eng, trace);
+}
+export async function runEngineAsync(words, ArrayType = Float32Array, limit = STEP_LIMIT, shouldStop = () => false) {
+  const eng = new ForgeEngine(words, ArrayType);
+  const trace = [];
+  while (!eng.halted && !eng.fail && trace.length < limit && eng.faults.length === 0) {
+    if (shouldStop()) { eng.fail = 'cancelled'; break; }
+    trace.push(eng.step());
+    if ((trace.length & 31) === 0) await new Promise((r) => setTimeout(r, 0));
+  }
+  if (!eng.halted && !eng.fail && eng.faults.length === 0) eng.fail = 'step-limit';
+  return finishEngine(eng, trace);
 }
 
 export function stampSubspace(step) {

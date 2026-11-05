@@ -12,7 +12,7 @@ export async function createStage(host: HTMLElement, bg: () => string): Promise<
   // dispose() deliberately releases the context; only a loss while still mounted is worth reporting
   renderer.onDeviceLost = (info: { message?: string }) => { if (alive) console.warn('[cosmos] GPU device lost:', info?.message ?? 'unknown'); };
   renderer.setPixelRatio(Math.min(devicePixelRatio, tier === 'high' ? 2 : tier === 'mid' ? 1.5 : 1));
-  await renderer.init();
+  await new Promise<void>((resolve, reject) => requestAnimationFrame(() => { renderer.init().then(() => resolve(), reject); }));
   const backend = (renderer.backend as unknown as { isWebGPUBackend?: boolean }).isWebGPUBackend ? 'WebGPU' : 'WebGL2';
   const canvas = renderer.domElement; canvas.className = 'cosmos-canvas'; canvas.tabIndex = 0; host.appendChild(canvas);
   const scene = new THREE.Scene(); const camera = new THREE.PerspectiveCamera(45, 1, 0.05, 2000);
@@ -26,12 +26,14 @@ export async function createStage(host: HTMLElement, bg: () => string): Promise<
   canvas.addEventListener('pointermove', (e) => { if (!drag) return; th.target -= (e.clientX - drag.x) * 0.006; ph.target = Math.min(3.0, Math.max(0.15, ph.target - (e.clientY - drag.y) * 0.006)); drag = { x: e.clientX, y: e.clientY }; });
   canvas.addEventListener('wheel', (e) => { e.preventDefault(); rr.target = Math.min(400, Math.max(1.2, rr.target * Math.exp(e.deltaY * 0.0012))); }, { passive: false });
   canvas.addEventListener('keydown', (e) => { const k = e.key; if (k === 'ArrowLeft') th.target -= 0.15; else if (k === 'ArrowRight') th.target += 0.15; else if (k === 'ArrowUp') ph.target = Math.max(0.15, ph.target - 0.12); else if (k === 'ArrowDown') ph.target = Math.min(3, ph.target + 0.12); else if (k === '+' || k === '=') rr.target = Math.max(1.2, rr.target * 0.8); else if (k === '-') rr.target = Math.min(400, rr.target * 1.25); else return; e.preventDefault(); });
-  const ro = new ResizeObserver(() => { const w = Math.max(1, host.clientWidth), h = Math.max(1, host.clientHeight); renderer.setSize(w, h, false); canvas.style.width = w + 'px'; canvas.style.height = h + 'px'; camera.aspect = w / h; camera.updateProjectionMatrix(); });
+  let sized = false;
+  const ro = new ResizeObserver(() => { sized = false; });
   ro.observe(host);
   let last = performance.now(), alive = true, visible = true;
   const io = new IntersectionObserver((es) => { visible = es.some((x) => x.isIntersecting); }); io.observe(host);
   const loop = (): void => {
     if (!alive) return; const now = performance.now(), dt = Math.min(0.05, (now - last) / 1000); last = now;
+    if (!sized && host.clientWidth > 0) { sized = true; const w = Math.max(1, host.clientWidth), h = Math.max(1, host.clientHeight); renderer.setSize(w, h, false); canvas.style.width = w + 'px'; canvas.style.height = h + 'px'; camera.aspect = w / h; camera.updateProjectionMatrix(); }
     if (visible && host.clientWidth > 0) {
       for (const s of springs) stepSpring(s, dt);
       camera.position.set(tx.x + rr.x * Math.sin(ph.x) * Math.sin(th.x), ty.x + rr.x * Math.cos(ph.x), tz.x + rr.x * Math.sin(ph.x) * Math.cos(th.x));

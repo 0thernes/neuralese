@@ -1,4 +1,5 @@
 // Small dense linear algebra kit (Float64, row-major unless noted).
+import { slice } from './coop.js?v=170';
 // Cholesky solve of SPD system A X = B. A: n×n, B: n×m. Returns X (n×m).
 export function cholSolve(A, n, B, m) {
   const Lm = new Float64Array(n * n);
@@ -42,6 +43,36 @@ export function svd(A, rows, cols, { tol = 1e-10, maxSweeps = 30 } = {}) {
   const Ss = new Float64Array(n), Us = [], Vs = [];
   order.forEach((k, r) => { Ss[r] = S[k]; const u = Ucol[k], sk = S[k] || 1; Us.push(u.map((x) => x / sk)); Vs.push(Vcol[k]); });
   // A = U S V^T in (m×n) orientation; if transposed, swap roles.
+  return tr ? { U: Vs, S: Ss, V: Us, sweeps, rows, cols } : { U: Us, S: Ss, V: Vs, sweeps, rows, cols };
+}
+// Same Jacobi SVD, but it returns to the event loop every 32ms so a layer matrix does not freeze the page.
+export async function svdYield(A, rows, cols, opts) {
+  const tr = rows < cols; const m = tr ? cols : rows, n = tr ? rows : cols;
+  const tol = opts?.tol ?? 1e-10, maxSweeps = opts?.maxSweeps ?? 30;
+  const Ucol = Array.from({ length: n }, () => new Float64Array(m));
+  for (let i = 0; i < rows; i++) for (let j = 0; j < cols; j++) { const v = A[i * cols + j]; if (tr) Ucol[i][j] = v; else Ucol[j][i] = v; }
+  const Vcol = Array.from({ length: n }, (_, j) => { const v = new Float64Array(n); v[j] = 1; return v; });
+  let sweeps = 0;
+  for (; sweeps < maxSweeps; sweeps++) {
+    let off = 0, pair = 0;
+    for (let p = 0; p < n - 1; p++) for (let q = p + 1; q < n; q++) {
+      const up = Ucol[p], uq = Ucol[q]; let a = 0, b = 0, g = 0;
+      for (let i = 0; i < m; i++) { a += up[i] * up[i]; b += uq[i] * uq[i]; g += up[i] * uq[i]; }
+      if ((pair++ & 31) === 31) { const yld = slice(); if (yld) await yld; }
+      if (Math.abs(g) <= tol * Math.sqrt(a * b) || g === 0) continue;
+      off = Math.max(off, Math.abs(g) / Math.sqrt(a * b));
+      const zeta = (b - a) / (2 * g), t = Math.sign(zeta || 1) / (Math.abs(zeta) + Math.sqrt(1 + zeta * zeta)), c = 1 / Math.sqrt(1 + t * t), s = c * t;
+      for (let i = 0; i < m; i++) { const x = up[i], y = uq[i]; up[i] = c * x - s * y; uq[i] = s * x + c * y; }
+      const vp = Vcol[p], vq = Vcol[q];
+      for (let i = 0; i < n; i++) { const x = vp[i], y = vq[i]; vp[i] = c * x - s * y; vq[i] = s * x + c * y; }
+      const yld = slice(); if (yld) await yld;
+    }
+    if (off < tol) break;
+  }
+  const S = Ucol.map((u) => Math.hypot(...u));
+  const order = S.map((_, i) => i).sort((i, j) => S[j] - S[i]);
+  const Ss = new Float64Array(n), Us = [], Vs = [];
+  order.forEach((k, r) => { Ss[r] = S[k]; const u = Ucol[k], sk = S[k] || 1; Us.push(u.map((x) => x / sk)); Vs.push(Vcol[k]); });
   return tr ? { U: Vs, S: Ss, V: Us, sweeps, rows, cols } : { U: Us, S: Ss, V: Vs, sweeps, rows, cols };
 }
 // Reconstruct rows×cols from SVD with modified singular values S2.

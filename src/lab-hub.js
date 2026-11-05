@@ -6,6 +6,7 @@ import { lines } from './charts.js?v=170';
 import { $, esc, tipq } from './lab-ui.js?v=170';
 import { MODELS, TOOL_MATRIX, TFJS_VERSION, ORT_WASM, pca3, cosine, resample, wav, wer, TRANSFORMS, byKey, cer } from './hub/models.js?v=170';
 import { toEdit } from './hub/finetune.js?v=170';
+import { slice } from './coop.js?v=170';
 const kv = (rows) => `<table class="kv">${rows.map(([a, b]) => `<tr><td>${a}</td><td>${b}</td></tr>`).join('')}</table>`;
 const ok = (b) => (b ? '<span class="good">✔ pass</span>' : '<span class="warn">✖ fail</span>');
 const st = (id) => `<div class="sm" id="${id}St" aria-live="polite"></div>`;
@@ -57,18 +58,24 @@ function recorder(btnGo, btnStop, onDone) { let mr = null, parts = [];
   $(btnGo).addEventListener('click', async () => { try { const s = await navigator.mediaDevices.getUserMedia({ audio: true }); parts = []; mr = new self.MediaRecorder(s); mr.ondataavailable = (e) => parts.push(e.data); mr.onstop = () => { s.getTracks().forEach((t) => t.stop()); onDone(new Blob(parts, { type: mr.mimeType })); }; mr.start(); $(btnGo).disabled = true; $(btnStop).disabled = false; } catch (e) { onDone(null, e); } });
   $(btnStop).addEventListener('click', () => { mr?.stop(); $(btnGo).disabled = false; $(btnStop).disabled = true; }); }
 // ---------- image helpers ----------
-function card(txt) { const c = $('hvCv'), g = c.getContext('2d'); c.width = 384; c.height = 96; g.fillStyle = '#fff'; g.fillRect(0, 0, 384, 96); g.fillStyle = '#000'; g.font = 'bold 34px Arial, Helvetica, sans-serif'; g.textBaseline = 'middle'; g.textAlign = 'center'; g.fillText(txt, 192, 48); }
-function circle() { const c = $('hvCv'), g = c.getContext('2d'); c.width = 224; c.height = 224; g.fillStyle = '#fff'; g.fillRect(0, 0, 224, 224); g.fillStyle = '#e11d48'; g.beginPath(); g.arc(112, 112, 70, 0, 7); g.fill(); }
+let painter = null;
+function paintCard(msg) {
+  if (!painter) painter = new Worker(URL.createObjectURL(new Blob([`onmessage=async(e)=>{const{w,h,txt,circle}=e.data,c=new OffscreenCanvas(w,h),g=c.getContext('2d');g.fillStyle='#fff';g.fillRect(0,0,w,h);if(circle){g.fillStyle='#e11d48';g.beginPath();g.arc(w/2,h/2,70,0,7);g.fill();}else{g.fillStyle='#000';g.font='bold 34px sans-serif';g.textAlign='center';g.textBaseline='middle';g.fillText(txt,w/2,h/2);}const b=await c.convertToBlob();const buf=await b.arrayBuffer();postMessage(buf,[buf]);}`], { type: 'application/javascript' })));
+  return new Promise((resolve, reject) => { const on = (e) => { painter.removeEventListener('message', on); resolve(e.data); }; painter.addEventListener('message', on); painter.addEventListener('error', reject, { once: true }); painter.postMessage(msg); });
+}
+async function blit(w, h, buf) { const c = $('hvCv'); c.width = w; c.height = h; const bmp = await createImageBitmap(new Blob([buf])); c.getContext('2d').drawImage(bmp, 0, 0); bmp.close(); }
+async function card(txt) { await blit(384, 96, await paintCard({ w: 384, h: 96, txt, circle: false })); }
+async function circle() { await blit(224, 224, await paintCard({ w: 224, h: 224, txt: '', circle: true })); }
 const img = () => { const c = $('hvCv'), d = c.getContext('2d').getImageData(0, 0, c.width, c.height); return { data: d.data, width: d.width, height: d.height }; };
 // ---------- 3D embedding map ----------
 let E3 = null;
-async function draw3d(pts, labels, groups) { const THREE = await import('three'), box = $('he3d'); if (!E3) { const r = new THREE.WebGLRenderer({ antialias: true, alpha: true }); box.appendChild(r.domElement); const sc = new THREE.Scene(), cam = new THREE.PerspectiveCamera(50, 1, 0.01, 100); cam.position.set(0, 0, 3.2);
+async function draw3d(pts, labels, groups) { const THREE = await import('three'); await new Promise((resolve) => requestAnimationFrame(resolve)); const box = $('he3d'); if (!E3) { const r = await new Promise((resolve) => requestAnimationFrame(() => resolve(new THREE.WebGLRenderer({ antialias: !!navigator.gpu, alpha: true })))); box.appendChild(r.domElement); const y0 = slice(); if (y0) await y0; const sc = new THREE.Scene(), cam = new THREE.PerspectiveCamera(50, 1, 0.01, 100); cam.position.set(0, 0, 3.2);
     E3 = { r, sc, cam, g: new THREE.Group(), ang: 0, drag: null }; sc.add(E3.g); r.domElement.style.cursor = 'grab'; r.domElement.setAttribute('aria-label', '3D map of sentence embeddings (drag to rotate)');
     r.domElement.addEventListener('pointerdown', (e) => (E3.drag = e.clientX)); addEventListener('pointerup', () => (E3.drag = null)); r.domElement.addEventListener('pointermove', (e) => { if (E3.drag != null) { E3.ang += (e.clientX - E3.drag) * 0.01; E3.drag = e.clientX; } });
     const loop = () => { if (!box.isConnected) return; const w = box.clientWidth || 400, h = box.clientHeight || 340; if (r.domElement.width !== w * devicePixelRatio) { r.setPixelRatio(devicePixelRatio); r.setSize(w, h); cam.aspect = w / h; cam.updateProjectionMatrix(); } if (E3.drag == null) E3.ang += 0.003; E3.g.rotation.y = E3.ang; r.render(sc, cam); requestAnimationFrame(loop); }; loop(); }
   E3.g.clear(); const m = Math.max(...pts.flat().map(Math.abs)) || 1, pal = ['#5eead4', '#60a5fa', '#a78bfa', '#f472b6', '#fbbf24', '#fb923c', '#4ade80', '#e879f9'];
-  pts.forEach((p, i) => { const col = pal[groups[i] % 8], s = new THREE.Mesh(new THREE.SphereGeometry(0.035, 16, 12), new THREE.MeshBasicMaterial({ color: col })); s.position.set(...p.map((x) => x / m)); E3.g.add(s);
-    const c = document.createElement('canvas'); c.width = 512; c.height = 64; const g = c.getContext('2d'); g.font = 'bold 34px sans-serif'; g.fillStyle = col; g.fillText(labels[i].slice(0, 36), 4, 40); const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthTest: false })); sp.scale.set(1.2, 0.15, 1); sp.position.set(s.position.x + 0.62, s.position.y + 0.05, s.position.z); E3.g.add(sp); });
+  for (let i = 0; i < pts.length; i++) { const p = pts[i]; const col = pal[groups[i] % 8], s = new THREE.Mesh(new THREE.SphereGeometry(0.035, 8, 6), new THREE.MeshBasicMaterial({ color: col })); s.position.set(...p.map((x) => x / m)); E3.g.add(s); const y = slice(); if (y) await y;
+    const c = document.createElement('canvas'); c.width = 512; c.height = 64; const g = c.getContext('2d'); g.font = 'bold 34px sans-serif'; g.fillStyle = col; g.fillText(labels[i].slice(0, 36), 4, 40); const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthTest: false })); sp.scale.set(1.2, 0.15, 1); sp.position.set(s.position.x + 0.62, s.position.y + 0.05, s.position.z); E3.g.add(sp); }
   E3.g.add(new THREE.AxesHelper(0.4)); }
 const vecs = (r) => { const [n, D] = r.out.dims; return Array.from({ length: n }, (_, i) => r.out.data.slice(i * D, (i + 1) * D)); };
 // ---------- install ----------
@@ -101,10 +108,10 @@ export function install(A, out) {
   // vision
   on('hvCard', 'click', () => card($('hvCardTxt').value)); on('hvFile', 'change', async (e) => { const f = e.target.files[0]; if (!f) return; const b = await createImageBitmap(f), c = $('hvCv'), s = Math.min(1, 640 / Math.max(b.width, b.height)); c.width = Math.round(b.width * s); c.height = Math.round(b.height * s); c.getContext('2d').drawImage(b, 0, 0, c.width, c.height); });
   out.ocr = async () => { say('hvO', 'reading…'); const r = await run('ocr', img(), {}, 'hvO'), t = r.out[0]?.generated_text ?? ''; say('hvO', `${(r.ms / 1000).toFixed(1)} s`); $('hvOcrOut').innerHTML = `<div class="otext">${esc(t)}</div>`; return t; };
-  out.ocrTest = async () => { const ref = $('hvCardTxt').value || 'NEURALESE LAB 2026'; card(ref); const t = await out.ocr(), c = cer(ref, t), pass = c <= 0.1; $('hvOcrOut').innerHTML += kv([['rendered', esc(ref)], ['read', esc(t)], ['character error rate', c.toFixed(3)], ['criterion', 'CER ≤ 0.10'], ['result', ok(pass)]]); keep('hub', 'OCR self-test', { cer: c, pass }); return { ref, t, cer: c, pass }; };
+  out.ocrTest = async () => { const ref = $('hvCardTxt').value || 'NEURALESE LAB 2026'; await card(ref); const t = await out.ocr(), c = cer(ref, t), pass = c <= 0.1; $('hvOcrOut').innerHTML += kv([['rendered', esc(ref)], ['read', esc(t)], ['character error rate', c.toFixed(3)], ['criterion', 'CER ≤ 0.10'], ['result', ok(pass)]]); keep('hub', 'OCR self-test', { cer: c, pass }); return { ref, t, cer: c, pass }; };
   out.caption = async () => { say('hvC', 'captioning…'); const r = await run('caption', img(), {}, 'hvC'), t = r.out[0]?.generated_text ?? ''; say('hvC', `${(r.ms / 1000).toFixed(1)} s`); $('hvCapOut').innerHTML = `<div class="otext">${esc(t)}</div>`; return t; };
   out.clip = async (labels) => { const L = labels || $('hvLabels').value.split(',').map((s) => s.trim()).filter(Boolean); say('hvZ', 'classifying…'); const r = await run('clip', img(), { labels: L }, 'hvZ'); say('hvZ', `${(r.ms / 1000).toFixed(1)} s`); $('hvClipOut').innerHTML = kv(r.out.map((x) => [esc(x.label), (100 * x.score).toFixed(1) + '%'])); return r.out; };
-  out.clipTest = async () => { circle(); const L = ['a red circle', 'a blue square', 'a photo of a dog', 'a page of text'], r = await out.clip(L), pass = r[0].label === 'a red circle'; $('hvClipOut').innerHTML += kv([['criterion', 'top label = “a red circle”'], ['result', ok(pass)]]); keep('hub', 'CLIP self-test', { top: r[0].label, pass }); return { top: r[0], pass }; };
+  out.clipTest = async () => { await circle(); const L = ['a red circle', 'a blue square', 'a photo of a dog', 'a page of text'], r = await out.clip(L), pass = r[0].label === 'a red circle'; $('hvClipOut').innerHTML += kv([['criterion', 'top label = “a red circle”'], ['result', ok(pass)]]); keep('hub', 'CLIP self-test', { top: r[0].label, pass }); return { top: r[0], pass }; };
   on('hvOcr', 'click', () => out.ocr()); on('hvOcrTest', 'click', () => out.ocrTest()); on('hvCap', 'click', () => out.caption()); on('hvClip', 'click', () => out.clip()); on('hvClipTest', 'click', () => out.clipTest());
   // LM swap
   // decoding: greedy, by default with repetition penalty 1.3 + no repeated 3-grams (plain greedy GPT-2 often emits only "\n" after a full stop)
@@ -114,12 +121,14 @@ export function install(A, out) {
   on('hgGo', 'click', () => out.hgen());
   // fine-tune
   let lastFT = null;
-  out.finetune = (text, steps, lr) => new Promise((res, rej) => { const ids = A.tok().encode(text ?? $('hfIn').value), W = A.W(); const w = new Worker(new URL('./hub/ft-worker.js?v=170', import.meta.url), { type: 'module' }); const curve = []; say('hf', `${ids.length} tokens · precomputing frozen activations…`); $('hfApply').disabled = true;
+  const copyW = async (W) => { const c = async (a) => { const o = new Float32Array(a.length), N = 65536; for (let i = 0; i < a.length; i += N) { o.set(a.subarray(i, Math.min(a.length, i + N)), i); const y = slice(); if (y) await y; } return o; }; const layers = []; for (const P of W.layers) { const o = {}; for (const k of Object.keys(P)) o[k] = await c(P[k]); layers.push(o); } return { wte: await c(W.wte), wpe: await c(W.wpe), lnfW: await c(W.lnfW), lnfB: await c(W.lnfB), layers }; };
+  const bufs = (W) => { const b = [W.wte.buffer, W.wpe.buffer, W.lnfW.buffer, W.lnfB.buffer]; for (const P of W.layers) for (const a of Object.values(P)) b.push(a.buffer); return b; };
+  out.finetune = async (text, steps, lr) => { const ids = A.tok().encode(text ?? $('hfIn').value), W = await copyW(A.W()); return new Promise((res, rej) => { const w = new Worker(new URL('./hub/ft-worker.js?v=170', import.meta.url), { type: 'module' }); const curve = []; say('hf', `${ids.length} tokens · precomputing frozen activations…`); $('hfApply').disabled = true;
     w.onmessage = (e) => { if (e.data.evt) { curve.push(e.data.held); say('hf', `step ${e.data.step}: held-out CE ${e.data.held.toFixed(4)}`); lines($('hfCh'), [{ label: 'held-out CE', ys: curve }], { title: 'held-out cross-entropy per Adam step' }); return; } w.terminate(); if (!e.data.ok) return rej(new Error(e.data.error)); const r = e.data.result; lastFT = r;
       $('hfOut').innerHTML = kv([['trainable parameters', r.params], ['chunks train / held-out', `${r.trainChunks} / ${r.heldChunks} (${r.heldTokens} held-out targets)`], ['held-out CE before → after', `${r.before.toFixed(4)} → ${r.after.toFixed(4)}`], ['change, 95% bootstrap CI', `${r.delta.est.toFixed(4)} [${r.delta.lo.toFixed(4)}, ${r.delta.hi.toFixed(4)}]`], ['criterion', 'CI upper bound < 0'], ['result', ok(r.improved)], ['‖Δθ‖₂', r.editL2.toFixed(4)]]);
       $('hfApply').disabled = false; say('hf', 'done'); keep('finetune', `fine-tune ${r.curve.length - 1} steps`, { before: r.before, after: r.after, improved: r.improved }); res(r); };
     w.onerror = (e) => { w.terminate(); rej(new Error('fine-tune worker: ' + (e.message || 'failed'))); };
-    w.postMessage({ W, ids, opts: { steps: steps ?? +$('hfN').value, lr: lr ?? +$('hfLr').value } }); });
+    w.postMessage({ W, ids, opts: { steps: steps ?? +$('hfN').value, lr: lr ?? +$('hfLr').value } }, bufs(W)); }); };
   on('hfGo', 'click', () => out.finetune()); on('hfApply', 'click', () => { if (!lastFT) throw new Error('run a fine-tune first'); const e = toEdit(lastFT, lastFT.curve.length - 1); A.commit(A.ed().label ? A.ed().label(e) : 'fine-tune', () => A.ed().push(e)); });
   const auto = { hub: out.hubInfo }; A.onTab = ((prev) => (k) => { prev?.(k); if (auto[k]) auto[k](); })(A.onTab);
   A.ext = Object.assign(A.ext || {}, {

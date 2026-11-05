@@ -1,5 +1,5 @@
 import { createSignal, For, onCleanup, onMount, Show, type JSX } from 'solid-js';
-import { WORKSPACES, NATIVE_PANELS, panelsOf, workspaceOfLegacy, type Workspace } from './core/workspaces';
+import { WORKSPACES, NATIVE_PANELS, panelsOf, workspaceOfLegacy, type Workspace } from '@app/core/workspaces';
 import { deserialize, ensurePanels, serialize, panels, activate, addPanel, tabs, type Node } from './core/layout';
 import { legacy } from './core/bridge';
 import { viewTransition } from './core/motion';
@@ -24,8 +24,17 @@ export function App(): JSX.Element {
   const [compact, setCompact] = createSignal(innerWidth < 760); const [pal, setPal] = createSignal(false); const [tour, setTour] = createSignal(false);
   const setLayout = (n: Node): void => { setLayoutSig(n); store.set(LK(ws().id), serialize(n)); };
   const go = (w: Workspace, panel?: string): void => {
-    viewTransition(() => { if (w.id !== ws().id) { setWs(w); setLayoutSig(loadLayout(w)); store.set('neuralese.v17.ws', w.id); } if (panel) setLayout(activate(addPanel(layout(), panel), panel)); });
-    if (panel?.startsWith('legacy:')) setTimeout(() => showLegacy(panel.slice(7)), 0);
+    // A workspace change re-renders the dock. Doing the signal write and the layout
+    // write in one turn was a single long script after the Neuron Lens / Nested quick buttons.
+    const paintLegacy = (): void => { if (panel?.startsWith('legacy:')) setTimeout(() => showLegacy(panel.slice(7)), 0); };
+    if (w.id !== ws().id) {
+      setTimeout(() => {
+        setWs(w); store.set('neuralese.v17.ws', w.id);
+        setTimeout(() => { setLayout(panel ? activate(addPanel(loadLayout(w), panel), panel) : loadLayout(w)); paintLegacy(); }, 0);
+      }, 0);
+      return;
+    }
+    if (panel) { setLayout(activate(addPanel(layout(), panel), panel)); paintLegacy(); }
   };
   const cmds = (): Cmd[] => [
     ...WORKSPACES.map((w) => ({ id: 'ws-' + w.id, title: `${w.title} workspace`, hint: w.blurb, run: () => go(w) })),
@@ -59,9 +68,9 @@ export function App(): JSX.Element {
   });
   return <div class="v17" classList={{ compact: compact() }} data-theme={theme()}>
     <nav class="wsbar" aria-label="workspaces">
-      <For each={WORKSPACES}>{(w) => <button classList={{ on: w.id === ws().id }} aria-current={w.id === ws().id ? 'page' : undefined} title={`${w.blurb}${/^[0-9]$/.test(w.key) ? ` (Alt+${w.key})` : ''}`} data-ws={w.id} onClick={() => go(w)}>{w.title}</button>}</For>
+      <For each={WORKSPACES}>{(w) => <button classList={{ on: w.id === ws().id }} aria-current={w.id === ws().id ? 'page' : undefined} title={`${w.blurb}${/^[0-9]$/.test(w.key) ? ` (Alt+${w.key})` : ''}`} data-ws={w.id} data-feature={`feature-ws-${w.id}`} onClick={() => go(w)}>{w.title}</button>}</For>
       <span class="sp" />
-      <button class="palbtn" onClick={() => setPal(true)} aria-label="open command palette" title="Command palette (Ctrl/⌘+K)">⌘K search</button>
+      <button class="palbtn" data-feature="feature-action-palette" onClick={() => setPal(true)} aria-label="open command palette" title="Command palette (Ctrl/⌘+K)">⌘K search</button>
     </nav>
     <main class="dock" aria-label={`${ws().title} workspace`}>
       <Show when={compact()} fallback={<Dock node={layout()} set={setLayout} root={layout()} compact={false} />}>

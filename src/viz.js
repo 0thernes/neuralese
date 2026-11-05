@@ -11,7 +11,7 @@ const { L, H, ff, d } = CFG, GAP = 2.4, RX = 4.9;
 const headPos = (l, h) => new THREE.Vector3(-4 + h * 0.53, l * GAP + 0.6, 1.6);
 export class Viz {
   constructor(canvas, onPick) {
-    this.onPick = onPick; const r = (this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' })); this.dpr = Math.min(devicePixelRatio, 2); r.setPixelRatio(this.dpr); r.setSize(innerWidth, innerHeight);
+    this.onPick = onPick; const r = (this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance', preserveDrawingBuffer: true })); this.dpr = Math.min(devicePixelRatio, 2); r.setPixelRatio(this.dpr); r.setSize(innerWidth, innerHeight);
     r.toneMapping = THREE.ACESFilmicToneMapping; r.toneMappingExposure = 1.75; this.rawRender = r.render.bind(r);
     const s = (this.scene = new THREE.Scene()); this.bgTex = backdrop(); s.background = this.bgTex; s.fog = new THREE.FogExp2(0x070b14, 0.011);
     this.reduced = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -42,7 +42,7 @@ export class Viz {
     this.sel = new THREE.Mesh(new THREE.TorusGeometry(0.34, 0.04, 8, 24), new THREE.MeshBasicMaterial({ color: 0xfbbf24 })); s.add(this.sel); this.sel.visible = false;
     this.wobj = null; this.wmode = 'height'; this.diff = false; this.wlabel = null;
     const ray = new THREE.Raycaster(), mv = new THREE.Vector2(); let down = null, hovT = 0;
-    const pick = (e) => { mv.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1); ray.setFromCamera(mv, this.cam); ray.params.Points.threshold = 0.06; if (!this.headIM.visible) return null;
+    const pick = (e) => { const rect = canvas.getBoundingClientRect(), rw = rect.width || innerWidth, rh = rect.height || innerHeight; mv.set(((e.clientX - rect.left) / rw) * 2 - 1, -((e.clientY - rect.top) / rh) * 2 + 1); ray.setFromCamera(mv, this.cam); ray.params.Points.threshold = 0.06; if (!this.headIM.visible) return null;
       const hit = ray.intersectObjects([this.headIM, ...this.neur, ...this.slabs, ...this.res])[0]; if (!hit) return null; const u = hit.object.userData;
       if (u.type === 'headIM') { const l = (hit.instanceId / H) | 0; return { l, h: hit.instanceId % H }; } if (u.type === 'neurons') return { l: u.l, n: hit.index }; if (u.type === 'resid') return { resid: u.i }; return { l: u.l }; };
     canvas.addEventListener('pointerdown', (e) => (down = [e.clientX, e.clientY]));
@@ -52,11 +52,14 @@ export class Viz {
     this.post = new Post(r, this.rawRender); this.fx = { bloom: true, dof: true, auto: true }; this.light = false;
     this.gpu = readRenderer(r.getContext()); this.tier = classifyGpu(this.gpu, navigator.hardwareConcurrency || 8, navigator.deviceMemory || 8, matchMedia('(pointer: coarse)').matches);
     { const lv = startLevel(this.tier, parseInt(store.get('neuralese.q3d'), 10)); if (lv > 0) this.setLevel(lv, this.tier === 'high' ? 'saved from last session' : `${this.tier}-tier GPU default`); }
-    const resize = () => { r.setSize(innerWidth, innerHeight); this.post.setSize(innerWidth, innerHeight, r.getPixelRatio()); this.cam.aspect = innerWidth / innerHeight; this.cam.updateProjectionMatrix(); }; addEventListener('resize', resize); resize();
+    // Docked (v17 panel): the canvas fills its host. Full-window (pre-v17): it still covers the viewport.
+    const viewSize = () => { if (canvas.classList.contains('docked') && canvas.parentElement) return { w: Math.max(2, canvas.parentElement.clientWidth), h: Math.max(2, canvas.parentElement.clientHeight), docked: true }; return { w: innerWidth, h: innerHeight, docked: false }; };
+    const resize = () => { const { w, h, docked } = viewSize(); r.setSize(w, h); this.post.setSize(w, h, r.getPixelRatio()); this.cam.aspect = w / h; if (docked) this.cam.clearViewOffset(); this.cam.updateProjectionMatrix(); }; addEventListener('resize', resize); resize();
     this.ctl.dampingFactor = this.reduced ? 0.5 : 0.08; this.ctl.minDistance = 4; this.ctl.maxDistance = 140;
     // frame timing → fps meter + adaptive quality (drop DoF, then bloom, then pixel ratio when the 2 s average falls under target)
     const ft = (this.ft = { n: 0, t0: performance.now(), fps: 0, ms: 0, hist: [] }); let prev = performance.now(), tFlow = 0;
-    const loop = () => { requestAnimationFrame(loop); if (document.hidden) return; const now = performance.now(), dt = Math.min(0.1, (now - prev) / 1000); prev = now; if (!this.reduced) tFlow += dt;
+    const shown = () => { const c = r.domElement; if (document.body.classList.contains('v17-on') && !c.classList.contains('docked')) return false; return c.clientWidth > 0 && c.clientHeight > 0; };
+    const loop = () => { requestAnimationFrame(loop); if (document.hidden || !shown()) return; const now = performance.now(), dt = Math.min(0.1, (now - prev) / 1000); prev = now; if (!this.reduced) tFlow += dt;
       const c0 = performance.now(); this.tick(now); this.flow.mat.uniforms.t.value = tFlow; this.ctl.update(); this.render(); const cpu = performance.now() - c0;
       ft.n++; ft.ms += cpu; if (now - ft.t0 >= 1000) { ft.fps = (ft.n * 1000) / (now - ft.t0); ft.cpu = ft.ms / ft.n; ft.hist.push(ft.fps); if (ft.hist.length > 6) ft.hist.shift(); ft.n = 0; ft.ms = 0; ft.t0 = now; this.adapt(); } }; loop();
   }

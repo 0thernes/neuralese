@@ -8,7 +8,8 @@ export function packetStatusAt(p: WmPacket, cycle: number): string;
 export function saveStorage(state: object): { format: string; words: number[]; bits: string; note?: string };
 export function zoomView(component: string, level: string, state?: object | null): ZoomView;
 export function runMachine(opts: WmOpts): WmRun;
-export function measure(opts?: { seed?: number; cpu?: number; ram?: number; ssd?: number; gpu?: number; tpu?: number; bus?: number; mlp?: number }): WmMeasure;
+export function runMachinePaced(opts: WmOpts): Promise<WmRun>;
+export function measure(opts?: { seed?: number; cpu?: number; ram?: number; ssd?: number; gpu?: number; tpu?: number; bus?: number; mlp?: number }): Promise<WmMeasure>;
 
 export interface WmPacket {
   id: number; src: string; dst: string; op: string; addr: number; data: number | null;

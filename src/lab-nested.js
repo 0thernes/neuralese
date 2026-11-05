@@ -2,7 +2,7 @@
 // a mixture-of-experts inside an expert, and the lens results on those nested models. The three demos come from the
 // neuralese-nested workstream (nested/*, self-contained pages, framed so their ids never collide with the lab's).
 import * as N from './nestedlens.js?v=170';
-import { $, esc, fmt, tipq } from './lab-ui.js?v=170';
+import { $, esc, fmt, tipq, tick } from './lab-ui.js?v=170';
 const frame = (src, h = 760) => `<iframe class="nestfr" loading="lazy" src="${src}" style="width:100%;height:${h}px;border:1px solid var(--line,#243049);border-radius:10px;background:#07090f"></iframe>`;
 export const markup = {
   nriscv: ['RISC-V IN WEIGHTS', 'A RISC-V CPU compiled into transformer weights', `<fieldset><legend>RV32I in weights ${tipq('Each forward pass of a hand-compiled transformer executes one RV32I instruction; the page checks every step against a plain-JS reference interpreter.')}</legend>${frame('nested/riscv/index.html')}</fieldset>`],
@@ -17,17 +17,18 @@ export const markup = {
 export function install(A) {
   const S = {};
   async function load() { if (S.Z) return; $('nxInfo').textContent = 'fetching…';
-    const ix = await (await fetch('nested/slm/models.index.json')).json(), b = await (await fetch('nested/slm/models.f32')).arrayBuffer();
-    const h = [...new Uint8Array(await crypto.subtle.digest('SHA-256', b))].map((x) => x.toString(16).padStart(2, '0')).join(''); if (h !== ix.sha256) throw new Error('models.f32 sha256 mismatch');
-    S.Z = N.loadNested(ix, new Float32Array(b)); S.lens = await (await fetch('nested/slm/lens.json')).json(); S.res = await (await fetch('nested/v14x-nested.json')).json();
+    const ix = await (await fetch('nested/slm/models.index.json')).json(); await tick();
+    const b = await new Promise((resolve, reject) => { const w = new Worker(URL.createObjectURL(new Blob(['onmessage=async(e)=>{try{const buf=await(await fetch(e.data.url)).arrayBuffer();postMessage(buf,[buf]);}catch(err){postMessage({err:String(err&&err.message||err)});} }'], { type: 'application/javascript' }))); w.onmessage = (e) => { w.terminate(); e.data && e.data.err ? reject(new Error(e.data.err)) : resolve(new Uint8Array(e.data)); }; w.onerror = (e) => { w.terminate(); reject(new Error(e.message || 'weight fetch failed')); }; w.postMessage({ url: new URL('nested/slm/models.f32', location.href).href }); }); await tick();
+    const h = [...new Uint8Array(await crypto.subtle.digest('SHA-256', b))].map((x) => x.toString(16).padStart(2, '0')).join(''); if (h !== ix.sha256) throw new Error('models.f32 sha256 mismatch'); await tick();
+    S.Z = N.loadNested(ix, new Float32Array(b.buffer)); await tick(); S.lens = await (await fetch('nested/slm/lens.json')).json(); await tick(); S.res = await (await fetch('nested/v14x-nested.json')).json(); await tick();
     const r = S.res, row = (k, x) => `<tr><td>${k}</td><td>${x.n}</td><td>${fmt(x['R.out'].medianR)}</td><td>${fmt(x['R.out'].passRate)} [${x['R.out'].passCI.map((v) => v.toFixed(3)).join(', ')}]</td><td>${fmt(x.logit.medianR)}</td><td>${fmt(x.logit.passRate)}</td><td>${x['R.out'].pass ? '✓' : '✗'}</td></tr>`;
     $('nxRes').innerHTML = `<div>float32 fidelity: max KL ${r.fidelity.maxKL.toExponential(2)} over ${r.fidelity.prompts} prompts ${r.fidelity.pass ? '✓' : '✗'}</div>
 <table><tr><th>model</th><th>live units</th><th>R.out median r</th><th>R.out pass [95% CI]</th><th>logit median r</th><th>logit pass</th><th>beats null</th></tr>${row('composite', { n: r.testA.composite['R.out'].n, ...r.testA.composite })}${row('emulator mode 1', { n: r.testA.emulator_mode1['R.out'].n, ...r.testA.emulator_mode1 })}</table>
 <div>C7 ${esc(r.C7.verdict)} · C8a host-sees-guest overlap ${fmt(r.C8a.medianOverlap)} vs τ99 ${fmt(r.C8a.tau99)} → ${esc(r.C8a.verdict)} · C8b emulator mode overlap ${fmt(r.C8b.medianOverlap)} vs τ99 ${fmt(r.C8b.tau99)} → ${esc(r.C8b.verdict)}</div>`;
     $('nxInfo').textContent = `✓ sha256 ${h.slice(0, 12)}…`; }
   A.on('nxLoad', 'click', () => load().catch((e) => ($('nxInfo').textContent = 'failed: ' + e.message)));
-  A.on('nxRead', 'click', async () => { await load(); const k = $('nxM').value, m = S.Z.models[k === 'composite' ? 'composite' : 'emu'], J = Float64Array.from(S.lens[k === 'composite' ? 'composite' : k === 'emu1' ? 'emu_mode1' : 'emu_mode0']);
-    const u = Math.min(m.cfg.dm - 1, Math.max(0, +$('nxU').value | 0)), hd = N.head(m, k === 'composite' ? $('nxH').value : null), w = N.unitWrite(m, 0, u);
+  A.on('nxRead', 'click', async () => { await load(); await tick(); const k = $('nxM').value, m = S.Z.models[k === 'composite' ? 'composite' : 'emu'], J = Float64Array.from(S.lens[k === 'composite' ? 'composite' : k === 'emu1' ? 'emu_mode1' : 'emu_mode0']);
+    const u = Math.min(m.cfg.dm - 1, Math.max(0, +$('nxU').value | 0)), hd = N.head(m, k === 'composite' ? $('nxH').value : null), w = N.unitWrite(m, 0, u); await tick();
     const top = (r) => [...r.keys()].sort((a, b) => r[b] - r[a]).slice(0, 8).map((i) => `<span class="chip">${esc(JSON.stringify(S.Z.vocab[i]).slice(1, -1))} ${fmt(r[i])}</span>`).join(' ');
     $('nxOut').innerHTML = `<div>out·R (lens): ${top(N.read(m, w, J, hd))}</div><div>logit lens: ${top(N.read(m, w, null, hd))}</div>`; });
 }

@@ -26,7 +26,18 @@ ${cv('neChart', 'heads: copy z (ov_copy_z) by layer — cross-model contrast wit
 };
 async function sha256Hex(buf) { const h = await crypto.subtle.digest('SHA-256', buf); return [...new Uint8Array(h)].map((b) => b.toString(16).padStart(2, '0')).join(''); }
 async function getVerified(path, sha) { const r = await fetch(path); if (!r.ok) throw new Error(`${path}: HTTP ${r.status}`); const b = await r.arrayBuffer(); if (sha) { const s = await sha256Hex(b); if (s !== sha) throw new Error(`${path}: sha256 mismatch (${s.slice(0, 12)}… ≠ ${sha.slice(0, 12)}…)`); } return b; }
-const jsonOf = (b) => JSON.parse(new TextDecoder().decode(b));
+let jsonWorker = null;
+function jsonOf(b) { return JSON.parse(new TextDecoder().decode(b)); }
+function jsonOff(b) {
+  if (b.byteLength < 65536 || typeof Worker !== 'function') return Promise.resolve(jsonOf(b));
+  if (!jsonWorker) jsonWorker = new Worker(URL.createObjectURL(new Blob(['onmessage=(e)=>{try{const value=JSON.parse(new TextDecoder().decode(e.data.buf));const n=value&&value.neurons;if(!n){postMessage({id:e.data.id,value});return;}postMessage({id:e.data.id,meta:{layer:value.layer,heads:value.heads},n:n.length});for(let i=0;i<n.length;i+=128)postMessage({id:e.data.id,i,rows:n.slice(i,i+128)});}catch(err){postMessage({id:e.data.id,err:String(err&&err.message||err)});}}'], { type: 'application/javascript' })));
+  return new Promise((resolve, reject) => {
+    const id = ++jsonOff.n, neurons = []; let meta = null, expect = 0;
+    const on = (e) => { if (e.data.id !== id) return; if (e.data.err) { jsonWorker.removeEventListener('message', on); reject(new Error(e.data.err)); return; } if (e.data.value) { jsonWorker.removeEventListener('message', on); resolve(e.data.value); return; } if (e.data.meta) { meta = e.data.meta; expect = e.data.n; return; } neurons.push(...e.data.rows); if (neurons.length >= expect) { jsonWorker.removeEventListener('message', on); resolve({ ...meta, neurons }); } };
+    jsonWorker.addEventListener('message', on); const buf = b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength); jsonWorker.postMessage({ id, buf }, [buf]);
+  });
+}
+jsonOff.n = 0;
 const overlap = (a, b) => { const s = new Set(a); return b.filter((x) => s.has(x)).length / Math.max(1, Math.min(a.length, b.length)); };
 
 export function install(A, out) {
@@ -39,8 +50,8 @@ export function install(A, out) {
   async function load0() { const t0 = performance.now(); $('nlInfo').textContent = 'fetching manifest…'; skeleton($('nlAtlas'), 'loading', 'fetching manifest…');
     const man = jsonOf(await getVerified(BASE + 'db-manifest.json')); S.lensMan = jsonOf(await getVerified(BASE + 'manifest.json'));
     if (man.lens_sha256 !== S.lensMan.sha256) throw new Error('db-manifest lens hash ≠ manifest.json');
-    S.tok = jsonOf(await getVerified(BASE + 'db/tokens.json', man.files['db/tokens.json']));
-    for (let l = 0; l < man.layers; l++) { $('nlInfo').textContent = `layer ${l + 1}/${man.layers} (sha256-checking)…`; skeleton($('nlAtlas'), 'loading', `layer ${l + 1} of ${man.layers} · sha256-checking`); S.layers[l] = jsonOf(await getVerified(BASE + `db/L${l}.json`, man.files[`db/L${l}.json`])); await tick(); }
+    S.tok = await jsonOff(await getVerified(BASE + 'db/tokens.json', man.files['db/tokens.json']));
+    for (let l = 0; l < man.layers; l++) { $('nlInfo').textContent = `layer ${l + 1}/${man.layers} (sha256-checking)…`; skeleton($('nlAtlas'), 'loading', `layer ${l + 1} of ${man.layers} · sha256-checking`); S.layers[l] = await jsonOff(await getVerified(BASE + `db/L${l}.json`, man.files[`db/L${l}.json`])); await tick(); }
     S.man = man; $('nlInfo').innerHTML = `✓ ${man.layers}×${man.neurons} neurons, ${man.layers}×${man.heads} heads · every file sha256-verified · lens ${man.lens_sha256.slice(0, 12)}… (fit on ${S.lensMan.nDocs} docs × T=${S.lensMan.corpus.T}, ${fmt(S.lensMan.fitSeconds / 60, 0)} min) · loaded in ${fmt((performance.now() - t0) / 1000, 1)} s`;
     atlas.reset(); return man; }
   async function lensMats() { if (S.lens) return S.lens; await load(); const b = await getVerified(BASE + 'lenses.f32', S.lensMan.sha256); return (S.lens = NL.unpackLenses(new Float32Array(b), S.lensMan)); }
@@ -56,8 +67,10 @@ export function install(A, out) {
     if ((m = q.trim().match(/^L(\d)N(\d+)$/i))) return neuronCard(+m[1], +m[2]); if ((m = q.trim().match(/^L(\d)H(\d+)$/i))) return headCard(+m[1], +m[2]);
     const ids = new Set(); for (const [v, s] of Object.entries(S.tok)) if (s === q || s.trim().toLowerCase() === q.trim().toLowerCase()) ids.add(+v);
     if (!ids.size) { $('nlHits').textContent = `no token "${q}" appears in any stored top-10 read`; return; }
-    const hits = []; S.layers.forEach((Ld, l) => { if (where !== 'heads') Ld.neurons.forEach((nr) => { for (const [k] of READS) { if (where !== 'any' && where !== k) continue; const arr = k === 'drivers' ? nr.drivers || [] : nr[k]?.[0] || []; const r = arr.findIndex((v) => ids.has(v)); if (r >= 0) hits.push({ l, n: nr.n, k, r }); } });
-      if (where === 'any' || where === 'heads') Ld.heads.forEach((hr) => { for (const [k] of HREADS) { const r = (hr[k]?.[0] || []).findIndex((v) => ids.has(v)); if (r >= 0) hits.push({ l, h: hr.h, k, r }); } }); });
+    const hits = [];
+    for (let l = 0; l < S.layers.length; l++) { const Ld = S.layers[l]; if (where !== 'heads') for (const nr of Ld.neurons) { for (const [k] of READS) { if (where !== 'any' && where !== k) continue; const arr = k === 'drivers' ? nr.drivers || [] : nr[k]?.[0] || []; const r = arr.findIndex((v) => ids.has(v)); if (r >= 0) hits.push({ l, n: nr.n, k, r }); } }
+      if (where === 'any' || where === 'heads') for (const hr of Ld.heads) { for (const [k] of HREADS) { const r = (hr[k]?.[0] || []).findIndex((v) => ids.has(v)); if (r >= 0) hits.push({ l, h: hr.h, k, r }); } }
+      await tick(); }
     hits.sort((a, b) => a.r - b.r || a.l - b.l); S.hits = hits;
     $('nlHits').innerHTML = `${hits.length} hits for ${[...ids].map((v) => `<span class="chip">${esc(ts(v))}</span>`).join(' ')} (rank shown) · ` + hits.slice(0, 160).map((x, i) => `<a href="#" data-i="${i}">${x.h == null ? `L${x.l}N${x.n}` : `L${x.l}H${x.h}`}<sub>${x.k}#${x.r + 1}</sub></a>`).join(' ');
     atlas.draw(); };
@@ -70,19 +83,34 @@ export function install(A, out) {
       skeleton(c, 'off');
       const key = $('nlC').value, hitSet = new Set((S.hits || []).map((x) => x.h == null ? `${x.l}:${x.n}` : `${x.l}:h${x.h}`));
       const all = S.layers.flatMap((Ld) => Ld.neurons.map((nr) => metric(nr, key))).sort((a, b) => a - b), hi = all[Math.floor(all.length * 0.99)] || 1;
-      const P = [];
-      S.layers.forEach((Ld, l) => { const x = (l - (L - 1) / 2) / (L / 2) * 1.25;
-        Ld.neurons.forEach((nr, n) => { const v = Math.min(1, metric(nr, key) / hi), a = n / ff * Math.PI * 2, r = 0.25 + 0.75 * v; P.push({ l, n, v, x, y: Math.sin(a) * r, z: Math.cos(a) * r }); });
-        Ld.heads.forEach((hr) => P.push({ l, h: hr.h, v: 1, x, y: (hr.h - 7.5) / 40, z: 0, head: true })); });
-      for (const p of P) { const [sx, sy, z, f] = proj(p.x, p.y, p.z, W, Hh); p.sx = sx; p.sy = sy; p.zz = z; p.f = f; }
-      P.sort((a, b) => b.zz - a.zz);
-      for (const p of P) { const sel = p.l === S.sel.l && (p.head ? p.h === S.sel.head : p.n === S.sel.n), hit = hitSet.has(p.head ? `${p.l}:h${p.h}` : `${p.l}:${p.n}`);
-        const s = Math.max(1, (p.head ? 3.5 : 1 + 2.2 * p.v) * p.f / 120); ctx.globalAlpha = sel || hit ? 1 : 0.25 + 0.6 * p.v;
-        ctx.fillStyle = sel ? '#ffffff' : hit ? '#fbbf24' : p.head ? pal(p.l) : seqColor(p.v);
-        if (p.head) ctx.fillRect(p.sx - s, p.sy - s, 2 * s, 2 * s); else { ctx.beginPath(); ctx.arc(p.sx, p.sy, sel || hit ? s + 2 : s, 0, 7); ctx.fill(); }
-        pts.push(p); }
-      ctx.globalAlpha = 1; ctx.fillStyle = '#cfd8ea'; ctx.font = '11px system-ui'; for (let l = 0; l < L; l++) { const [sx, sy] = proj((l - (L - 1) / 2) / (L / 2) * 1.25, -1.15, 0, W, Hh); ctx.fillText('L' + l, sx - 6, sy); }
-      $('nlAInfo').textContent = `colour = ${COLOR.find((x) => x[0] === key)[1]} (99th pct = ${fmt(hi, 3)}) · ${hitSet.size} search hits highlighted`; }
+      draw.gen = (draw.gen || 0) + 1; const paintGen = draw.gen; const P = [];
+      const paintAt = (i) => {
+        if (paintGen !== draw.gen) return;
+        const t1 = performance.now();
+        for (; i < P.length; i++) { const p = P[i]; const sel = p.l === S.sel.l && (p.head ? p.h === S.sel.head : p.n === S.sel.n), hit = hitSet.has(p.head ? `${p.l}:h${p.h}` : `${p.l}:${p.n}`);
+          const s = Math.max(1, (p.head ? 3.5 : 1 + 2.2 * p.v) * p.f / 120); ctx.globalAlpha = sel || hit ? 1 : 0.25 + 0.6 * p.v;
+          ctx.fillStyle = sel ? '#ffffff' : hit ? '#fbbf24' : p.head ? pal(p.l) : seqColor(p.v);
+          if (p.head) ctx.fillRect(p.sx - s, p.sy - s, 2 * s, 2 * s); else { ctx.beginPath(); ctx.arc(p.sx, p.sy, sel || hit ? s + 2 : s, 0, 7); ctx.fill(); }
+          pts.push(p);
+          if (performance.now() - t1 > 12) { tick().then(() => paintAt(i + 1)); return; } }
+        ctx.globalAlpha = 1; ctx.fillStyle = '#cfd8ea'; ctx.font = '11px system-ui'; for (let l = 0; l < L; l++) { const [sx, sy] = proj((l - (L - 1) / 2) / (L / 2) * 1.25, -1.15, 0, W, Hh); ctx.fillText('L' + l, sx - 6, sy); }
+        $('nlAInfo').textContent = `colour = ${COLOR.find((x) => x[0] === key)[1]} (99th pct = ${fmt(hi, 3)}) · ${hitSet.size} search hits highlighted`;
+      };
+      const place = (from) => {
+        if (paintGen !== draw.gen) return;
+        const t1 = performance.now();
+        for (let i = from; i < P.length; i++) { const p = P[i]; const [sx, sy, z, f] = proj(p.x, p.y, p.z, W, Hh); p.sx = sx; p.sy = sy; p.zz = z; p.f = f; if (performance.now() - t1 > 12) { tick().then(() => place(i + 1)); return; } }
+        P.sort((a, b) => b.zz - a.zz); paintAt(0);
+      };
+      const build = (l, n) => {
+        if (paintGen !== draw.gen) return;
+        const t1 = performance.now();
+        for (; l < S.layers.length; l++, n = 0) { const Ld = S.layers[l], x = (l - (L - 1) / 2) / (L / 2) * 1.25;
+          for (; n < Ld.neurons.length; n++) { const nr = Ld.neurons[n], v = Math.min(1, metric(nr, key) / hi), a = n / ff * Math.PI * 2, r = 0.25 + 0.75 * v; P.push({ l, n, v, x, y: Math.sin(a) * r, z: Math.cos(a) * r }); if (performance.now() - t1 > 12) { tick().then(() => build(l, n + 1)); return; } }
+          for (const hr of Ld.heads) P.push({ l, h: hr.h, v: 1, x, y: (hr.h - 7.5) / 40, z: 0, head: true }); }
+        place(0);
+      };
+      build(0, 0); }
     function loop() { if ($('nlSpin').checked && c.offsetParent && !drag) { yaw += 0.004; draw(); } raf = requestAnimationFrame(loop); }
     c.addEventListener('mousedown', (e) => { drag = { x: e.clientX, y: e.clientY, moved: 0 }; c.style.cursor = 'grabbing'; });
     window.addEventListener('mouseup', (e) => { if (!drag) return; const click = drag.moved < 4; drag = null; c.style.cursor = 'grab';
@@ -107,7 +135,9 @@ export function install(A, out) {
     const lp = (z) => { let mx = -Infinity; for (const x of z) if (x > mx) mx = x; let s = 0; for (const x of z) s += Math.exp(x - mx); const c = mx + Math.log(s); return z.map((x) => x - c); };
     // v14.x weak-spot fix: average Δlog-prob over every position (not just the last), and rank only tokens in the DB vocabulary (frequent
     // TinyStories tokens), so rare-token softmax noise cannot crowd the top-10. Same Δ definition as the pre-registered Test A.
-    const rows = [...Array(T).keys()].slice(Math.min(16, T >> 1)), V = CFG.V, B = NL.forward(S.M, ids, { logits: true, logitRows: rows }).logits, St = NL.forward(S.M, ids, { logits: true, logitRows: rows, steer: { layer: l, vec, from: 0, to: T } }).logits;
+    const rows = [...Array(T).keys()].slice(Math.min(16, T >> 1)), V = CFG.V;
+    await tick(); const B = NL.forward(S.M, ids, { logits: true, logitRows: rows }).logits;
+    await tick(); const St = NL.forward(S.M, ids, { logits: true, logitRows: rows, steer: { layer: l, vec, from: 0, to: T } }).logits;
     const dl = new Float32Array(V); rows.forEach((_, r) => { const b = lp(B.subarray(r * V, (r + 1) * V)), s = lp(St.subarray(r * V, (r + 1) * V)); for (let v = 0; v < V; v++) dl[v] += (s[v] - b[v]) / rows.length; });
     const keptIds = Object.keys(S.tok).map(Number), mask = new Uint8Array(V); keptIds.forEach((v) => (mask[v] = 1)); const top = NL.topK(dl, 10, keptIds.length ? mask : null);
     const pred = nr.out_R[0], hitR = pred.filter((v) => top.includes(v)).length, hitLg = nr.out_logit[0].filter((v) => top.includes(v)).length;

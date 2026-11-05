@@ -12,14 +12,33 @@ export const activeLegacy = new Set<string>();
 // event handlers and state survive layout changes.
 function Adopt(p: { id: string; onShow?: () => void; class?: string }): JSX.Element {
   let host!: HTMLDivElement;
-  onMount(() => { const el = $(p.id); if (el) { host.appendChild(el); p.onShow?.(); } });
+  onMount(() => { const el = $(p.id); if (!el) return; setTimeout(() => { if (host.isConnected) { host.appendChild(el); p.onShow?.(); } }, 0); });
   onCleanup(() => { const el = $(p.id); if (el && host.contains(el)) $('v17-park')?.appendChild(el); });
   return <div class={p.class ?? 'adopt'} ref={host} />;
 }
+const STAGE_TABS = new Set(['viz', 'v3d']);
+// The pre-v17 WebGL stage (bloom, depth of field, adaptive tier) draws on #gl. The v17 shell used to
+// hide that canvas. While a 3D tab is mounted, the canvas fills the panel and resizes with it.
+function dockStage(host: HTMLDivElement): () => void {
+  const gl = document.getElementById('gl');
+  if (!gl) return () => {};
+  host.appendChild(gl);
+  gl.classList.add('docked');
+  const fit = (): void => { requestAnimationFrame(() => window.dispatchEvent(new Event('resize'))); };
+  const ro = new ResizeObserver(fit);
+  ro.observe(host);
+  fit();
+  return () => { ro.disconnect(); gl.classList.remove('docked'); const park = $('v17-park'); if (park) park.appendChild(gl); };
+}
 export function LegacyPanel(p: { k: string }): JSX.Element {
+  let stage!: HTMLDivElement;
   onMount(() => { activeLegacy.add(p.k); });
   onCleanup(() => { activeLegacy.delete(p.k); });
-  return <Adopt id={`pane_${p.k}`} class="adopt legacy-pane" onShow={() => showLegacy(p.k)} />;
+  onMount(() => { if (STAGE_TABS.has(p.k) && stage) { const undock = dockStage(stage); onCleanup(undock); } });
+  return <div class="legacy-stack" classList={{ stage: STAGE_TABS.has(p.k) }}>
+    <Show when={STAGE_TABS.has(p.k)}><div class="stage-host" ref={stage} data-feature="feature-view-stage" /></Show>
+    <Adopt id={`pane_${p.k}`} class="adopt legacy-pane" onShow={() => showLegacy(p.k)} />
+  </div>;
 }
 // legacy showTab(k) runs the tab's lazy renderers but makes k the only `.on` pane; restore every visible panel after.
 let showing = false;
@@ -38,9 +57,9 @@ export function SelectionPanel(): JSX.Element {
   return (
     <div class="selp">
       <div class="selrow">
-        <label>layer <input type="number" min="0" max={c.L - 1} value={sel().layer} onChange={(e) => set({ layer: +e.currentTarget.value })} /></label>
-        <label>head <input type="number" min="0" max={c.H - 1} value={sel().head ?? ''} placeholder="–" onChange={(e) => set({ head: e.currentTarget.value === '' ? null : +e.currentTarget.value })} /></label>
-        <label>neuron <input type="number" min="0" max={c.ff - 1} value={sel().neuron ?? ''} placeholder="–" onChange={(e) => set({ neuron: e.currentTarget.value === '' ? null : +e.currentTarget.value })} /></label>
+        <label>layer <input type="number" min="0" max={c.L - 1} value={sel().layer} onChange={(e) => { const n = +e.currentTarget.value; if (Number.isInteger(n)) set({ layer: n }); }} /></label>
+        <label>head <input type="number" min="0" max={c.H - 1} value={sel().head ?? ''} placeholder="–" onChange={(e) => { if (e.currentTarget.value === '') { set({ head: null }); return; } const n = +e.currentTarget.value; if (Number.isInteger(n)) set({ head: n }); }} /></label>
+        <label>neuron <input type="number" min="0" max={c.ff - 1} value={sel().neuron ?? ''} placeholder="–" onChange={(e) => { if (e.currentTarget.value === '') { set({ neuron: null }); return; } const n = +e.currentTarget.value; if (Number.isInteger(n)) set({ neuron: n }); }} /></label>
         <label>token <select value={sel().token ?? ''} onChange={(e) => set({ token: e.currentTarget.value === '' ? null : +e.currentTarget.value })}><option value="">last</option><For each={toks()}>{(id, i) => <option value={i()}>{i()}: {JSON.stringify(legacy()?.tok?.tokenStr(id) ?? String(id))}</option>}</For></select></label>
       </div>
       <p class="hint">One selection drives every panel (cosmos, inspector, lens, attention). Model: {sel().model}.</p>
@@ -55,9 +74,10 @@ export function CosmosPanel(): JSX.Element {
   const [data, setData] = createSignal<CosmosData | null>(null);
   const owner = getOwner();
   onMount(async () => {
+    let dead = false; onCleanup(() => { dead = true; });
     try {
       const [{ createStage }, { createCosmos }] = await Promise.all([import('../three/stage'), import('../three/cosmos')]);
-      const st = await createStage(host, () => cssVar('--c-bg')); const cfg = legacy()?.cfg ?? { L: 8, H: 16, ff: 1024, d: 256 };
+      const st = await createStage(host, () => cssVar('--c-bg')); if (dead) { st.dispose(); return; } const cfg = legacy()?.cfg ?? { L: 8, H: 16, ff: 1024, d: 256 };
       const cos = createCosmos(st, cfg.L, cfg.H, cfg.ff); st.focus({ x: 0, y: cfg.L * 2, z: 0 } as never, 46);
       runWithOwner(owner, () => {
       const refresh = (): void => { const tr = legacy()?.lastTraces ?? []; const c = cosmosData(tr, { L: cfg.L, H: cfg.H, ff: cfg.ff, d: cfg.d }, sel().token ?? tr.length - 1); setData(c); cos.update(c, theme() === 'light'); };
@@ -74,7 +94,7 @@ export function CosmosPanel(): JSX.Element {
   });
   return (
     <div class="cosmos">
-      <div class="cosmos-stage" ref={host} aria-label="model cosmos: drag to orbit, wheel or +/- to zoom, click a unit to select it" />
+      <div class="cosmos-stage" role="region" ref={host} aria-label="model cosmos: drag to orbit, wheel or plus and minus to zoom, click a unit to select it" />
       <div class="cosmos-hud" aria-live="polite"><b>Model cosmos</b> · {status()} · zoom: {lod()}<Show when={hover()}> · {hover()}</Show>
         <Show when={data()} fallback={<div class="warn">No trace yet: generate text (Ctrl/⌘+Enter) and the strata fill with that run's real activations.</div>}>
           {(c) => <div>token {c().token + 1}/{c().T} · neurons (grid): MLP activation · heads (ring): ‖head output‖ · ribbons: ‖residual‖ per token (gold = selected)</div>}
@@ -88,10 +108,23 @@ export function NestedPanel(): JSX.Element {
   let host!: HTMLDivElement; const [info, setInfo] = createSignal('choose an experiment'); const [which, setWhich] = createSignal<'riscv' | 'slm' | 'moe'>('moe');
   const owner = getOwner();
   onMount(async () => {
+    let dead = false; onCleanup(() => { dead = true; });
     try {
       const [{ createStage }, N] = await Promise.all([import('../three/stage'), import('../three/nested')]);
-      const st = await createStage(host, () => cssVar('--c-bg'));
-      runWithOwner(owner, () => createEffect(async () => { const w = which(); setInfo('loading ' + w + '…'); try { const r = w === 'riscv' ? await N.riscv() : w === 'slm' ? await N.slm() : await N.moe(); N.mount(st, r); setInfo(r.info); } catch (e) { setInfo('✖ ' + (e as Error).message); } }));
+      const st = await createStage(host, () => cssVar('--c-bg')); if (dead) { st.dispose(); return; }
+      runWithOwner(owner, () => createEffect(async () => {
+        const w = which(); setInfo('loading ' + w + '…');
+        try {
+          if (w === 'moe' && legacy()?.mf) {
+            const data = await legacy()!.mf!.moe(0);
+            if (dead) return;
+            N.mountArrays(st, data); setInfo(data.info); return;
+          }
+          const r = w === 'riscv' ? await N.riscv() : w === 'slm' ? await N.slm() : await N.moe();
+          if (dead) return;
+          N.mount(st, r); setInfo(r.info);
+        } catch (e) { setInfo('✖ ' + (e as Error).message); }
+      }));
       runWithOwner(owner, () => onCleanup(() => st.dispose()));
     } catch (e) { setInfo('3D unavailable: ' + (e as Error).message); }
   });
@@ -100,7 +133,7 @@ export function NestedPanel(): JSX.Element {
       <div class="seg" role="radiogroup" aria-label="nested experiment">
         <For each={[['riscv', 'RISC-V in a transformer'], ['slm', 'SLM-in-SLM'], ['moe', 'MoE-in-MoE']] as const}>{([k, t]) => <button role="radio" aria-checked={which() === k} classList={{ on: which() === k }} onClick={() => setWhich(k)}>{t}</button>}</For>
       </div>
-      <div class="cosmos-stage" ref={host} aria-label="nested experiment 3D view" />
+      <div class="cosmos-stage" role="region" ref={host} aria-label="nested experiment 3D view" />
       <div class="cosmos-hud" aria-live="polite">{info()}</div>
     </div>
   );

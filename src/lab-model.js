@@ -53,10 +53,11 @@ export function install(A, out) {
     if (m === 'o') { const b = new Float32Array(rows * hd); for (let i = 0; i < rows; i++) for (let j = 0; j < hd; j++) b[i * hd + j] = a[i * cols + h * hd + j]; return { a: b, rows, cols: hd }; }
     if (m === 'q' || m === 'k' || m === 'v') return { a: a.subarray(h * hd * cols, (h + 1) * hd * cols), rows: hd, cols }; return { a, rows, cols }; };
   const sample2d = (a, rows, cols, R = 64, Cc = 96) => { const sr = Math.max(1, Math.ceil(rows / R)), sc = Math.max(1, Math.ceil(cols / Cc)), M = []; for (let i = 0; i < rows; i += sr) { const r = []; for (let j = 0; j < cols; j += sc) r.push(a[i * cols + j]); M.push(r); } return M; };
-  out.weights = (l0, m0, h0) => { const l = +(l0 ?? $('xWL').value), m = m0 ?? $('xWM').value, hv = h0 ?? $('xWH').value, h = hv === '' || hv == null ? '' : +hv; $('xWL').value = l; $('xWM').value = m;
+  out.weights = async (l0, m0, h0) => { const l = +(l0 ?? $('xWL').value), m = m0 ?? $('xWM').value, hv = h0 ?? $('xWH').value, h = hv === '' || hv == null ? '' : +hv; $('xWL').value = l; $('xWM').value = m;
     const Wc = matOf(A.M(), l, m, h), Wo = matOf(A.W(), l, m, h), mc = C.moments(Wc.a), mo = C.moments(Wo.a), lo = -Math.max(mo.absmax, mc.absmax), hc = C.histogram(Wc.a, 80, lo, -lo), ho = C.histogram(Wo.a, 80, lo, -lo);
     lines($('xWHist'), [{ ys: ho.counts.map((c) => Math.log10(1 + c)), color: '#5eead4', label: 'original' }, { ys: hc.counts.map((c) => Math.log10(1 + c)), color: '#f472b6', label: 'current' }], { xs: ho.edges.map((e) => e.toFixed(3)) });
-    const sc = C.spectral(Wc.a, Wc.rows, Wc.cols), so = C.spectral(Wo.a, Wo.rows, Wo.cols);
+    const spec = await import('./mf-client.js?v=170');
+    const sc = await spec.spectral(Wc.a, Wc.rows, Wc.cols); const so = await spec.spectral(Wo.a, Wo.rows, Wo.cols);
     lines($('xWSv'), [{ ys: so.sv.map((s) => Math.log10(s + 1e-12)), color: '#5eead4', label: 'original' }, { ys: sc.sv.map((s) => Math.log10(s + 1e-12)), color: '#f472b6', label: 'current' }]);
     const tail = (S) => S.esd.filter((v) => v >= S.xmin && v > 0).sort((a, b) => b - a);
     scatter($('xWEsd'), [...tail(so).map((v, i) => ({ x: Math.log10(v), y: Math.log10(i + 1), c: '#5eead4', r: 2, label: `original λ=${v.toExponential(2)} rank ${i + 1}` })), ...tail(sc).map((v, i) => ({ x: Math.log10(v), y: Math.log10(i + 1), c: '#f472b6', r: 2, label: `current λ=${v.toExponential(2)} rank ${i + 1}` }))], { h: 180 });
@@ -66,7 +67,7 @@ export function install(A, out) {
     $('xWInfo').innerHTML = `L${l}.${m}${h !== '' ? ` head ${h}` : ''} [${Wc.rows}×${Wc.cols}] · std ${fmt(mc.std, 4)} (orig ${fmt(mo.std, 4)}) · kurtosis ${fmt(mc.kurtosis, 2)} · |max| ${fmt(mc.absmax)} · σ₁ ${fmt(sc.spectralNorm)} · stable rank ${fmt(sc.stableRank, 2)} (orig ${fmt(so.stableRank, 2)}) · effective rank ${fmt(sc.effRank, 1)} · α ${fmt(sc.alpha, 2)} (orig ${fmt(so.alpha, 2)}; KS ${fmt(sc.ks, 3)}, tail n=${sc.nTail}) · ‖ΔW‖/‖W‖ ${fmt(Math.sqrt(dn / (n0 || 1)), 4)}`;
     A.setSel({ l, h: h === '' ? null : h }); return sc; };
   on('xW', 'click', () => out.weights());
-  out.ww = async () => { const rows = []; let k = 0; for (let l = 0; l < L; l++) for (const m of MATS) { const { a, rows: r, cols } = getMat(A.M(), `L${l}.${m}`); const s = C.spectral(a, r, cols), mm = C.moments(a); rows.push([`L${l}.${m}`, l, m, s.alpha, s.ks, s.stableRank, s.effRank, s.spectralNorm, mm.std, mm.kurtosis]); prog('xWWP', ++k / (L * MATS.length)); await tick(); }
+  out.ww = async () => { const spec = await import('./mf-client.js?v=170'); const rows = []; let k = 0; for (let l = 0; l < L; l++) for (const m of MATS) { const { a, rows: r, cols } = getMat(A.M(), `L${l}.${m}`); const s = await spec.spectral(a, r, cols), mm = C.moments(a); rows.push([`L${l}.${m}`, l, m, s.alpha, s.ks, s.stableRank, s.effRank, s.spectralNorm, mm.std, mm.kurtosis]); prog('xWWP', ++k / (L * MATS.length)); await tick(); }
     bars($('xWWC'), rows.map((r) => (isFinite(r[3]) ? r[3] : 0)), { colors: rows.map((r) => pal(r[1])), label: (i) => `${rows[i][0]} α=${fmt(rows[i][3], 2)} · stable rank ${fmt(rows[i][5], 1)}`, onClick: (i) => { A.showTab('weights'); out.weights(rows[i][1], rows[i][2], ''); } });
     const hdr = ['matrix', 'layer', 'mat', 'alpha', 'KS', 'stable_rank', 'eff_rank', 'spectral_norm', 'std', 'kurtosis'], t = $('xWWTab'); t._csv = () => C.toCSV(rows, hdr);
     t.innerHTML = `<table><tr>${hdr.map((x) => `<th>${x}</th>`).join('')}</tr>${rows.map((r) => `<tr>${r.map((v) => `<td>${typeof v === 'number' ? fmt(v, 2) : v}</td>`).join('')}</tr>`).join('')}</table>`;

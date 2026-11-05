@@ -2,8 +2,9 @@
 // These functions compute from the weights/engine passed in at call time (no cached or precomputed results inside this module).
 import { CFG, mulberry32, cloneWeights } from './model.js?v=170';
 import { Engine, defaultRuntime, logSoftmax, layerNorm, entropy } from './engine.js?v=170';
+import { slice, frame } from './coop.js?v=170';
 const { d, H, hd, L, ff, V } = CFG;
-const tick = () => new Promise((r) => setTimeout(r, 0));
+const tick = () => frame();
 
 // ───────── architecture & parameters ─────────
 // Parameter breakdown measured from the actual tensors in W (lengths), grouped for treemaps.
@@ -100,8 +101,8 @@ export function spectral(A, rows, cols) {
 export function repeatedTokens(n = 30, seed = 7) { const r = mulberry32(seed); const a = Array.from({ length: n }, () => 1000 + Math.floor(r() * 20000)); return [...a, ...a]; }
 // Real scoring on the given engine. Returns per-layer per-head scores and a label.
 // prev: mean attn(t→t−1) on text; sink: mean attn(t→0); induction: mean attn(n+i → i+1) on a repeated random sequence; duplicate: mean attn(n+i → i).
-export function headScores(eng, textIds, n = 30) {
-  const tx = eng.run(textIds, { trace: true }).traces, rp = eng.run(repeatedTokens(n), { trace: true }).traces, slots = eng.R.program.length;
+export function scoreHeads(eng, tx, rp, n = 30) {
+  const slots = eng.R.program.length;
   const out = [];
   for (let s = 0; s < slots; s++) { const row = [];
     for (let h = 0; h < H; h++) {
@@ -112,6 +113,9 @@ export function headScores(eng, textIds, n = 30) {
       sc.label = best[1] >= 0.3 ? best[0] : sc.entropy > 0.7 ? 'diffuse' : 'mixed'; sc.layer = eng.R.program[s].layer; row.push(sc);
     } out.push(row); }
   return out;
+}
+export function headScores(eng, textIds, n = 30) {
+  return scoreHeads(eng, eng.run(textIds, { trace: true }).traces, eng.run(repeatedTokens(n), { trace: true }).traces, n);
 }
 // Attention rollout (Abnar & Zuidema 2020): per slot head-mean attention, Â = ½A + ½I, rows renormalised, multiplied through the stack. traces from Engine.run(...,{trace:true}).
 export function attentionRollout(traces, slots) {
@@ -169,6 +173,30 @@ export function nearestTokens(W, vec, k = 12, exclude = -1) {
     if (best.length < k || s > best[best.length - 1][1]) { best.push([i, s]); best.sort((a, b) => b[1] - a[1]); if (best.length > k) best.pop(); } }
   return best;
 }
+export async function nearestTokensAsync(W, vec, k = 12, exclude = -1) {
+  let n = _normCache && _normCache.W === W.wte ? _normCache.n : null;
+  if (!n) { n = new Float32Array(W.wte.length / d); for (let i = 0; i < n.length; i++) { let s = 0; for (let j = 0; j < d; j++) s += W.wte[i * d + j] ** 2; n[i] = Math.sqrt(s) || 1; if ((i & 2047) === 2047) await tick(); } _normCache = { W: W.wte, n }; }
+  const vn = Math.hypot(...vec) || 1, best = [];
+  for (let i = 0; i < n.length; i++) { if (i === exclude) continue; let s = 0; const o = i * d; for (let j = 0; j < d; j++) s += W.wte[o + j] * vec[j]; s /= n[i] * vn;
+    if (best.length < k || s > best[best.length - 1][1]) { best.push([i, s]); best.sort((a, b) => b[1] - a[1]); if (best.length > k) best.pop(); }
+    if ((i & 2047) === 2047) await tick(); }
+  return best;
+}
+export async function pcaKAsync(X, n, dim, k = 3, iters = 60) {
+  const mu = new Float64Array(dim); for (let i = 0; i < n; i++) { for (let j = 0; j < dim; j++) mu[j] += X[i * dim + j] / n; if ((i & 255) === 255) await tick(); }
+  const C = new Float64Array(dim * dim);
+  for (let i = 0; i < n; i++) { for (let a = 0; a < dim; a++) { const xa = X[i * dim + a] - mu[a]; if (!xa) continue; for (let b = a; b < dim; b++) C[a * dim + b] += xa * (X[i * dim + b] - mu[b]); } if ((i & 15) === 15) await tick(); }
+  for (let a = 0; a < dim; a++) for (let b = 0; b < a; b++) C[a * dim + b] = C[b * dim + a]; let totVar = 0; for (let a = 0; a < dim; a++) totVar += C[a * dim + a];
+  const comps = [], vars = [];
+  for (let c = 0; c < k; c++) { let v = new Float64Array(dim).map((_, i) => Math.sin(i * (c + 1) + 1)), lam = 0;
+    for (let it = 0; it < iters; it++) { const w = new Float64Array(dim); for (let a = 0; a < dim; a++) { let s = 0; for (let b = 0; b < dim; b++) s += C[a * dim + b] * v[b]; w[a] = s; }
+      for (const u of comps) { let p = 0; for (let a = 0; a < dim; a++) p += w[a] * u[a]; for (let a = 0; a < dim; a++) w[a] -= p * u[a]; }
+      lam = Math.hypot(...w); v = w.map((x) => x / (lam || 1)); if ((it & 3) === 3) await tick(); }
+    comps.push(v); vars.push(lam / (totVar || 1)); }
+  const proj = [];
+  for (let i = 0; i < n; i++) { proj.push(comps.map((u) => { let s = 0; for (let j = 0; j < dim; j++) s += (X[i * dim + j] - mu[j]) * u[j]; return s; })); if ((i & 255) === 255) await tick(); }
+  return { comps, mu, explained: vars, proj };
+}
 export const embedOf = (W, id) => W.wte.subarray(id * d, id * d + d);
 
 // ───────── neurons ─────────
@@ -177,14 +205,14 @@ export const embedOf = (W, id) => W.wte.subarray(id * d, id * d + d);
 export async function neuronAtlas(Wc, docs, l, N = 400, k = 16, onp = () => {}) {
   const eng = new Engine(Wc, defaultRuntime()); const acts = new Float32Array(N * ff), ids = new Int32Array(N), where = []; let n = 0;
   for (let di = 0; di < docs.length && n < N; di++) { const s = eng.newSeq(docs[di].length);
-    for (let t = 0; t < docs[di].length && n < N; t++) { eng.step(s, docs[di][t], { hook: (site, slot, layer, tt, x) => { if (site === 'mlp_act' && layer === l) acts.set(x, n * ff); } }); ids[n] = docs[di][t]; where.push([di, t]); n++; }
+    for (let t = 0; t < docs[di].length && n < N; t++) { eng.step(s, docs[di][t], { hook: (site, slot, layer, tt, x) => { if (site === 'mlp_act' && layer === l) acts.set(x, n * ff); } }); ids[n] = docs[di][t]; where.push([di, t]); n++; if ((t & 3) === 3) await tick(); }
     onp(n / N); await tick(); }
   const neurons = [];
   for (let j = 0; j < ff; j++) { let mx = -Infinity, mean = 0, fire = 0; const top = [];
     for (let i = 0; i < n; i++) { const a = acts[i * ff + j]; mean += a; if (a > 0) fire++; if (a > mx) mx = a; if (top.length < k || a > top[top.length - 1][1]) { top.push([i, a]); top.sort((x, y) => y[1] - x[1]); if (top.length > k) top.pop(); } }
     const mass = new Map(); let tot = 0; for (const [i, a] of top) { const w = Math.max(0, a); mass.set(ids[i], (mass.get(ids[i]) || 0) + w); tot += w; }
     let Hh = 0; for (const w of mass.values()) { const p = w / (tot || 1); if (p > 0) Hh -= p * Math.log(p); }
-    neurons.push({ n: j, max: mx, mean: mean / n, freq: fire / n, top: top.map(([i, a]) => ({ i, a, id: ids[i], doc: where[i][0], pos: where[i][1] })), poly: Math.exp(Hh) }); }
+    neurons.push({ n: j, max: mx, mean: mean / n, freq: fire / n, top: top.map(([i, a]) => ({ i, a, id: ids[i], doc: where[i][0], pos: where[i][1] })), poly: Math.exp(Hh) }); if ((j & 31) === 31) { const y = slice(); if (y) await y; } }
   return { l, N: n, neurons };
 }
 
@@ -193,8 +221,8 @@ export async function neuronAtlas(Wc, docs, l, N = 400, k = 16, onp = () => {}) 
 export async function evalCorpus(eng, docs, N = 160, onp = () => {}) {
   const rows = []; for (let di = 0; di < docs.length && rows.length < N; di++) { const s = eng.newSeq(docs[di].length);
     for (let t = 0; t < docs[di].length - 1 && rows.length < N; t++) { const r = eng.step(s, docs[di][t]); const lp = logSoftmax(eng.outLogits ? eng.outLogits(r.h) : eng.logits(r.h)); let am = 0; for (let i = 1; i < lp.length; i++) if (lp[i] > lp[am]) am = i;
-      rows.push({ nll: -lp[docs[di][t + 1]], conf: Math.exp(lp[am]), correct: am === docs[di][t + 1], ent: entropy(lp) }); }
-    onp(rows.length / N); await tick(); }
+      rows.push({ nll: -lp[docs[di][t + 1]], conf: Math.exp(lp[am]), correct: am === docs[di][t + 1], ent: entropy(lp) }); const y = slice(); if (y) await y; }
+    onp(rows.length / N); }
   return rows;
 }
 // Reliability diagram + expected calibration error from evalCorpus rows.
@@ -207,11 +235,12 @@ export function calibration(rows, bins = 10) {
 }
 export function klLogits(lpP, lpQ) { let k = 0; for (let i = 0; i < lpP.length; i++) { const p = Math.exp(lpP[i]); if (p > 1e-12) k += p * (lpP[i] - lpQ[i]); } return Math.max(0, k); }
 // Edit impact: per-slot logit-lens KL(hacked‖clean) at the last position, per-position final KL, and top probability shifts.
-export function editImpact(engC, engH, ids) {
-  const a = engC.run(ids, { trace: true }).traces, b = engH.run(ids, { trace: true }).traces, T = ids.length;
+export async function editImpact(engC, engH, ids) {
+  const play = async (eng) => { const s = eng.newSeq(ids.length), tr = []; let last; for (const t of ids) { last = eng.step(s, t, { trace: true }); tr.push(last.trace); const y = slice(); if (y) await y; } return tr; };
+  const a = await play(engC), b = await play(engH), T = ids.length;
   const sl = Math.min(engC.R.program.length, engH.R.program.length), perLayer = [];
   for (let s = 0; s < sl; s++) perLayer.push(klLogits(logSoftmax(engH.lensLogits(b[T - 1].resid_post[s])), logSoftmax(engC.lensLogits(a[T - 1].resid_post[s]))));
-  const perPos = a.map((t, i) => klLogits(logSoftmax(engH.logits(b[i].h)), logSoftmax(engC.logits(t.h))));
+  const perPos = []; for (let i = 0; i < a.length; i++) { perPos.push(klLogits(logSoftmax(engH.logits(b[i].h)), logSoftmax(engC.logits(a[i].h)))); const y = slice(); if (y) await y; }
   const pC = logSoftmax(engC.logits(a[T - 1].h)), pH = logSoftmax(engH.logits(b[T - 1].h)), dif = [];
   for (let i = 0; i < pC.length; i++) { const dlt = Math.exp(pH[i]) - Math.exp(pC[i]); if (Math.abs(dlt) > 1e-4) dif.push([i, dlt, Math.exp(pC[i]), Math.exp(pH[i])]); }
   dif.sort((x, y) => Math.abs(y[1]) - Math.abs(x[1]));
@@ -224,13 +253,33 @@ export function blendWeights(W, M, alpha, scratch) {
   mix(W.wte, M.wte, scratch.wte); mix(W.wpe, M.wpe, scratch.wpe); mix(W.lnfW, M.lnfW, scratch.lnfW); mix(W.lnfB, M.lnfB, scratch.lnfB);
   W.layers.forEach((P, l) => { for (const k in P) mix(P[k], M.layers[l][k], scratch.layers[l][k]); }); return scratch;
 }
+// Same blend, but the wte copy is ~50MB. Yield between slices so it is not one animation frame.
+export async function blendWeightsAsync(W, M, alpha, scratch) {
+  const chunk = async (src) => { const o = new Float32Array(src.length), N = 262144; for (let i = 0; i < src.length; i += N) { o.set(src.subarray(i, Math.min(src.length, i + N)), i); const y = slice(); if (y) await y; } return o; };
+  if (!scratch) {
+    scratch = { wte: await chunk(W.wte), wpe: await chunk(W.wpe), lnfW: await chunk(W.lnfW), lnfB: await chunk(W.lnfB), layers: [] };
+    for (const P of W.layers) { const o = {}; for (const k of Object.keys(P)) o[k] = await chunk(P[k]); scratch.layers.push(o); }
+  }
+  const mix = async (a, b, o) => { const N = 65536; for (let i = 0; i < a.length; i += N) { const end = Math.min(a.length, i + N); for (let j = i; j < end; j++) o[j] = a[j] + alpha * (b[j] - a[j]); const y = slice(); if (y) await y; } };
+  await mix(W.wte, M.wte, scratch.wte); await mix(W.wpe, M.wpe, scratch.wpe); await mix(W.lnfW, M.lnfW, scratch.lnfW); await mix(W.lnfB, M.lnfB, scratch.lnfB);
+  for (let l = 0; l < W.layers.length; l++) for (const k of Object.keys(W.layers[l])) await mix(W.layers[l][k], M.layers[l][k], scratch.layers[l][k]);
+  return scratch;
+}
 // Per-op profiler: wall time between successive engine hooks (= real compute of each op) for one forward step per token.
 export function profile(eng, ids) {
-  const s = eng.newSeq(ids.length), rows = []; const order = ['resid_pre', 'z', 'attn_out', 'mlp_act', 'mlp_out', 'resid_post'], name = { z: 'ln1+qkv+attn', attn_out: 'o-proj', mlp_act: 'ln2+fc+gelu', mlp_out: 'proj', resid_post: 'resid/steer', resid_pre: 'embed/prev' };
+  const s = eng.newSeq(ids.length), rows = []; const name = { z: 'ln1+qkv+attn', attn_out: 'o-proj', mlp_act: 'ln2+fc+gelu', mlp_out: 'proj', resid_post: 'resid/steer', resid_pre: 'embed/prev' };
   for (const id of ids) { let last = performance.now(); const t0 = last, seg = [];
     const r = eng.step(s, id, { hook: (site, slot, l) => { const now = performance.now(); seg.push({ op: name[site] || site, slot, l, ms: now - last, start: last - t0 }); last = now; } });
     const u0 = performance.now(); eng.logits(r.h); const u1 = performance.now(); seg.push({ op: 'lnf+unembed', slot: -1, l: L, ms: u1 - last, start: last - t0 });
     rows.push({ T: s.T, seg, total: u1 - t0 }); }
+  const agg = {}; for (const r of rows) for (const g of r.seg) agg[g.op] = (agg[g.op] || 0) + g.ms; return { rows, agg };
+}
+export async function profileAsync(eng, ids) {
+  const s = eng.newSeq(ids.length), rows = []; const name = { z: 'ln1+qkv+attn', attn_out: 'o-proj', mlp_act: 'ln2+fc+gelu', mlp_out: 'proj', resid_post: 'resid/steer', resid_pre: 'embed/prev' };
+  for (const id of ids) { let last = performance.now(); const t0 = last, seg = [];
+    const r = eng.step(s, id, { hook: (site, slot, l) => { const now = performance.now(); seg.push({ op: name[site] || site, slot, l, ms: now - last, start: last - t0 }); last = now; } });
+    eng.logits(r.h); const u1 = performance.now(); seg.push({ op: 'lnf+unembed', slot: -1, l: L, ms: u1 - last, start: last - t0 });
+    rows.push({ T: s.T, seg, total: u1 - t0 }); await tick(); }
   const agg = {}; for (const r of rows) for (const g of r.seg) agg[g.op] = (agg[g.op] || 0) + g.ms; return { rows, agg };
 }
 export const memoryInfo = () => (typeof performance !== 'undefined' && performance.memory ? { used: performance.memory.usedJSHeapSize, total: performance.memory.totalJSHeapSize, limit: performance.memory.jsHeapSizeLimit } : null);

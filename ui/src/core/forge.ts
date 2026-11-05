@@ -9,10 +9,11 @@ export const DEMO = DEMO_SOURCE;
 export interface ForgeError { code: string; msg: string }
 export interface ForgeStep {
   pc: number; op: number; name: string; rd: number; result: number; halted: boolean;
-  fail: string | null; mem: { addr: number; value: number } | null; regs: number[]; ram: number[];
+  fail: string | null; mem: { addr: number; value: number } | null; regs: number[]; ram?: number[];
 }
 export interface ForgeToken { lane: string; kind: string; text: string; pc?: number; op?: number; result?: number; byte?: number }
 export interface ForgeRun {
+  id?: number;
   ok: boolean; source: string; seed: number; errors: ForgeError[];
   eq32: boolean; eq64: boolean; result: number | null;
   diff32: { i?: number; why?: string; faults?: string[] } | null;

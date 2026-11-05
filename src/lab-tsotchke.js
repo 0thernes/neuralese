@@ -5,7 +5,7 @@
 //   claims : every claim, with a live check that can fail. Full write-up: docs/TSOTCHKE.md, docs/CLAIMS.md, docs/STACK.md.
 import { bars, lines } from './charts.js?v=170';
 import { $, esc, tipq, prog, tick } from './lab-ui.js?v=170';
-import { forward, grad } from './grad.js?v=170';
+import { forwardAsync, grad } from './grad.js?v=170';
 import * as MQ from './tsotchke/moonlabqgt.js?v=170';
 import * as ADC from './tsotchke/adcheck.js?v=170';
 import * as NS from './tsotchke/neurosym.js?v=170';
@@ -56,19 +56,24 @@ export function install(A, out) {
   out.qseed = async () => showSeed(await Q.seed32());
   out.qseedApply = async () => { const r = last || (await out.qseed()); const el = $('d_seed'); if (el) el.value = r.seed32; out.lastQseed = r; return r; };
   on('qrD', 'click', () => out.qseed()); on('qrA', 'click', () => out.qseedApply()); on('qrP', 'click', async () => showSeed(await Q.seed32({ seed: fromHex($('qrR').value.trim()) })));
-  out.chsh = async (n0) => { const n = Math.max(1000, Math.min(200000, +(n0 ?? $('qrN').value) || 20000)), r = await Q.chsh(crypto.getRandomValues(new Uint8Array(16)), n);
+  out.chsh = async (n0) => { const n = Math.max(1000, Math.min(200000, +(n0 ?? $('qrN').value) || 20000)), seed = crypto.getRandomValues(new Uint8Array(16));
+    let accS = 0, accE = [0, 0, 0, 0], accSe2 = 0, done = 0;
+    for (let left = n; left > 0;) { const k = Math.min(4000, left), s = seed.slice(); s[15] = (s[15] + done) & 255; const part = await Q.chsh(s, k); accS += part.S * k; for (let i = 0; i < 4; i++) accE[i] += part.E[i] * k; accSe2 += part.se * part.se * k * k; done += k; left -= k; await tick(); }
+    const r = { S: accS / n, se: Math.sqrt(accSe2) / n, E: accE.map((x) => x / n), n };
     $('qrCOut').innerHTML = `<table class="kv"><tr><td>S</td><td>${r.S.toFixed(4)} ± ${r.se.toFixed(4)}</td></tr><tr><td>classical bound</td><td>2 → ${((r.S - 2) / r.se).toFixed(1)} σ above</td></tr><tr><td>Tsirelson 2√2</td><td>2.8284 → ${((r.S - 2 * Math.SQRT2) / r.se).toFixed(2)} σ</td></tr><tr><td>E(a,b) E(a,b′) E(a′,b) E(a′,b′)</td><td>${r.E.map((x) => x.toFixed(3)).join(' ')}</td></tr></table><div class="sm">Simulated on a classical computer — see the tooltip.</div>`; keep('chsh', `CHSH n=${n}`, { S: r.S, se: r.se }); return r; };
   on('qrC', 'click', () => out.chsh());
   // ── Q-GEOMETRY ──
-  out.fsdist = async () => { const t = ids(), Ac = forward(A.W(), t), Am = forward(A.M(), t), d = A.W().lnfW.length, V = A.W().wte.length / d, rows = [];
-    const lg = (W, Af, i) => { const o = new Float64Array(V), h = Af.hf; for (let v = 0; v < V; v++) { let s = 0; const off = v * d; for (let k = 0; k < d; k++) s += W.wte[off + k] * h[i * d + k]; o[v] = s; } return G.softmax(o); };
-    for (let i = 0; i < t.length; i++) { prog('qgP', i / t.length); await tick(); const p = lg(A.W(), Ac, i), q = lg(A.M(), Am, i), F = await G.moonlabFidelity(p, q), Fq = await QG.fidelity(p, q), bj = G.bhatt(p, q) ** 2; rows.push({ i, tok: tok().tokenStr ? tok().tokenStr(t[i]) : String(t[i]), fs: G.fsFromFidelity(F), F, dF: Math.abs(F - bj), dQ: Math.abs(Fq - F) }); }
+  const vocabLogits = async (W, h, i) => { const d = W.lnfW.length, V = W.wte.length / d, o = new Float64Array(V), row = i * d;
+    for (let v = 0; v < V; v++) { let s = 0; const off = v * d; for (let k = 0; k < d; k++) s += W.wte[off + k] * h[row + k]; o[v] = s; if ((v & 1023) === 1023) await tick(); }
+    return G.softmax(o); };
+  out.fsdist = async () => { const t = ids(), Ac = await forwardAsync(A.W(), t), Am = await forwardAsync(A.M(), t), rows = [];
+    for (let i = 0; i < t.length; i++) { prog('qgP', i / t.length); await tick(); const p = await vocabLogits(A.W(), Ac.hf, i), q = await vocabLogits(A.M(), Am.hf, i), F = await G.moonlabFidelity(p, q), Fq = await QG.fidelity(p, q), bj = G.bhatt(p, q) ** 2; rows.push({ i, tok: tok().tokenStr ? tok().tokenStr(t[i]) : String(t[i]), fs: G.fsFromFidelity(F), F, dF: Math.abs(F - bj), dQ: Math.abs(Fq - F) }); }
     prog('qgP', 1); bars($('qgCh'), rows.map((r) => r.fs), { label: (i) => `"${rows[i].tok}" FS angle ${rows[i].fs.toFixed(5)} rad` });
     $('qgOut').innerHTML = `<table><tr><th>pos</th><th>token</th><th>fidelity (Moonlab)</th><th>FS angle (rad)</th><th>|ΔF| vs JS</th><th>|ΔF| QGTL</th></tr>${rows.map((r) => row([r.i, esc(r.tok), r.F.toFixed(8), r.fs.toFixed(5), r.dF.toExponential(1), r.dQ.toExponential(1)])).join('')}</table><div class="sm">${A.ed().edits.length ? A.ed().edits.length + ' weight edit(s) applied.' : 'no weight edits — angles are 0 up to the arccos rounding floor (~2e-7 rad; a sanity check). Make an edit in SURGERY and re-run.'} Runtime interventions (ablations, steering) are not part of these weights.</div>`;
     keep('fsdist', 'FS angle clean vs current', { maxFS: Math.max(...rows.map((r) => r.fs)), meanFS: rows.reduce((a, r) => a + r.fs, 0) / rows.length, maxDF: Math.max(...rows.map((r) => r.dF)) }); return rows; };
   on('qgGo', 'click', () => out.fsdist());
-  out.qgMetric = async (s0) => { const W = A.M(), t = ids(), Af = forward(W, t), v = dirV(W.lnfW.length, +(s0 ?? $('qgS').value) || 1), { a, b } = G.lnfLogitLine(W, Af.xf, t.length - 1, v), p = G.softmax(a), pred = Math.sqrt(G.fisherDir(p, b)) / 2, rs = [];
-    for (const e of [1, 0.1, 0.01, 0.001]) { const q = G.softmax(a.map((x, i) => x + e * b[i])), s = G.fsFromFidelity(await G.moonlabFidelity(p, q)); rs.push({ e, ratio: s / e, err: Math.abs(s / e - pred) / pred }); }
+  out.qgMetric = async (s0) => { const W = A.M(), t = ids(), Af = await forwardAsync(W, t), v = dirV(W.lnfW.length, +(s0 ?? $('qgS').value) || 1), { a, b } = await G.lnfLogitLineAsync(W, Af.xf, t.length - 1, v, tick), p = G.softmax(a), pred = Math.sqrt(G.fisherDir(p, b)) / 2, rs = [];
+    for (const e of [1, 0.1, 0.01, 0.001]) { await tick(); const q = G.softmax(a.map((x, i) => x + e * b[i])), s = G.fsFromFidelity(await G.moonlabFidelity(p, q)); rs.push({ e, ratio: s / e, err: Math.abs(s / e - pred) / pred }); }
     $('qgMOut').innerHTML = `<table><tr><th>ε</th><th>s(ε)/ε (Moonlab)</th><th>prediction √Fisher/2</th><th>rel. error</th></tr>${rs.map((r) => row([r.e, r.ratio.toPrecision(7), pred.toPrecision(7), r.err.toExponential(2)])).join('')}</table><div class="sm">Expected: error ∝ ε until ~1e-3, where arccos near 1 loses digits (float64).</div>`; return { pred, rs }; };
   on('qgM', 'click', () => out.qgMetric());
   // ── TYPES (Eshkol) ──
@@ -80,14 +85,14 @@ export function install(A, out) {
   // ── TAYLOR ──
   out.taylorSelf = (K0) => { const K = Math.max(2, Math.min(16, +(K0 ?? $('tyK').value) || 8)), rs = T.selfTest(K); $('tySOut').innerHTML = `<table><tr><th>function</th><th>x₀</th><th>reference</th><th>max rel. error</th></tr>${rs.map((r) => row([r.name, r.x0, r.ref, `<span class="${r.relErr < 1e-10 ? 'good' : 'warn'}">${r.relErr.toExponential(1)}</span>`])).join('')}</table>`; return rs; };
   on('tyS', 'click', () => out.taylorSelf());
-  out.taylorJet = async (s0, K0) => { const W = A.M(), t = ids(), K = Math.max(1, Math.min(8, +(K0 ?? $('tyJK').value) || 4)), v = dirV(W.lnfW.length, +(s0 ?? $('tyV').value) || 1), Af = forward(W, t), j = T.ceJetLnf(W, Af.xf, t, v, K);
+  out.taylorJet = async (s0, K0) => { const W = A.M(), t = ids(), K = Math.max(1, Math.min(8, +(K0 ?? $('tyJK').value) || 4)), v = dirV(W.lnfW.length, +(s0 ?? $('tyV').value) || 1), Af = await forwardAsync(W, t), j = T.ceJetLnf(W, Af.xf, t, v, K);
     const poly = (e) => j.c.reduce((s, c, k) => s + c * e ** k, 0), eps = [-0.5, -0.2, -0.05, 0.05, 0.2, 0.5], act = [];
     for (const e of eps) { await tick(); const w0 = W.lnfW, w = Float32Array.from(w0, (x, i) => x + e * v[i]), W2 = { ...W, lnfW: w }; act.push(T.ceJetLnf(W2, Af.xf, t, v, 0).c[0]); }
     $('tyJOut').innerHTML = `<table class="kv">${T.derivRows(j)}</table><table><tr><th>ε</th><th>Taylor polynomial</th><th>actual CE</th><th>|error|</th></tr>${eps.map((e, i) => row([e, poly(e).toFixed(7), act[i].toFixed(7), Math.abs(poly(e) - act[i]).toExponential(1)])).join('')}</table>`;
     lines($('tyCh'), [{ ys: eps.map(poly), label: 'Taylor' }, { ys: act, label: 'actual' }], { xs: eps }); keep('taylor', `jet K=${K}`, { g0: j.c[0], d1: j.deriv(1), d2: j.deriv(2) }); return { jet: j, eps, act, poly: eps.map(poly) }; };
   on('tyJ', 'click', () => out.taylorJet());
   // ── CLAIMS ──
-  out.claims = async () => { const enc = (s) => new TextEncoder().encode(s), rs = [], chk = async (id, claim, refute, fn) => { let ok = false, ev = ''; try { [ok, ev] = await fn(); } catch (e) { ev = 'error: ' + e.message; } rs.push({ id, claim, refute, ok, ev }); };
+  out.claims = async () => { const enc = (s) => new TextEncoder().encode(s), rs = [], chk = async (id, claim, refute, fn) => { await tick(); let ok = false, ev = ''; try { [ok, ev] = await fn(); } catch (e) { ev = 'error: ' + e.message; } rs.push({ id, claim, refute, ok, ev }); };
     await chk('C1a', 'Ported Eshkol recurrences equal closed-form derivatives (K=8)', 'any max rel. error ≥ 1e-12', () => { const m = Math.max(...T.selfTest(8).map((r) => r.relErr)); return [m < 1e-12, 'max error ' + m.toExponential(1)]; });
     await chk('C2a', 'Moonlab fidelity = direct Bhattacharyya²', '|ΔF| ≥ 1e-12', async () => { const p = G.softmax([1, 2, 3, 0.5, -1]), q = G.softmax([1.2, 1.7, 3.1, 0.2, -0.5]); const d = Math.abs((await G.moonlabFidelity(p, q)) - G.bhatt(p, q) ** 2); return [d < 1e-12, '|ΔF| ' + d.toExponential(1)]; });
     await chk('C2d', 'Moonlab QWZ Chern numbers match an independent FHS computation (orientation −1)', 'any mismatch for m ∈ {±0.5, ±1.5, ±3}', async () => { const M = await G.moonlab(), ms = [-3, -1.5, -0.5, 0.5, 1.5, 3], c = []; for (const m of ms) c.push([await M.qwzChern({ m }), Math.round(G.qwzChernFHS(m))]); return [c.every(([a, b]) => a + b === 0), c.map(([a], i) => `m=${ms[i]}:${a}`).join(' ')]; });
@@ -105,7 +110,7 @@ export function install(A, out) {
     await chk('C3e', 'Known result: this WASM’s bytes equal a native musl build and differ from native glibc (libm, not SIMD, is the cause)', 'WASM ≠ musl golden, or = glibc golden', async () => { const L = await data('qrng_libm.json'), h = Q.hex(await Q.bytes(enc('neuralese-v8'), 64)); return [h === L.musl_scalar && h === L.musl_sse3 && h !== L.glibc_sse3, `wasm ${h.slice(0, 8)} · musl ${L.musl_scalar.slice(0, 8)} · glibc ${L.glibc_sse3.slice(0, 8)}`]; });
     await chk('C3b', 'SP 800-90B health tests pass on output and fail on a stuck source', 'output fails or zeros pass', async () => { const a = await Q.health(await Q.bytes(enc('h'), 100000)), b = await Q.health(new Uint8Array(2000)); return [a === 0 && b !== 0, `output ${a}, zeros ${b}`]; });
     await chk('C4', 'nist.js reproduces SP 800-22 worked examples', 'any p-value off by ≥ 5e-7', () => { const e = N.bitsFromString('1100100100001111110110101010001000100001011010001100001000110100110001001100011001100010100010111000'), got = [N.monobit(e).p, N.blockFrequency(e, 10).p, N.runs(e).p, N.cusum(e).p], want = [0.109599, 0.706438, 0.500798, 0.219194]; return [got.every((g, i) => Math.abs(g - want[i]) < 5e-7), got.map((g) => g.toFixed(6)).join(' ')]; });
-    await chk('C5a', 'Edit ; undo ≡ identity (bitwise weight hash)', 'hash after undo ≠ hash before', async () => { const R = await import('./research.js?v=170'), h0 = await R.weightsHash(A.M()), ed = A.ed(), saved = ed.edits.slice(); ed.push({ kind: 'elem', target: { type: 'head', l: 0, i: 0 }, fn: 'scale', amt: 3 }); const h1 = await R.weightsHash(A.M()); ed.setEdits(saved); const h2 = await R.weightsHash(A.M()); return [h0 === h2 && h1 !== h0, `${h0.slice(0, 12)} → ${h1.slice(0, 12)} → ${h2.slice(0, 12)}`]; });
+    await chk('C5a', 'Edit ; undo ≡ identity (bitwise weight hash)', 'hash after undo ≠ hash before', async () => { const R = await import('./research.js?v=170'), h0 = await R.weightsHash(A.M()), ed = A.ed(), saved = ed.edits.slice(); ed.push({ kind: 'elem', target: { type: 'head', l: 0, i: 0 }, fn: 'scale', amt: 3 }); const h1 = await R.weightsHash(A.M()); await ed.setEditsAsync(saved); const h2 = await R.weightsHash(A.M()); return [h0 === h2 && h1 !== h0, `${h0.slice(0, 12)} → ${h1.slice(0, 12)} → ${h2.slice(0, 12)}`]; });
     $('clOut').innerHTML = `<table class="tsk-t"><tr><th>id</th><th>result</th><th>claim · would be refuted by · evidence now</th></tr>${rs.map((r) => row([r.id, r.ok ? '<span class="good">✔ holds</span>' : '<span class="warn">✖ refuted</span>', `${esc(r.claim)}<br><span class="sm">refuted if: ${esc(r.refute)}</span><br><code>${esc(r.ev)}</code>`])).join('')}</table>`;
     keep('claims', `${rs.filter((r) => r.ok).length}/${rs.length} claims hold`, { pass: rs.filter((r) => r.ok).length, total: rs.length }); return rs; };
   on('clGo', 'click', () => out.claims());

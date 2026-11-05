@@ -1,6 +1,7 @@
 // Signals for the Machine Room. The gadgets live in src/machine.
 import { createSignal } from 'solid-js';
-import { identityRam, runMachine, vecRam, type WmRun } from '../../../src/machine/machine.js';
+import { identityRam, vecRam, type WmRun } from '../../../src/machine/machine.js';
+import { legacy } from './bridge';
 
 export const WM_HELP = 'Each block is a weight gadget. The int32 reference is the ground truth. Voltage is simulated. Exact is a trace match, not a claim that the program was the right one.';
 
@@ -23,7 +24,9 @@ export function ramFor(id: string): number[] | null {
   return null;
 }
 
-export function launch(id: string, extra: { pipeline?: boolean; fault?: object | null } = {}): WmRun {
+export function launch(id: string, extra: { pipeline?: boolean; fault?: object | null } = {}): Promise<WmRun> {
+  const mf = legacy()?.mf;
+  if (!mf) return Promise.reject(new Error('machine worker is not ready'));
   const limit = id === 'memtest' || id === 'gpu-pattern' || id === 'tpu' ? 12000 : 8000;
-  return runMachine({ program: id, ram: ramFor(id), trace: true, limit, pipeline: extra.pipeline ?? wmPipe(), fault: extra.fault ?? null });
+  return mf.machine({ program: id, ram: ramFor(id), limit, pipeline: extra.pipeline ?? wmPipe(), fault: extra.fault ?? null }, (p) => { if (p.label) setWmBusy(p.label); }) as Promise<WmRun & { id: number }>;
 }
