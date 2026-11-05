@@ -5,6 +5,7 @@
 import { bars, lines, scatter } from './charts.js?v=170';
 import { $, esc, tipq } from './lab-ui.js?v=170';
 import { slice } from './coop.js?v=170';
+import { remoteEngine } from './trace-remote.js?v=170';
 import * as G from './frontier/grok.js?v=170';
 import * as C from './frontier/core.js?v=170';
 import * as M from './frontier/mind.js?v=170';
@@ -51,7 +52,10 @@ export function install(A, out) {
     $('fmP2o').innerHTML = kv([['median Hill n (trained / random-init)', `${f3(p2.medianN.trained)} / ${f3(p2.medianN.randomInit)}`], ['fits converged', `${p2.fitted.trained} / ${p2.fitted.randomInit} of ${p2.fitted.of}`], ['difference CI', ci(p2.H2b.diff)], ['H2a', yes(p2.H2a.pass)], ['H2b', yes(p2.H2b.pass)]]);
     const a = await data('p3a.json'), b = await data('p3b.json'); $('fmP3o').innerHTML = kv([['P3a held-out AUC (trained / random-init)', `${f3(a.trained.auc)} / ${f3(a.randomInit.auc)}`], ['H3a', yes(a.H3a.pass)], ...Object.entries(b.r2).map(([k, v]) => [`P3b R² ${k}`, f3(v.r2)]), ['self − 3M reader', ci(b.selfMinus3M)], ['self − 1M reader', ci(b.selfMinus1M)], ['symmetric (3M self − 8M reader)', ci(b.symmetric3M)], ['H3b', yes(b.H3b.pass)]]); return { p1, p2, a, b }; };
   out.pci = async () => { const tok = A.tok(), ids = tok.encode($('prompt')?.value || 'Once upon a time there was a little girl who loved to play in the park with her dog').slice(0, 32); if (ids.length < 12) throw new Error('prompt needs ≥ 12 tokens for the live PCI (kick at position 8)');
-    const W = A.M(), R = C.randomInit(W, 1), t = M.pci(W, ids, 100, 8), r = M.pci(R, ids, 100, 8); const s = `PCI trained ${f3(t.pci)} (active ${f3(t.active)}) · random-init ${f3(r.pci)} (active ${f3(r.active)}) · ${ids.length} tokens, 1 direction — a single sample, not the pre-registered test`; const el = $('fmLiveO'); if (el) el.textContent = s; return s; };
+    const re = remoteEngine(); let t, r;
+    if (re) { await re.sync('main', A.eng()); t = await re.pci('main', ids, { perturbSeed: 100, t0: 8 }); r = await re.pci('main', ids, { perturbSeed: 100, t0: 8, random: true, initSeed: 1 }); }
+    else { const W = A.M(), R = C.randomInit(W, 1); t = M.pci(W, ids, 100, 8); r = M.pci(R, ids, 100, 8); }
+    const s = `PCI trained ${f3(t.pci)} (active ${f3(t.active)}) · random-init ${f3(r.pci)} (active ${f3(r.active)}) · ${ids.length} tokens, 1 direction — a single sample, not the pre-registered test`; const el = $('fmLiveO'); if (el) el.textContent = s; return s; };
   out.rsi = async () => { const L = await data('rsi-loop.json'), lg = L.log; lines($('frCE'), [{ label: 'select CE', ys: lg.map((e) => e.select) }, { label: 'test CE (never used to decide)', ys: lg.map((e) => e.test), color: '#f59e0b' }], { xs: lg.map((e) => e.it), title: 'cross-entropy per iteration' });
     scatter($('frPar'), lg.map((e) => ({ x: e.editL2, y: e.select, label: `it ${e.it} · ${e.accepted || 'rejected'} · L2 ${f3(e.editL2)} · select ${f3(e.select)}` })), { title: 'Pareto view: edit size (L2 from original) vs select CE' });
     $('frOut').innerHTML = kv([['test CE change (after − before), doc bootstrap', ci(L.H4a.ci)], ['accepted', Object.entries(L.acceptCounts).map(([k, v]) => `${k === 'null' ? 'none' : k} ${v}`).join(' · ')], ['random control passed the gate', `${(100 * L.H4b.randomOkRate).toFixed(0)}% of iterations`], ['H4a', yes(L.H4a.pass)], ['H4b', yes(L.H4b.pass)]]);

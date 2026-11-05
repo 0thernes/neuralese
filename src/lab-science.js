@@ -11,6 +11,7 @@ import { svdYield } from './linalg.js?v=170';
 import { GPU, bench, cpuMatVec } from './gpu.js?v=170';
 import { ZOO, loadZoo, httpRange, weightDiff } from './zoo.js?v=170';
 import { cloneWeights } from './model.js?v=170';
+import { frame } from './coop.js?v=170';
 const P = (id) => `<div class="prog" id="${id}"><i></i></div>`;
 const docsN = (n, T = 24) => DSdocs(n, T); // shared dataset (built-in or user corpus)
 const pearson = (a, b) => { const n = a.length, ma = a.reduce((s, x) => s + x, 0) / n, mb = b.reduce((s, x) => s + x, 0) / n; let ab = 0, aa = 0, bb = 0; for (let i = 0; i < n; i++) { ab += (a[i] - ma) * (b[i] - mb); aa += (a[i] - ma) ** 2; bb += (b[i] - mb) ** 2; } return ab / Math.sqrt(aa * bb || 1); };
@@ -158,12 +159,13 @@ ${row('∂L/∂(θ̂) analytic vs finite-diff', `${fmt(g.dirDeriv, 6)} vs ${fmt(
     if (twoD) { A.showTab('v3d'); await out.mode('surface'); } return r; };
   on('l1', 'click', () => out.land(false)); on('l2', 'click', () => out.land(true));
   // ── 3D MODES ──
-  const pca3 = async (X) => { const d = X[0].length, n = X.length, mu = new Float64Array(d); for (const x of X) for (let i = 0; i < d; i++) mu[i] += x[i] / n; const Cv = new Float64Array(d * d); for (const x of X) for (let i = 0; i < d; i++) { const a = x[i] - mu[i]; for (let j = 0; j < d; j++) Cv[i * d + j] += a * (x[j] - mu[j]); }
-    const R = await svdYield(Cv, d, d), U = R.U.slice(0, 3); const pts = X.map((x) => U.map((u) => { let s = 0; for (let i = 0; i < d; i++) s += (x[i] - mu[i]) * u[i]; return s; })); const sc = 6 / Math.max(...pts.flat().map(Math.abs)); return pts.map((p) => p.map((v) => v * sc)); };
+  const pca3 = async (X) => { const d = X[0].length, mu = new Float64Array(d); for (const x of X) for (let i = 0; i < d; i++) mu[i] += x[i] / X.length; const Cv = new Float64Array(d * d);
+    for (let t = 0; t < X.length; t++) { const x = X[t]; for (let i = 0; i < d; i++) { const a = x[i] - mu[i]; for (let j = 0; j < d; j++) Cv[i * d + j] += a * (x[j] - mu[j]); } if ((t & 15) === 15) await frame(); }
+    const R = await svdYield(Cv, d, d), U = R.U.slice(0, 3); const pts = []; for (let t = 0; t < X.length; t++) { const x = X[t]; pts.push(U.map((u) => { let s = 0; for (let i = 0; i < d; i++) s += (x[i] - mu[i]) * u[i]; return s; })); if ((t & 31) === 31) await frame(); } const sc = 6 / Math.max(...pts.flat().map(Math.abs)); return pts.map((p) => p.map((v) => v * sc)); };
   out.mode = async (name) => { const W = M(); let data = {};
     if (name === 'field') { const l = node.key && MATK.includes(node.key) ? node.l : +$('mL').value, k = node.key && MATK.includes(node.key) ? node.key : $('mK').value, [rows, cols] = D.shapeOf(W, k); data = { a: W.layers[l][k], rows, cols, label: `L${l}.${k}` }; }
     else if (name === 'surface') { if (!cache.land || !cache.land.twoD) { $('lN').value = 9; await out.land(true); return A.viz.info3d; } data = cache.land; }
-    else if (name === 'manifold') { const reps = cache.reps || (cache.reps = await S.residuals(W, docsN(2, 32), 32)), per = Math.min(60, reps[0].length), X = reps.flatMap((r) => r.slice(0, per)); data = { pts: await pca3(X), layers: reps.length }; }
+    else if (name === 'manifold') { const reps = cache.reps || (cache.reps = await S.residuals(W, docsN(2, 32), 32)); await frame(); const per = Math.min(60, reps[0].length), X = reps.flatMap((r) => r.slice(0, per)); data = { pts: await pca3(X), layers: reps.length }; await frame(); }
     else if (name === 'attn') { const ids = tok().encode($('mP').value), Af = await G.forwardAsync(W, ids), l = +$('mL').value, h = +$('mH').value, T = ids.length; data = { att: Af.layers[l].att.slice(h * T * T, (h + 1) * T * T), T, labels: ids.map(tstr), layer: l, head: h }; }
     else if (name === 'circuit') { if (!cache.eig) await out.eigen(); if (!cache.comp) await out.comp(); data = { scores: cache.eig, comps: cache.comp }; }
     const r = A.viz.mode(name, data); $('mInfo').textContent = A.viz.info3d || r.mode; return A.viz.info3d || r.mode; };

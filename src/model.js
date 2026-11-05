@@ -37,6 +37,13 @@ export function copyWeightsInto(dst, src) {
   dst.wte.set(src.wte); dst.wpe.set(src.wpe); dst.lnfW.set(src.lnfW); dst.lnfB.set(src.lnfB);
   dst.layers.forEach((L, i) => { for (const k in L) L[k].set(src.layers[i][k]); });
 }
+export async function cloneWeightsYield(W) {
+  const alloc = async (a) => { const o = new Float32Array(a.length); if (a.length > 262144) await frame(); return o; };
+  const dst = { wte: await alloc(W.wte), wpe: await alloc(W.wpe), lnfW: await alloc(W.lnfW), lnfB: await alloc(W.lnfB), layers: [] };
+  for (const L of W.layers) { const o = {}; for (const k of Object.keys(L)) o[k] = await alloc(L[k]); dst.layers.push(o); if (dst.layers.length % 2 === 0) await frame(); }
+  await copyWeightsIntoYield(dst, W);
+  return dst;
+}
 export async function copyWeightsIntoYield(dst, src) {
   const put = async (d, s) => { const N = 262144; for (let i = 0; i < s.length; i += N) { d.set(s.subarray(i, Math.min(s.length, i + N)), i); if (s.length > N) await frame(); } };
   await put(dst.wte, src.wte); await put(dst.wpe, src.wpe); await put(dst.lnfW, src.lnfW); await put(dst.lnfB, src.lnfB);

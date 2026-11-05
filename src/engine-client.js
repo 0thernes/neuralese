@@ -64,6 +64,9 @@ export class RemoteEngine {
   walkForge(name, a, b, opts = {}) { return this.call({ op: 'walkForge', name, a, b, ...opts }); }
   walkVoltage(params) { return this.call({ op: 'walkVoltage', ...params }); }
   walkStudy(key, ids) { return this.call({ op: 'walkStudy', key, ids }); }
+  forwardOnce(key, ids) { return this.call({ op: 'forwardOnce', key, ids }); }
+  greedy(key, ids, n) { return this.call({ op: 'greedy', key, ids, n }); }
+  pci(key, ids, opts = {}) { return this.call({ op: 'pci', key, ids, ...opts }); }
   free(seqs) { return this.call({ op: 'free', sids: seqs.filter(Boolean).map((s) => s.sid) }); }
   terminate() { this.w.terminate(); }
 }

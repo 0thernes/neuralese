@@ -24,7 +24,7 @@ function dockStage(host: HTMLDivElement): () => void {
   if (!gl) return () => {};
   host.appendChild(gl);
   gl.classList.add('docked');
-  const fit = (): void => { window.dispatchEvent(new Event('resize')); };
+  const fit = (): void => { requestAnimationFrame(() => window.dispatchEvent(new Event('resize'))); };
   const ro = new ResizeObserver(fit);
   ro.observe(host);
   fit();

@@ -18,6 +18,8 @@ export interface LegacyApp {
   analyze(): Promise<void>;
   adversary?: AdversaryApi;
   eng?: { newSeq(n: number): object; step(seq: object, id: number, o?: { trace?: boolean }): { h: Float32Array }; logits(h: ArrayLike<number>): ArrayLike<number> };
+  hostForward?(): Promise<{ ms: number } | null>;
+  hostGreedy?(text: string, n: number): Promise<{ ids: number[] } | null>;
   deepWalk?(prompt: string, opts?: { token?: number | null; cap?: number; fault?: { site: string; layer: number; bit: number; mode: string; indices: number[] } | null; edited?: boolean }): Promise<WalkView>;
   deepCell?(opId: string, index: number, term?: number | null): Promise<WalkCell | null>;
   deepFault?(): Promise<FaultReport>;

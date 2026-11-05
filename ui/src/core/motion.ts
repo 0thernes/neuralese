@@ -16,6 +16,9 @@ export function viewTransition(cb: () => void): void {
   // navigation immediately; the transition call only animates and must not own the state.
   cb();
   const d = document as VTDoc; if (!d.startViewTransition || reducedMotion()) return;
+  // The legacy panes stay in the document. Snapshotting that tree is a long task, and the
+  // shell already animates the incoming panel. Skip the capture once the page is large.
+  if (document.body.classList.contains('v17-on') && document.getElementsByTagName('*').length > 1500) return;
   let vt: VT;
   try { vt = d.startViewTransition(() => {}); } catch { return; }
   const quiet = (): void => { /* a newer transition superseded this one */ };

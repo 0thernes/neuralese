@@ -53,7 +53,8 @@ function Program(): JSX.Element {
     if (!lg?.eng || !lg.tok) { setForgeHost('Demo mode: the host model is not loaded. The scripted line is not a model sample.'); void execute(forgeSource(), scriptedPrompt('sum of 22 copies of 35')); return; }
     setForgeBusy('sampling 8 greedy tokens from the loaded model…');
     try {
-      const s = greedyTokens(lg.eng, lg.tok, 'Sum 22 copies of 35.', 8);
+      const remote = await lg.hostGreedy?.('Sum 22 copies of 35.', 8);
+      const s = remote?.ids ? { tokens: remote.ids.map((id) => lg.tok!.tokenStr(id)), note: 'greedy TinyStories sample. This model is not trained to emit NestLang. The editor program is the one that is checked and clocked.' } : greedyTokens(lg.eng, lg.tok, 'Sum 22 copies of 35.', 8);
       setForgeHost(s.note + ' Tokens: ' + (s.tokens.join(' ') || '(none)'));
       await execute(forgeSource(), [...s.tokens, '⟦forge⟧']);
     } catch (e) { setForgeBusy(''); setForgeErr((e as Error).message); }
@@ -85,6 +86,8 @@ function Cpu(): JSX.Element {
     if (n) setForgeCursor(Math.min(forgeCursor() + 1, n - 1));
     const lg = legacy();
     if (!lg?.eng || !lg.tok) { setForgeClockMs(null); return; }
+    const remote = lg.hostForward?.();
+    if (remote) { void remote.then((r) => { if (r) setForgeClockMs(r.ms); else setForgeClockMs(forwardOnce(lg.eng!, lg.tok!).ms); }).catch((e: Error) => setForgeErr(e.message)); return; }
     try { setForgeClockMs(forwardOnce(lg.eng, lg.tok).ms); } catch (e) { setForgeErr((e as Error).message); }
   };
   return <>
