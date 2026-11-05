@@ -94,4 +94,18 @@ One `npx playwright test`, workers 1, on https://0thernes.github.io/neuralese/pr
 
 The run did not pass. Application-script max is about half of pass 19 (1348 / 1170 / 1086 ms, down from 2424 / 2353 / 2199 ms) and is still over 200 ms. p95 of frames with application script ≥ 50 ms is still about 1 s. On mobile and tablet the longest script is still an anonymous `TimerHandler:setTimeout` labeled Measure a small batch (1348 ms and 1170 ms). Desktop's longest is the same kind of timer labeled clGo (1086 ms), with Measure at 1022 ms in that run's top. Layout and pause inside those scripts were 0. Axe stayed clean and there were no console errors. fmLive, Clock one, Bible, Index, and terminal Run are no longer the top names. MoE-in-MoE, camera presets, csv, and png still appear above 200 ms.
 
+| Pass | Area | Found | Fixed | What |
+|---|---|---|---|---|
+| 21 | Main thread | 8 | 6 | Empty-URL `setTimeout` entries were mapped with `sourceURL`, `sourceFunctionName`, `sourceCharPosition`, `invoker`, a yield stack, and a mark around each click. The long continuations were `exportFor`, `embedGram`, `fsdist` / `qgMetric`, the WeightWatcher SVD, composition precompute, SVD drop/scale, quantize, `evalSuite`'s unembedding, nearest-token search, and the hub test-card readback. Those yield or run in a worker. The table is `test/e2e/attribution.md`. |
+
+One `npx playwright test`, workers 1, on https://0thernes.github.io/neuralese/preview/?notour (commit `b1704d0`, 5 Nov 2026). Same gate. Root site still `2527d67`. No tag and no release.
+
+| Width | Clicked | Disabled | Console errors | Axe serious/critical | Cosmos | `#gl` | Raw max | Raw p95 | Paint/GL max | App max | App p95 | Worst application script |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Mobile 390×844 | 514 | 9 | 0 | none | 390×658 | 390×478 | 701 ms | 428 ms | 701 ms | 418 ms | 418 ms | `learn.js` `import.then` |
+| Tablet 768×1024 | 489 | 9 | 0 | none | 388×426 | 373×572 | 1342 ms | 539 ms | 1342 ms | 286 ms | 286 ms | `Response.arrayBuffer.then` @clGo |
+| Desktop 1440×900 | 514 | 9 | 0 | none | 737×369 | 709×490 | 1049 ms | 460 ms | 1049 ms | 319 ms | 319 ms | `TimerHandler:setTimeout` @Neuron Lens |
+
+The run did not pass. Application-script max is 418 / 286 / 319 ms, down from 1348 / 1170 / 1086 ms. p95 equals that max because only 13–16 frames have application script ≥ 50 ms, and `ceil(0.95*n)-1` is the last index when n is under 20. Mobile's 418 ms script is evaluating `learn/learn.js` (`import.then`), and that frame has no GL callback, so it stays in the app column. Tablet's 286 ms script is a fetch body continuation labeled clGo. Desktop's 319 ms script is an empty-URL `setTimeout` labeled Neuron Lens. Axe stayed clean and there were no console errors.
+
 Edge-level ACDC, MEMIT, UMAP, and t-SNE were never shipped tabs. The 43 P0 cards are not implemented. Electron and Capacitor release builds were not packed here. `contextIsolation` is already on in `desktop/main.cjs`.

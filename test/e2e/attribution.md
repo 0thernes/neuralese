@@ -41,3 +41,15 @@ App scripts still at or over 100ms in that run:
 | 198 | `Response.arrayBuffer.then` | fxGo | Fetch body continuation. Source URL `index.html`, no function name. |
 
 Everything else in that run was under 100ms (audio start 94ms, weight snapshot 74ms).
+
+## Preview, three widths
+
+One `npx playwright test`, workers 1, on https://0thernes.github.io/neuralese/preview/?notour at commit `b1704d0`. Same gate. Root site still `2527d67`.
+
+| Width | Clicked | Disabled | Console | Axe | Cosmos | #gl | Raw max | Raw p95 | Paint/GL max | App max | App p95 | Worst |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 390×844 | 514 | 9 | 0 | none | 390×658 | 390×478 | 701 | 428 | 701 | 418 | 418 | `learn.js` `import.then` 418 ms |
+| 768×1024 | 489 | 9 | 0 | none | 388×426 | 373×572 | 1342 | 539 | 1342 | 286 | 286 | `Response.arrayBuffer.then` labeled clGo, 286 ms |
+| 1440×900 | 514 | 9 | 0 | none | 737×369 | 709×490 | 1049 | 460 | 1049 | 319 | 319 | `TimerHandler:setTimeout` labeled Neuron Lens, 319 ms |
+
+The run did not pass. With 13–16 frames of application script ≥ 50 ms, p95 is the max. The mobile 418 ms script is the learning-center module evaluation (`learn/learn.js` `import.then`), which is not a paint frame because that frame has no GL callback. Tablet's 286 ms script is a fetch body continuation recorded while clGo was the label. Desktop's 319 ms script is an empty-URL `setTimeout` recorded while the Neuron Lens quick button was the label; the handler window also matched the export listener.
