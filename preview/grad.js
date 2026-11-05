@@ -3,7 +3,7 @@
 // Computes gradients w.r.t. activations at every hook site and (optionally) every weight. Runtime interventions are NOT
 // applied here: gradients describe the current weight set M with the default forward pass.
 import { CFG } from './model.js?v=170';
-import { slice } from './coop.js?v=170';
+import { slice, frame } from './coop.js?v=170';
 function pause() { return typeof document === 'undefined' ? null : slice(); }
 export const dims = (W) => W.cfg || CFG;
 const GC = 0.7978845608028654, GA = 0.044715;
@@ -67,7 +67,7 @@ export async function forwardAsync(W, ids, o = {}) { const { d, H, hd, ff } = di
       for (let j = lo; j <= t; j++) { let s = 0; for (let i = 0; i < hd; i++) s += C.q[t * d + off + i] * C.k[j * d + off + i]; C.att[row + j] = s; if (s > mx) mx = s; }
       let sum = 0; for (let j = lo; j <= t; j++) { const e = Math.exp(C.att[row + j] - mx); C.att[row + j] = e; sum += e; }
       for (let j = lo; j <= t; j++) { const a = (C.att[row + j] /= sum); for (let i = 0; i < hd; i++) Z[t * d + off + i] += a * C.v[j * d + off + i]; } }
-      if ((h & 3) === 3) { const y = pause(); if (y) await y; } }
+      if ((h & 3) === 3) { if (typeof document !== 'undefined') await frame(); else { const y = pause(); if (y) await y; } } }
     if (o.patch) o.patch('z', l, Z); C.z = Z;
     const AO = mm(Z, T, P.o, d, d, P.ob); if (o.patch) o.patch('attn_out', l, AO); for (let i = 0; i < X.length; i++) X[i] += AO[i];
     { const y = pause(); if (y) await y; }

@@ -40,7 +40,7 @@ export async function acdcAsync(W, clean, corr, obj, tau = 0.02, onp = () => {})
   const Ac = await corruptRunAsync(W, corr), mClean = objective(W, await forwardAsync(W, clean), obj).value, mCorr = objective(W, Ac, obj).value, gap = mClean - mCorr;
   if (Math.abs(gap) < 1e-6) throw new Error('clean and corrupt metric are identical — nothing to explain');
   const nodes = nodeList(W), pruned = new Set(); let cur = mClean, evals = 2; const order = [...nodes].reverse();
-  for (let k = 0; k < order.length; k++) { const n = order[k]; pruned.add(n); const m = await runCorruptedAsync(W, clean, Ac, pruned, obj); evals++; if (Math.abs(m - cur) / Math.abs(gap) < tau) cur = m; else pruned.delete(n); onp((k + 1) / order.length); }
+  for (let k = 0; k < order.length; k++) { const n = order[k]; pruned.add(n); const m = await runCorruptedAsync(W, clean, Ac, pruned, obj); evals++; if (Math.abs(m - cur) / Math.abs(gap) < tau) cur = m; else pruned.delete(n); onp((k + 1) / order.length); await frame(); }
   const circuit = nodes.filter((n) => !pruned.has(n));
   return { circuit: circuit.map((n) => n.id), nPruned: pruned.size, nNodes: nodes.length, mClean, mCorr, mCircuit: cur, faithfulness: (cur - mCorr) / gap, evals, tau };
 }

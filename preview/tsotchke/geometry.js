@@ -7,6 +7,7 @@
 // (e.g. Amari & Nagaoka 2000; Bengtsson & Życzkowski 2006); the fidelity itself is computed by Moonlab's WASM simulator.
 export const SOURCE = { qgtl: { repo: 'tsotchke/quantum_geometric_tensor', commit: '770994aa8ddd858e6bb16eebb25250a7b9f67c96' }, moonlab: { repo: 'tsotchke/moonlab', npm: '@tsotchkecorp/moonlab@1.2.1', commit: 'cd3b2347e3739327548708073d7e4ac710cc6a6c' } };
 import { wasmBytes } from './wasmb64.js?v=170';
+import { frame } from '../coop.js?v=170';
 export const NQ = 16, NA = 1 << NQ;
 export function softmax(l) { let m = -Infinity; for (const x of l) if (x > m) m = x; const p = new Float64Array(l.length); let s = 0; for (let i = 0; i < l.length; i++) { p[i] = Math.exp(l[i] - m); s += p[i]; } for (let i = 0; i < l.length; i++) p[i] /= s; return p; }
 export const bhatt = (p, q) => { let s = 0; for (let i = 0; i < p.length; i++) s += Math.sqrt(p[i] * q[i]); return s; };
@@ -23,8 +24,9 @@ export async function moonlab() { if (ML) return ML; const mod = await import('.
     const F = window.MoonlabModule; if (!F.__neuralese) { window.MoonlabModule = Object.assign((cfg = {}) => F({ ...cfg, wasmBinary: bytes }), { __neuralese: true }); } await mod.preload({ jsPath: js }); }
   else await mod.preload(); ML = mod; return mod; }
 const amps = (p) => { const a = new Array(NA); for (let i = 0; i < NA; i++) a[i] = { real: i < p.length ? Math.sqrt(p[i]) : 0, imag: 0 }; return a; };
+async function ampsReady(p) { if (typeof document === 'undefined') return amps(p); const a = new Array(NA); for (let i = 0; i < NA; i++) { a[i] = { real: i < p.length ? Math.sqrt(p[i]) : 0, imag: 0 }; if ((i & 2047) === 2047) await frame(); } return a; }
 // Fidelity |⟨√p|√q⟩|² computed by Moonlab (QuantumState.fidelity on two 16-qubit states).
-export async function moonlabFidelity(p, q) { const M = await moonlab(); const A = await M.QuantumState.create({ numQubits: NQ, amplitudes: amps(p) }), B = await M.QuantumState.create({ numQubits: NQ, amplitudes: amps(q) }); try { return A.fidelity(B); } finally { A.dispose(); B.dispose(); } }
+export async function moonlabFidelity(p, q) { const M = await moonlab(); const A = await M.QuantumState.create({ numQubits: NQ, amplitudes: await ampsReady(p) }), B = await M.QuantumState.create({ numQubits: NQ, amplitudes: await ampsReady(q) }); try { return A.fidelity(B); } finally { A.dispose(); B.dispose(); } }
 export const fsFromFidelity = (F) => Math.acos(Math.min(1, Math.sqrt(Math.max(0, F))));
 // Chern number of the Qi–Wu–Zhang model, lower band, by the Fukui–Hatsugai–Suzuki lattice method (independent JS),
 // used only to cross-check Moonlab's qwzChern (Berry-curvature machinery), H(k) = sin kx σx + sin ky σy + (m + cos kx + cos ky) σz.

@@ -26,7 +26,7 @@ export async function exportFor(id, kind) {
   const el = $(id); if (!el) return false; const name = `neuralese-${id}-${Date.now()}`;
   const dl = (blob, ext) => { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${name}.${ext}`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); };
   if (kind === 'png') { if (el.tagName !== 'CANVAS') return false; await new Promise((resolve) => requestAnimationFrame(() => { el.toBlob((b) => { if (b) dl(b, 'png'); resolve(); }); })); return true; }
-  if (kind === 'svg') { const s = el.tagName === 'svg' ? el : el.querySelector('svg'); if (!s) return false; dl(new Blob([new XMLSerializer().serializeToString(s)], { type: 'image/svg+xml' }), 'svg'); return true; }
+  if (kind === 'svg') { const s = el.tagName === 'svg' ? el : el.querySelector('svg'); if (!s) return false; const parts = [s.cloneNode(false).outerHTML.replace(/<\/[^>]+>$/, '')]; const kids = [...s.childNodes]; for (let i = 0; i < kids.length; i++) { parts.push(kids[i].nodeType === 1 ? kids[i].outerHTML : (kids[i].textContent || '')); if ((i & 7) === 7) await tick(); } parts.push(`</${s.tagName}>`); dl(new Blob(parts, { type: 'image/svg+xml' }), 'svg'); return true; }
   if (kind === 'csv') { const c = el._csv ? await el._csv() : null; if (!c || (Array.isArray(c) && !c.length)) return false; await tick(); dl(new Blob(Array.isArray(c) ? c : [c], { type: 'text/csv' }), 'csv'); return true; }
   return false;
 }

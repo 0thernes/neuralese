@@ -17,12 +17,8 @@ export const markup = {
 export function install(A) {
   const S = {};
   async function load() { if (S.Z) return; $('nxInfo').textContent = 'fetching…';
-    const ix = await (await fetch('nested/slm/models.index.json')).json();
-    const url = 'nested/slm/models.f32', first = await fetch(url, { headers: { Range: 'bytes=0-65535' } });
-    const len = +(/\//.exec(first.headers.get('content-range') || '') ? first.headers.get('content-range').split('/')[1] : first.headers.get('content-length'));
-    const b = new Uint8Array(len); const take = async (res, at) => { const u = new Uint8Array(await res.arrayBuffer()); b.set(u, at); await tick(); };
-    await take(first, 0);
-    for (let a = 65536; a < len; a += 65536) { const end = Math.min(len, a + 65536) - 1; await take(await fetch(url, { headers: { Range: `bytes=${a}-${end}` } }), a); }
+    const ix = await (await fetch('nested/slm/models.index.json')).json(); await tick();
+    const b = await new Promise((resolve, reject) => { const w = new Worker(URL.createObjectURL(new Blob(['onmessage=async(e)=>{try{const buf=await(await fetch(e.data.url)).arrayBuffer();postMessage(buf,[buf]);}catch(err){postMessage({err:String(err&&err.message||err)});} }'], { type: 'application/javascript' }))); w.onmessage = (e) => { w.terminate(); e.data && e.data.err ? reject(new Error(e.data.err)) : resolve(new Uint8Array(e.data)); }; w.onerror = (e) => { w.terminate(); reject(new Error(e.message || 'weight fetch failed')); }; w.postMessage({ url: new URL('nested/slm/models.f32', location.href).href }); }); await tick();
     const h = [...new Uint8Array(await crypto.subtle.digest('SHA-256', b))].map((x) => x.toString(16).padStart(2, '0')).join(''); if (h !== ix.sha256) throw new Error('models.f32 sha256 mismatch'); await tick();
     S.Z = N.loadNested(ix, new Float32Array(b.buffer)); await tick(); S.lens = await (await fetch('nested/slm/lens.json')).json(); await tick(); S.res = await (await fetch('nested/v14x-nested.json')).json(); await tick();
     const r = S.res, row = (k, x) => `<tr><td>${k}</td><td>${x.n}</td><td>${fmt(x['R.out'].medianR)}</td><td>${fmt(x['R.out'].passRate)} [${x['R.out'].passCI.map((v) => v.toFixed(3)).join(', ')}]</td><td>${fmt(x.logit.medianR)}</td><td>${fmt(x.logit.passRate)}</td><td>${x['R.out'].pass ? '✓' : '✗'}</td></tr>`;
