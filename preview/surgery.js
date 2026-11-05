@@ -1,7 +1,7 @@
 // Weight surgery: a replayable list of edit ops applied to a fresh copy of the original weights.
 import { CFG, copyWeightsInto, copyWeightsIntoYield, mulberry32, gauss } from './model.js?v=170';
 import { frame } from './coop.js?v=170';
-import { svd, svdReconstruct } from './linalg.js?v=170';
+import { svd, svdReconstruct, svdYield } from './linalg.js?v=170';
 import { resolve, fromPath } from './drill.js?v=170';
 const { d, ff, L } = CFG;
 export const MATS = ['q', 'k', 'v', 'o', 'fc', 'proj'];
@@ -25,6 +25,16 @@ export class Editor {
   constructor(orig, mod) { this.orig = orig; this.mod = mod; this.edits = []; this.std = new Map(); this.svdCache = new Map(); this.nextId = 1; this.onRebuild = null; }
   sd(a) { if (!this.std.has(a)) this.std.set(a, tensorStd(a)); return this.std.get(a); }
   push(e) { e.id = e.id || this.nextId++; this.nextId = Math.max(this.nextId, e.id + 1); this.edits.push(e); this.apply(e); bump(this.mod); this.onRebuild && this.onRebuild(); return e; }
+  async pushAsync(e) { e.id = e.id || this.nextId++; this.nextId = Math.max(this.nextId, e.id + 1); this.edits.push(e); if (e.kind === 'chaos') await this.chaosAsync(e); else if (e.kind === 'svd') await this.svdAsync(e); else this.apply(e); bump(this.mod); this.onRebuild && this.onRebuild(); return e; }
+  async chaosAsync(e) { const W = this.mod, O = this.orig, rng = mulberry32((e.seed ?? e.id) * 7919 + 1), s = (e.pct / 100) ** 1.6 * 1.2;
+    for (let l = 0; l < W.layers.length; l++) { const P = W.layers[l]; for (const k of MATS) { const a = P[k], sd = this.sd(O.layers[l][k]) * s; for (let i = 0; i < a.length; i++) a[i] += sd * gauss(rng); await frame(); } } }
+  async svdAsync(e) { const { a, rows, cols } = getMat(this.mod, e.path); const R = await svdYield(a, rows, cols); const S2 = Float64Array.from(R.S);
+    for (let k = 0; k < S2.length; k++) { if (e.mode === 'topk' && k >= e.k) S2[k] = 0; if (e.mode === 'drop' && k >= e.from && k <= e.to) S2[k] = 0; if (e.mode === 'scale' && k >= e.from && k <= e.to) S2[k] *= e.factor; if (e.mode === 'flatten' && k < e.k) S2[k] = R.S[0] ? R.S.slice(0, e.k).reduce((x, y) => x + y, 0) / e.k : 0; }
+    a.fill(0);
+    for (let k = 0; k < S2.length; k++) { const s = S2[k]; if (!s) continue; const u = R.U[k], v = R.V[k];
+      for (let i = 0; i < rows; i++) { const us = u[i] * s; if (!us) continue; const o = i * cols; for (let j = 0; j < cols; j++) a[o + j] += us * v[j]; }
+      if ((k & 3) === 3) await frame(); }
+    e._err = null; }
   setEdits(list) { this.edits = list; this.nextId = list.reduce((a, e) => Math.max(a, e.id + 1), 1); this.rebuild(); }
   rebuild() { copyWeightsInto(this.mod, this.orig); for (const e of this.edits) this.apply(e); bump(this.mod); this.onRebuild && this.onRebuild(); }
   async rebuildAsync() { await copyWeightsIntoYield(this.mod, this.orig); for (const e of this.edits) this.apply(e); bump(this.mod); this.onRebuild && this.onRebuild(); }

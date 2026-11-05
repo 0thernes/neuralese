@@ -76,7 +76,7 @@ export async function embedGram(W) {
   const { d, V } = dims(W); const E = new Float64Array(d * d);
   for (let t = 0; t < V; t++) {
     const o = t * d; for (let i = 0; i < d; i++) { const a = W.wte[o + i]; if (!a) continue; for (let j = i; j < d; j++) E[i * d + j] += a * W.wte[o + j]; }
-    if ((t & 511) === 511) { const y = breath(); if (y) await y; }
+    if ((t & 31) === 31) { const y = breath(); if (y) await y; }
   }
   for (let i = 0; i < d; i++) for (let j = 0; j < i; j++) E[i * d + j] = E[j * d + i];
   return E;
@@ -102,8 +102,10 @@ export async function headEigenScores(W, E) {
 export async function compositionScores(W) { const { d, H, hd } = dims(W);
   const L = W.layers.length, F = []; for (let l = 0; l < L; l++) for (let h = 0; h < H; h++) { const P = W.layers[l]; F.push({ l, h, Q: Qh(P, h, d, hd), K: Kh(P, h, d, hd), V: Vh(P, h, d, hd), O: Oh(P, h, d, hd) }); }
   const G = (A, n, k) => mul(A, tr(A, n, k), n, k, n);    // A Aᵀ
-  const pre = F.map((f) => { const VVt = G(f.V, hd, d), OtO = mul(tr(f.O, d, hd), f.O, hd, d, hd), QQt = G(f.Q, hd, d), KKt = G(f.K, hd, d);
-    return { ...f, VVt, OtO, QQt, KKt, ovN: Math.sqrt(Math.max(0, trace(mul(OtO, VVt, hd, hd, hd), hd))), qkN: Math.sqrt(Math.max(0, trace(mul(QQt, KKt, hd, hd, hd), hd))) }; });
+  const pre = [];
+  for (const f of F) { const VVt = G(f.V, hd, d), OtO = mul(tr(f.O, d, hd), f.O, hd, d, hd), QQt = G(f.Q, hd, d), KKt = G(f.K, hd, d);
+    pre.push({ ...f, VVt, OtO, QQt, KKt, ovN: Math.sqrt(Math.max(0, trace(mul(OtO, VVt, hd, hd, hd), hd))), qkN: Math.sqrt(Math.max(0, trace(mul(QQt, KKt, hd, hd, hd), hd))) });
+    const y = breath(); if (y) await y; }
   const res = { Q: [], K: [], V: [] };
   // explicit (clear) implementation
   for (let i = 0; i < pre.length; i++) for (let j = 0; j < pre.length; j++) { const a = pre[i], b = pre[j]; if (b.l <= a.l) continue;

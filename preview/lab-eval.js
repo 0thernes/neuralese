@@ -45,7 +45,7 @@ export function install(A, out) {
     A.logRun({ kind: 'impact', label: `impact "${$('xIP').value.slice(0, 24)}"`, metrics: { final_kl: r.finalKL, tv: r.tv, max_layer_kl: Math.max(...r.perLayer), edits: A.ed().edits.length } }); return r; };
   on('xI', 'click', () => out.impact());
 
-  out.prof = (n0) => { const ids = A.tok().encode('Once upon a time, there was a little girl named Lily. She loved to play outside in the sun with her friends every day.').slice(0, Math.max(2, Math.min(64, +(n0 ?? $('xPN').value) || 24))), pr = C.profile(A.eng(), ids);
+  out.prof = async (n0) => { const ids = A.tok().encode('Once upon a time, there was a little girl named Lily. She loved to play outside in the sun with her friends every day.').slice(0, Math.max(2, Math.min(64, +(n0 ?? $('xPN').value) || 24))), pr = await C.profileAsync(A.eng(), ids);
     const ops = Object.keys(pr.agg), col = Object.fromEntries(ops.map((o, i) => [o, PAL[i % 8]])), cvs = $('xPFl'), rh = 8, hh = pr.rows.length * rh + 24, [c, w] = canvasFit(cvs, hh); c.fillStyle = chartBg(); c.fillRect(0, 0, w, hh);
     const mx = Math.max(...pr.rows.map((r) => r.total)); pr.rows.forEach((r, i) => r.seg.forEach((s) => { c.fillStyle = col[s.op]; c.fillRect((s.start / mx) * (w - 4), i * rh, Math.max(1, (s.ms / mx) * (w - 4)), rh - 1); }));
     c.font = '9px monospace'; let x = 2; for (const o of ops) { c.fillStyle = col[o]; c.fillRect(x, hh - 12, 8, 8); c.fillStyle = '#94a3b8'; c.fillText(o, x + 10, hh - 4); x += c.measureText(o).width + 18; }

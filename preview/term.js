@@ -93,7 +93,7 @@ export function makeTerminal(A, out) {
       case 'attn': A.showTab('attn'); out.attn(); return 'attention rendered';
       case 'circuit': { A.showTab('circuit'); const r = out.circuit(); return `${r.nodes.length} nodes, ${r.edges.length} edges, target id ${r.tgt}`; }
       case 'neurons': { A.showTab('neurons'); const r = await out.neurons(layer(a[0]), a[1] ? num(a[1], 'N', 32, 2000) : 300); const top = [...r.neurons].sort((p, q) => q.max - p.max).slice(0, 5); return top.map((n) => `N${n.n} max ${n.max.toFixed(2)} freq ${(100 * n.freq).toFixed(1)}% poly ${n.poly.toFixed(2)}`).join('\n'); }
-      case 'nn': { const r = out.embed(' ' + rest.replace(/^\s+/, '')); return r.map(([i, s]) => `${JSON.stringify(A.tok().tokenStr(i))} ${s.toFixed(3)}`).join('\n'); }
+      case 'nn': { const r = await out.embed(' ' + rest.replace(/^\s+/, '')); return r.map(([i, s]) => `${JSON.stringify(A.tok().tokenStr(i))} ${s.toFixed(3)}`).join('\n'); }
       case 'spectrum': { const l = layer(a[0]); if (!MATS_OK.includes(a[1])) throw new Error('mat: ' + MATS_OK.join('|')); const s = out.weights(l, a[1], ''); return `σ1 ${s.spectralNorm.toFixed(3)} · stable rank ${s.stableRank.toFixed(2)} · eff rank ${s.effRank.toFixed(1)} · α ${s.alpha.toFixed(2)} (KS ${s.ks.toFixed(3)})`; }
       case 'ww': { const r = await out.ww(); return r.map((x) => `${x[0].padEnd(8)} α ${x[3].toFixed(2)}`).join('\n'); }
       case 'sweep': { const r = await out.sweep({ p: a[0], from: num(a[1], 'from'), to: num(a[2], 'to'), steps: a[3] ? num(a[3], 'steps', 2, 25) : 5, arg: a[4] || '', corpus: 32 }); return r.map((x) => `${a[0]}=${x.v.toFixed(3)}  ppl ${x.ppl.toFixed(3)}  KL ${x.kl.toExponential(2)}  p(target) ${x.pt.toFixed(4)}`).join('\n'); }

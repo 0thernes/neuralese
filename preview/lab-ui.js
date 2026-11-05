@@ -22,11 +22,12 @@ export function parseLayers(s) { const out = new Set(); for (const p of String(s
 export function canvasFit(cvs, h) { const w = cvs.clientWidth || 420; cvs.width = w * devicePixelRatio; cvs.height = h * devicePixelRatio; cvs.style.height = h + 'px'; const c = cvs.getContext('2d'); c.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0); return [c, w]; }
 export const chartBg = () => getComputedStyle(document.documentElement).getPropertyValue('--chart-bg').trim() || '#060a12';
 export async function exportFor(id, kind) {
+  await tick();
   const el = $(id); if (!el) return false; const name = `neuralese-${id}-${Date.now()}`;
   const dl = (blob, ext) => { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${name}.${ext}`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); };
-  if (kind === 'png') { if (el.tagName !== 'CANVAS') return false; el.toBlob((b) => b && dl(b, 'png')); return true; }
+  if (kind === 'png') { if (el.tagName !== 'CANVAS') return false; await new Promise((resolve) => requestAnimationFrame(() => { el.toBlob((b) => { if (b) dl(b, 'png'); resolve(); }); })); return true; }
   if (kind === 'svg') { const s = el.tagName === 'svg' ? el : el.querySelector('svg'); if (!s) return false; dl(new Blob([new XMLSerializer().serializeToString(s)], { type: 'image/svg+xml' }), 'svg'); return true; }
-  if (kind === 'csv') { const c = el._csv ? await el._csv() : null; if (!c) return false; await tick(); dl(new Blob([c], { type: 'text/csv' }), 'csv'); return true; }
+  if (kind === 'csv') { const c = el._csv ? await el._csv() : null; if (!c || (Array.isArray(c) && !c.length)) return false; await tick(); dl(new Blob(Array.isArray(c) ? c : [c], { type: 'text/csv' }), 'csv'); return true; }
   return false;
 }
 const RKEY = 'neuralese.runs.v5';

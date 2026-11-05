@@ -40,6 +40,13 @@ export function lnfLogitLine(W, xPre, t, v) { const d = W.lnfW.length, V = W.wte
   let mu = 0; for (let i = 0; i < d; i++) mu += xPre[t * d + i]; mu /= d; let va = 0; for (let i = 0; i < d; i++) va += (xPre[t * d + i] - mu) ** 2; va /= d; const r = 1 / Math.sqrt(va + eps);
   for (let i = 0; i < d; i++) { n[i] = (xPre[t * d + i] - mu) * r; y0[i] = n[i] * W.lnfW[i] + W.lnfB[i]; y1[i] = n[i] * v[i]; }
   const a = new Float64Array(V), b = new Float64Array(V); for (let o = 0; o < V; o++) { let s0 = 0, s1 = 0; const off = o * d; for (let i = 0; i < d; i++) { s0 += W.wte[off + i] * y0[i]; s1 += W.wte[off + i] * y1[i]; } a[o] = s0; b[o] = s1; } return { a, b }; }
+// Same line, yielding every 1024 rows so the unembedding matvec is not one long frame.
+export async function lnfLogitLineAsync(W, xPre, t, v, pause) { const d = W.lnfW.length, V = W.wte.length / d, eps = 1e-5, n = new Float64Array(d), y0 = new Float64Array(d), y1 = new Float64Array(d);
+  let mu = 0; for (let i = 0; i < d; i++) mu += xPre[t * d + i]; mu /= d; let va = 0; for (let i = 0; i < d; i++) va += (xPre[t * d + i] - mu) ** 2; va /= d; const r = 1 / Math.sqrt(va + eps);
+  for (let i = 0; i < d; i++) { n[i] = (xPre[t * d + i] - mu) * r; y0[i] = n[i] * W.lnfW[i] + W.lnfB[i]; y1[i] = n[i] * v[i]; }
+  const a = new Float64Array(V), b = new Float64Array(V);
+  for (let o = 0; o < V; o++) { let s0 = 0, s1 = 0; const off = o * d; for (let i = 0; i < d; i++) { s0 += W.wte[off + i] * y0[i]; s1 += W.wte[off + i] * y1[i]; } a[o] = s0; b[o] = s1; if ((o & 1023) === 1023 && pause) await pause(); }
+  return { a, b }; }
 // Mean (over predicted positions) Fisher information along v. Prediction checked in tests: equals g''(0) of the mean CE,
 // i.e. 2·c₂ of the Eshkol-recurrence Taylor jet, and 4× the Fubini–Study metric measured from Moonlab fidelities.
 export function fisherLnf(W, xPre, ids, v) { let s = 0; for (let t = 0; t < ids.length - 1; t++) { const { a, b } = lnfLogitLine(W, xPre, t, v); s += fisherDir(softmax(a), b); } return s / (ids.length - 1); }

@@ -10,7 +10,7 @@ import { Editor, MATS, getMat, toSafetensorsYield, quantize } from './surgery.js
 import { defaultDecode, applyPenalties, filterDist, pick, contrastiveLogits, cfgLogits, beamSearch } from './decode.js?v=170';
 import { SAE } from './sae.js?v=170';
 import { computeRome, findSubject } from './rome.js?v=170';
-import { slice, cancelJobs, resetCancel, frame } from './coop.js?v=170';
+import { slice, cancelJobs, resetCancel, frame, namedFrame } from './coop.js?v=170';
 import * as mf from './mf-client.js?v=170';
 mf.ping().catch(() => {});
 import { svdYield } from './linalg.js?v=170';
@@ -33,7 +33,7 @@ const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&l
 const toast = (m, bad) => { const t = $('toast'); t.textContent = m; t.style.borderColor = bad ? '#f87171' : ''; t.classList.toggle('bad', !!bad); t.style.display = 'block'; clearTimeout(toast.h); toast.h = setTimeout(() => (t.style.display = 'none'), bad ? 6000 : 2500); };
 // Yield once so the busy state paints and so a click returns to the event loop before a long compute.
 // Caught failures are shown in the toast. They are warnings: an uncaught exception is still an error.
-const guard = (fn) => async (...a) => { const el = a[0]?.currentTarget; U152.busy(el, true); await tick(); try { await fn(...a); U152.panelNote(el, ''); } catch (e) { console.warn(e); toast('✖ ' + (e && e.message ? e.message : e), true); U152.panelNote(el, e && e.message ? e.message : String(e)); } finally { U152.busy(el, false); } };
+const guard = (fn) => async (...a) => { const el = a[0]?.currentTarget; U152.busy(el, true); await namedFrame(fn.name || String(fn).replace(/\s+/g, ' ').slice(0, 160)); if (typeof globalThis.__handler === 'function') globalThis.__handler(fn); try { await fn(...a); U152.panelNote(el, ''); } catch (e) { console.warn(e); toast('✖ ' + (e && e.message ? e.message : e), true); U152.panelNote(el, e && e.message ? e.message : String(e)); } finally { U152.busy(el, false); } };
 
 // ───────── loading (HTTP Range: only the fp32 tensors, skipping the bool attn.bias buffers) ─────────
 const REPO = 'https://huggingface.co/roneneldan/TinyStories-8M/resolve', ST_URL = `${REPO}/refs%2Fpr%2F1/model.safetensors`;
@@ -70,6 +70,7 @@ const snap = () => ({ edits: structuredClone(ed.edits.map(({ _err, ...e }) => e)
 function restore(s) { R = structuredClone(s.R); eng.R = R; ed.setEdits(structuredClone(s.edits)); afterChange(); }
 // every state-changing action goes through commit → undoable, then a full refresh of dependent views
 function commit(label, fn) { const before = snap(); fn(); S.undo.push({ label, s: before }); S.redo = []; afterChange(); toast('✔ ' + label); audio.edit(editKind(label), { bits: +((label.match(/int(\d)/) || [])[1] || 0), coef: R.steer.length ? R.steer[R.steer.length - 1].coef : 1 }); }
+async function commitAsync(label, fn) { const before = snap(); await fn(); S.undo.push({ label, s: before }); S.redo = []; afterChange(); toast('✔ ' + label); audio.edit(editKind(label), { bits: +((label.match(/int(\d)/) || [])[1] || 0), coef: R.steer.length ? R.steer[R.steer.length - 1].coef : 1 }); }
 async function undo() { const u = S.undo.pop(); if (!u) return; S.redo.push({ label: u.label, s: snap() }); await restoreAsync(u.s); toast('↶ ' + u.label); audio.edit('undo'); }
 async function redo() { const u = S.redo.pop(); if (!u) return; S.undo.push({ label: u.label, s: snap() }); await restoreAsync(u.s); toast('↷ ' + u.label); audio.edit('undo'); }
 async function restoreAsync(s) { R = structuredClone(s.R); eng.R = R; await ed.setEditsAsync(structuredClone(s.edits)); afterChange(); }
@@ -559,17 +560,17 @@ function wire() {
   on('bClamp', 'click', () => { if (!sae) throw new Error('train an SAE first'); const f = +$('clF').value; if (!(f >= 0 && f < sae.m)) throw new Error('feature out of range'); commit(`SAE L${sae.layer} f${f} ${$('clMode').value} ${$('clV').value}`, () => R.sae.clamps.push({ f, mode: $('clMode').value, value: +$('clV').value })); });
   // surgery
   on('bSvd', 'click', showSvd);
-  on('bSvTop', 'click', () => weightEdit(`SVD keep top-${$('svK').value} ${matPath()}`, { kind: 'svd', path: matPath(), mode: 'topk', k: +$('svK').value }, matPath()));
-  on('bSvFlat', 'click', () => weightEdit(`SVD flatten ${matPath()}`, { kind: 'svd', path: matPath(), mode: 'flatten', k: +$('svK').value }, matPath()));
-  on('bSvDrop', 'click', () => weightEdit(`SVD drop ${matPath()}`, { kind: 'svd', path: matPath(), mode: 'drop', from: +$('svA').value, to: +$('svB').value }, matPath()));
-  on('bSvScale', 'click', () => weightEdit(`SVD scale ${matPath()}`, { kind: 'svd', path: matPath(), mode: 'scale', from: +$('svA').value, to: +$('svB').value, factor: +$('svF').value }, matPath()));
+  on('bSvTop', 'click', () => commitAsync(`SVD keep top-${$('svK').value} ${matPath()}`, () => ed.pushAsync({ kind: 'svd', path: matPath(), mode: 'topk', k: +$('svK').value })));
+  on('bSvFlat', 'click', () => commitAsync(`SVD flatten ${matPath()}`, () => ed.pushAsync({ kind: 'svd', path: matPath(), mode: 'flatten', k: +$('svK').value })));
+  on('bSvDrop', 'click', () => commitAsync(`SVD drop ${matPath()}`, () => ed.pushAsync({ kind: 'svd', path: matPath(), mode: 'drop', from: +$('svA').value, to: +$('svB').value })));
+  on('bSvScale', 'click', () => commitAsync(`SVD scale ${matPath()}`, () => ed.pushAsync({ kind: 'svd', path: matPath(), mode: 'scale', from: +$('svA').value, to: +$('svB').value, factor: +$('svF').value })));
   on('bLr', 'click', () => weightEdit(`low-rank ${matPath()}`, { kind: 'lowrank', path: matPath(), rank: +$('lrR').value, sigma: +$('lrS').value, seed: Date.now() % 1e6 }, matPath()));
   on('bEl', 'click', () => { const t = $('elT').value, l = +$('smL').value, i = +$('elI').value, fn = $('elF').value, amt = +$('elA').value; let target;
     if (t === 'matrix') target = { type: 'matrix', path: matPath() }; else if (t === 'head') { if (!(i >= 0 && i < H)) throw new Error('head 0..15'); target = { type: 'head', l, i }; } else if (t === 'neuron') { if (!(i >= 0 && i < ff)) throw new Error('neuron 0..1023'); target = { type: 'neuron', l, i }; }
     else { const words = $('elWords').value.split(',').map((s) => s.trim()).filter(Boolean); if (!words.length) throw new Error('enter embed words'); target = { type: 'embed', word: words.join(','), toks: [...new Set(words.flatMap((w) => [tok.encode(' ' + w)[0], tok.encode(w)[0]]))] }; }
     const e = { kind: 'elem', target, fn, amt, seed: Date.now() % 1e6 }; weightEdit(ed.label(e), e, t === 'matrix' ? matPath() : null); });
-  on('bQ', 'click', () => { const bits = +$('qB').value, layers = parseLayers($('qL').value), mats = $('qM').value.split(',').map((s) => s.trim()).filter((m) => MATS.includes(m)); if (!mats.length) throw new Error('no valid mats');
-    let err = 0, n = 0; for (const l of layers) for (const m of mats) { const { a, rows, cols } = getMat(M, `L${l}.${m}`); const c = Float32Array.from(a); err += quantize(c, rows, cols, bits) ** 2; n++; } // preview error on a copy
+  on('bQ', 'click', async () => { const bits = +$('qB').value, layers = parseLayers($('qL').value), mats = $('qM').value.split(',').map((s) => s.trim()).filter((m) => MATS.includes(m)); if (!mats.length) throw new Error('no valid mats');
+    let err = 0, n = 0; for (const l of layers) for (const m of mats) { const { a, rows, cols } = getMat(M, `L${l}.${m}`); const c = Float32Array.from(a); err += quantize(c, rows, cols, bits) ** 2; n++; await tick(); }
     commit(`int${bits} quantize`, () => ed.push({ kind: 'quant', bits, layers, mats })); $('qInfo').textContent = `RMS weight error ≈ ${Math.sqrt(err / n).toExponential(2)}`; });
   on('bIp', 'click', () => commit(`L${$('ipD').value} ← lerp L${$('ipS').value} t=${$('ipT').value}`, () => ed.push({ kind: 'interp', dst: +$('ipD').value, src: +$('ipS').value, t: +$('ipT').value })));
   on('bLn', 'click', () => { const e = { kind: 'ln', which: $('lnW').value, l: +$('lnL').value, gScale: +$('lnG').value, bAdd: +$('lnB').value }; commit(ed.label(e), () => ed.push(e)); });
@@ -582,7 +583,7 @@ function wire() {
     commit(ed.label({ kind: 'rome', l, subject: op.subject, target }), () => ed.push({ kind: 'rome', l, u: op.u, v: op.v, subject: op.subject, target, prompt }));
     const after = tok.tokenStr(topK(logSoftmax(eng.logits(eng.run(tok.encode(prompt)).last.h)), 1)[0]); prog('romeP', 1);
     $('roInfo').innerHTML = `${op.iters} iters · hook p=${op.p.toFixed(3)} · real rank-1 weight edit: top-1 ${esc(JSON.stringify(before))} → <b class="${after === target ? 'ok' : 'err'}">${esc(JSON.stringify(after))}</b>`; });
-  on('chP', 'input', () => ($('chV').textContent = $('chP').value + '%')); on('bChaos', 'click', () => commit(`chaos ${$('chP').value}%`, () => ed.push({ kind: 'chaos', pct: +$('chP').value, seed: Date.now() % 1e6 })));
+  on('chP', 'input', () => ($('chV').textContent = $('chP').value + '%')); on('bChaos', 'click', () => commitAsync(`chaos ${$('chP').value}%`, () => ed.pushAsync({ kind: 'chaos', pct: +$('chP').value, seed: Date.now() % 1e6 })));
   on('smL', 'change', () => setSel({ l: +$('smL').value }));
   // runtime
   on('bProgReset', 'click', () => commit('reset program', () => (R.program = defaultRuntime().program))); on('hgL', 'change', renderHeadGrid);
