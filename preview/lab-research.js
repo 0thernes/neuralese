@@ -3,7 +3,7 @@
 import { lines, bars } from './charts.js?v=170';
 import { $, esc, fmt, opts, cv, tipq, prog, tick } from './lab-ui.js?v=170';
 import * as R from './research.js?v=170';
-import { cloneWeights } from './model.js?v=170';
+import { cloneWeightsYield } from './model.js?v=170';
 import { slice } from './coop.js?v=170';
 import { DS, docs, allDocs, setUserCorpus, clearUserCorpus } from './dataset.js?v=170';
 const P = (id) => `<div class="prog" id="${id}"><i></i></div>`;
@@ -70,7 +70,7 @@ export function install(A, out) {
   on('prRun', 'click', () => out.preregRun($('prDoc').value, $('prHash').value.trim()));
   // ── STATS ──
   out.statsHeads = async (L0, N0, B0) => { const l = Math.max(0, Math.min(7, +(L0 ?? $('stL').value) | 0)), N = Math.max(4, Math.min(200, +(N0 ?? $('stN').value) || 12)), B = Math.max(200, Math.min(20000, +(B0 ?? $('stB').value) || 2000)), alpha = +$('stA').value || 0.05;
-    const D = docs(N, 24), C = cloneWeights(A.M()), ce = async (f) => { const o = []; for (const d of D) { o.push(R.docCE(C, [d])[0]); await tick(); } return o; }, base = await ce(), H = 16, hd = C.lnfW.length / H, d = C.lnfW.length, O = C.layers[l].o, rows = [];
+    const D = docs(N, 24), C = await cloneWeightsYield(A.M()), ce = async (f) => { const o = []; for (const d of D) { o.push(R.docCE(C, [d])[0]); await tick(); } return o; }, base = await ce(), H = 16, hd = C.lnfW.length / H, d = C.lnfW.length, O = C.layers[l].o, rows = [];
     for (let h = 0; h < H; h++) { prog('stP', h / H); await tick(); const save = []; for (let r = 0; r < d; r++) for (let i = h * hd; i < h * hd + hd; i++) { save.push(O[r * d + i]); O[r * d + i] = 0; }
       let ab; try { ab = await ce(); } finally { let k = 0; for (let r = 0; r < d; r++) for (let i = h * hd; i < h * hd + hd; i++) O[r * d + i] = save[k++]; }
       const delta = ab.map((x, i) => x - base[i]), p = R.permPaired(ab, base, B, 11 + h); rows.push({ h, mean: p.diff, p: p.p, dz: R.cohenDPaired(ab, base), ci: R.bootCI(delta, 1000, 5 + h) }); }

@@ -207,7 +207,7 @@ function buildUI() {
   UI15.install({ showTab });
   showTab('home');
 }
-function showTab(k) { if (!$('pane_' + k)) throw new Error('no tab ' + k); document.dispatchEvent(new CustomEvent('neuralese:tab', { detail: k })); V5 && V5.onShow(k); $$('#tabs button').forEach((b) => { const on = b.dataset.t === k; b.classList.toggle('on', on); b.setAttribute('aria-selected', String(on)); if (on) { b.closest('section')?.classList.remove('shut'); b.scrollIntoView?.({ block: 'nearest' }); } }); $$('.pane').forEach((p) => p.classList.toggle('on', p.id === 'pane_' + k));
+function showTab(k) { if (!$('pane_' + k)) throw new Error('no tab ' + k); document.dispatchEvent(new CustomEvent('neuralese:tab', { detail: k })); V5 && V5.onShow(k); const tabsHidden = document.body.classList.contains('v17-on'); $$('#tabs button').forEach((b) => { const on = b.dataset.t === k; b.classList.toggle('on', on); b.setAttribute('aria-selected', String(on)); if (on) { b.closest('section')?.classList.remove('shut'); if (!tabsHidden) b.scrollIntoView?.({ block: 'nearest' }); } }); $$('.pane').forEach((p) => p.classList.toggle('on', p.id === 'pane_' + k));
   const ph = $('paneHead'); if (ph && V5) { const t = TABS[k] || k, lt = V5.long[k] || ''; ph.innerHTML = `<div class="phg">${esc(V5.groupOf?.[k] || '')}<span>${esc(t)}</span></div><h2>${esc(lt || t)}</h2>`; } $('panes')?.scrollTo?.(0, 0); UI15.onTab(k, V5?.groupOf?.[k]); }
 
 // ───────── generation ─────────
@@ -664,6 +664,8 @@ function wire() {
         return runFaultOp(engClean, ids);
       },
       deepMeta: () => ({ hypothesis: FAULT_SPEC.hypothesis, citations: CITATIONS }),
+      hostForward: async () => { if (!RE) return null; await RE.sync('main', eng); return RE.forwardOnce('main', tok.encode('Forge.')); },
+      hostGreedy: async (text, n) => { if (!RE) return null; await RE.sync('main', eng); return RE.greedy('main', tok.encode(text), n); },
       mf };
     Object.defineProperties(window.NEURALESE, Object.getOwnPropertyDescriptors({ showTab, setSel, get sel() { return { ...S.sel }; }, order: V5.order, long: V5.long, cfg: CFG, get lastTraces() { return S.lastTraces; }, get lastIds() { return S.lastIds || null; } })); document.dispatchEvent(new CustomEvent('neuralese:ready')); // v17 shell bridge (typed in ui/src/bridge.ts)
     if (/#x=/.test(location.hash)) { try { await V5.out.shareLoad(location.hash); } catch (e) { toast('share link: ' + e.message); } }

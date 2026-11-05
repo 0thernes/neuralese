@@ -2,7 +2,7 @@
 // linear probes with control tasks, eval harness, weight hashing and experiment manifests.
 import { forward, logitsAt, objective } from './grad.js?v=170';
 import { rng } from './science.js?v=170';
-import { slice } from './coop.js?v=170';
+import { frame } from './coop.js?v=170';
 const mean = (a) => a.reduce((s, x) => s + x, 0) / (a.length || 1);
 const sd = (a) => { const m = mean(a); return Math.sqrt(a.reduce((s, x) => s + (x - m) ** 2, 0) / Math.max(1, a.length - 1)); };
 // ── hypothesis testing ──
@@ -114,7 +114,7 @@ function sha256() {
 }
 export async function weightsHash(W) {
   const s = sha256();
-  for (const [, a] of tensorsOf(W)) { const u = new Uint8Array(a.buffer, a.byteOffset, a.byteLength); for (let i = 0; i < u.length; i += 65536) { s.update(u.subarray(i, Math.min(u.length, i + 65536))); const y = slice(); if (y) await y; } }
+  for (const [, a] of tensorsOf(W)) { const u = new Uint8Array(a.buffer, a.byteOffset, a.byteLength); let n = 0; for (let i = 0; i < u.length; i += 65536) { s.update(u.subarray(i, Math.min(u.length, i + 65536))); if ((++n & 7) === 0) await frame(); } }
   return s.hex();
 }
 export function manifest({ version, modelId, origHash, curHash, edits, runtime, prompt, decode, seed, env, extra = {} }) { return { schema: 'neuralese.manifest/1', created: new Date().toISOString(), app: version, model: { id: modelId, sha256_original: origHash }, weights_sha256_current: curHash, seed, deterministic: decode?.mode === 'greedy' || seed != null, edits, runtime, prompt, decode, env, ...extra }; }

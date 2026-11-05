@@ -1,6 +1,7 @@
 // In-app terminal: a small, safe command language over the real app API (no eval). Shared by the batch runner.
 import { $, esc, MATS_OK } from './term-util.js?v=170';
 import { ping } from './mf-client.js?v=170';
+import { frame } from './coop.js?v=170';
 export const VERSION = '17.3.0';
 import { CMDS as SCI_CMDS } from './lab-science.js?v=170';
 import { CMDS as RES_CMDS } from './lab-research.js?v=170';
@@ -88,7 +89,7 @@ export function makeTerminal(A, out) {
       case 'analyze': A.showTab('an'); await A.analyze(); return 'analysis done (ANALYZE tab)';
       case 'impact': { if (rest) $('xIP').value = rest; const r = await out.impact(); return `final KL ${r.finalKL.toExponential(3)} nats · TV ${r.tv.toFixed(4)} · per-slot KL ${r.perLayer.map((x) => x.toExponential(1)).join(' ')}`; }
       case 'calib': { const r = await out.calib(a[0] ? num(a[0], 'N', 16, 1000) : 160); return `clean ppl ${r.clean.ppl.toFixed(3)} acc ${(100 * r.clean.acc).toFixed(1)}% ECE ${(100 * r.clean.ece).toFixed(2)}%\ncurrent ppl ${r.cur.ppl.toFixed(3)} acc ${(100 * r.cur.acc).toFixed(1)}% ECE ${(100 * r.cur.ece).toFixed(2)}%`; }
-      case 'heads': { const hs = out.heads(), c = {}; hs.flat().forEach((x) => (c[x.label] = (c[x.label] || 0) + 1)); const top = (k) => hs.flat().map((x, i) => [x[k], `L${x.layer}H${i % 16}`]).sort((p, q) => q[0] - p[0]).slice(0, 3).map(([v, n]) => `${n} ${v.toFixed(2)}`).join(', '); return Object.entries(c).map(([k, v]) => `${k}: ${v}`).join(' · ') + `\ntop prev: ${top('prev')}\ntop induction: ${top('induction')}`; }
+      case 'heads': { const hs = await out.heads(), c = {}; hs.flat().forEach((x) => (c[x.label] = (c[x.label] || 0) + 1)); const top = (k) => hs.flat().map((x, i) => [x[k], `L${x.layer}H${i % 16}`]).sort((p, q) => q[0] - p[0]).slice(0, 3).map(([v, n]) => `${n} ${v.toFixed(2)}`).join(', '); return Object.entries(c).map(([k, v]) => `${k}: ${v}`).join(' · ') + `\ntop prev: ${top('prev')}\ntop induction: ${top('induction')}`; }
       case 'attn': A.showTab('attn'); out.attn(); return 'attention rendered';
       case 'circuit': { A.showTab('circuit'); const r = out.circuit(); return `${r.nodes.length} nodes, ${r.edges.length} edges, target id ${r.tgt}`; }
       case 'neurons': { A.showTab('neurons'); const r = await out.neurons(layer(a[0]), a[1] ? num(a[1], 'N', 32, 2000) : 300); const top = [...r.neurons].sort((p, q) => q.max - p.max).slice(0, 5); return top.map((n) => `N${n.n} max ${n.max.toFixed(2)} freq ${(100 * n.freq).toFixed(1)}% poly ${n.poly.toFixed(2)}`).join('\n'); }
@@ -126,7 +127,7 @@ export function mountTerminal(A, T) {
     else if (e.key === 'ArrowDown') { hi = Math.min(T.hist.length, hi + 1); inp.value = T.hist[hi] || ''; e.preventDefault(); }
     else if (e.key === 'Tab') { e.preventDefault(); const c = complete(inp.value); if (c.length === 1) inp.value = c[0] + ' '; else if (c.length) print(c.join('   '), 'sm'); }
   });
-  $('tmRun').addEventListener('click', async () => { for (const l of $('tmScript').value.split('\n')) { await run(l); await ping().catch(() => {}); } });
+  $('tmRun').addEventListener('click', async () => { for (const l of $('tmScript').value.split('\n')) { await frame(); await run(l); await ping().catch(() => {}); } });
   print(`NEURALESE v${VERSION} terminal — type "help". Tab completes, ↑/↓ history, "run a; b; c" chains.`, 'sm');
   return run;
 }

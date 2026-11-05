@@ -9,6 +9,8 @@
 import { Engine } from './engine.js?v=170';
 import { beamSearch } from './decode.js?v=170';
 import { CFG } from './model.js?v=170';
+import { pci } from './frontier/mind.js?v=170';
+import { randomInit } from './frontier/core.js?v=170';
 import { geometryFromSeq } from './adversary/geometry.js?v=170';
 import { runFaultOp, runWalkOp, runWalkCellOp, runForgeOp, runSignificandOp, runVoltageOp } from './walk/session.js?v=170';
 import { cancelJobs } from './coop.js?v=170';
@@ -43,6 +45,42 @@ self.onmessage = (ev) => {
     }
     else if (m.op === 'free') { for (const s of m.sids || []) seqs.delete(s); out = { ok: true }; }
     else if (m.op === 'beam') { const e = E[m.key], q = seqs.get(m.sid); out = beamSearch(e, q.s, m.h0, m.opts); }
+    else if (m.op === 'forwardOnce') {
+      const e = E[m.key]; if (!e) throw new Error('no engine ' + m.key);
+      const ids = m.ids && m.ids.length ? m.ids : [0];
+      const seq = e.newSeq(ids.length);
+      let r = e.step(seq, ids[0], { trace: false });
+      const before = r.h;
+      const t0 = performance.now();
+      r = e.step(seq, ids[0], { trace: false });
+      let same = before.length === r.h.length;
+      for (let i = 0; i < before.length && same; i++) if (before[i] !== r.h[i]) same = false;
+      out = { ms: performance.now() - t0, same, width: r.h.length };
+    }
+    else if (m.op === 'greedy') {
+      const e = E[m.key]; if (!e) throw new Error('no engine ' + m.key);
+      const ids = m.ids || [];
+      const seq = e.newSeq(ids.length || 1);
+      let r;
+      for (const id of ids) r = e.step(seq, id, { trace: false });
+      if (!r) r = e.step(seq, 0, { trace: false });
+      const got = [];
+      const n = m.n | 0 || 8;
+      for (let i = 0; i < n; i++) {
+        const logits = e.logits(r.h);
+        let id = 0, best = -Infinity;
+        for (let j = 0; j < logits.length; j++) if (logits[j] > best) { best = logits[j]; id = j; }
+        if (id === 50256) break;
+        got.push(id);
+        r = e.step(seq, id, { trace: false });
+      }
+      out = { ids: got };
+    }
+    else if (m.op === 'pci') {
+      const e = E[m.key]; if (!e) throw new Error('no engine ' + m.key);
+      const W = m.random ? randomInit(e.W, m.initSeed ?? 1) : e.W;
+      out = pci(W, m.ids, m.perturbSeed ?? 100, m.t0 ?? 8);
+    }
     else if (m.op === 'walk') { out = runWalkOp(E[m.key], m); }
     else if (m.op === 'walkCell') { out = runWalkCellOp(m); }
     else if (m.op === 'walkForge') { out = runForgeOp(m); }
