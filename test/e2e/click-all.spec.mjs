@@ -160,7 +160,7 @@ for (const [w, h, name] of WIDTHS) test(`click every control · ${name}`, async 
       return page.waitForFunction((ws) => document.querySelector('#v17 .wsbar button.on')?.dataset.ws === ws, id, { timeout: 180000 }).then(() => true).catch(() => false);
     };
     const clickControls = (panel) => page.evaluate(async (pid) => {
-      const paint = () => new Promise((resolve) => requestAnimationFrame(() => setTimeout(() => { const t0 = performance.now(); resolve(); queueMicrotask(() => { const ms = performance.now() - t0; if (ms >= 40) console.log('CONT', Math.round(ms), window.__click || ''); }); }, 0)));
+      const paint = () => new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve, 0)));
       const btn = [...document.querySelectorAll('#v17 .tabstrip button[role=tab]')].find((b) => b.getAttribute('data-panel') === pid);
       btn?.click();
       await paint();
@@ -199,7 +199,7 @@ for (const [w, h, name] of WIDTHS) test(`click every control · ${name}`, async 
           await showWs(id);
           await page.waitForTimeout(40);
           stats = await page.evaluate(async ({ ws, pid }) => {
-            const paint = () => new Promise((resolve) => requestAnimationFrame(() => setTimeout(() => { const t0 = performance.now(); resolve(); queueMicrotask(() => { const ms = performance.now() - t0; if (ms >= 40) console.log('CONT', Math.round(ms), window.__click || ''); }); }, 0)));
+            const paint = () => new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve, 0)));
             if (document.querySelector('#v17 .wsbar button.on')?.dataset.ws !== ws) document.querySelector(`#v17 .wsbar button[data-ws="${ws}"]`)?.click();
             await paint();
             const btn = [...document.querySelectorAll('#v17 .tabstrip button[role=tab]')].find((b) => b.getAttribute('data-panel') === pid);

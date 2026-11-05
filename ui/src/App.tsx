@@ -24,8 +24,17 @@ export function App(): JSX.Element {
   const [compact, setCompact] = createSignal(innerWidth < 760); const [pal, setPal] = createSignal(false); const [tour, setTour] = createSignal(false);
   const setLayout = (n: Node): void => { setLayoutSig(n); store.set(LK(ws().id), serialize(n)); };
   const go = (w: Workspace, panel?: string): void => {
-    viewTransition(() => { if (w.id !== ws().id) { setWs(w); setLayoutSig(loadLayout(w)); store.set('neuralese.v17.ws', w.id); } if (panel) setLayout(activate(addPanel(layout(), panel), panel)); });
-    if (panel?.startsWith('legacy:')) setTimeout(() => showLegacy(panel.slice(7)), 0);
+    // A workspace change re-renders the dock. Doing the signal write and the layout
+    // write in one turn was a single long script after the Neuron Lens / Nested quick buttons.
+    const paintLegacy = (): void => { if (panel?.startsWith('legacy:')) setTimeout(() => showLegacy(panel.slice(7)), 0); };
+    if (w.id !== ws().id) {
+      setTimeout(() => {
+        setWs(w); store.set('neuralese.v17.ws', w.id);
+        setTimeout(() => { setLayout(panel ? activate(addPanel(loadLayout(w), panel), panel) : loadLayout(w)); paintLegacy(); }, 0);
+      }, 0);
+      return;
+    }
+    if (panel) { setLayout(activate(addPanel(layout(), panel), panel)); paintLegacy(); }
   };
   const cmds = (): Cmd[] => [
     ...WORKSPACES.map((w) => ({ id: 'ws-' + w.id, title: `${w.title} workspace`, hint: w.blurb, run: () => go(w) })),

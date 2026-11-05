@@ -5,7 +5,7 @@ import { buildWeights, parseSafetensors, cloneWeights, CFG } from '../src/model.
 import { Engine, defaultRuntime, logSoftmax, timeMul } from '../src/engine.js';
 import * as C from '../src/labcore.js';
 import { COMMANDS, complete, VERSION } from '../src/term.js';
-import { GLOSSARY, BIBLE, COURSE, gradeQuiz, search, buildIndex, md } from '../src/learn/learn.js';
+import { loadCatalog, gradeQuiz, search, buildIndex, md } from '../src/learn/learn.js';
 import { VER } from './_paths.mjs';
 const { d, L } = CFG;
 const vecOp = (op, vec, coef, extra = {}) => ({ id: 1, name: 't', site: 'resid_pre', vecs: Array.from({ length: L }, () => vec), coef, sched: Array(L).fill(0).map((_, l) => (l === 2 ? 1 : 0)), mask: { kind: 'all' }, on: true, op, ...extra });
@@ -43,7 +43,8 @@ test('terminal: command table, completion, version', () => {
   assert.equal(VERSION, VER); assert.ok(Object.keys(COMMANDS).length >= 52); for (const k of ['drill', 'atp', 'eigen', 'induct', 'geom', 'land', 'mode', 'cam', 'gpu', 'zoo', 'diff', 'share', 'hash', 'manifest', 'stats', 'acdc', 'scrub', 'probe', 'evalh', 'dataset', 'report', 'state', 'qseed', 'claims', 'fsdist', 'typecheck', 'qgtcheck', 'unify', 'frontier', 'scorecard', 'grok', 'pci', 'fclaims']) assert.ok(COMMANDS[k], k);
   assert.deepEqual(complete('ver'), ['version']); assert.ok(complete('sweep bl').includes('sweep blend')); assert.ok(complete('theme l').includes('theme light')); assert.ok(complete('tab ti').includes('tab timeline'));
 });
-test('learning center data: glossary ≥100 unique, cross-links resolve, labs use real commands', () => {
+test('learning center data: glossary ≥100 unique, cross-links resolve, labs use real commands', async () => {
+  const { GLOSSARY, BIBLE, COURSE } = await loadCatalog();
   assert.ok(GLOSSARY.length >= 100); const names = new Set(GLOSSARY.map((g) => g[0])); assert.equal(names.size, GLOSSARY.length);
   for (const [, , rel] of GLOSSARY) for (const r of rel) assert.ok(names.has(r), 'dangling ' + r);
   assert.ok(BIBLE.length >= 25); assert.equal(COURSE.length, 15); assert.ok(BIBLE.length >= 41);
