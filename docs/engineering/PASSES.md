@@ -80,4 +80,18 @@ One `npx playwright test`, workers 1, on https://0thernes.github.io/neuralese/pr
 
 The run did not pass. An isolated click of Measure a small batch, after the worker was warm, did not produce an application script over 50 ms (the 2.6 s of compute stayed in the worker). In the full suite the longest frame is still labeled Measure a small batch: an anonymous `TimerHandler:setTimeout` of 2424 / 2353 / 2199 ms. The next names in that run are fmLive, Clock one, Bible, Index, terminal Run, Run contrast, and the camera presets. Mobile also logged one `net::ERR_CACHE_WRITE_FAILURE`. Axe stayed clean.
 
+| Pass | Area | Found | Fixed | Notes |
+|---|---|---|---|---|
+| 20 | Main thread | 6 | 5 | The 2.2 s Measure frame is the suite's empty-URL `setTimeout` continuation, not the worker. Cold `new Worker()` was 0–1 ms at load, and `postMessage` does not block while the worker is busy. `el.click()` itself stayed under 60 ms. PCI (including random-init), one host forward, and the greedy sample now run in the engine worker. The weight hash yields every 512 KB. Undoing the claim's edit copies weights in slices. Course, Bible, glossary, and the index append across paints. Camera presets use a cached viewport and do not walk instanced meshes. The hub embedding renderer is created on a frame callback. |
+
+One `npx playwright test`, workers 1, on https://0thernes.github.io/neuralese/preview/?notour (commit `3b22ec7`, 5 Nov 2026). Same gate. Root site still `2527d67`. No tag and no release.
+
+| Width | Clicked | Disabled | Console errors | Axe serious/critical | Cosmos | `#gl` | Raw max | Raw p95 | Paint/GL max | App max | App p95 | Worst application script |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Mobile 390×844 | 514 | 9 | 0 | none | 390×658 | 390×478 | 1349 ms | 828 ms | 828 ms | 1348 ms | 1097 ms | Measure a small batch |
+| Tablet 768×1024 | 489 | 9 | 0 | none | 388×426 | 373×572 | 1346 ms | 594 ms | 1346 ms | 1170 ms | 1095 ms | Measure a small batch |
+| Desktop 1440×900 | 515 | 8 | 0 | none | 737×369 | 709×490 | 1184 ms | 661 ms | 1184 ms | 1086 ms | 1022 ms | clGo |
+
+The run did not pass. Application-script max is about half of pass 19 (1348 / 1170 / 1086 ms, down from 2424 / 2353 / 2199 ms) and is still over 200 ms. p95 of frames with application script ≥ 50 ms is still about 1 s. On mobile and tablet the longest script is still an anonymous `TimerHandler:setTimeout` labeled Measure a small batch (1348 ms and 1170 ms). Desktop's longest is the same kind of timer labeled clGo (1086 ms), with Measure at 1022 ms in that run's top. Layout and pause inside those scripts were 0. Axe stayed clean and there were no console errors. fmLive, Clock one, Bible, Index, and terminal Run are no longer the top names. MoE-in-MoE, camera presets, csv, and png still appear above 200 ms.
+
 Edge-level ACDC, MEMIT, UMAP, and t-SNE were never shipped tabs. The 43 P0 cards are not implemented. Electron and Capacitor release builds were not packed here. `contextIsolation` is already on in `desktop/main.cjs`.
