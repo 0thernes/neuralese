@@ -108,4 +108,18 @@ One `npx playwright test`, workers 1, on https://0thernes.github.io/neuralese/pr
 
 The run did not pass. Application-script max is 418 / 286 / 319 ms, down from 1348 / 1170 / 1086 ms. p95 equals that max because only 13–16 frames have application script ≥ 50 ms, and `ceil(0.95*n)-1` is the last index when n is under 20. Mobile's 418 ms script is evaluating `learn/learn.js` (`import.then`), and that frame has no GL callback, so it stays in the app column. Tablet's 286 ms script is a fetch body continuation labeled clGo. Desktop's 319 ms script is an empty-URL `setTimeout` labeled Neuron Lens. Axe stayed clean and there were no console errors.
 
+| Pass | Area | Found | Fixed | What |
+|---|---|---|---|---|
+| 22 | Main thread | 3 | 3 | The 418 ms script was `ui15.js` `import.then` constructing the overview hero (`new WebGLRenderer`), with the nearest yield stack at `learn.js`. The renderer is now created inside `requestAnimationFrame`, and the course, bible, and glossary modules load on first use, one per paint. The 286 ms `arrayBuffer` continuation on clGo was the Moonlab wasm decode plus the 65 536 amplitude objects; decode runs in a worker and the amplitude list yields. The 319 ms empty-URL timer started during the Attention quick button. A workspace change now writes the shell signal and the layout on separate turns, and the neuron atlas builds its points in 12 ms slices. |
+
+One `npx playwright test`, workers 1, on https://0thernes.github.io/neuralese/preview/?notour (commit `ec18eeb`, 5 Nov 2026). Same gate. Root site still `2527d67`. No tag and no release.
+
+| Width | Clicked | Disabled | Console errors | Axe serious/critical | Cosmos | `#gl` | Raw max | Raw p95 | Paint/GL max | App max | App p95 | Worst application script |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Mobile 390×844 | 543 | 9 | 0 | none | 390×658 | 390×478 | 887 ms | 629 ms | 832 ms | 549 ms | 549 ms | `app.js` `Promise.resolve` |
+| Tablet 768×1024 | 543 | 9 | 0 | none | 388×426 | 373×572 | 1075 ms | 485 ms | 855 ms | 1068 ms | 1068 ms | `exportFor` @csv |
+| Desktop 1440×900 | 514 | 9 | 0 | none | 737×369 | 709×490 | 1717 ms | 485 ms | 1502 ms | 1696 ms | 1696 ms | `out.acdc` @csv |
+
+The run did not pass. Application-script max is 549 / 1068 / 1696 ms. The three frames from `b1704d0` are not the worst entry on every width, and chart export plus the ACDC continuation are now the long scripts. p95 equals the max. Axe stayed clean and there were no console errors.
+
 Edge-level ACDC, MEMIT, UMAP, and t-SNE were never shipped tabs. The 43 P0 cards are not implemented. Electron and Capacitor release builds were not packed here. `contextIsolation` is already on in `desktop/main.cjs`.

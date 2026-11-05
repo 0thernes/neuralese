@@ -52,4 +52,16 @@ One `npx playwright test`, workers 1, on https://0thernes.github.io/neuralese/pr
 | 768×1024 | 489 | 9 | 0 | none | 388×426 | 373×572 | 1342 | 539 | 1342 | 286 | 286 | `Response.arrayBuffer.then` labeled clGo, 286 ms |
 | 1440×900 | 514 | 9 | 0 | none | 737×369 | 709×490 | 1049 | 460 | 1049 | 319 | 319 | `TimerHandler:setTimeout` labeled Neuron Lens, 319 ms |
 
-The run did not pass. With 13–16 frames of application script ≥ 50 ms, p95 is the max. The mobile 418 ms script is the learning-center module evaluation (`learn/learn.js` `import.then`), which is not a paint frame because that frame has no GL callback. Tablet's 286 ms script is a fetch body continuation recorded while clGo was the label. Desktop's 319 ms script is an empty-URL `setTimeout` recorded while the Neuron Lens quick button was the label; the handler window also matched the export listener.
+The run did not pass. With 13–16 frames of application script ≥ 50 ms, p95 is the max. The mobile 418 ms script's source is `ui15.js` `import.then` (the hero renderer); the nearest yield stack was `learn.js` line 35. Tablet's 286 ms script is a fetch body continuation recorded while clGo was the label. Desktop's 319 ms script started during the Attention quick button (sync 6 ms) and was labeled Neuron Lens when the frame ended.
+
+## Preview after the three splits
+
+Commit `ec18eeb`. Catalogues load on first use. The hero `WebGLRenderer` is constructed inside `requestAnimationFrame`. Moonlab wasm is decoded in a worker and transferred. The 16-qubit amplitude list yields every 2048 entries. Nested `models.f32` is fetched in a worker. A workspace change writes the shell signal and the layout on separate turns.
+
+| Width | Clicked | Disabled | Console | Axe | Cosmos | #gl | Raw max | Raw p95 | Paint/GL max | App max | App p95 | Worst |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 390×844 | 543 | 9 | 0 | none | 390×658 | 390×478 | 887 | 629 | 832 | 549 | 549 | `app.js` `Promise.resolve` 549 ms |
+| 768×1024 | 543 | 9 | 0 | none | 388×426 | 373×572 | 1075 | 485 | 855 | 1068 | 1068 | `exportFor` labeled csv, 1068 ms |
+| 1440×900 | 514 | 9 | 0 | none | 737×369 | 709×490 | 1717 | 485 | 1502 | 1696 | 1696 | `out.acdc` labeled csv, 1685 ms |
+
+The run did not pass. Chart export and the ACDC continuation are over 200 ms. p95 equals the max because fewer than 20 frames have application script ≥ 50 ms.
