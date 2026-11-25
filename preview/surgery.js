@@ -1,8 +1,8 @@
 // Weight surgery: a replayable list of edit ops applied to a fresh copy of the original weights.
-import { CFG, copyWeightsInto, copyWeightsIntoYield, mulberry32, gauss } from './model.js?v=180';
-import { frame, slice } from './coop.js?v=180';
-import { svd, svdReconstruct, svdYield } from './linalg.js?v=180';
-import { resolve, fromPath } from './drill.js?v=180';
+import { CFG, copyWeightsInto, copyWeightsIntoYield, mulberry32, gauss } from './model.js?v=181';
+import { frame, slice } from './coop.js?v=181';
+import { svd, svdReconstruct, svdYield } from './linalg.js?v=181';
+import { resolve, fromPath } from './drill.js?v=181';
 const { d, ff, L } = CFG;
 export const MATS = ['q', 'k', 'v', 'o', 'fc', 'proj'];
 export const SHAPE = { q: [d, d], k: [d, d], v: [d, d], o: [d, d], fc: [ff, d], proj: [d, ff] };

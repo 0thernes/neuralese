@@ -1,9 +1,10 @@
 // EVALUATE group: token timeline, calibration, edit impact, profiler, experiment tracker.
-import * as C from './labcore.js?v=180';
-import { topK } from './engine.js?v=180';
-import { CORPUS } from './corpus.js?v=180';
-import { lines, bars } from './charts.js?v=180';
-import { $, $$, esc, fmt, opts, cv, tipq, PAL, prog, canvasFit, chartBg, exportFor, runs, lab, L } from './lab-ui.js?v=180';
+import * as C from './labcore.js?v=181';
+import { topK } from './engine.js?v=181';
+import { CORPUS } from './corpus.js?v=181';
+import { lines, bars } from './charts.js?v=181';
+import { frame } from './coop.js?v=181';
+import { $, $$, esc, fmt, opts, cv, tipq, PAL, prog, canvasFit, chartBg, exportFor, runs, lab, L } from './lab-ui.js?v=181';
 
 export const markup = {
   timeline: ['TIMELINE', 'Token timeline', `<fieldset><legend>per-token timeline of the last generation ${tipq('Recorded from the raw (pre-filter) distribution of the hacked model at every generated step, including the first generation after load.')}</legend><div class="r"><button class="pri" id="xT">refresh</button><span id="xTInfo" class="sm"></span></div>${cv('xTP', 'p(chosen) teal · top-1 p pink')}${cv('xTH', 'entropy (nats) teal · surprisal −ln p pink')}${cv('xTM', 'top-1 − top-2 probability margin')}</fieldset>`],
@@ -16,12 +17,31 @@ ${cv('xIL', 'logit-lens KL(hacked‖clean) per slot, last token')}${cv('xIPos', 
 
 export function install(A, out) {
   const on = A.on, tstr = (id) => JSON.stringify(A.tok().tokenStr(id)).slice(1, -1);
-  out.timeline = () => { const tl = A.S().timeline || []; if (!tl.length) { $('xTInfo').textContent = 'no generation recorded yet'; return []; } const xs = tl.map((r) => tstr(r.id));
-    lines($('xTP'), [{ ys: tl.map((r) => r.p), color: '#5eead4', label: 'p(chosen)' }, { ys: tl.map((r) => r.p1), color: '#f472b6', label: 'top-1 p' }], { xs, min: 0, max: 1 });
-    lines($('xTH'), [{ ys: tl.map((r) => r.ent), color: '#5eead4', label: 'entropy' }, { ys: tl.map((r) => -Math.log(Math.max(r.p, 1e-30))), color: '#f472b6', label: 'surprisal' }], { xs, min: 0 });
-    lines($('xTM'), [{ ys: tl.map((r) => r.p1 - r.p2), color: '#fbbf24', label: 'margin' }], { xs, min: 0, max: 1 });
-    const ms = tl.reduce((a, r) => a - Math.log(Math.max(r.p, 1e-30)), 0) / tl.length; $('xTInfo').textContent = `${tl.length} tokens · mean surprisal ${ms.toFixed(3)} nats (sample perplexity ${Math.exp(ms).toFixed(2)}) · mean entropy ${(tl.reduce((a, r) => a + r.ent, 0) / tl.length).toFixed(3)}`; return tl; };
-  on('xT', 'click', out.timeline);
+  let tlGen = 0;
+  const extendsPrev = (prev, next) => prev && next.length >= prev.length && prev.every((v, i) => v === next[i]);
+  out.timeline = () => { const tl = A.S().timeline || []; if (!tl.length) { $('xTInfo').textContent = 'no generation recorded yet'; return []; }
+    const xs = tl.map((r) => tstr(r.id));
+    const chosen = tl.map((r) => r.p), top = tl.map((r) => r.p1), ent = tl.map((r) => r.ent), sur = tl.map((r) => -Math.log(Math.max(r.p, 1e-30))), margin = tl.map((r) => r.p1 - r.p2);
+    const prev = $('xTP')?._tlP;
+    const grown = extendsPrev(prev, chosen);
+    if (grown && prev.length === chosen.length) return tl;
+    const gen = ++tlGen;
+    const charts = [
+      () => lines($('xTP'), [{ ys: chosen, color: '#5eead4', label: 'p(chosen)' }, { ys: top, color: '#f472b6', label: 'top-1 p' }], { xs, min: 0, max: 1, instant: true }),
+      () => lines($('xTH'), [{ ys: ent, color: '#5eead4', label: 'entropy' }, { ys: sur, color: '#f472b6', label: 'surprisal' }], { xs, min: 0, instant: true }),
+      () => lines($('xTM'), [{ ys: margin, color: '#fbbf24', label: 'margin' }], { xs, min: 0, max: 1, instant: true }),
+    ];
+    const paint = (i) => {
+      if (gen !== tlGen) return;
+      if (grown && i > 0 && $('xTP')?._tlP?.length === chosen.length) return;
+      charts[i]();
+      if ($('xTP')) $('xTP')._tlP = chosen;
+      if (i + 1 < charts.length) requestAnimationFrame(() => paint(i + 1));
+      else { const ms = tl.reduce((a, r) => a - Math.log(Math.max(r.p, 1e-30)), 0) / tl.length; $('xTInfo').textContent = `${tl.length} tokens · mean surprisal ${ms.toFixed(3)} nats (sample perplexity ${Math.exp(ms).toFixed(2)}) · mean entropy ${(tl.reduce((a, r) => a + r.ent, 0) / tl.length).toFixed(3)}`; }
+    };
+    requestAnimationFrame(() => paint(0));
+    return tl; };
+  on('xT', 'click', () => { void frame().then(() => out.timeline()); });
 
   out.calib = async (N0) => { const N = Math.max(16, Math.min(1000, +(N0 ?? $('xQN').value) || 160)), docs = CORPUS.slice(-20);
     const rc = await C.evalCorpus(A.engClean(), docs, N, (f) => prog('xQP', f * 0.5)), rh = await C.evalCorpus(A.eng(), docs, N, (f) => prog('xQP', 0.5 + f * 0.5)), a = C.calibration(rc), b = C.calibration(rh);
