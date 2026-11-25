@@ -53,6 +53,14 @@ Passes 1–22 are the earlier engineering log in [PASSES.md](PASSES.md). This fi
 
 ## Open
 
+- Preview of `aca26b0` is the run with `runBudgeted`. Workers 1. The model becomes ready. The gate does not pass. `scheduler.yield()` continuations still share a frame, so the frame sum is far above one 8 ms slice. Mobile also lost panels while those continuations were in flight, so the click count is 25. Tablet died on a screenshot before it recorded a frame table. Console errors were 0 on the widths that recorded. Axe was not in the failure list.
+
+| Width | Clicked | Disabled | Console | Axe | Cosmos | #gl | Raw max | Raw p95 | Paint/GL max | App max | App p95 | Worst |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 390×844 | 25 | 0 | 0 | none in the failure list | 390×607 | 390×478 | 4486 | 135 | 4486 | 1753 | 264 | batch runner, `Scheduler.yield` continuation, 1660 ms |
+| 768×1024 | — | — | — | — | — | — | — | — | — | — | — | screenshot threw before the frame table |
+| 1440×900 | 246 | 5 | 0 | none in the failure list | 737×350 | 709×490 | 1522 | 497 | 1389 | 1277 | 482 | attention button, many `Scheduler.yield` continuations in one frame |
+
 - Preview of `e7c4f7e` is the latest finished 3-width run. Workers 1. Console errors 0. Axe is clean. The inverse vocab is a binary and the Voltage curve yields. The gate still fails. The worst script is the startup continuation after the weight copy (305 ms mobile). Tablet and desktop are 220 and 223 ms, an export while a zoom button is current.
 
 | Width | Clicked | Disabled | Console | Axe | Cosmos | #gl | Raw max | Raw p95 | Paint/GL max | App max | App p95 | Worst |
