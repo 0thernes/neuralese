@@ -21,7 +21,7 @@ function paint(v: number, max: number, light: boolean): THREE.Color {
 const GATE_COLOR: Record<string, number> = { AND: 0x2dd4bf, OR: 0xfbbf24, XOR: 0x38bdf8, NOT: 0xfb7185 };
 
 export interface WalkScene {
-  show(view: WalkView, zoom: Zoom, op: WalkOp | null, cell: WalkCell | null, gates: GateBox[] | null, curve: VoltPoint[] | null, light: boolean): void;
+  show(view: WalkView, zoom: Zoom, op: WalkOp | null, cell: WalkCell | null, gates: GateBox[] | null, curve: VoltPoint[] | null, light: boolean, pause?: (() => Promise<void>) | null): Promise<void>;
   pickables(): THREE.Object3D[];
   decode(hit: THREE.Intersection): { index: number } | null;
   aim(): { at: THREE.Vector3; dist: number };
@@ -54,20 +54,26 @@ export function createWalk(st: Stage): WalkScene {
     used = 0;
   }
 
+  const queued: number[][] = [];
   function put(i: number, x: number, y: number, z: number, sx: number, sy: number, sz: number, color: THREE.Color, tensorIndex: number): void {
     if (i >= MAX) return;
+    queued.push([i, x, y, z, sx, sy, sz, color.getHex(), tensorIndex]);
+  }
+  function place(row: number[]): void {
+    const [i, x, y, z, sx, sy, sz, hex, tensorIndex] = row;
     const box = pool[i]!;
     box.visible = true;
-    box.position.set(x, y, z);
-    box.scale.set(sx, sy, sz);
-    (box.material as THREE.MeshBasicMaterial).color.copy(color);
+    box.position.set(x!, y!, z!);
+    box.scale.set(sx!, sy!, sz!);
+    (box.material as THREE.MeshBasicMaterial).color.setHex(hex!);
     box.userData.index = tensorIndex;
-    used = Math.max(used, i + 1);
+    used = Math.max(used, (i ?? 0) + 1);
   }
 
   return {
-    show(view, zoom, op, cell, gates, curve, light) {
+    async show(view, zoom, op, cell, gates, curve, light, pause = null) {
       hide();
+      queued.length = 0;
       const L = view.cfg.L;
       if (zoom === 'model') {
         for (let l = 0; l < L && l < MAX; l++) {
@@ -135,6 +141,10 @@ export function createWalk(st: Stage): WalkScene {
         }
         aimAt = new THREE.Vector3(0, 0.8, 0);
         aimDist = zoom === 'matmul' ? 8 : 10;
+      }
+      for (let n = 0; n < queued.length; n++) {
+        place(queued[n]!);
+        if (pause && (n & 7) === 7) await pause();
       }
       if (used > 0) {
         ring.visible = zoom === 'matmul' || zoom === 'unit' || zoom === 'dot';

@@ -11,6 +11,7 @@ import { filterDist, pick } from '../src/decode.js';
 import * as Grok from '../src/frontier/grok.js';
 import { headAblationCE } from '../src/research.js';
 import { ceJetLnf, ceJetLnfAsync, Jet } from '../src/tsotchke/taylor.js';
+import { assessInverter, cmosParams, transferCurveYield } from '../src/walk/cmos.js';
 
 test('concatUint8 matches a single copy and yields between steps', async () => {
   const a = Uint8Array.from({ length: 50 }, (_, i) => i);
@@ -29,6 +30,16 @@ test('joinLines keeps a newline between chunks and not after the last', () => {
   assert.equal(parts.join(''), 'a\nb\nc\nd\ne');
 });
 
+test('a yielded inverter curve matches one full curve', async () => {
+  const p = cmosParams({ VDD: 1, Vth0: 0.25, T: 300 });
+  let pauses = 0;
+  const curve = await transferCurveYield(p, 41, async () => { pauses++; });
+  const full = assessInverter(p, { steps: 41 });
+  assert.equal(curve.length, full.curve.length);
+  assert.ok(pauses >= 4);
+  for (let i = 0; i < curve.length; i++) assert.ok(Math.abs((curve[i].vout ?? 0) - (full.curve[i].vout ?? 0)) < 1e-9);
+});
+
 test('the shipped BPE table matches merges.txt', () => {
   const vocab = JSON.parse(readFileSync(new URL('../model/vocab.json', import.meta.url), 'utf8'));
   const merges = readFileSync(new URL('../model/merges.txt', import.meta.url), 'utf8');
@@ -39,6 +50,13 @@ test('the shipped BPE table matches merges.txt', () => {
   const text = 'Once upon a time, there was a little girl named Lily. She loved to';
   assert.deepEqual(fast.encode(text), slow.encode(text));
   assert.equal(fast.decode(fast.encode(text)), slow.decode(slow.encode(text)));
+  const invRaw = readFileSync(new URL('../src/vocab-inv.bin', import.meta.url));
+  const inv = invRaw.buffer.slice(invRaw.byteOffset, invRaw.byteOffset + invRaw.byteLength);
+  const lazy = GPT2Tokenizer.fromPairs(vocab, buffer, true).installInverse(inv);
+  const ids = slow.encode(text);
+  assert.equal(lazy.decode(ids), slow.decode(ids));
+  assert.equal(lazy.tokenStr(ids[0]), slow.tokenStr(ids[0]));
+  assert.equal(lazy.strCache.size, 1);
 });
 
 test('tokenizer.create matches the sync constructor on a small vocab', async () => {

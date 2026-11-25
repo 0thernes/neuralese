@@ -5,9 +5,9 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 | | |
 |---|---|
 | Files | 505 |
-| Reviewed (passes 23–53) | 138 |
-| Indexed, not reviewed | 367 |
-| Coverage | 27.3% |
+| Reviewed (passes 23–55) | 143 |
+| Indexed, not reviewed | 362 |
+| Coverage | 28.3% |
 
 
 ## `/`
@@ -169,7 +169,7 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 | `lens-worker.js` | Neuron Lens in-browser refit: fits one document's R-lens and S-lens on the current weights (same code path as  | lab core | none mapped | reviewed, passes 41–42 |
 | `linalg.js` | Small dense linear algebra kit (Float64, row-major unless noted). | lab core | none mapped | reviewed, passes 31–36 |
 | `mf-client.js` | Page-side handle for mf-worker.js. The worker runs machine and Forge compute. | lab core | none mapped | reviewed, passes 41–42 |
-| `mf-worker.js` | Machine and Forge compute. The page sends a job and renders the plain result. | lab core | none mapped | indexed |
+| `mf-worker.js` | Machine and Forge compute. The page sends a job and renders the plain result. | lab core | none mapped | reviewed, passes 54–55 |
 | `model.js` | Tiny GPT-Neo forward pass in plain JS. Weights are mutable Float32Arrays. | lab core | test/core.test.mjs | reviewed, passes 23–30 |
 | `nestedlens.js` | Neuralese v14.7 — float32-weight forward pass + finite-difference R-lens for the nested char LMs (guest, emula | lab core | none mapped | reviewed, passes 41–42 |
 | `neuronlens.js` | NEURALESE v14 Neuron Lens: R-lens, S-lens and their mid targets for GPT-Neo (TinyStories-8M). | lab core | none mapped | reviewed, passes 39–40 |
@@ -523,7 +523,7 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 | `chapters.d.ts` | ts | walk | none mapped | indexed |
 | `chapters.js` | Original narration for the deep walk. The idea of stepping through a transformer as blocks | walk | none mapped | indexed |
 | `cmos.d.ts` | ts | walk | none mapped | indexed |
-| `cmos.js` | Teaching CMOS model. Square-law Shichman–Hodges (the SPICE level-1 MOSFET), matched | walk | none mapped | indexed |
+| `cmos.js` | Teaching CMOS model. Square-law Shichman–Hodges (the SPICE level-1 MOSFET), matched | walk | none mapped | reviewed, passes 54–55 |
 | `explain.js` | How one recorded cell was computed. The arithmetic matches the engine's loops, including the four-lane matvec. | walk | none mapped | indexed |
 | `fault.js` | Real bit faults in a real forward. The mask is deterministic for a fixed seed. | walk | none mapped | indexed |
 | `forgealu.d.ts` | ts | walk | none mapped | indexed |
@@ -724,7 +724,7 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 | `rpc.ts` | Typed request/response RPC over any postMessage endpoint (Worker, MessagePort, DedicatedWorkerGlobalScope). | v17 shell | none mapped | indexed |
 | `selection.ts` | Global typed selection: one source of truth that every panel reads. Framework-agnostic core (unit-tested); | v17 shell | none mapped | indexed |
 | `store.ts` | Solid binding for the selection store + app-level UI state; mirrors to/from the legacy app. | v17 shell | none mapped | indexed |
-| `walk.ts` | Signals for the Deep Walk workspace. The tensors themselves stay in the engine; | v17 shell | none mapped | indexed |
+| `walk.ts` | Signals for the Deep Walk workspace. The tensors themselves stay in the engine; | v17 shell | none mapped | reviewed, passes 54–55 |
 | `workspaces.ts` | The 75 v16 tabs stay in the original 9 workspaces. Every legacy tab key appears exactly once. | v17 shell | none mapped | indexed |
 
 ## `ui/src/design-system/`
@@ -743,7 +743,7 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 | `Machine.tsx` | tsx | v17 shell | none mapped | indexed |
 | `Panels.tsx` | tsx | v17 shell | none mapped | indexed |
 | `VirtualTable.tsx` | Virtualized table: renders only the visible rows (fixed row height), keyboard-scrollable, ARIA grid semantics. | v17 shell | none mapped | indexed |
-| `Walk.tsx` | tsx | v17 shell | none mapped | indexed |
+| `Walk.tsx` | tsx | v17 shell | none mapped | reviewed, passes 54–55 |
 
 ## `ui/src/three/`
 
@@ -753,7 +753,7 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 | `machine.ts` | Machine Room board. Blocks are the components. Small spheres are bus packets. | v17 shell | none mapped | indexed |
 | `nested.ts` | 3D views of the three nested experiments, built only from their shipped artifacts in src/nested/: | v17 shell | none mapped | indexed |
 | `stage.ts` | Shared three.js stage: WebGPURenderer (WebGPU backend when available, WebGL2 fallback otherwise), orbit-ish | v17 shell | none mapped | reviewed, passes 23–30 |
-| `walk.ts` | Deep-walk stage. Instanced blocks for tensors, bits, and gates. The voltage curve is the same | v17 shell | none mapped | indexed |
+| `walk.ts` | Deep-walk stage. Instanced blocks for tensors, bits, and gates. The voltage curve is the same | v17 shell | none mapped | reviewed, passes 54–55 |
 
 ## `ui/tests/`
 

@@ -1,6 +1,6 @@
 import { createEffect, createMemo, createSignal, For, getOwner, onCleanup, onMount, runWithOwner, Show, type JSX } from 'solid-js';
 import { CHAPTERS } from '../../../src/walk/chapters.js';
-import { CMOS_BANNER, assessInverter, cmosParams, type CmosParams, type InverterReport } from '../../../src/walk/cmos.js';
+import { CMOS_BANNER, assessInverter, cmosParams, transferCurveYield, type CmosParams, type InverterReport } from '../../../src/walk/cmos.js';
 import { significandProduct, vmOperands, type ForgeGate, type SigProduct } from '../../../src/walk/forgealu.js';
 import { legacy } from '../core/bridge';
 import { forgeCursor, forgeRun } from '../core/forge';
@@ -58,6 +58,8 @@ function Stage(): JSX.Element {
         const st = await createStage(host, () => getComputedStyle(document.documentElement).getPropertyValue('--c-bg').trim() || '#070a12');
         const scene = createWalk(st);
         if (owner) runWithOwner(owner, () => {
+          const paint = () => new Promise<void>((resolve) => requestAnimationFrame(() => setTimeout(resolve, 0)));
+          let ticket = 0;
           createEffect(() => {
             const view = walkView();
             if (!view) return;
@@ -65,12 +67,19 @@ function Stage(): JSX.Element {
             const zoom = walkZoom();
             const cell = walkCell();
             const curve = walkCurve();
-            const gates = zoom === 'gates' ? gateBoxes(cell) : null;
-            scene.show(view, zoom, current, cell, gates, zoom === 'voltage' ? curve : null, theme() === 'light');
-            const aim = scene.aim();
-            const next = `${zoom}:${current?.id}:${cell?.opId}:${cell?.index}:${gates?.length ?? 0}:${curve?.length ?? 0}`;
-            if (next !== sig) { sig = next; st.focus(aim.at, aim.dist); }
-            setHud(`${st.backend} · ${ZOOM_LABEL[zoom]} · ${current ? `${current.title} · ${current.note}` : 'model'}`);
+            const light = theme() === 'light';
+            const mine = ++ticket;
+            void (async () => {
+              await paint();
+              if (mine !== ticket) return;
+              const gates = zoom === 'gates' ? gateBoxes(cell) : null;
+              await scene.show(view, zoom, current, cell, gates, zoom === 'voltage' ? curve : null, light, paint);
+              if (mine !== ticket) return;
+              const aim = scene.aim();
+              const next = `${zoom}:${current?.id}:${cell?.opId}:${cell?.index}:${gates?.length ?? 0}:${curve?.length ?? 0}`;
+              if (next !== sig) { sig = next; st.focus(aim.at, aim.dist); }
+              setHud(`${st.backend} · ${ZOOM_LABEL[zoom]} · ${current ? `${current.title} · ${current.note}` : 'model'}`);
+            })();
           });
           onCleanup(() => { scene.dispose(); st.dispose(); });
         });
@@ -187,8 +196,22 @@ function ZoomPanel(): JSX.Element {
   const [vth, setVth] = createSignal(0.25);
   const [temp, setTemp] = createSignal(300);
   const [noise, setNoise] = createSignal(0);
-  const report = createMemo(() => assessInverter(cmosParams({ VDD: vdd(), Vth0: vth(), T: temp() }), { noiseSigma: noise(), noiseDraws: noise() > 0 ? 32 : 0, seed: 1729, steps: 41 }));
-  createEffect(() => setWalkCurve(report().curve));
+  const [report, setReport] = createSignal<InverterReport | null>(null);
+  const paint = () => new Promise<void>((resolve) => requestAnimationFrame(() => setTimeout(resolve, 0)));
+  createEffect(() => {
+    const params = cmosParams({ VDD: vdd(), Vth0: vth(), T: temp() });
+    const sigma = noise();
+    let dead = false;
+    onCleanup(() => { dead = true; });
+    void (async () => {
+      await paint();
+      if (dead) return;
+      const curve = await transferCurveYield(params, 41, paint);
+      if (dead) return;
+      setReport(assessInverter(params, { noiseSigma: sigma, noiseDraws: sigma > 0 ? 32 : 0, seed: 1729, steps: 41 }, curve));
+      setWalkCurve(curve);
+    })();
+  });
   return <>
     <h3>Zoom</h3>
     <div class="zoomladder">
@@ -201,7 +224,9 @@ function ZoomPanel(): JSX.Element {
       <label class="hint">Vth {vth().toFixed(2)} V <input type="range" min="0.05" max="0.8" step="0.01" value={vth()} onInput={(e) => setVth(+e.currentTarget.value)} /></label>
       <label class="hint">T {temp().toFixed(0)} K <input type="range" min="250" max="400" step="1" value={temp()} onInput={(e) => setTemp(+e.currentTarget.value)} /></label>
       <label class="hint">input noise σ {noise().toFixed(3)} V <input type="range" min="0" max="0.4" step="0.005" value={noise()} onInput={(e) => setNoise(+e.currentTarget.value)} /></label>
-      <VoltageReadout r={report()} p={cmosParams({ VDD: vdd(), Vth0: vth(), T: temp() })} />
+      <Show when={report()} fallback={<p class="hint">Computing the transfer curve…</p>}>
+        {(r) => <VoltageReadout r={r()} p={cmosParams({ VDD: vdd(), Vth0: vth(), T: temp() })} />}
+      </Show>
     </Show>
     <Show when={walkZoom() === 'gates'}><p class="hint">Gate zoom draws the significand multiplier of the selected product when both factors are normal float32. A Forge instruction’s ALU is in the Forge link panel. Neither netlist is what the engine executed.</p></Show>
     <Show when={walkZoom() === 'float'}><p class="hint">Bit cells are the float32 rounding of the JavaScript product. Sign, exponent, and fraction are separate colors. The accumulator in the matvec is float64.</p></Show>

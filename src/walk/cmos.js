@@ -132,6 +132,17 @@ export function transferCurve(p, steps = 81) {
   }
   return pts;
 }
+export async function transferCurveYield(p, steps = 81, pause = null) {
+  const pts = [];
+  const n = Math.max(2, steps);
+  for (let i = 0; i < n; i++) {
+    const vin = p.VDD * (i / (n - 1));
+    const s = solveInverter(p, vin);
+    pts.push({ vin, vout: s.vout, defined: s.defined });
+    if (pause && (i & 7) === 7) await pause();
+  }
+  return pts;
+}
 
 function unityGain(pts) {
   let vil = null;
@@ -161,9 +172,9 @@ export function stageDelay(p) {
   };
 }
 
-export function assessInverter(p, opts = {}) {
+export function assessInverter(p, opts = {}, curve = null) {
   const steps = opts.steps || 81;
-  const curve = transferCurve(p, steps);
+  if (!curve) curve = transferCurve(p, steps);
   const low = solveInverter(p, p.VDD);
   const high = solveInverter(p, 0);
   const vol = low.vout;
