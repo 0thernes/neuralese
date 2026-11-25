@@ -1,6 +1,6 @@
 // NEURALESE audio: calm, data-driven lab-instrument sonification (Web Audio). Everything is synthesized; no samples.
 // Pure mapping functions at the top are unit-tested (test/audio.test.mjs) and have no Web Audio dependency.
-import { frame, slice } from './coop.js?v=181';
+import { frame, slice } from './coop.js?v=182';
 
 // ───────── pure data → sound mappings ─────────
 // Consonant scales only. "lydian" here omits the #4 so no tritone over the root can ever sound.
@@ -82,12 +82,16 @@ export class AudioEngine {
     // divergence: consonant interval voice above the pad
     this.divO = C.createOscillator(); this.divO.type = 'sine'; this.divG = C.createGain(); this.divG.gain.value = 0; this.divO.connect(this.divG).connect(this.padF); this.divO.start(t);
     // layer choir: 8 soft sines (one per layer), gain ← layer residual norm; head texture: soft FM shimmer, index ← attention entropy
-    this.choir = []; for (let l = 0; l < 8; l++) { const o = C.createOscillator(); o.type = 'sine'; o.start(t); const g = C.createGain(); g.gain.value = 0; const p = C.createStereoPanner(); p.pan.value = (l / 7) * 1.2 - 0.6; o.connect(g).connect(p).connect(this.bus.choir); this.choir.push({ o, g }); }
+    this.choir = [];
+    for (let l = 0; l < 8; l++) { const o = C.createOscillator(); o.type = 'sine'; o.start(t); const g = C.createGain(); g.gain.value = 0; const p = C.createStereoPanner(); p.pan.value = (l / 7) * 1.2 - 0.6; o.connect(g).connect(p).connect(this.bus.choir); this.choir.push({ o, g }); if (l % 2 === 1) await frame(); }
+    await frame();
     this.fmC = C.createOscillator(); this.fmM = C.createOscillator(); this.fmI = C.createGain(); this.fmI.gain.value = 0; this.fmM.connect(this.fmI).connect(this.fmC.frequency); this.fmG = C.createGain(); this.fmG.gain.value = 0;
     this.fmC.connect(this.fmG).connect(this.bus.choir); this.fmC.start(t); this.fmM.start(t);
+    await frame();
     this.on = true; this.applyStyle(); this.applyVol(); this.setHarmony(this.harm);
     const levelOf = (buf) => { let s = 0; for (let i = 0; i < 64; i++) s += buf[i]; return s / (64 * 255); };
-    this.timer = setInterval(() => { this.an.getByteFrequencyData(this.abuf); this.level = levelOf(this.abuf); }, 50);
+    const meter = () => { if (!this.on || !this.an) return; this.an.getByteFrequencyData(this.abuf); this.level = levelOf(this.abuf); requestAnimationFrame(meter); };
+    requestAnimationFrame(meter);
   }
   makeIR() { const C = this.ctx, sec = STYLES[this.style].rev * this.revSize, n = Math.max(1, Math.floor(C.sampleRate * sec)), b = C.createBuffer(2, n, C.sampleRate);
     for (let ch = 0; ch < 2; ch++) { const d = b.getChannelData(ch); let lp = 0; for (let i = 0; i < n; i++) { lp = lp * 0.85 + (Math.random() * 2 - 1) * 0.15; d[i] = lp * Math.pow(1 - i / n, 4); } } this.rev.buffer = b; }
@@ -129,6 +133,6 @@ export class AudioEngine {
   resetHistory() { this.hist = { ent: [], ids: [], probs: [], norms: [] }; }
   edit(kind) { if (!this.on || this.muted) return; const c = EDIT_CHIMES[kind] || EDIT_CHIMES.generic, t = this.ctx.currentTime + 0.02, { root } = this.harm;
     c.deg.forEach((d, i) => this.note(t + i * c.gap, midiToHz(degreeToMidi(d, root + 24, 'pentatonic')), { v: c.v, amp: c.v === 'click' ? 0.1 : 0.07, dur: 0.5, pan: (i - (c.deg.length - 1) / 2) * 0.3 })); }
-  anomaly(type) { this.events.push({ type, t: performance.now() }); this.onAnomaly && this.onAnomaly(type); if (!this.on || this.muted) return; const t = this.ctx.currentTime + 0.02, { root } = this.harm;
-    this.note(t, midiToHz(root + 31), { v: 'sine', amp: 0.05, dur: 0.4 }); this.note(t + 0.12, midiToHz(root + 36), { v: 'sine', amp: 0.05, dur: 0.6 }); } // soft rising fifth→octave notification
+  async anomaly(type) { this.events.push({ type, t: performance.now() }); this.onAnomaly && this.onAnomaly(type); if (!this.on || this.muted) return; await frame(); const t = this.ctx.currentTime + 0.02, { root } = this.harm;
+    this.note(t, midiToHz(root + 31), { v: 'sine', amp: 0.05, dur: 0.4 }); await frame(); this.note(t + 0.12, midiToHz(root + 36), { v: 'sine', amp: 0.05, dur: 0.6 }); } // soft rising fifth→octave notification
 }
