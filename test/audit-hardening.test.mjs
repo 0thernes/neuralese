@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { concatUint8, joinLines } from '../src/bytes.js';
-import { GPT2Tokenizer } from '../src/tokenizer.js';
+import { GPT2Tokenizer, parseVocabYield } from '../src/tokenizer.js';
 import { parseSafetensors, parseSafetensorsYield } from '../src/model.js';
 import { kl } from '../src/analytics.js';
 import { svd, svdReconstruct } from '../src/linalg.js';
@@ -38,6 +38,17 @@ test('a yielded inverter curve matches one full curve', async () => {
   assert.equal(curve.length, full.curve.length);
   assert.ok(pauses >= 4);
   for (let i = 0; i < curve.length; i++) assert.ok(Math.abs((curve[i].vout ?? 0) - (full.curve[i].vout ?? 0)) < 1e-9);
+});
+
+test('a yielded vocab parse matches JSON.parse', async () => {
+  const text = readFileSync(new URL('../model/vocab.json', import.meta.url), 'utf8');
+  let pauses = 0;
+  const yielded = await parseVocabYield(text, async () => { pauses++; });
+  const parsed = JSON.parse(text);
+  assert.equal(Object.keys(yielded).length, Object.keys(parsed).length);
+  assert.ok(pauses > 100);
+  for (const k of ['Once', ' hello', '!']) if (k in parsed) assert.equal(yielded[k], parsed[k]);
+  assert.equal(yielded[Object.keys(parsed)[0]], parsed[Object.keys(parsed)[0]]);
 });
 
 test('the shipped BPE table matches merges.txt', () => {

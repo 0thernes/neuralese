@@ -1,6 +1,6 @@
 // NEURALESE v2 — UI wiring. All numerics live in engine/analysis/surgery/decode/sae/rome (unit-tested vs PyTorch).
 import * as U152 from './ui152.js?v=170';
-import { GPT2Tokenizer } from './tokenizer.js?v=170';
+import { GPT2Tokenizer, parseVocabYield } from './tokenizer.js?v=170';
 import { CFG, buildWeights, parseSafetensorsYield, cloneWeights, mulberry32 } from './model.js?v=170';
 import { concatUint8 } from './bytes.js?v=170';
 import { Engine, defaultRuntime, logSoftmax, topK, SITES } from './engine.js?v=170';
@@ -67,7 +67,7 @@ async function loadModel() {
   await frame();
   const vocabText = await vocabP, ranks = await ranksP, inverse = await invP;
   await frame();
-  const vocab = JSON.parse(vocabText);
+  const vocab = await parseVocabYield(vocabText, typeof document !== 'undefined' ? frame : null);
   await frame();
   return { W: buildWeights(T), tok: await GPT2Tokenizer.createFromPairs(vocab, ranks, inverse), mb: end / 1e6 };
 }
