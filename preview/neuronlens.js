@@ -4,6 +4,7 @@
 //  - LN rule: each LayerNorm holds its rstd constant; the mean subtraction is linear and kept.
 //  - identity rule: GELU(g) = g·φ(g) is linearised as φ(g)·dg, φ = 0.5(1+tanh(c(g+0.044715g³))).
 //  - attention keeps its true derivative (softmax over q·k; GPT-Neo has no 1/√hd scale, no RoPE, no q/k norm).
+//    Odd layers use the local window (cfg.window, default 256), matching Engine. Even layers are full causal.
 //  - SKIP_FIRST = 16: tangents/cotangents live only at valid positions [16, T−1); the primal drops the last token.
 //  - R-lens J_L = mean_t Σ_{t'≥t} ∂h_final(t')/∂h_L(t) (h_final = last layer output before ln_f), targets out (L0..L-2) and mid (all L).
 //  - S-lens K_L = mean_t Σ_{s≤t} ∂h_L(t)/∂e(s), targets mid and out (all L).
@@ -56,9 +57,11 @@ export function forward(M, ids, opts = {}) {
     mm(x, P.qT, q, T, d, d); mm(x, P.kT, k, T, d, d); mm(x, P.vT, v, T, d, d);
     const Pm = new Float32Array(H * T * T); // probs [h][t][s]
     for (let hh = 0; hh < H; hh++) { const off = hh * hd;
+      const win = M.cfg.window > 0 ? M.cfg.window : 256;
       for (let t = 0; t < T; t++) { let mx = -Infinity; const row = Pm.subarray((hh * T + t) * T, (hh * T + t + 1) * T);
-        for (let s = 0; s <= t; s++) { let a = 0; for (let e = 0; e < hd; e++) a += q[t * d + off + e] * k[s * d + off + e]; row[s] = a; if (a > mx) mx = a; }
-        let Z = 0; for (let s = 0; s <= t; s++) { row[s] = Math.exp(row[s] - mx); Z += row[s]; } for (let s = 0; s <= t; s++) row[s] /= Z;
+        const lo = (l % 2) ? Math.max(0, t + 1 - win) : 0;
+        for (let s = 0; s <= t; s++) { if (s < lo) { row[s] = -Infinity; continue; } let a = 0; for (let e = 0; e < hd; e++) a += q[t * d + off + e] * k[s * d + off + e]; row[s] = a; if (a > mx) mx = a; }
+        let Z = 0; for (let s = 0; s <= t; s++) { row[s] = row[s] === -Infinity ? 0 : Math.exp(row[s] - mx); Z += row[s]; } for (let s = 0; s <= t; s++) row[s] /= Z;
         for (let e = 0; e < hd; e++) { let a = 0; for (let s = 0; s <= t; s++) a += row[s] * v[s * d + off + e]; z[t * d + off + e] = a; } } }
     if (opts.ablate && opts.ablate[l]) for (const hh of opts.ablate[l]) for (let t = 0; t < T; t++) z.fill(0, t * d + hh * hd, t * d + hh * hd + hd); // zero-ablate heads
     if (opts.zs) opts.zs.push(z.slice());

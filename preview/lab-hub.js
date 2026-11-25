@@ -6,7 +6,7 @@ import { lines } from './charts.js?v=170';
 import { $, esc, tipq } from './lab-ui.js?v=170';
 import { MODELS, TOOL_MATRIX, TFJS_VERSION, ORT_WASM, pca3, cosine, resample, wav, wer, TRANSFORMS, byKey, cer } from './hub/models.js?v=170';
 import { toEdit } from './hub/finetune.js?v=170';
-import { slice } from './coop.js?v=170';
+import { slice, frame } from './coop.js?v=170';
 const kv = (rows) => `<table class="kv">${rows.map(([a, b]) => `<tr><td>${a}</td><td>${b}</td></tr>`).join('')}</table>`;
 const ok = (b) => (b ? '<span class="good">✔ pass</span>' : '<span class="warn">✖ fail</span>');
 const st = (id) => `<div class="sm" id="${id}St" aria-live="polite"></div>`;
@@ -69,12 +69,12 @@ async function circle() { await blit(224, 224, await paintCard({ w: 224, h: 224,
 const img = () => { const c = $('hvCv'), d = c.getContext('2d').getImageData(0, 0, c.width, c.height); return { data: d.data, width: d.width, height: d.height }; };
 // ---------- 3D embedding map ----------
 let E3 = null;
-async function draw3d(pts, labels, groups) { const THREE = await import('three'); await new Promise((resolve) => requestAnimationFrame(resolve)); const box = $('he3d'); if (!E3) { const r = await new Promise((resolve) => requestAnimationFrame(() => resolve(new THREE.WebGLRenderer({ antialias: !!navigator.gpu, alpha: true })))); box.appendChild(r.domElement); const y0 = slice(); if (y0) await y0; const sc = new THREE.Scene(), cam = new THREE.PerspectiveCamera(50, 1, 0.01, 100); cam.position.set(0, 0, 3.2);
+async function draw3d(pts, labels, groups) { const THREE = await import('three'); await new Promise((resolve) => requestAnimationFrame(resolve)); const box = $('he3d'); if (!E3) { const r = await new Promise((resolve) => requestAnimationFrame(() => resolve(new THREE.WebGLRenderer({ antialias: !!navigator.gpu, alpha: true })))); box.appendChild(r.domElement); await frame(); const sc = new THREE.Scene(), cam = new THREE.PerspectiveCamera(50, 1, 0.01, 100); cam.position.set(0, 0, 3.2);
     E3 = { r, sc, cam, g: new THREE.Group(), ang: 0, drag: null }; sc.add(E3.g); r.domElement.style.cursor = 'grab'; r.domElement.setAttribute('aria-label', '3D map of sentence embeddings (drag to rotate)');
     r.domElement.addEventListener('pointerdown', (e) => (E3.drag = e.clientX)); addEventListener('pointerup', () => (E3.drag = null)); r.domElement.addEventListener('pointermove', (e) => { if (E3.drag != null) { E3.ang += (e.clientX - E3.drag) * 0.01; E3.drag = e.clientX; } });
-    const loop = () => { if (!box.isConnected) return; const w = box.clientWidth || 400, h = box.clientHeight || 340; if (r.domElement.width !== w * devicePixelRatio) { r.setPixelRatio(devicePixelRatio); r.setSize(w, h); cam.aspect = w / h; cam.updateProjectionMatrix(); } if (E3.drag == null) E3.ang += 0.003; E3.g.rotation.y = E3.ang; r.render(sc, cam); requestAnimationFrame(loop); }; loop(); }
+    const loop = () => { if (!box.isConnected) return; const w = box.clientWidth || 400, h = box.clientHeight || 340; if (r.domElement.width !== w * devicePixelRatio) { r.setPixelRatio(devicePixelRatio); r.setSize(w, h); cam.aspect = w / h; cam.updateProjectionMatrix(); } if (E3.drag == null) E3.ang += 0.003; E3.g.rotation.y = E3.ang; r.render(sc, cam); requestAnimationFrame(loop); }; requestAnimationFrame(loop); }
   E3.g.clear(); const m = Math.max(...pts.flat().map(Math.abs)) || 1, pal = ['#5eead4', '#60a5fa', '#a78bfa', '#f472b6', '#fbbf24', '#fb923c', '#4ade80', '#e879f9'];
-  for (let i = 0; i < pts.length; i++) { const p = pts[i]; const col = pal[groups[i] % 8], s = new THREE.Mesh(new THREE.SphereGeometry(0.035, 8, 6), new THREE.MeshBasicMaterial({ color: col })); s.position.set(...p.map((x) => x / m)); E3.g.add(s); const y = slice(); if (y) await y;
+  for (let i = 0; i < pts.length; i++) { await frame(); const p = pts[i]; const col = pal[groups[i] % 8], s = new THREE.Mesh(new THREE.SphereGeometry(0.035, 8, 6), new THREE.MeshBasicMaterial({ color: col })); s.position.set(...p.map((x) => x / m)); E3.g.add(s);
     const c = document.createElement('canvas'); c.width = 512; c.height = 64; const g = c.getContext('2d'); g.font = 'bold 34px sans-serif'; g.fillStyle = col; g.fillText(labels[i].slice(0, 36), 4, 40); const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthTest: false })); sp.scale.set(1.2, 0.15, 1); sp.position.set(s.position.x + 0.62, s.position.y + 0.05, s.position.z); E3.g.add(sp); }
   E3.g.add(new THREE.AxesHelper(0.4)); }
 const vecs = (r) => { const [n, D] = r.out.dims; return Array.from({ length: n }, (_, i) => r.out.data.slice(i * D, (i + 1) * D)); };

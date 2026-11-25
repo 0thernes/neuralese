@@ -5,7 +5,7 @@ import { CORPUS } from './corpus.js?v=170';
 import { lines } from './charts.js?v=170';
 import { $, esc, opts, hOpts, cv, tipq, prog, tick, tokId, parseLayers, d, H, hd, L, ff } from './lab-ui.js?v=170';
 import { slice } from './coop.js?v=170';
-async function lastH(eng, ids) { const s = eng.newSeq(ids.length); let last; for (const t of ids) { last = eng.step(s, t); const y = slice(); if (y) await y; } return last.h; }
+async function lastH(eng, ids) { const s = eng.newSeq(ids.length); let last; for (const t of ids) { for (;;) { last = eng.step(s, t, { budget: true }); if (!last.partial) break; const y = slice(); if (y) await y; } const y = slice(); if (y) await y; } return last.h; }
 const PROMPT = 'Once upon a time, there was a little girl named Lily. She loved to';
 export const markup = {
   sweep: ['SWEEP', 'Sweeps & batch', `<fieldset><legend>parameter sweep ${tipq('Each point builds a fresh engine with that parameter value (weights blended or runtime cloned) and measures perplexity on corpus tokens, KL vs the clean model at the prompt end, and p(target).')}</legend>
