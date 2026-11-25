@@ -58,7 +58,7 @@ export function install(A, out) {
   on('qrD', 'click', () => out.qseed()); on('qrA', 'click', () => out.qseedApply()); on('qrP', 'click', async () => showSeed(await Q.seed32({ seed: fromHex($('qrR').value.trim()) })));
   out.chsh = async (n0) => { const n = Math.max(1000, Math.min(200000, +(n0 ?? $('qrN').value) || 20000)), seed = crypto.getRandomValues(new Uint8Array(16));
     let accS = 0, accE = [0, 0, 0, 0], accSe2 = 0, done = 0;
-    for (let left = n; left > 0;) { const k = Math.min(4000, left), s = seed.slice(); s[15] = (s[15] + done) & 255; const part = await Q.chsh(s, k); accS += part.S * k; for (let i = 0; i < 4; i++) accE[i] += part.E[i] * k; accSe2 += part.se * part.se * k * k; done += k; left -= k; await tick(); }
+    for (let left = n; left > 0;) { const k = Math.min(800, left), s = seed.slice(); s[15] = (s[15] + done) & 255; const part = await Q.chsh(s, k); accS += part.S * k; for (let i = 0; i < 4; i++) accE[i] += part.E[i] * k; accSe2 += part.se * part.se * k * k; done += k; left -= k; await tick(); }
     const r = { S: accS / n, se: Math.sqrt(accSe2) / n, E: accE.map((x) => x / n), n };
     $('qrCOut').innerHTML = `<table class="kv"><tr><td>S</td><td>${r.S.toFixed(4)} ± ${r.se.toFixed(4)}</td></tr><tr><td>classical bound</td><td>2 → ${((r.S - 2) / r.se).toFixed(1)} σ above</td></tr><tr><td>Tsirelson 2√2</td><td>2.8284 → ${((r.S - 2 * Math.SQRT2) / r.se).toFixed(2)} σ</td></tr><tr><td>E(a,b) E(a,b′) E(a′,b) E(a′,b′)</td><td>${r.E.map((x) => x.toFixed(3)).join(' ')}</td></tr></table><div class="sm">Simulated on a classical computer — see the tooltip.</div>`; keep('chsh', `CHSH n=${n}`, { S: r.S, se: r.se }); return r; };
   on('qrC', 'click', () => out.chsh());

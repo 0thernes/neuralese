@@ -8,11 +8,15 @@ export function gpuTier(): Tier { const t = legacy()?.viz?.tier; return t === 'l
 export interface Stage { scene: THREE.Scene; camera: THREE.PerspectiveCamera; renderer: THREE.WebGPURenderer; backend: string; tier: Tier; focus(p: THREE.Vector3, dist: number): void; dist(): number; onFrame(f: (dt: number) => void): void; pick(e: PointerEvent, objs: THREE.Object3D[]): THREE.Intersection | null; dispose(): void }
 export async function createStage(host: HTMLElement, bg: () => string): Promise<Stage> {
   const tier = gpuTier(); const hasGPU = typeof navigator !== 'undefined' && 'gpu' in navigator && !!(navigator as Navigator & { gpu?: unknown }).gpu;
-  const renderer = new THREE.WebGPURenderer({ antialias: tier !== 'low', forceWebGL: !hasGPU || tier === 'low' });
-  // dispose() deliberately releases the context; only a loss while still mounted is worth reporting
-  renderer.onDeviceLost = (info: { message?: string }) => { if (alive) console.warn('[cosmos] GPU device lost:', info?.message ?? 'unknown'); };
-  renderer.setPixelRatio(Math.min(devicePixelRatio, tier === 'high' ? 2 : tier === 'mid' ? 1.5 : 1));
-  await new Promise<void>((resolve, reject) => requestAnimationFrame(() => { renderer.init().then(() => resolve(), reject); }));
+  let alive = true;
+  const renderer = await new Promise<THREE.WebGPURenderer>((resolve, reject) => requestAnimationFrame(() => {
+    try {
+      const r = new THREE.WebGPURenderer({ antialias: tier !== 'low', forceWebGL: !hasGPU || tier === 'low' });
+      r.onDeviceLost = (info: { message?: string }) => { if (alive) console.warn('[cosmos] GPU device lost:', info?.message ?? 'unknown'); };
+      r.setPixelRatio(Math.min(devicePixelRatio, tier === 'high' ? 2 : tier === 'mid' ? 1.5 : 1));
+      r.init().then(() => resolve(r), reject);
+    } catch (e) { reject(e instanceof Error ? e : new Error(String(e))); }
+  }));
   const backend = (renderer.backend as unknown as { isWebGPUBackend?: boolean }).isWebGPUBackend ? 'WebGPU' : 'WebGL2';
   const canvas = renderer.domElement; canvas.className = 'cosmos-canvas'; canvas.tabIndex = 0; host.appendChild(canvas);
   const scene = new THREE.Scene(); const camera = new THREE.PerspectiveCamera(45, 1, 0.05, 2000);
@@ -29,7 +33,7 @@ export async function createStage(host: HTMLElement, bg: () => string): Promise<
   let sized = false;
   const ro = new ResizeObserver(() => { sized = false; });
   ro.observe(host);
-  let last = performance.now(), alive = true, visible = true;
+  let last = performance.now(), visible = true;
   const io = new IntersectionObserver((es) => { visible = es.some((x) => x.isIntersecting); }); io.observe(host);
   const loop = (): void => {
     if (!alive) return; const now = performance.now(), dt = Math.min(0.05, (now - last) / 1000); last = now;
@@ -50,6 +54,6 @@ export async function createStage(host: HTMLElement, bg: () => string): Promise<
     dist: () => rr.x,
     onFrame: (f) => { frames.push(f); },
     pick(e, objs) { const r = canvas.getBoundingClientRect(); ray.setFromCamera(new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1), camera); return ray.intersectObjects(objs, false)[0] ?? null; },
-    dispose() { alive = false; ro.disconnect(); io.disconnect(); renderer.dispose(); canvas.remove(); },
+    dispose() { alive = false; ro.disconnect(); io.disconnect(); const r = renderer, c = canvas; requestAnimationFrame(() => { r.dispose(); c.remove(); }); },
   };
 }

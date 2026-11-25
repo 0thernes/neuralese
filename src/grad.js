@@ -11,6 +11,8 @@ const gelu = (x) => 0.5 * x * (1 + Math.tanh(GC * (x + GA * x * x * x)));
 const dgelu = (x) => { const t = Math.tanh(GC * (x + GA * x * x * x)); return 0.5 * (1 + t) + 0.5 * x * (1 - t * t) * GC * (1 + 3 * GA * x * x); };
 // y[T×nOut] = X[T×nIn] · Wᵀ (+b);  W stored row-major [nOut][nIn]
 function mm(X, T, W, nOut, nIn, b) { const Y = new Float32Array(T * nOut); for (let t = 0; t < T; t++) { const xo = t * nIn, yo = t * nOut; for (let o = 0; o < nOut; o++) { let s = b ? b[o] : 0; const wo = o * nIn; for (let i = 0; i < nIn; i++) s += W[wo + i] * X[xo + i]; Y[yo + o] = s; } } return Y; }
+async function mmYield(X, T, W, nOut, nIn, b) { const Y = new Float32Array(T * nOut); for (let t = 0; t < T; t++) { const xo = t * nIn, yo = t * nOut; for (let o = 0; o < nOut; o++) { let s = b ? b[o] : 0; const wo = o * nIn; for (let i = 0; i < nIn; i++) s += W[wo + i] * X[xo + i]; Y[yo + o] = s; } if ((t & 3) === 3) { const y = pause(); if (y) await y; } } return Y; }
+async function applyPatch(patch, site, l, X) { if (!patch) return; const p = patch(site, l, X); if (p && typeof p.then === 'function') await p; }
 // dX[T×nIn] += dY[T×nOut] · W
 function mmT(dY, T, W, nOut, nIn, dX) { for (let t = 0; t < T; t++) { const yo = t * nOut, xo = t * nIn; for (let o = 0; o < nOut; o++) { const g = dY[yo + o]; if (!g) continue; const wo = o * nIn; for (let i = 0; i < nIn; i++) dX[xo + i] += g * W[wo + i]; } } return dX; }
 // dW[nOut×nIn] += dYᵀ X ; db += Σ dY
@@ -60,22 +62,22 @@ export async function forwardAsync(W, ids, o = {}) { const { d, H, hd, ff } = di
   if (o.x0) X.set(o.x0); else for (let t = 0; t < T; t++) for (let i = 0; i < d; i++) X[t * d + i] = W.wte[ids[t] * d + i] + W.wpe[t * d + i];
   A.x0 = X.slice();
   for (let l = 0; l < L; l++) {
-    const P = W.layers[l], C = {}; if (o.patch) o.patch('resid_pre', l, X); C.xin = X.slice();
-    C.ln1 = lnF(X, T, P.ln1w, P.ln1b); C.q = mm(C.ln1.Y, T, P.q, d, d); C.k = mm(C.ln1.Y, T, P.k, d, d); C.v = mm(C.ln1.Y, T, P.v, d, d);
+    const P = W.layers[l], C = {}; await applyPatch(o.patch, 'resid_pre', l, X); C.xin = X.slice();
+    C.ln1 = lnF(X, T, P.ln1w, P.ln1b); C.q = await mmYield(C.ln1.Y, T, P.q, d, d); C.k = await mmYield(C.ln1.Y, T, P.k, d, d); C.v = await mmYield(C.ln1.Y, T, P.v, d, d);
     const win = l % 2 ? CFG.window : 1e9; C.att = new Float32Array(H * T * T); const Z = new Float32Array(T * d);
     for (let h = 0; h < H; h++) { const off = h * hd; for (let t = 0; t < T; t++) { const lo = Math.max(0, t + 1 - win), row = (h * T + t) * T; let mx = -Infinity;
       for (let j = lo; j <= t; j++) { let s = 0; for (let i = 0; i < hd; i++) s += C.q[t * d + off + i] * C.k[j * d + off + i]; C.att[row + j] = s; if (s > mx) mx = s; }
       let sum = 0; for (let j = lo; j <= t; j++) { const e = Math.exp(C.att[row + j] - mx); C.att[row + j] = e; sum += e; }
       for (let j = lo; j <= t; j++) { const a = (C.att[row + j] /= sum); for (let i = 0; i < hd; i++) Z[t * d + off + i] += a * C.v[j * d + off + i]; } }
-      if ((h & 3) === 3) { if (typeof document !== 'undefined') await frame(); else { const y = pause(); if (y) await y; } } }
-    if (o.patch) o.patch('z', l, Z); C.z = Z;
-    const AO = mm(Z, T, P.o, d, d, P.ob); if (o.patch) o.patch('attn_out', l, AO); for (let i = 0; i < X.length; i++) X[i] += AO[i];
+      { const y = pause(); if (y) await y; } }
+    await applyPatch(o.patch, 'z', l, Z); C.z = Z;
+    const AO = await mmYield(Z, T, P.o, d, d, P.ob); await applyPatch(o.patch, 'attn_out', l, AO); for (let i = 0; i < X.length; i++) X[i] += AO[i];
     { const y = pause(); if (y) await y; }
-    C.xmid = X.slice(); C.ln2 = lnF(X, T, P.ln2w, P.ln2b); C.pre = mm(C.ln2.Y, T, P.fc, ff, d, P.fcb);
-    const Aa = new Float32Array(T * ff); for (let i = 0; i < Aa.length; i++) Aa[i] = gelu(C.pre[i]); if (o.patch) o.patch('mlp_act', l, Aa); C.act = Aa;
-    const MO = mm(Aa, T, P.proj, d, ff, P.projb); if (o.patch) o.patch('mlp_out', l, MO); for (let i = 0; i < X.length; i++) X[i] += MO[i];
+    C.xmid = X.slice(); C.ln2 = lnF(X, T, P.ln2w, P.ln2b); C.pre = await mmYield(C.ln2.Y, T, P.fc, ff, d, P.fcb);
+    const Aa = new Float32Array(T * ff); for (let i = 0; i < Aa.length; i++) { Aa[i] = gelu(C.pre[i]); if ((i & 8191) === 8191) { const y = pause(); if (y) await y; } } await applyPatch(o.patch, 'mlp_act', l, Aa); C.act = Aa;
+    const MO = await mmYield(Aa, T, P.proj, d, ff, P.projb); await applyPatch(o.patch, 'mlp_out', l, MO); for (let i = 0; i < X.length; i++) X[i] += MO[i];
     A.layers.push(C);
-    const y = pause(); if (y) await y;
+    if (typeof document !== 'undefined') await frame(); else { const y = pause(); if (y) await y; }
   }
   A.xf = X; A.lnf = lnF(X, T, W.lnfW, W.lnfB); A.hf = A.lnf.Y; return A;
 }

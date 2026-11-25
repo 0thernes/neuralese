@@ -123,3 +123,16 @@ One `npx playwright test`, workers 1, on https://0thernes.github.io/neuralese/pr
 The run did not pass. Application-script max is 549 / 1068 / 1696 ms. The three frames from `b1704d0` are not the worst entry on every width, and chart export plus the ACDC continuation are now the long scripts. p95 equals the max. Axe stayed clean and there were no console errors.
 
 Edge-level ACDC, MEMIT, UMAP, and t-SNE were never shipped tabs. The 43 P0 cards are not implemented. Electron and Capacitor release builds were not packed here. `contextIsolation` is already on in `desktop/main.cjs`.
+
+| Pass | Area | Found | Fixed | What |
+|---|---|---|---|---|
+| 23 | Main thread, export | 1 | 1 | Chart CSV no longer joins into one string or builds that Blob on the main thread. PNG export sends bitmap strips to `export-worker.js`. |
+| 24 | Main thread, ACDC | 1 | 1 | `acdcAsync` scores with `metricAsync` / `logitsAtAsync` and yields on every node. `forwardAsync` yields between matmuls. |
+| 25 | Main thread, load | 1 | 1 | `fetchRange` copies 64 KB at a time. Tensor parse is a view per paint. The tokenizer walks the vocab in slices. |
+| 26 | Main thread, stage | 1 | 1 | The WebGPU renderer is constructed inside the frame callback, and `dispose()` releases it on a later frame. |
+| 27 | Main thread | 3 | 3 | Superposition, CHSH, and the audio impulse response yield inside their loops. |
+| 28 | Numerics | 0 | 0 | `analytics.kl` matches `ln 2` and is 0 on identical distributions. |
+| 29 | Security, dependencies | 0 | 0 | Electron isolation and `safeAppPath` still hold. `npm audit` is 0. |
+| 30 | Features | 0 | 0 | Feature manifest still has 138 features and 10 releases. |
+
+The index and the per-finding log are `docs/engineering/AUDIT_INDEX.md` and `docs/engineering/AUDIT_LOG.md`. The preview click suite has not been re-run on these commits. The table above this section is still the `ec18eeb` measurement.

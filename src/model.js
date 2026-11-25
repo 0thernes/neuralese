@@ -12,6 +12,18 @@ export function parseSafetensors(buf, hdrLen, header) {
   }
   return T;
 }
+// Views into the downloaded buffer, one tensor per paint. Copying wte in one Float32Array was a long script.
+export async function parseSafetensorsYield(buf, header) {
+  const T = {};
+  for (const [k, v] of Object.entries(header)) {
+    if (k === '__metadata__' || v.dtype !== 'F32') continue;
+    const [a, b] = v.data_offsets, n = (b - a) >> 2;
+    if ((a & 3) === 0) T[k] = new Float32Array(buf, a, n);
+    else { const dst = new Float32Array(n); dst.set(new Float32Array(buf.slice(a, b))); T[k] = dst; }
+    await frame();
+  }
+  return T;
+}
 
 export function buildWeights(T) {
   const p = 'transformer.';

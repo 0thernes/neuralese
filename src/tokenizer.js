@@ -1,4 +1,5 @@
 // Minimal GPT-2 byte-level BPE tokenizer (vocab.json + merges.txt)
+import { frame } from './coop.js?v=170';
 function bytesToUnicode() {
   const bs = [];
   for (let i = 33; i <= 126; i++) bs.push(i);
@@ -30,6 +31,26 @@ export class GPT2Tokenizer {
     this.cache = new Map();
     this.te = new TextEncoder();
     this.td = new TextDecoder('utf-8', { fatal: false });
+  }
+  // The 50k-entry vocab walk is split. The sync constructor stays for tests and small vocabs.
+  static async create(vocab, mergesText) {
+    const tok = new GPT2Tokenizer({}, '');
+    tok.encoder = vocab;
+    tok.decoder = [];
+    const keys = Object.keys(vocab);
+    for (let i = 0; i < keys.length; i++) {
+      tok.decoder[vocab[keys[i]]] = keys[i];
+      if ((i & 2047) === 2047 && typeof document !== 'undefined') await frame();
+    }
+    tok.ranks = new Map();
+    const lines = String(mergesText).split('\n');
+    let r = 0;
+    for (let i = 0; i < lines.length; i++) {
+      const l = lines[i];
+      if (l && !l.startsWith('#version')) tok.ranks.set(l, r++);
+      if ((i & 4095) === 4095 && typeof document !== 'undefined') await frame();
+    }
+    return tok;
   }
   bpe(token) {
     if (this.cache.has(token)) return this.cache.get(token);
