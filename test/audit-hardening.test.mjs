@@ -205,6 +205,7 @@ test('chart export posts an ImageBitmap or typed columns and does not build the 
   const src = readFileSync(new URL('../src/lab-ui.js', import.meta.url), 'utf8');
   const fn = src.slice(src.indexOf('export async function exportFor'));
   assert.match(fn, /createImageBitmap\(src\)/);
+  assert.match(fn, /el\._bmp/);
   assert.match(fn, /op: 'png'/);
   assert.match(fn, /op: 'series'/);
   assert.ok(!fn.includes('_csv') && !fn.includes('getImageData') && !fn.includes('toDataURL') && !fn.includes('TextEncoder'));
