@@ -220,7 +220,14 @@ for (const [w, h, name] of WIDTHS) test(`click every control · ${name}`, async 
       const host = (pane && hosts.find((el) => el.contains(pane))) || hosts.sort((a, b) => b.querySelectorAll('button, input[type="checkbox"]').length - a.querySelectorAll('button, input[type="checkbox"]').length)[0];
       if (!host) return { state: 'missing', reason: 'panel not mounted' };
       const els = [...host.querySelectorAll('button, input[type="checkbox"]')].filter((el) => !(el instanceof HTMLInputElement && el.type === 'file'));
-      const el = row.selector ? host.querySelector(row.selector) : els[row.index];
+      let el = row.selector ? host.querySelector(row.selector) : els[row.index];
+      if ((!el || !host.contains(el)) && row.selector) {
+        for (const b of host.querySelectorAll('[data-lv], #lnBack')) {
+          b.click();
+          const again = host.querySelector(row.selector);
+          if (again) { el = again; break; }
+        }
+      }
       if (!el || !host.contains(el)) return { state: 'missing', reason: 'control not in the panel' };
       if (el.disabled) return { state: 'disabled', reason: el.title || 'disabled' };
       window.__click = (el.id || (el.textContent || '').trim()).slice(0, 48);
@@ -262,7 +269,8 @@ for (const [w, h, name] of WIDTHS) test(`click every control · ${name}`, async 
     const disabled = disabledRows.length;
     const disabledNames = disabledRows.map((r) => `${r.id} (${r.reason})`);
     for (const row of missingRows) failures.push(`${name} missing control ${row.id}: ${row.reason}`);
-    const baselinePath = new URL('./controls-e7c4f7e.json', import.meta.url);
+    console.log(name, 'inventory', inventory.length);
+    const baselinePath = 'test/e2e/controls-e7c4f7e.json';
     let baseline = fs.existsSync(baselinePath) ? JSON.parse(fs.readFileSync(baselinePath, 'utf8')) : [];
     if (!baseline.length && inventory.length) {
       baseline = inventory.map((r) => r.id).sort();
