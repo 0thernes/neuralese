@@ -632,8 +632,10 @@ function wire() {
 // ───────── boot ─────────
 (async () => {
   try {
-    const r = await loadModel(); await frame(); W = r.W; tok = r.tok; M = await cloneWeightsYield(W); await frame(); ed = new Editor(W, M); R = defaultRuntime(); eng = new Engine(M, R); engClean = new Engine(W, defaultRuntime()); engClean.prefixCache = true; // v15.3: originals are never edited in place
-    buildUI(); viz = new Viz($('gl'), (s) => setSel(s)); wire(); caInputs(); afterChange(); setSel({ l: 0, h: 0 }); $('loader').style.display = 'none'; hud();
+    const r = await loadModel(); await frame(); W = r.W; tok = r.tok; M = await cloneWeightsYield(W); await frame();
+    ed = new Editor(W, M); R = defaultRuntime(); await frame();
+    eng = new Engine(M, R); await frame(); engClean = new Engine(W, defaultRuntime()); engClean.prefixCache = true; await frame(); // v15.3: originals are never edited in place
+    buildUI(); await frame(); viz = new Viz($('gl'), (s) => setSel(s)); await frame(); wire(); caInputs(); await frame(); afterChange(); setSel({ l: 0, h: 0 }); $('loader').style.display = 'none'; hud();
     V5.mount({ viz, W: () => W, M: () => M, eng: () => eng, engClean: () => engClean, tok: () => tok, R: () => R, ed: () => ed, S: () => S, stats: () => stats, sae: () => sae, setSel, showTab, commit, weightEdit, download, generate, analyze, undo, redo, ensureStats, guard, toast, audio, decode: () => D, defaultRuntime,
       applyShared: (st) => commit('load shared experiment', () => { R = Object.assign(defaultRuntime(), st.R || {}); eng.R = R; ed.setEdits(st.edits || []); }),
       reset: () => commit('reset everything', () => { R = defaultRuntime(); eng.R = R; ed.setEdits([]); }), nextVecId: () => nextVec++,
