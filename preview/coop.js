@@ -5,10 +5,11 @@ const FRAME_MS = 8;
 const SLOW_STEP_MS = 16;
 let stop = false;
 let frameStart = 0;
-let gate = null;
+const waiters = [];
+let pumping = false;
 
 export function cancelJobs() { stop = true; }
-export function resetCancel() { stop = false; frameStart = 0; gate = null; }
+export function resetCancel() { stop = false; frameStart = 0; pumping = false; }
 export function cancelled() { return stop; }
 
 function noteYield(label) {
@@ -32,14 +33,7 @@ function nextPaint(label) {
       const Channel = globalThis.MessageChannel;
       if (typeof Channel === 'function') {
         const ch = new Channel();
-        ch.port1.onmessage = () => {
-          const t0 = performance.now();
-          ch.port1.close(); ch.port2.close(); resolve();
-          queueMicrotask(() => {
-            const dt = performance.now() - t0;
-            if (dt > 40) console.warn(`budget: resume ${String(label || 'frame').split('\n').slice(0, 3).join(' | ').slice(0, 160)} took ${dt.toFixed(0)} ms`);
-          });
-        };
+        ch.port1.onmessage = () => { ch.port1.close(); ch.port2.close(); resolve(); };
         ch.port2.postMessage(0);
         return;
       }
@@ -50,14 +44,28 @@ function nextPaint(label) {
   });
 }
 
+function pump() {
+  if (pumping || !waiters.length) return;
+  pumping = true;
+  nextPaint(waiters[0].label).then(() => {
+    frameStart = performance.now();
+    const release = () => {
+      if (!waiters.length) { pumping = false; return; }
+      if (performance.now() - frameStart >= FRAME_MS) { pumping = false; pump(); return; }
+      waiters.shift().resolve();
+      queueMicrotask(release);
+    };
+    release();
+  });
+}
+
+// Waiters resume one after another until the shared budget is spent. The rest wait for another
+// paint, so a crowd of small resumes cannot become one long message-port turn.
 export function waitNextFrame(label) {
-  if (!gate) {
-    gate = nextPaint(label).then(() => {
-      frameStart = performance.now();
-      gate = null;
-    });
-  }
-  return gate;
+  return new Promise((resolve) => {
+    waiters.push({ label: label || 'frame', resolve });
+    pump();
+  });
 }
 
 export function yieldHost(label) { return waitNextFrame(label); }
@@ -82,7 +90,7 @@ export async function runBudgeted(iter, opts = {}) {
   const label = opts.label || 'anonymous';
   for (;;) {
     if (stop) { stop = false; throw new Error('cancelled'); }
-    if (gate || frameBudgetSpent()) await waitNextFrame(label);
+    if (frameBudgetSpent()) await waitNextFrame(label);
     const t0 = performance.now();
     const step = it.next();
     noteSlow(label, performance.now() - t0);
@@ -96,7 +104,6 @@ export function frame() { return waitNextFrame(new Error().stack); }
 export function namedFrame(label) { return waitNextFrame(String(label || '')); }
 export function slice() {
   if (stop) { stop = false; throw new Error('cancelled'); }
-  if (gate) return waitNextFrame(new Error().stack);
   if (!frameBudgetSpent()) return null;
   return waitNextFrame(new Error().stack);
 }
