@@ -33,11 +33,11 @@ async function blobFromParts(parts, type) {
 async function pngBlob(el) {
   const w = el.width, h = el.height; if (!w || !h) return null;
   await tick();
-  const cap = 640, scale = Math.min(1, cap / Math.max(w, h));
+  const cap = 320, scale = Math.min(1, cap / Math.max(w, h));
   const cw = Math.max(1, Math.round(w * scale)), ch = Math.max(1, Math.round(h * scale));
   const c = document.createElement('canvas'); c.width = cw; c.height = ch;
-  c.getContext('2d').drawImage(el, 0, 0, cw, ch);
-  await tick();
+  const g = c.getContext('2d');
+  for (let y = 0; y < ch; y += 24) { const rh = Math.min(24, ch - y); g.drawImage(el, 0, Math.floor(y / scale), w, Math.ceil(rh / scale), 0, y, cw, rh); await tick(); }
   const bmp = await createImageBitmap(c);
   const worker = exportWorker();
   try {
