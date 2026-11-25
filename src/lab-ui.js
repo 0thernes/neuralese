@@ -1,8 +1,8 @@
 // Shared helpers for the v5 research tabs (markup builders, export, run tracker).
-import { CFG } from './model.js?v=182';
-import { frame, runBudgeted } from './coop.js?v=182';
-import { joinLines } from './bytes.js?v=182';
-import { createLab, fromTracker } from './agent/schema.js?v=182';
+import { CFG } from './model.js?v=183';
+import { frame, runBudgeted } from './coop.js?v=183';
+import { joinLines } from './bytes.js?v=183';
+import { createLab, fromTracker } from './agent/schema.js?v=183';
 export const { d, H, hd, L, ff, V } = CFG;
 export const $ = (id) => document.getElementById(id), $$ = (s, r = document) => [...r.querySelectorAll(s)];
 export const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
@@ -22,18 +22,23 @@ export function tokId(tok, s) { const ids = tok.encode(s); if (!ids.length) thro
 export function parseLayers(s) { const out = new Set(); for (const p of String(s).split(',')) { const m = p.trim().match(/^(\d+)(?:-(\d+))?$/); if (!m) throw new Error('bad layer list ' + s); for (let l = +m[1]; l <= +(m[2] ?? m[1]); l++) if (l < L) out.add(l); } if (!out.size) throw new Error('no valid layers'); return out; }
 export function canvasFit(cvs, h) { const w = cvs.clientWidth || 420; cvs.width = w * devicePixelRatio; cvs.height = h * devicePixelRatio; cvs.style.height = h + 'px'; const c = cvs.getContext('2d'); c.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0); return [c, w]; }
 export const chartBg = () => getComputedStyle(document.documentElement).getPropertyValue('--chart-bg').trim() || '#060a12';
-function exportWorker() { return new Worker(new URL('./export-worker.js?v=182', import.meta.url)); }
+function exportWorker() { return new Worker(new URL('./export-worker.js?v=183', import.meta.url)); }
 function workerBuffer(w) {
   return new Promise((resolve, reject) => {
     w.onmessage = (e) => resolve(e.data);
     w.onerror = () => reject(new Error('export worker failed'));
   });
 }
+async function takeBlob(w) {
+  const blob = await workerBuffer(w);
+  if (!(blob instanceof Blob)) throw new Error('export worker returned no blob');
+  return blob;
+}
 async function blobFromParts(parts, type) {
   const w = exportWorker();
   const enc = new TextEncoder();
   try {
-    const done = workerBuffer(w);
+    const done = takeBlob(w);
     await runBudgeted((function* () {
       for (let i = 0; i < parts.length; i++) {
         const part = parts[i];
@@ -44,8 +49,8 @@ async function blobFromParts(parts, type) {
         }
       }
     })(), { budgetMs: 8, label: 'csv-export' });
-    w.postMessage({ op: 'end' });
-    return new Blob([await done], { type });
+    w.postMessage({ op: 'end', type });
+    return await done;
   } finally { w.terminate(); }
 }
 async function pngBlob(el) {
@@ -53,9 +58,9 @@ async function pngBlob(el) {
   const bmp = await createImageBitmap(el);
   const w = exportWorker();
   try {
-    const done = workerBuffer(w);
+    const done = takeBlob(w);
     w.postMessage({ op: 'png', bmp, max: 96 }, [bmp]);
-    return new Blob([await done], { type: 'image/png' });
+    return await done;
   } finally { w.terminate(); }
 }
 export async function exportFor(id, kind) {

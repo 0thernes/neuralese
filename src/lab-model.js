@@ -1,9 +1,9 @@
 // MODEL group: architecture schematic, parameter/FLOP breakdown, weight statistics (live tensors).
-import * as C from './labcore.js?v=182';
-import { getMat, MATS } from './surgery.js?v=182';
-import { CFG } from './model.js?v=182';
-import { heatmap, lines, bars, scatter } from './charts.js?v=182';
-import { $, esc, fmt, human, opts, lOpts, hOpts, XB, cv, tipq, pal, prog, svgEl, tick, d, H, hd, L, V } from './lab-ui.js?v=182';
+import * as C from './labcore.js?v=183';
+import { getMat, MATS } from './surgery.js?v=183';
+import { CFG } from './model.js?v=183';
+import { heatmap, lines, bars, scatter } from './charts.js?v=183';
+import { $, esc, fmt, human, opts, lOpts, hOpts, XB, cv, tipq, pal, prog, svgEl, tick, d, H, hd, L, V } from './lab-ui.js?v=183';
 
 export const markup = {
   arch: ['ARCH', 'Architecture schematic', `<fieldset><legend>architecture schematic ${tipq('Generated from the live weights and the runtime layer program: duplicated, reordered or skipped slots appear here. Click a block to select that layer.')}</legend><div class="r"><button class="pri" id="xArch">render</button><span class="sm" id="xArchInfo"></span>${XB('xArchSvg', 'svg')}</div><div id="xArchSvg" class="svgbox"></div></fieldset><fieldset><legend>config</legend><div id="xCfg" class="sm"></div></fieldset>`],
@@ -56,7 +56,7 @@ export function install(A, out) {
   out.weights = async (l0, m0, h0) => { const l = +(l0 ?? $('xWL').value), m = m0 ?? $('xWM').value, hv = h0 ?? $('xWH').value, h = hv === '' || hv == null ? '' : +hv; $('xWL').value = l; $('xWM').value = m;
     const Wc = matOf(A.M(), l, m, h), Wo = matOf(A.W(), l, m, h), mc = C.moments(Wc.a), mo = C.moments(Wo.a), lo = -Math.max(mo.absmax, mc.absmax), hc = C.histogram(Wc.a, 80, lo, -lo), ho = C.histogram(Wo.a, 80, lo, -lo);
     lines($('xWHist'), [{ ys: ho.counts.map((c) => Math.log10(1 + c)), color: '#5eead4', label: 'original' }, { ys: hc.counts.map((c) => Math.log10(1 + c)), color: '#f472b6', label: 'current' }], { xs: ho.edges.map((e) => e.toFixed(3)) });
-    const spec = await import('./mf-client.js?v=182');
+    const spec = await import('./mf-client.js?v=183');
     const sc = await spec.spectral(Wc.a, Wc.rows, Wc.cols); const so = await spec.spectral(Wo.a, Wo.rows, Wo.cols);
     lines($('xWSv'), [{ ys: so.sv.map((s) => Math.log10(s + 1e-12)), color: '#5eead4', label: 'original' }, { ys: sc.sv.map((s) => Math.log10(s + 1e-12)), color: '#f472b6', label: 'current' }]);
     const tail = (S) => S.esd.filter((v) => v >= S.xmin && v > 0).sort((a, b) => b - a);
@@ -67,7 +67,7 @@ export function install(A, out) {
     $('xWInfo').innerHTML = `L${l}.${m}${h !== '' ? ` head ${h}` : ''} [${Wc.rows}×${Wc.cols}] · std ${fmt(mc.std, 4)} (orig ${fmt(mo.std, 4)}) · kurtosis ${fmt(mc.kurtosis, 2)} · |max| ${fmt(mc.absmax)} · σ₁ ${fmt(sc.spectralNorm)} · stable rank ${fmt(sc.stableRank, 2)} (orig ${fmt(so.stableRank, 2)}) · effective rank ${fmt(sc.effRank, 1)} · α ${fmt(sc.alpha, 2)} (orig ${fmt(so.alpha, 2)}; KS ${fmt(sc.ks, 3)}, tail n=${sc.nTail}) · ‖ΔW‖/‖W‖ ${fmt(Math.sqrt(dn / (n0 || 1)), 4)}`;
     A.setSel({ l, h: h === '' ? null : h }); return sc; };
   on('xW', 'click', () => out.weights());
-  out.ww = async () => { const spec = await import('./mf-client.js?v=182'); const rows = []; let k = 0; for (let l = 0; l < L; l++) for (const m of MATS) { const { a, rows: r, cols } = getMat(A.M(), `L${l}.${m}`); const s = await spec.spectral(a, r, cols), mm = C.moments(a); rows.push([`L${l}.${m}`, l, m, s.alpha, s.ks, s.stableRank, s.effRank, s.spectralNorm, mm.std, mm.kurtosis]); prog('xWWP', ++k / (L * MATS.length)); await tick(); }
+  out.ww = async () => { const spec = await import('./mf-client.js?v=183'); const rows = []; let k = 0; for (let l = 0; l < L; l++) for (const m of MATS) { const { a, rows: r, cols } = getMat(A.M(), `L${l}.${m}`); const s = await spec.spectral(a, r, cols), mm = C.moments(a); rows.push([`L${l}.${m}`, l, m, s.alpha, s.ks, s.stableRank, s.effRank, s.spectralNorm, mm.std, mm.kurtosis]); prog('xWWP', ++k / (L * MATS.length)); await tick(); }
     bars($('xWWC'), rows.map((r) => (isFinite(r[3]) ? r[3] : 0)), { colors: rows.map((r) => pal(r[1])), label: (i) => `${rows[i][0]} α=${fmt(rows[i][3], 2)} · stable rank ${fmt(rows[i][5], 1)}`, onClick: (i) => { A.showTab('weights'); out.weights(rows[i][1], rows[i][2], ''); } });
     const hdr = ['matrix', 'layer', 'mat', 'alpha', 'KS', 'stable_rank', 'eff_rank', 'spectral_norm', 'std', 'kurtosis'], t = $('xWWTab'); t._csv = () => C.toCSV(rows, hdr);
     t.innerHTML = `<table><tr>${hdr.map((x) => `<th>${x}</th>`).join('')}</tr>${rows.map((r) => `<tr>${r.map((v) => `<td>${typeof v === 'number' ? fmt(v, 2) : v}</td>`).join('')}</tr>`).join('')}</table>`;

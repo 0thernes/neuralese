@@ -25,7 +25,7 @@ function run() {
   $('stat').textContent = `${ids.length} chars of context`;
 }
 // v14.7: weights ship as one float32 binary (models.f32 + models.index.json, sha256-checked) instead of 6.2 MB of float64 JSON.
-const pull = (msg) => new Promise((resolve, reject) => { const w = new Worker(new URL('../../json-worker.js?v=182', location.href)); w.onmessage = (e) => { w.terminate(); e.data && e.data.err ? reject(new Error(e.data.err)) : resolve(e.data); }; w.onerror = () => { w.terminate(); reject(new Error('worker')); }; w.postMessage(msg); });
+const pull = (msg) => new Promise((resolve, reject) => { const w = new Worker(new URL('../../json-worker.js?v=183', location.href)); w.onmessage = (e) => { w.terminate(); e.data && e.data.err ? reject(new Error(e.data.err)) : resolve(e.data); }; w.onerror = () => { w.terminate(); reject(new Error('worker')); }; w.postMessage(msg); });
 const nap = () => new Promise((r) => requestAnimationFrame(() => setTimeout(r, 0)));
 async function loadF32() { const ix = (await pull({ url: new URL('models.index.json', location.href).href })).json, got = await pull({ url: new URL('models.f32', location.href).href, buf: 1, sha: 1 });
   if (got.hex !== ix.sha256) throw new Error('models.f32 sha256 mismatch');

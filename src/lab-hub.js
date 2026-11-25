@@ -2,12 +2,12 @@
 // 3D map, speech recognition (mic + file), text-to-speech, a chained speech-to-speech demo, OCR, captioning, CLIP zero-shot,
 // swappable generation-only LMs, and parameter-efficient fine-tuning of the main TinyStories-8M model on your own text.
 // Every demo has a built-in self-test with a numeric pass threshold (see docs/ROADMAP-v12.md, docs/CLAIMS.md).
-import { lines } from './charts.js?v=182';
-import { $, esc, tipq } from './lab-ui.js?v=182';
-import { MODELS, TOOL_MATRIX, TFJS_VERSION, ORT_WASM, pca3, cosine, resample, wav, wer, TRANSFORMS, byKey, cer } from './hub/models.js?v=182';
-import { toEdit } from './hub/finetune.js?v=182';
-import { frame, runBudgeted } from './coop.js?v=182';
-import { allocZeroYield } from './model.js?v=182';
+import { lines } from './charts.js?v=183';
+import { $, esc, tipq } from './lab-ui.js?v=183';
+import { MODELS, TOOL_MATRIX, TFJS_VERSION, ORT_WASM, pca3, cosine, resample, wav, wer, TRANSFORMS, byKey, cer } from './hub/models.js?v=183';
+import { toEdit } from './hub/finetune.js?v=183';
+import { frame, runBudgeted } from './coop.js?v=183';
+import { allocZeroYield } from './model.js?v=183';
 const kv = (rows) => `<table class="kv">${rows.map(([a, b]) => `<tr><td>${a}</td><td>${b}</td></tr>`).join('')}</table>`;
 const ok = (b) => (b ? '<span class="good">✔ pass</span>' : '<span class="warn">✖ fail</span>');
 const st = (id) => `<div class="sm" id="${id}St" aria-live="polite"></div>`;
@@ -42,7 +42,7 @@ export const markup = {
 };
 // ---------- worker client ----------
 let W8 = null, seq = 0; const pend = new Map();
-function hub() { if (W8) return W8; W8 = new Worker(new URL('./hub/worker.js?v=182', import.meta.url), { type: 'module' });
+function hub() { if (W8) return W8; W8 = new Worker(new URL('./hub/worker.js?v=183', import.meta.url), { type: 'module' });
   W8.onmessage = (e) => { const p = pend.get(e.data.id); if (!p) return; if (e.data.evt) return p.on?.(e.data); pend.delete(e.data.id); e.data.ok ? p.res(e.data.result) : p.rej(new Error(e.data.error)); };
   W8.onerror = (e) => { for (const p of pend.values()) p.rej(new Error('hub worker failed: ' + (e.message || 'load error'))); pend.clear(); W8 = null; }; return W8; }
 const say = (id, s) => { const el = $(id + 'St'); if (el) el.textContent = s; };
@@ -73,7 +73,7 @@ let E3 = null;
 async function draw3d(pts, labels, groups) { const THREE = await import('three'); await new Promise((resolve) => requestAnimationFrame(resolve)); const box = $('he3d'); if (!E3) { const r = await new Promise((resolve) => requestAnimationFrame(() => resolve(new THREE.WebGLRenderer({ antialias: !!navigator.gpu, alpha: true })))); box.appendChild(r.domElement); await frame(); const sc = new THREE.Scene(), cam = new THREE.PerspectiveCamera(50, 1, 0.01, 100); cam.position.set(0, 0, 3.2);
     E3 = { r, sc, cam, g: new THREE.Group(), ang: 0, drag: null }; sc.add(E3.g); r.domElement.style.cursor = 'grab'; r.domElement.setAttribute('aria-label', '3D map of sentence embeddings (drag to rotate)');
     r.domElement.addEventListener('pointerdown', (e) => (E3.drag = e.clientX)); addEventListener('pointerup', () => (E3.drag = null)); r.domElement.addEventListener('pointermove', (e) => { if (E3.drag != null) { E3.ang += (e.clientX - E3.drag) * 0.01; E3.drag = e.clientX; } });
-    const loop = () => { if (!box.isConnected) return; const w = box.clientWidth || 400, h = box.clientHeight || 340; if (r.domElement.width !== w * devicePixelRatio) { r.setPixelRatio(devicePixelRatio); r.setSize(w, h); cam.aspect = w / h; cam.updateProjectionMatrix(); } if (E3.drag == null) E3.ang += 0.003; E3.g.rotation.y = E3.ang; r.render(sc, cam); requestAnimationFrame(loop); }; requestAnimationFrame(loop); }
+    const loop = () => { if (!box.isConnected) return; const w = box.clientWidth, h = box.clientHeight; if (!(w > 0 && h > 0)) { requestAnimationFrame(loop); return; } if (r.domElement.width !== Math.round(w * devicePixelRatio)) { r.setPixelRatio(devicePixelRatio); r.setSize(w, h); cam.aspect = w / h; cam.updateProjectionMatrix(); } if (E3.drag == null) E3.ang += 0.003; E3.g.rotation.y = E3.ang; r.render(sc, cam); requestAnimationFrame(loop); }; requestAnimationFrame(loop); }
   E3.g.clear(); const m = Math.max(...pts.flat().map(Math.abs)) || 1, pal = ['#5eead4', '#60a5fa', '#a78bfa', '#f472b6', '#fbbf24', '#fb923c', '#4ade80', '#e879f9'];
   for (let i = 0; i < pts.length; i++) { await frame(); const p = pts[i]; const col = pal[groups[i] % 8], s = new THREE.Mesh(new THREE.SphereGeometry(0.035, 8, 6), new THREE.MeshBasicMaterial({ color: col })); s.position.set(...p.map((x) => x / m)); E3.g.add(s);
     const c = document.createElement('canvas'); c.width = 512; c.height = 64; const g = c.getContext('2d'); g.font = 'bold 34px sans-serif'; g.fillStyle = col; g.fillText(labels[i].slice(0, 36), 4, 40); const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthTest: false })); sp.scale.set(1.2, 0.15, 1); sp.position.set(s.position.x + 0.62, s.position.y + 0.05, s.position.z); E3.g.add(sp); }
@@ -132,7 +132,7 @@ export function install(A, out) {
     return { wte: await c(W.wte), wpe: await c(W.wpe), lnfW: await c(W.lnfW), lnfB: await c(W.lnfB), layers };
   };
   const bufs = (W) => { const b = [W.wte.buffer, W.wpe.buffer, W.lnfW.buffer, W.lnfB.buffer]; for (const P of W.layers) for (const a of Object.values(P)) b.push(a.buffer); return b; };
-  out.finetune = async (text, steps, lr) => { const ids = A.tok().encode(text ?? $('hfIn').value), W = await copyW(A.W()); return new Promise((res, rej) => { const w = new Worker(new URL('./hub/ft-worker.js?v=182', import.meta.url), { type: 'module' }); const curve = []; say('hf', `${ids.length} tokens · precomputing frozen activations…`); $('hfApply').disabled = true;
+  out.finetune = async (text, steps, lr) => { const ids = A.tok().encode(text ?? $('hfIn').value), W = await copyW(A.W()); return new Promise((res, rej) => { const w = new Worker(new URL('./hub/ft-worker.js?v=183', import.meta.url), { type: 'module' }); const curve = []; say('hf', `${ids.length} tokens · precomputing frozen activations…`); $('hfApply').disabled = true;
     w.onmessage = (e) => { if (e.data.evt) { curve.push(e.data.held); const ys = curve.slice(); say('hf', `step ${e.data.step}: held-out CE ${e.data.held.toFixed(4)}`); requestAnimationFrame(() => lines($('hfCh'), [{ label: 'held-out CE', ys }], { title: 'held-out cross-entropy per Adam step', instant: true })); return; } w.terminate(); if (!e.data.ok) return rej(new Error(e.data.error)); const r = e.data.result; lastFT = r;
       const html = kv([['trainable parameters', r.params], ['chunks train / held-out', `${r.trainChunks} / ${r.heldChunks} (${r.heldTokens} held-out targets)`], ['held-out CE before → after', `${r.before.toFixed(4)} → ${r.after.toFixed(4)}`], ['change, 95% bootstrap CI', `${r.delta.est.toFixed(4)} [${r.delta.lo.toFixed(4)}, ${r.delta.hi.toFixed(4)}]`], ['criterion', 'CI upper bound < 0'], ['result', ok(r.improved)], ['‖Δθ‖₂', r.editL2.toFixed(4)]]);
       requestAnimationFrame(() => { $('hfOut').innerHTML = html; });

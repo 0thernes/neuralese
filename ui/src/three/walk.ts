@@ -49,12 +49,6 @@ export function createWalk(st: Stage): WalkScene {
   let aimDist = 18;
   let used = 0;
 
-  function hide(): void {
-    for (const box of pool) box.visible = false;
-    ring.visible = false;
-    used = 0;
-  }
-
   const queued: number[][] = [];
   function put(i: number, x: number, y: number, z: number, sx: number, sy: number, sz: number, color: THREE.Color, tensorIndex: number): void {
     if (i >= MAX) return;
@@ -73,7 +67,6 @@ export function createWalk(st: Stage): WalkScene {
 
   return {
     async show(view, zoom, op, cell, gates, curve, light, _pause = null) {
-      hide();
       queued.length = 0;
       const L = view.cfg.L;
       if (zoom === 'model') {
@@ -144,8 +137,11 @@ export function createWalk(st: Stage): WalkScene {
         aimDist = zoom === 'matmul' ? 8 : 10;
       }
       await runBudgeted((function* () {
+        for (const box of pool) { box.visible = false; yield; }
+        ring.visible = false;
+        used = 0;
         for (let n = 0; n < queued.length; n++) { place(queued[n]!); yield; }
-      })(), { budgetMs: 8 });
+      })(), { budgetMs: 8, label: 'walk-show' });
       if (used > 0) {
         ring.visible = zoom === 'matmul' || zoom === 'unit' || zoom === 'dot';
         ring.position.copy(aimAt);

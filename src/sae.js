@@ -1,6 +1,6 @@
 // Sparse autoencoder trained in-browser on residual activations (ReLU SAE, L1 penalty, unit-norm decoder, Adam).
-import { CFG, mulberry32, gauss } from './model.js?v=182';
-import { slice } from './coop.js?v=182';
+import { CFG, mulberry32, gauss } from './model.js?v=183';
+import { slice } from './coop.js?v=183';
 const { d } = CFG;
 function breathe() { return slice(); }
 export class SAE {

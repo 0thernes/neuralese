@@ -66,7 +66,7 @@ for (const [w, h, name] of WIDTHS) test(`click every control · ${name}`, async 
     const page = await context.newPage();
     page.setDefaultTimeout(600000);
     const errors = [];
-    page.on('console', (m) => { if (m.type() === 'error' && !/favicon/i.test(m.text())) errors.push(m.text().slice(0, 300)); });
+    page.on('console', (m) => { if (m.type() === 'error' && !/favicon/i.test(m.text())) errors.push(m.text().slice(0, 300)); if (m.type() === 'warning' && /budget: step/.test(m.text())) console.log(m.text()); });
     page.on('pageerror', (e) => errors.push('PAGE ' + (e.message || '').slice(0, 400)));
     page.on('dialog', (d) => { void d.dismiss(); });
     page.on('filechooser', (fc) => { void fc.setFiles({ name: 'empty.json', mimeType: 'application/json', buffer: Buffer.from('{}') }); });

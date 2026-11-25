@@ -189,12 +189,16 @@ test('a yielded CE jet matches the sync jet', async () => {
   for (let k = 0; k < a.c.length; k++) assert.ok(Math.abs(a.c[k] - b.c[k]) < 1e-8, k + ' ' + a.c[k] + ' ' + b.c[k]);
 });
 
-test('png export caps the canvas before encoding', () => {
+test('png export captures an ImageBitmap and encodes the blob in the worker', () => {
   const src = readFileSync(new URL('../src/lab-ui.js', import.meta.url), 'utf8');
   const fn = src.slice(src.indexOf('async function pngBlob'), src.indexOf('export async function exportFor'));
-  assert.match(fn, /cap = 96/);
-  assert.match(fn, /png-end/);
-  assert.ok(!fn.includes('toBlob'));
+  assert.match(fn, /createImageBitmap/);
+  assert.match(fn, /max: 96/);
+  assert.ok(!fn.includes('getImageData') && !fn.includes('toDataURL') && !fn.includes('toBlob') && !fn.includes('new Blob'));
+  const worker = readFileSync(new URL('../src/export-worker.js', import.meta.url), 'utf8');
+  assert.match(worker, /convertToBlob/);
+  assert.match(worker, /new Blob/);
+  assert.ok(!worker.includes('arrayBuffer'));
 });
 
 test('evalCorpus chunks the token step and the unembed', () => {
