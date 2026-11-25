@@ -110,6 +110,7 @@ code,kbd,pre,textarea,.otext,.term,#tmIn,td,.mono,#hud b,.ver,#wHash,.chip,#topk
 /* header */
 header#top{height:44px;gap:var(--s3);padding:0 var(--s3);background:var(--bg);border-bottom:1px solid var(--b)}
 .logo{font-weight:800;letter-spacing:.24em;font-size:13px;display:flex;align-items:center;gap:2px}.logo span{color:var(--a)}
+:root[data-theme=light] .logo span{color:#085e54}
 .logo i{font-style:normal;font-weight:600;letter-spacing:.02em;font-size:10px;color:#f7fffc;background:#0b6b5e;border-radius:999px;padding:1px 6px;margin-left:6px}
 .ver{border-radius:999px;padding:2px 8px;font-size:10px;color:var(--m);background:var(--p2);border-color:var(--b);white-space:nowrap}
 #hud{gap:var(--s3);font-size:var(--fs-s);align-items:center}#hud b{font-weight:600;color:var(--t)}
