@@ -236,10 +236,18 @@ export function calibration(rows, bins = 10) {
 export function klLogits(lpP, lpQ) { let k = 0; for (let i = 0; i < lpP.length; i++) { const p = Math.exp(lpP[i]); if (p > 1e-12) k += p * (lpP[i] - lpQ[i]); } return Math.max(0, k); }
 // Edit impact: per-slot logit-lens KL(hacked‖clean) at the last position, per-position final KL, and top probability shifts.
 export async function editImpact(engC, engH, ids) {
-  const play = async (eng) => { const s = eng.newSeq(ids.length), tr = []; let last; for (const t of ids) { last = eng.step(s, t, { trace: true }); tr.push(last.trace); const y = slice(); if (y) await y; } return tr; };
+  const play = async (eng) => {
+    const s = eng.newSeq(ids.length), tr = [];
+    for (const t of ids) {
+      let last;
+      for (;;) { last = eng.step(s, t, { trace: true, budget: true }); if (!last.partial) break; const y = slice(); if (y) await y; }
+      tr.push(last.trace); const y = slice(); if (y) await y;
+    }
+    return tr;
+  };
   const a = await play(engC), b = await play(engH), T = ids.length;
   const sl = Math.min(engC.R.program.length, engH.R.program.length), perLayer = [];
-  for (let s = 0; s < sl; s++) perLayer.push(klLogits(logSoftmax(engH.lensLogits(b[T - 1].resid_post[s])), logSoftmax(engC.lensLogits(a[T - 1].resid_post[s]))));
+  for (let s = 0; s < sl; s++) { perLayer.push(klLogits(logSoftmax(engH.lensLogits(b[T - 1].resid_post[s])), logSoftmax(engC.lensLogits(a[T - 1].resid_post[s])))); if ((s & 1) === 1) await frame(); }
   const perPos = []; for (let i = 0; i < a.length; i++) { perPos.push(klLogits(logSoftmax(engH.logits(b[i].h)), logSoftmax(engC.logits(a[i].h)))); const y = slice(); if (y) await y; }
   const pC = logSoftmax(engC.logits(a[T - 1].h)), pH = logSoftmax(engH.logits(b[T - 1].h)), dif = [];
   for (let i = 0; i < pC.length; i++) { const dlt = Math.exp(pH[i]) - Math.exp(pC[i]); if (Math.abs(dlt) > 1e-4) dif.push([i, dlt, Math.exp(pC[i]), Math.exp(pH[i])]); }

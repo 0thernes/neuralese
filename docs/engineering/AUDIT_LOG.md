@@ -19,12 +19,23 @@ Passes 1–22 are the earlier engineering log in [PASSES.md](PASSES.md). This fi
 | AUD-032 | 32 | `test/science.test.mjs:9` | medium | The file `readFileSync`s `model/model.safetensors` at import time. A checkout without that file died with ENOENT before any assertion. CI already runs `tools/fetch-model.mjs`; a direct `node --test` did not. | `e6229d6` | The test now runs `tools/fetch-model.mjs` (pinned SHA-256) and throws if the file is still missing. It does not skip. `test/science.test.mjs` passed 8/8 after the download. |
 | AUD-033 | 33 | `src/cli.mjs:13` | low | The CLI reported `v6.0.0` while `package.json` and the terminal are `17.3.0`. `tools/bump-version.mjs` did not update the CLI. | `e6229d6` | `test/cli.test.mjs`, `test/packaging.test.mjs` |
 | AUD-034 | 34 | `src/decode.js:25` | medium | `filterDist` with `minp` above 1 dropped every candidate. `pick` then returned `undefined` in greedy mode. | `e6229d6` | `test/audit-hardening.test.mjs` |
-| AUD-037 | 37 | `src/nested/slm/index.html:28`, `src/nested/riscv/index.html:17`, `src/gpu/webgpu-engine.js` `upload` | high | The preview suite on `bf3199a` still had application scripts of 223 ms (mobile, fcGo) and 215 ms (tablet, fxGo): `Response.arrayBuffer.then` from the nested iframes. WebGPU weight upload and the audio graph sat between 100 and 150 ms, which fails p95 when fewer than 20 frames are at least 50 ms. | this commit | Iframe fetch/hash/JSON runs in `json-worker.js`. RISC-V `prepAsync` yields. WebGPU `writeBuffer` is 1 MB per paint. The audio graph yields a paint before the impulse response. |
+| AUD-037 | 37 | `src/nested/slm/index.html:28`, `src/nested/riscv/index.html:17`, `src/gpu/webgpu-engine.js` `upload` | high | The preview suite on `bf3199a` still had application scripts of 223 ms (mobile, fcGo) and 215 ms (tablet, fxGo): `Response.arrayBuffer.then` from the nested iframes. WebGPU weight upload and the audio graph sat between 100 and 150 ms, which fails p95 when fewer than 20 frames are at least 50 ms. | `ac42754` | Iframe fetch/hash/JSON runs in `json-worker.js`. RISC-V `prepAsync` yields. WebGPU `writeBuffer` is 1 MB per paint. The audio graph yields a paint before the impulse response. |
+| AUD-038 | 38 | `src/engine.js` `step`; `src/tokenizer.js` `GPT2Tokenizer.create` | high | The preview of `b895908` still failed the gate. Tablet app max 333 ms was the merge-table continuation inside `GPT2Tokenizer.create` (yield every 512 lines). Mobile app max 283 ms was one traced `Engine.step` inside `editImpact`. Desktop app max 201 ms was the first `exportFor` continuation (`createImageBitmap` of a 64-row strip). | this commit | `test/engine-kv.test.mjs` (budgeted step matches a full step). Tokenizer yield is every 64 keys and every 64 merge lines. `step({ budget: true })` returns after each slot and resumes. PNG strips are 8 rows. |
 | AUD-035 | 35 | `src/linalg.js:21` | info | One-sided Jacobi SVD of a 3×3 matrix reconstructs it within 1e-8 and returns singular values in descending order. | no code change | `test/audit-hardening.test.mjs` |
 | AUD-036 | 36 | `src/` first-party scripts | info | `eval` and `new Function` appear only under `src/vendor` and `src/hub/vendor`. | no code change | `test/audit-hardening.test.mjs` |
 
 ## Open
 
-- The 3-width preview click suite has not been run on this commit. The last measured gate is still the `ec18eeb` table in [PASSES.md](PASSES.md): app-script max 549 / 1068 / 1696 ms. That run is not evidence for passes 23–27.
-- `test/science.test.mjs` now fetches the pinned TinyStories-8M files when they are missing and fails if that download fails. It passed 8/8 after `node tools/fetch-model.mjs`.
-- About 4% of [AUDIT_INDEX.md](AUDIT_INDEX.md) is reviewed. The rest is indexed only.
+- Preview of `b895908` (gh-pages `bb6d56e`), one 3-width run, workers 1, failed the gate. Console errors were not reported. Tablet axe: `color-contrast:5, scrollable-region-focusable:1`. Desktop and mobile axe were clean on that run.
+
+| Width | App max | App p95 | n≥50 | Worst |
+|---|---|---|---|---|
+| 390×844 | 283 | 178 | 21 | `editImpact` traced `Engine.step` @Measure a small batch |
+| 768×1024 | 333 | 333 | 18 | `GPT2Tokenizer.create` merges @load |
+| 1440×900 | 201 | 201 | 13 | `exportFor` @Lower to gates |
+
+Raw / paint (not gated): mobile raw max 684 p95 460, paint/GL 684, gl-init 684. Tablet raw 1230 / 379, paint 906, gl-init 618. Desktop raw 1129 / 365, paint 1129, gl-init 1129. Scripts still between 100 and 200 ms on that run, which fails p95 whenever fewer than 20 frames are at least 50 ms: mobile dot-product tour 178, `lab-v16.js` import 137, weight snapshot 102; tablet SVG export 187, grok live 114.
+
+- AUD-038 splits those three named scripts. The suite has not been re-run on that commit.
+- `test/science.test.mjs` fetches the pinned TinyStories-8M files when they are missing and fails if that download fails. It passed 8/8 after `node tools/fetch-model.mjs`.
+- 68 of 505 files in [AUDIT_INDEX.md](AUDIT_INDEX.md) are reviewed (13.5%).

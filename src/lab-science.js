@@ -10,7 +10,7 @@ import * as S from './science.js?v=170';
 import { svdYield } from './linalg.js?v=170';
 import { GPU, bench, cpuMatVec } from './gpu.js?v=170';
 import { ZOO, loadZoo, httpRange, weightDiff } from './zoo.js?v=170';
-import { cloneWeights } from './model.js?v=170';
+import { cloneWeightsYield } from './model.js?v=170';
 import { frame } from './coop.js?v=170';
 const P = (id) => `<div class="prog" id="${id}"><i></i></div>`;
 const docsN = (n, T = 24) => DSdocs(n, T); // shared dataset (built-in or user corpus)
@@ -192,8 +192,8 @@ ${row('∂L/∂(θ̂) analytic vs finite-diff', `${fmt(g.dirDeriv, 6)} vs ${fmt(
     lines($('zL'), rows.map((r, i) => ({ ys: r.sr, color: ['#5eead4', '#f472b6', '#fbbf24'][i % 3], label: r.id })), { xs: rows[0].sr.map((_, i) => 'L' + i), min: 0 }); A.logRun({ kind: 'zoo', label: 'zoo ' + sel.join(','), metrics: Object.fromEntries(rows.map((r) => ['ce_' + r.id, r.ce])) }); return rows; };
   on('zGo', 'click', () => out.zoo());
   const pick = (k) => (k === 'orig' ? A.W() : k === 'cur' ? M() : snapW || (() => { throw new Error('take a snapshot first'); })());
-  on('zSnap', 'click', () => { snapW = cloneWeights(M()); A.toast('snapshot of current weights stored (in memory)'); });
-  out.snap = () => { snapW = cloneWeights(M()); return 'snapshot stored'; };
+  on('zSnap', 'click', async () => { snapW = await cloneWeightsYield(M()); A.toast('snapshot of current weights stored (in memory)'); });
+  out.snap = async () => { snapW = await cloneWeightsYield(M()); return 'snapshot stored'; };
   out.diff = (a = $('zA').value, b = $('zB').value) => { const Dd = weightDiff(pick(a), pick(b)), ch = Dd.filter((x) => x.dF > 0).sort((x, y) => y.rel - x.rel);
     bars($('zDC'), Dd.map((x) => (x.dF > 0 ? Math.log10(x.rel) + 8 : 0)), { label: (i) => `${Dd[i].name}: ‖Δ‖ ${Dd[i].dF.toExponential(3)} · rel ${Dd[i].rel.toExponential(3)} · cos ${Dd[i].cos.toFixed(6)} · changed ${(100 * Dd[i].changed).toFixed(2)}%`, colors: Dd.map((x) => (x.dF > 0 ? '#f472b6' : '#334155')) });
     $('zDInfo').innerHTML = ch.length ? `<table><tr><th>tensor</th><th>‖ΔW‖_F</th><th>relative</th><th>cosine</th><th>max |Δ|</th><th>changed</th></tr>${ch.slice(0, 20).map((x) => `<tr><td>${x.name}</td><td>${x.dF.toExponential(3)}</td><td>${x.rel.toExponential(3)}</td><td>${x.cos.toFixed(6)}</td><td>${x.maxAbs.toExponential(2)}</td><td>${(100 * x.changed).toFixed(2)}%</td></tr>`).join('')}</table><div class="sm">${ch.length} of ${Dd.length} tensors differ</div>` : `<b>identical</b>: all ${Dd.length} tensors bit-equal`; return ch; };

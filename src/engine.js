@@ -89,11 +89,21 @@ export class Engine {
   // One token through the stack. o: {trace:bool, hook(site,slot,layer,t,vec), rng, detail?: array, detailToken?: number}
   // `detail` only copies vectors. It does not change the arithmetic. detailToken limits those copies to one position.
   step(seq, tok, o = {}) {
-    const W = this.W, R = this.R, t = seq.T, isGen = t >= seq.nPrompt, hook = o.hook;
-    const tr = o.trace ? { tok, t, resid_pre: [], z: [], attn_out: [], mlp_act: [], mlp_out: [], resid_post: [], pattern: [], slotLayer: [] } : null;
+    const W = this.W, R = this.R, hook = o.hook;
+    // o.budget returns after each slot so a traced step can paint. The next call with the same token resumes.
+    const mid = o.budget && seq._mid && seq._mid.tok === tok ? seq._mid : null;
+    if (seq._mid && !mid) seq._mid = null;
+    let t, isGen, tr, x, h, rng, s0;
+    if (mid) { ({ t, isGen, tr, x, h, rng, s0 } = mid); seq._mid = null; }
+    else {
+      t = seq.T; isGen = t >= seq.nPrompt; s0 = 0;
+      tr = o.trace ? { tok, t, resid_pre: [], z: [], attn_out: [], mlp_act: [], mlp_out: [], resid_post: [], pattern: [], slotLayer: [] } : null;
+      x = new Float32Array(d); h = new Float32Array(d);
+      rng = o.rng || mulberry32((R.seed + t * 7919) | 0);
+    }
     const take = (id, kind, values, meta) => { if (o.detail && (o.detailToken == null || o.detailToken === t)) o.detail.push({ id, kind, t, values: values.slice(), ...meta }); };
+    if (!mid) {
     const p = posIndex(R.pos, t);
-    const x = new Float32Array(d);
     for (let i = 0; i < d; i++) x[i] = W.wte[tok * d + i] + W.wpe[p * d + i];
     if (o.detail && (o.detailToken == null || o.detailToken === t)) {
       const wteRow = new Float32Array(d), wpeRow = new Float32Array(d);
@@ -103,9 +113,8 @@ export class Engine {
       take('embed', 'add', x, { pos: p, tok });
     }
     if (tr) tr.embed = x.slice();
-    const h = new Float32Array(d);
-    const rng = o.rng || mulberry32((R.seed + t * 7919) | 0);
-    for (let s = 0; s < R.program.length; s++) {
+    }
+    for (let s = s0; s < R.program.length; s++) {
       const slot = R.program[s], l = slot.layer, P = W.layers[l];
       if (tr) tr.slotLayer[s] = l;
       this._steer('resid_pre', l, t, isGen, x, seq.nPrompt);
@@ -188,6 +197,10 @@ export class Engine {
       if (hook) hook('resid_post', s, l, t, x);
       if (tr) tr.resid_post[s] = x.slice();
       take(`s${s}.L${l}.resid_post`, 'vec', x, { layer: l, slot: s });
+      if (o.budget && s + 1 < R.program.length) {
+        seq._mid = { tok, t, isGen, tr, x, h, rng, s0: s + 1 };
+        return { partial: true, trace: tr };
+      }
     }
     const st = layerNorm(x, W.lnfW, W.lnfB, h);
     for (const v of R.hSteer || []) if (v.on !== false) for (let i = 0; i < d; i++) h[i] += v.coef * v.vec[i];

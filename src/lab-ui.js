@@ -35,7 +35,7 @@ async function pngBlob(el) {
   const worker = exportWorker();
   try {
     worker.postMessage({ op: 'png-init', w, h });
-    const strip = 64;
+    const strip = 8;
     for (let y = 0; y < h; y += strip) {
       const sh = Math.min(strip, h - y);
       let bmp; try { bmp = await createImageBitmap(el, 0, y, w, sh); } catch { return new Promise((resolve) => el.toBlob((b) => resolve(b))); }
@@ -50,7 +50,7 @@ export async function exportFor(id, kind) {
   const el = $(id); if (!el) return false; const name = `neuralese-${id}-${Date.now()}`;
   const dl = (blob, ext) => { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${name}.${ext}`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); };
   if (kind === 'png') { if (el.tagName !== 'CANVAS') return false; const b = await pngBlob(el); if (b) dl(b, 'png'); return !!b; }
-  if (kind === 'svg') { const s = el.tagName === 'svg' ? el : el.querySelector('svg'); if (!s) return false; const parts = [s.cloneNode(false).outerHTML.replace(/<\/[^>]+>$/, '')]; const kids = [...s.childNodes]; for (let i = 0; i < kids.length; i++) { parts.push(kids[i].nodeType === 1 ? kids[i].outerHTML : (kids[i].textContent || '')); if ((i & 7) === 7) await tick(); } parts.push(`</${s.tagName}>`); dl(await blobFromParts(parts, 'image/svg+xml'), 'svg'); return true; }
+  if (kind === 'svg') { const s = el.tagName === 'svg' ? el : el.querySelector('svg'); if (!s) return false; const parts = [s.cloneNode(false).outerHTML.replace(/<\/[^>]+>$/, '')]; const kids = [...s.childNodes]; for (let i = 0; i < kids.length; i++) { parts.push(kids[i].nodeType === 1 ? kids[i].outerHTML : (kids[i].textContent || '')); if ((i & 1) === 1) await tick(); } parts.push(`</${s.tagName}>`); dl(await blobFromParts(parts, 'image/svg+xml'), 'svg'); return true; }
   if (kind === 'csv') {
     const c = el._csv ? await el._csv() : null; if (c == null || c === '' || (Array.isArray(c) && !c.length)) return false;
     const parts = Array.isArray(c) ? c : joinLines(String(c).split('\n'), 64);

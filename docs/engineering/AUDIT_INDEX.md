@@ -5,9 +5,9 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 | | |
 |---|---|
 | Files | 505 |
-| Reviewed (passes 23–36) | 68 |
-| Indexed, not reviewed | 437 |
-| Coverage | 13.5% |
+| Reviewed (passes 23–38) | 73 |
+| Indexed, not reviewed | 432 |
+| Coverage | 14.5% |
 
 
 ## `/`
@@ -144,7 +144,7 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 | `drill.js` | Drill-down hierarchy: model → layer → sublayer → matrix → unit (head / neuron) → row/col → weight. | lab core | none mapped | reviewed, passes 31–36 |
 | `engine-client.js` | v15.3 main-thread client for engine-worker.js. RemoteEngine mirrors the Engine calls used by generation, but a | lab core | none mapped | indexed |
 | `engine-worker.js` | v15.3 engine worker: runs the GPT-Neo forward pass (Engine) off the UI thread. Protocol (all messages {id, op, | lab core | none mapped | reviewed, passes 31–36 |
-| `engine.js` | NEURALESE engine: GPT-Neo forward pass with a full intervention/hook system. | lab core | none mapped | indexed |
+| `engine.js` | NEURALESE engine: GPT-Neo forward pass with a full intervention/hook system. | lab core | test/engine-kv.test.mjs | reviewed, passes 37–38 |
 | `export-worker.js` | Chart CSV/PNG assembly off the main thread. The page posts small strings or bitmaps. | lab core | none mapped | reviewed, passes 23–30 |
 | `gpu.js` | WebGPU compute backend: matrix–vector / matrix–matrix products in WGSL (f32), with CPU fallback and a verifica | lab core | none mapped | reviewed, passes 31–36 |
 | `grad.js` | Analytic reverse-mode autodiff for GPT-Neo (TinyStories-8M family): full-sequence forward with stored activati | lab core | test/grad.test.mjs | reviewed, passes 23–30 |
@@ -153,7 +153,7 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 | `hero.js` | v15.1 overview hero: a stylised 3D network (8 layer rings × 16 instanced head nodes + MLP dust, sparse inter-l | lab core | none mapped | indexed |
 | `index.html` | html | lab core | none mapped | indexed |
 | `lab-eval.js` | EVALUATE group: token timeline, calibration, edit impact, profiler, experiment tracker. | lab core | none mapped | reviewed, passes 31–36 |
-| `lab-frontier.js` | v11 FRONTIER group — consciousness-science proxies, introspection, a self-improvement loop, grokking and a com | lab core | none mapped | indexed |
+| `lab-frontier.js` | v11 FRONTIER group — consciousness-science proxies, introspection, a self-improvement loop, grokking and a com | lab core | none mapped | reviewed, passes 37–38 |
 | `lab-hub.js` | v12 HUB group — a model hub on transformers.js (pinned 4.3.1, hash-checked, ONNX Runtime Web, in a Web Worker) | lab core | none mapped | indexed |
 | `lab-interpret.js` | INTERPRET group: attention grid/rollout/head classes, residual geometry, circuit graph, neuron atlas, embeddin | lab core | none mapped | indexed |
 | `lab-intervene.js` | INTERVENE/RUN extras: parameter sweeps, batch experiments, advanced steering controls (all act on the real eng | lab core | none mapped | indexed |
@@ -161,11 +161,11 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 | `lab-model.js` | MODEL group: architecture schematic, parameter/FLOP breakdown, weight statistics (live tensors). | lab core | none mapped | indexed |
 | `lab-nested.js` | v14.7 / v14.8 NESTED group: a RISC-V CPU baked into transformer weights, a language model baked into a languag | lab core | none mapped | indexed |
 | `lab-research.js` | v7 RESEARCH group: reproducibility (hashes, manifests, replay), hypothesis tests, ACDC-style circuit discovery | lab core | none mapped | indexed |
-| `lab-science.js` | v6 SCIENCE group: drill-down inspector, gradients & attribution, head circuits, representation geometry, loss  | lab core | none mapped | indexed |
+| `lab-science.js` | v6 SCIENCE group: drill-down inspector, gradients & attribution, head circuits, representation geometry, loss  | lab core | none mapped | reviewed, passes 37–38 |
 | `lab-tsotchke.js` | v8 TSOTCHKE group — components that genuinely use the open-source work of Tsotchke (github.com/tsotchke, MIT): | lab core | none mapped | reviewed, passes 23–30 |
 | `lab-ui.js` | Shared helpers for the v5 research tabs (markup builders, export, run tracker). | lab core | test/audit-hardening.test.mjs | reviewed, passes 23–30 |
 | `lab-v16.js` | v16 tabs: HUB interpretability (logit lens / CLIP embedding lens, attention rollout, linear probes on ViT, CLI | lab core | none mapped | indexed |
-| `labcore.js` | NEURALESE lab core: pure, testable research computations behind every v5 visualization. | lab core | none mapped | indexed |
+| `labcore.js` | NEURALESE lab core: pure, testable research computations behind every v5 visualization. | lab core | test/lab.test.mjs | reviewed, passes 37–38 |
 | `lens-worker.js` | Neuron Lens in-browser refit: fits one document's R-lens and S-lens on the current weights (same code path as  | lab core | none mapped | indexed |
 | `linalg.js` | Small dense linear algebra kit (Float64, row-major unless noted). | lab core | none mapped | reviewed, passes 31–36 |
 | `mf-client.js` | Page-side handle for mf-worker.js. The worker runs machine and Forge compute. | lab core | none mapped | indexed |
@@ -248,7 +248,7 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 |---|---|---|---|---|
 | `cites.js` | v11 FRONTIER citations. Every entry was checked against its arXiv abstract page or its DOI record (Crossref) o | frontier | none mapped | indexed |
 | `core.js` | v11 FRONTIER shared core: null models, cross-entropy, statistics, LZ76 complexity. Pure ES module (Node + brow | frontier | none mapped | indexed |
-| `grok.js` | v11 P5: grokking on a + b mod p (Power et al. 2022; MLP construction after Gromov 2023), trainable in the brow | frontier | none mapped | indexed |
+| `grok.js` | v11 P5: grokking on a + b mod p (Power et al. 2022; MLP construction after Gromov 2023), trainable in the brow | frontier | none mapped | reviewed, passes 37–38 |
 | `mind.js` | v11 consciousness-science PROXIES (operational definitions only — see docs/FRONTIER.md for what they cannot sh | frontier | none mapped | indexed |
 | `rsi.js` | v11 P4: a closed self-improvement loop on TinyStories-8M. Editable θ = ln_f gain/bias (512) + output gains γ o | frontier | none mapped | indexed |
 
