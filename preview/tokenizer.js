@@ -85,7 +85,7 @@ export class GPT2Tokenizer {
     const keys = Object.keys(vocab);
     for (let i = 0; i < keys.length; i++) {
       tok.decoder[vocab[keys[i]]] = keys[i];
-      if ((i & 63) === 63 && typeof document !== 'undefined') await frame();
+      if ((i & 511) === 511 && typeof document !== 'undefined') await frame();
     }
     return tok;
   }
