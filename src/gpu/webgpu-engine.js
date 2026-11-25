@@ -2,6 +2,7 @@
 // traces. The JS Engine stays the reference: create() runs a logits-match gate (every position of a fixed prompt, max |Δlogit| ≤ tol
 // against Engine) and returns null if WebGPU is missing or the gate fails, so callers fall back to JS. f32 throughout; one token per
 // step with a GPU-resident KV cache (maxT positions).
+import { runBudgeted } from '../coop.js?v=194';
 const WG = 64;
 const SHADERS = /* wgsl */ `
 struct P { nOut: u32, nIn: u32, flags: u32, outOff: u32, layer: u32, pos: u32, win: u32, a: u32 };
@@ -54,7 +55,7 @@ export class WebGPUEngine {
     const ad = await navigator.gpu.requestAdapter(); if (!ad) return { eng: null, reason: 'no WebGPU adapter' };
     const need = CFG.V * CFG.d * 4; if (ad.limits.maxStorageBufferBindingSize < need) return { eng: null, reason: 'maxStorageBufferBindingSize too small' };
     const dev = await ad.requestDevice({ requiredLimits: { maxStorageBufferBindingSize: need, maxBufferSize: Math.max(need, maxT * CFG.L * CFG.d * 4) } });
-    const e = new WebGPUEngine(dev, W, CFG, maxT); e.adapterInfo = ad.info ? `${ad.info.vendor || ''} ${ad.info.architecture || ''} ${ad.info.description || ''}`.trim() : '';
+    const e = new WebGPUEngine(dev, W, CFG, maxT); await e.uploadYield(W); e.adapterInfo = ad.info ? `${ad.info.vendor || ''} ${ad.info.architecture || ''} ${ad.info.description || ''}`.trim() : '';
     if (gateEngine) { const g = await e.gate(gateEngine, gatePrompt); e.gateResult = g; if (!(g.maxAbs <= tol)) { e.destroy(); return { eng: null, reason: `logits-match gate failed: max |Δlogit| ${g.maxAbs} > ${tol}`, gate: g }; } }
     return { eng: e, reason: 'ok', gate: e.gateResult };
   }
@@ -62,7 +63,7 @@ export class WebGPUEngine {
     this.dev = dev; this.C = CFG; this.maxT = maxT; const { d, L, ff } = CFG;
     const mk = (n, usage = GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC) => dev.createBuffer({ size: Math.max(16, n * 4), usage });
     const up = (a) => { const b = mk(a.length); dev.queue.writeBuffer(b, 0, a); return b; };
-    this.mk = mk; this.up = up; this.upload(W);
+    this.mk = mk; this.up = up;
     this.x = mk(d); this.h = mk(d); this.q = mk(d); this.z = mk(d); this.a = mk(ff); this.lg = mk(CFG.V); this.zero = mk(ff);
     this.K = mk(L * maxT * d); this.Vc = mk(L * maxT * d);
     this.read = dev.createBuffer({ size: CFG.V * 4, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
@@ -70,9 +71,22 @@ export class WebGPUEngine {
     this.pMat = dev.createComputePipeline({ layout: 'auto', compute: { module: m1, entryPoint: 'matvec' } });
     this.pLn = dev.createComputePipeline({ layout: 'auto', compute: { module: m1, entryPoint: 'layernorm' } });
     this.pAt = dev.createComputePipeline({ layout: 'auto', compute: { module: m2, entryPoint: 'attn' } });
-    this.ops = this.buildOps(); this.ready = true;
   }
   upload(W) { this.W = W; const u = this.up; this.gw = { wte: u(W.wte), wpe: W.wpe, lnfW: u(W.lnfW), lnfB: u(W.lnfB), layers: W.layers.map((P) => Object.fromEntries(Object.entries(P).map(([k, v]) => [k, u(v)]))) }; if (this.ops) this.ops = this.buildOps(); }
+  async uploadYield(W) {
+    this.W = W; const dev = this.dev;
+    const put = async (a) => {
+      const b = this.mk(a.length);
+      await runBudgeted((function* () {
+        for (let i = 0; i < a.length; i++) { dev.queue.writeBuffer(b, i * 4, a.subarray(i, i + 1)); yield; }
+      })(), { budgetMs: 8 });
+      return b;
+    };
+    const layers = [];
+    this.gw = { wte: await put(W.wte), wpe: W.wpe, lnfW: await put(W.lnfW), lnfB: await put(W.lnfB), layers };
+    for (const P of W.layers) { const o = {}; for (const [k, v] of Object.entries(P)) o[k] = await put(v); layers.push(o); }
+    this.ops = this.buildOps(); this.ready = true;
+  }
   buildOps() { // static op list; only the pos field of some uniforms changes per step
     const { d, L, ff, V, H, hd } = this.C, dev = this.dev, ops = [], G = this.gw;
     const U = (vals) => { const b = dev.createBuffer({ size: 32, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST }); dev.queue.writeBuffer(b, 0, new Uint32Array(vals)); return b; };

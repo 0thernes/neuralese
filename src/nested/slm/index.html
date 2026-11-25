@@ -9,7 +9,7 @@
 <section class="card col"><h2>Guest readout of baked-in host</h2><div id="c"></div></section>
 <section class="card col"><h2>Trained emulator (mode=guest)</h2><div id="e"></div></section>
 </main>
-<script src="lm.js"></script><script>
+<script src="lm.js"></script><script src="../shared/yield.js?v=194"></script><script>
 let M; const $ = id => document.getElementById(id);
 const show = c => c === ' ' ? '␠' : c === '\n' ? '⏎' : c;
 function topk(p, cls) { return p.map((v, i) => [v, i]).sort((a, b) => b[0] - a[0]).slice(0, 8).map(([v, i]) => `<div>${show(M.vocab[i])} <span class="bar ${cls}" style="width:${(v * 220).toFixed(0)}px"></span> ${(v * 100).toFixed(1)}%</div>`).join(''); }
@@ -25,10 +25,11 @@ function run() {
   $('stat').textContent = `${ids.length} chars of context`;
 }
 // v14.7: weights ship as one float32 binary (models.f32 + models.index.json, sha256-checked) instead of 6.2 MB of float64 JSON.
-async function loadF32() { const ix = await (await fetch('models.index.json')).json(), b = await (await fetch('models.f32')).arrayBuffer();
-  const h = [...new Uint8Array(await crypto.subtle.digest('SHA-256', b))].map((x) => x.toString(16).padStart(2, '0')).join(''); if (h !== ix.sha256) throw new Error('models.f32 sha256 mismatch');
-  const f = new Float32Array(b), arr = (e) => { const a = Array.from(f.subarray(e.off, e.off + e.shape.reduce((x, y) => x * y, 1))); return e.shape.length === 2 ? Array.from({ length: e.shape[0] }, (_, i) => a.slice(i * e.shape[1], (i + 1) * e.shape[1])) : a; };
-  const M = { vocab: ix.vocab }; for (const [k, m] of Object.entries(ix.models)) { const w = {}; for (const [n, e] of Object.entries(m.w)) w[n] = arr(e); M[k] = { cfg: m.cfg, w, dH: m.dH }; for (const hh of ['out_h', 'out_g']) if (m[hh]) M[k][hh] = { weight: arr(m[hh].weight), bias: arr(m[hh].bias) }; }
+const pull = (msg) => new Promise((resolve, reject) => { const w = new Worker(new URL('../../json-worker.js?v=194', location.href)); w.onmessage = (e) => { w.terminate(); e.data && e.data.err ? reject(new Error(e.data.err)) : resolve(e.data); }; w.onerror = () => { w.terminate(); reject(new Error('worker')); }; w.postMessage(msg); });
+async function loadF32() { const ix = (await pull({ url: new URL('models.index.json', location.href).href })).json, got = await pull({ url: new URL('models.f32', location.href).href, buf: 1, sha: 1 });
+  if (got.hex !== ix.sha256) throw new Error('models.f32 sha256 mismatch');
+  const f = new Float32Array(got.buf), arr = async (e) => { const n = e.shape.reduce((x, y) => x * y, 1), sub = f.subarray(e.off, e.off + n), a = new Array(n); for (let i = 0; i < n; i++) { a[i] = sub[i]; if ((i & 8191) === 8191) await nap(); } if (e.shape.length !== 2) return a; const rows = new Array(e.shape[0]), cols = e.shape[1]; for (let i = 0; i < rows.length; i++) { rows[i] = a.slice(i * cols, (i + 1) * cols); if ((i & 31) === 31) await nap(); } return rows; };
+  const M = { vocab: ix.vocab }; for (const [k, m] of Object.entries(ix.models)) { const w = {}; for (const [n, e] of Object.entries(m.w)) w[n] = await arr(e); M[k] = { cfg: m.cfg, w, dH: m.dH }; for (const hh of ['out_h', 'out_g']) if (m[hh]) M[k][hh] = { weight: await arr(m[hh].weight), bias: await arr(m[hh].bias) }; }
   return M; }
 loadF32().then(j => { M = j; run(); $('txt').oninput = run; }).catch(e => { $('stat').textContent = 'load failed: ' + e.message; });
 </script></body></html>

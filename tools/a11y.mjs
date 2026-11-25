@@ -1,6 +1,10 @@
 // WCAG 2 A/AA audit of every tab with axe-core (npm i --no-save axe-core@4; node tools/a11y.mjs [url]).
 import puppeteer from 'puppeteer-core'; import fs from 'fs';
-const axe = fs.readFileSync('/workspace/neuralese/node_modules/axe-core/axe.min.js', 'utf8');
+import { fileURLToPath } from 'node:url';
+const root = fileURLToPath(new URL('..', import.meta.url));
+const axePath = [root + 'node_modules/axe-core/axe.min.js', '/workspace/neuralese/node_modules/axe-core/axe.min.js'].find((p) => fs.existsSync(p));
+if (!axePath) throw new Error('axe-core is not installed. Run npm i --no-save axe-core@4');
+const axe = fs.readFileSync(axePath, 'utf8');
 const b = await puppeteer.launch({ executablePath: '/usr/bin/google-chrome', headless: 'new', args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--no-sandbox'] });
 const p = await b.newPage(); await p.setViewport({ width: 1500, height: 950 }); await p.goto(process.argv[2] || 'http://localhost:8765/'); await p.waitForFunction(() => window.NEURALESE && window.NEURALESE_LAST, { timeout: 240000 });
 await p.evaluate(axe); const tabs = await p.$$eval('#tabs button', (bs) => bs.map((x) => x.dataset.t)); const agg = {};

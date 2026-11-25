@@ -3,6 +3,7 @@
 // Gadgets are the functions in bits.js. A fault is recorded if any bit leaves {0, 1}.
 
 import { FUNCT_HALT, OP, OP_NAME, ROM_WORDS, STEP_LIMIT, WORD_BITS, padRom } from './isa.js';
+import { runBudgeted } from '../coop.js?v=194';
 import { addBits, bitsToInt32, bitsToUint, checkBit, mux, muxBank, not, oneHot, or2, orN, sltBit, writeBank, writeBits, xor2 } from './bits.js';
 
 export const PRECISION = Object.freeze({
@@ -160,15 +161,31 @@ export class ForgeEngine {
   }
 }
 
+function finishEngine(eng, trace) {
+  return {
+    trace, regs: eng.ints(), ram: eng.ramInts(), pc: bitsToUint(eng.pc, 8),
+    halted: eng.halted, fail: eng.fail, result: eng.result, faults: eng.faults.slice(), kind: eng.kind,
+  };
+}
 export function runEngine(words, ArrayType = Float32Array, limit = STEP_LIMIT) {
   const eng = new ForgeEngine(words, ArrayType);
   const trace = [];
   while (!eng.halted && !eng.fail && trace.length < limit && eng.faults.length === 0) trace.push(eng.step());
   if (!eng.halted && !eng.fail && eng.faults.length === 0) eng.fail = 'step-limit';
-  return {
-    trace, regs: eng.ints(), ram: eng.ramInts(), pc: bitsToUint(eng.pc, 8),
-    halted: eng.halted, fail: eng.fail, result: eng.result, faults: eng.faults.slice(), kind: eng.kind,
-  };
+  return finishEngine(eng, trace);
+}
+export async function runEngineAsync(words, ArrayType = Float32Array, limit = STEP_LIMIT, shouldStop = () => false) {
+  const eng = new ForgeEngine(words, ArrayType);
+  const trace = [];
+  await runBudgeted((function* () {
+    while (!eng.halted && !eng.fail && trace.length < limit && eng.faults.length === 0) {
+      if (shouldStop()) { eng.fail = 'cancelled'; return; }
+      trace.push(eng.step());
+      yield;
+    }
+  })(), { budgetMs: 8 });
+  if (!eng.halted && !eng.fail && eng.faults.length === 0) eng.fail = 'step-limit';
+  return finishEngine(eng, trace);
 }
 
 export function stampSubspace(step) {

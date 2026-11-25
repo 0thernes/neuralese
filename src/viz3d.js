@@ -20,15 +20,29 @@ export function installModes(viz) {
   // v12.1: every preset keeps its viewing direction but its distance/centre are fitted to what is actually visible
   // (the dock covers the right of the canvas; the view is offset so the scene is centred in the uncovered area).
   const visibleObjs = () => (group ? [group] : base().filter((o) => o.visible && !o.userData?.noFit));
-  const frame = () => { const W = innerWidth, Hh = innerHeight, cs = getComputedStyle(document.documentElement), dock = document.getElementById('dock'), dw = dock && getComputedStyle(dock).display !== 'none' ? dock.getBoundingClientRect().width : parseFloat(cs.getPropertyValue('--dockW')) || 0, o = document.getElementById('out'), oh = o && getComputedStyle(o).display !== 'none' ? o.getBoundingClientRect().height : 0, r = visibleRect(W, Hh, dw >= W ? 0 : dw, oh, document.getElementById('top')?.getBoundingClientRect().height || 34);
+  let dockW = 0; let view = { w: innerWidth, h: innerHeight };
+  const readDock = () => { dockW = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--dockW')) || 0; const canvas = viz.renderer.domElement; view = { w: Math.max(2, canvas.clientWidth || innerWidth - dockW), h: Math.max(2, canvas.clientHeight || innerHeight) }; };
+  readDock();
+  const frame = () => { const canvas = viz.renderer.domElement; const dw = dockW; const w = view.w, h = view.h;
+    if (canvas.classList.contains('docked') || document.body.classList.contains('v17-on')) { viz.cam.aspect = w / Math.max(1, h); viz.cam.clearViewOffset(); viz.cam.updateProjectionMatrix(); return { w, h, aspect: w / Math.max(1, h), offX: 0, offY: 0 }; }
+    const W = innerWidth, Hh = innerHeight, r = visibleRect(W, Hh, dw >= W ? 0 : dw, 0, 44);
     viz.cam.aspect = W / Hh; viz.cam.setViewOffset(W, Hh, r.offX, -r.offY, W, Hh); viz.cam.updateProjectionMatrix(); return r; };
-  viz.bounds = () => { const b = new THREE.Box3(); const sc = group ? group.scale.clone() : null; if (group) group.scale.setScalar(1); for (const o of visibleObjs()) { o.updateMatrixWorld(true); b.expandByObject(o); } if (sc) group.scale.copy(sc); return b; };
+  let boxCache = null;
+  viz.bounds = () => {
+    if (boxCache) return boxCache;
+    if (!group) { boxCache = new THREE.Box3(new THREE.Vector3(-8, -2, -8), new THREE.Vector3(16, 8 * 2.4 + 4, 8)); return boxCache; }
+    const b = new THREE.Box3(); const p = new THREE.Vector3(); group.updateMatrixWorld(true);
+    for (const o of group.children) { o.getWorldPosition(p); b.expandByPoint(p); }
+    if (b.isEmpty()) b.set(new THREE.Vector3(-8, -2, -8), new THREE.Vector3(16, 20, 8));
+    else b.expandByScalar(6);
+    boxCache = b; return b;
+  };
   viz.preset = (name, ms = 900, fit = true) => { const p = PRESETS[name]; if (!p) throw new Error('unknown camera preset ' + name + ' (' + Object.keys(PRESETS).join(', ') + ')'); let p1 = new THREE.Vector3(...p[0]), q1 = new THREE.Vector3(...p[1]);
     if (fit) { const r = frame(), b = viz.bounds(); if (!b.isEmpty()) { const sph = b.getBoundingSphere(new THREE.Sphere()), dir = p1.clone().sub(q1).normalize(); q1 = sph.center.clone(); p1 = q1.clone().add(dir.multiplyScalar(fitDistance(Math.max(sph.radius, 0.5), viz.cam.fov, r.aspect))); viz.fitted = { name, radius: sph.radius, dist: p1.distanceTo(q1), aspect: r.aspect }; } }
     tween = { t0: performance.now(), ms, p0: viz.cam.position.clone(), p1, q0: viz.ctl.target.clone(), q1 }; return name; };
   viz.fit = (ms = 600) => viz.preset(viz.mode3d === 'stack' ? 'stack' : viz.mode3d, ms, true);
-  addEventListener('resize', () => frame());
-  const clear = () => { if (group) { s.remove(group); group.traverse((o) => { o.geometry?.dispose?.(); o.material?.dispose?.(); }); group = null; } anim = null; };
+  addEventListener('resize', () => { readDock(); boxCache = null; frame(); });
+  const clear = () => { boxCache = null; if (group) { s.remove(group); group.traverse((o) => { o.geometry?.dispose?.(); o.material?.dispose?.(); }); group = null; } anim = null; };
   const mat = (o = {}) => new THREE.MeshPhysicalMaterial({ roughness: 0.35, metalness: 0.15, clearcoat: 0.6, clearcoatRoughness: 0.2, ...o });
   viz.mode = (name, data = {}) => {
     clear(); base().forEach((o) => (o.visible = name === 'stack')); if (name === 'stack') { viz.sel.visible = false; viz.mode3d = 'stack'; viz.info3d = STACK_INFO; viz.preset('stack'); return { mode: 'stack' }; }

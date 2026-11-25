@@ -240,8 +240,8 @@ test('component names and program list are the machine room set', () => {
   assert.equal(file.words.length, 512);
 });
 
-test('measure table is exact on every row', () => {
-  const report = measure({ seed: 11, cpu: 12, ram: 12, ssd: 6, gpu: 4, tpu: 3, bus: 16, mlp: 2 });
+test('measure table is exact on every row', async () => {
+  const report = await measure({ seed: 11, cpu: 12, ram: 12, ssd: 6, gpu: 4, tpu: 3, bus: 16, mlp: 2 });
   for (const row of report.rows) assert.equal(row.exact, row.trials, row.component + ' ' + row.mismatches);
   for (const p of report.programs) {
     assert.equal(p.exact, true, p.id + ' ' + JSON.stringify(p.diverge || p.fail));

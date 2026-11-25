@@ -53,3 +53,18 @@ test('prefix KV cache is invalidated by runtime interventions, weight edits and 
   assert.ok(maxRel(e.logits(rh.last.h), l) > 0, 'hook changed logits');
   Wm.layers[0].fc[0] += 1; e.invalidate(); l = e.logits(e.run(IDS).last.h); f = fresh(); assert.equal(maxRel(l, f.logits(f.run(IDS).last.h)), 0, 'manual invalidate()');
 });
+
+test('a budgeted step matches one full step, token by token', () => {
+  const a = new Engine(W, defaultRuntime()), b = new Engine(W, defaultRuntime());
+  const sa = a.newSeq(IDS.length), sb = b.newSeq(IDS.length);
+  for (const id of IDS.slice(0, 3)) {
+    const full = a.step(sa, id, { trace: true });
+    let part, n = 0;
+    for (;;) { part = b.step(sb, id, { trace: true, budget: true }); n++; if (!part.partial) break; assert.ok(n < 64); }
+    assert.ok(n > 1, 'budget returns between slots');
+    assert.equal(maxRel(full.h, part.h), 0);
+    assert.equal(sa.T, sb.T);
+    assert.equal(full.trace.resid_post.length, part.trace.resid_post.length);
+  }
+  assert.equal(sb._mid, null);
+});

@@ -31,7 +31,7 @@ test('V152-4 initialTheme follows the OS until the user picks', () => {
   assert.match(S('v5.js'), /initialTheme\(localStorage/);
 });
 test('V152-5 global action guard drives busy + inline error states', () => {
-  const a = S('app.js'); assert.match(a, /U152\.busy\(el, true\)/); assert.match(a, /U152\.panelNote\(el, e\.message\)/); assert.match(a, /finally \{ U152\.busy\(el, false\)/);
+  const a = S('app.js'); assert.match(a, /U152\.busy\(el, true\)/); assert.match(a, /U152\.panelNote\(el, e && e\.message \? e\.message : String\(e\)\)/); assert.match(a, /finally \{ U152\.busy\(el, false\)/);
   const css = S('style.css'); for (const k of ['button.busy', '.errnote', '@keyframes spin152']) assert.ok(css.includes(k), k);
 });
 test('V152-6 sidebar labels wrap (2-line clamp) with tooltips; wider rail', () => {

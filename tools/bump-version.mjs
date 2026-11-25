@@ -7,6 +7,8 @@ const edit = (f, fn) => { const a = fs.readFileSync(f, 'utf8'), b = fn(a); if (a
 for (const f of ['package.json', 'desktop/package.json']) edit(f, (s) => s.replace(/("version":\s*")[^"]+"/, `$1${v}"`));
 edit('package-lock.json', (s) => s.replace(/("name": "neuralese",\s*"version": ")[^"]+"/g, `$1${v}"`));
 edit('src/term.js', (s) => s.replace(/VERSION = '[^']+'/, `VERSION = '${v}'`));
+edit('src/cli.mjs', (s) => s.replace(/const VERSION = '[^']+'/, `const VERSION = '${v}'`));
+edit('src/cli.mjs', (s) => s.replace(/const VERSION = '[^']+'/, `const VERSION = '${v}'`));
 edit('src/index.html', (s) => s.replace(/<title>NEURALESE v[\d.]+ —/, `<title>NEURALESE v${short} —`).replace(/NEURALESE<span>v[\d.]+<\/span>/, `NEURALESE<span>v${short}</span>`).replace(/<i>v[\d.]+<\/i>/, `<i>v${short}</i>`).replace(/v\d+\.\d+\.\d+ · build [\d.-]+/, `v${v} · build ${stamp}`));
 edit('.github/workflows/release.yml', (s) => s.replace(/VER: [\d.]+/, `VER: ${v}`).replace(/VERSION_CODE: \d+/, `VERSION_CODE: ${code}`));
 console.log('version', v, 'build', stamp, 'versionCode', code);

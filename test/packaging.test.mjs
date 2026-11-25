@@ -6,7 +6,7 @@ import { VER } from './_paths.mjs';
 const J = (f) => JSON.parse(fs.readFileSync(new URL(rp(f), import.meta.url), 'utf8')), S = (f) => fs.readFileSync(new URL(rp(f), import.meta.url), 'utf8');
 test('V13-1 one version in package.json, desktop/package.json, term.js and index.html', () => {
   assert.equal(J('package.json').version, VER); assert.equal(J('desktop/package.json').version, VER);
-  assert.ok(S('term.js').includes(`VERSION = '${VER}'`)); assert.ok(S('index.html').includes('v' + VER)); });
+  assert.ok(S('term.js').includes(`VERSION = '${VER}'`)); assert.ok(S('cli.mjs').includes(`VERSION = '${VER}'`)); assert.ok(S('index.html').includes('v' + VER)); });
 test('V13-2 www/ file set: every script index.html loads is shipped, dev files are not', () => {
   const f = wwwFiles(new URL('..', import.meta.url).pathname); for (const x of ['index.html', 'style.css', 'app.js', 'engine.js', ...DIRS]) assert.ok(f.includes(x), x);
   for (const x of ['eslint.config.js', 'test', 'model', 'node_modules', 'desktop', 'tools']) assert.ok(!f.includes(x), x);

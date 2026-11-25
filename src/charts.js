@@ -1,5 +1,18 @@
 // Canvas charts (v15): HiDPI, axes + gridlines + nice ticks, legends, colorbars, perceptual colormaps, hover crosshairs.
-// heatmap (hover/click), multi-line, bars, scatter. No dependencies.
+// heatmap (hover/click), multi-line, bars, scatter. No chart library.
+import { runBudgeted, slice, waitNextFrame } from './coop.js?v=194';
+import { joinLines } from './bytes.js?v=194';
+async function csvParts(lines, n) {
+  const parts = [];
+  await runBudgeted((function* () {
+    for (let i = 0; i < lines.length; i += n) {
+      const chunk = lines.slice(i, i + n).join('\n');
+      parts.push(i + n < lines.length ? chunk + '\n' : chunk);
+      yield;
+    }
+  })(), { budgetMs: 8, label: 'csv-join' });
+  return parts;
+}
 const tip = () => document.getElementById('tip');
 const css = (v, f) => (typeof document !== 'undefined' && getComputedStyle(document.documentElement).getPropertyValue(v).trim()) || f;
 export const BG = () => css('--chart-bg', '#0a0f1a'), FG = () => css('--m', '#7c89a3'), GRID = () => css('--b', '#1f2a42'), TX = () => css('--t', '#dbe4f3');
@@ -20,8 +33,73 @@ const MAPS = {
 };
 const DIV_DARK = ['#9ccfff', '#4f8fe0', '#2b4f8a', '#1a2233', '#8a3a28', '#d9653a', '#ffc078'].map(hex), DIV_LIGHT = ['#1d4f9c', '#4a86d4', '#a9c8ee', '#f4f5f7', '#f0b09a', '#d4593a', '#8f2412'].map(hex);
 function ramp(stops, x) { x = Math.max(0, Math.min(1, x)); const f = x * (stops.length - 1), i = Math.min(stops.length - 2, Math.floor(f)), t = f - i, a = stops[i], b = stops[i + 1]; return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t]; }
+const HEAT_SRC = `const ramp=(stops,x)=>{x=Math.max(0,Math.min(1,x));const f=x*(stops.length-1),i=Math.min(stops.length-2,Math.floor(f)),t=f-i,a=stops[i],b=stops[i+1];return [a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t];};
+onmessage=(e)=>{const {flat,R,C,mx,seq,empty,stops}=e.data;const canvas=new OffscreenCanvas(Math.max(1,C),Math.max(1,R));const ic=canvas.getContext('2d');const img=ic.createImageData(C,R),data=img.data;
+for(let i=0;i<R;i++){const base=i*C;for(let j=0;j<C;j++){const v=flat[base+j];let rgb=empty;if(isFinite(v)){if(seq)rgb=ramp(stops,mx?v/mx:0);else{const x=Math.max(-1,Math.min(1,v/(mx||1)));rgb=ramp(stops,(x+1)/2);}}const p=(base+j)*4;data[p]=rgb[0];data[p+1]=rgb[1];data[p+2]=rgb[2];data[p+3]=255;}}
+ic.putImageData(img,0,0);const bmp=canvas.transferToImageBitmap();postMessage(bmp,[bmp]);};`;
+function rasterHeat(cv, c, M, g, done) {
+  const { R, C, w, h, padL, padT, cw, ch, seq } = g;
+  const gen = (cv._paintGen = (cv._paintGen || 0) + 1);
+  const stops = seq ? (MAPS[g.cmap] || MAPS.viridis) : (g.light ? DIV_LIGHT : DIV_DARK);
+  const empty = g.light ? [229, 231, 235] : [5, 7, 12];
+  void (async () => {
+    let mx = g.mx;
+    if (mx == null) {
+      mx = 0;
+      await runBudgeted((function* () {
+        for (let i = 0; i < R; i++) { const row = M[i]; for (let j = 0; j < row.length; j++) { const v = row[j]; if (isFinite(v)) mx = Math.max(mx, Math.abs(v)); } yield; }
+      })(), { label: 'heatmap-max' });
+    }
+    if (cv._paintGen !== gen || !cv.isConnected) return;
+    const flat = new Float32Array(R * C);
+    await runBudgeted((function* () {
+      for (let i = 0; i < R; i++) { const row = M[i]; const o = i * C; for (let j = 0; j < C; j++) flat[o + j] = row[j]; yield; }
+    })(), { label: 'heatmap-pack' });
+    if (cv._paintGen !== gen || !cv.isConnected) return;
+    const draw = (bmp) => {
+      if (cv._paintGen !== gen || !cv.isConnected) return;
+      cv._heatMx = mx;
+      c.setTransform(devicePixelRatio || 1, 0, 0, devicePixelRatio || 1, 0, 0);
+      c.fillStyle = BG(); c.fillRect(0, 0, w, h);
+      c.imageSmoothingEnabled = false;
+      c.drawImage(bmp, padL, padT, Math.max(1, C * cw), Math.max(1, R * ch));
+      if (done) done();
+    };
+    if (typeof Worker === 'function' && typeof OffscreenCanvas === 'function') {
+      const wkr = new Worker(URL.createObjectURL(new Blob([HEAT_SRC], { type: 'text/javascript' })));
+      wkr.onmessage = (e) => { wkr.terminate(); void waitNextFrame('heatmap').then(() => draw(e.data)); };
+      wkr.onerror = () => { wkr.terminate(); };
+      wkr.postMessage({ flat, R, C, mx, seq, empty, stops }, [flat.buffer]);
+      return;
+    }
+    await waitNextFrame('heatmap');
+    draw(await paintHeat(flat, R, C, mx, seq, empty, stops));
+  })();
+}
+async function paintHeat(flat, R, C, mx, seq, empty, stops) {
+  const off = Object.assign(document.createElement('canvas'), { width: C, height: R });
+  const ic = off.getContext('2d', { willReadFrequently: true });
+  const img = ic.createImageData(C, R), data = img.data;
+  await runBudgeted((function* () {
+    for (let i = 0; i < R; i++) { const base = i * C; for (let j = 0; j < C; j++) { const v = flat[base + j]; let rgb = empty; if (isFinite(v)) { if (seq) rgb = ramp(stops, mx ? v / mx : 0); else { const x = Math.max(-1, Math.min(1, v / (mx || 1))); rgb = ramp(stops, (x + 1) / 2); } } const p = (base + j) * 4; data[p] = rgb[0]; data[p + 1] = rgb[1]; data[p + 2] = rgb[2]; data[p + 3] = 255; } yield; }
+  })(), { label: 'heatmap-raster' });
+  ic.putImageData(img, 0, 0);
+  return off;
+}
 const rgb = (c) => `rgb(${c[0] | 0},${c[1] | 0},${c[2] | 0})`;
 export const cmap = (name, x) => rgb(ramp(MAPS[name] || MAPS.viridis, x));
+export const viridisBytes = (t) => ramp(MAPS.viridis, Math.max(0, Math.min(1, t)));
+export function stampGrid(ctx, x, y, dw, dh, cols, rows, colorAt) {
+  if (!cols || !rows || dw <= 0 || dh <= 0) return;
+  const Off = typeof OffscreenCanvas === 'function' ? OffscreenCanvas : null;
+  const off = Off ? new Off(cols, rows) : Object.assign(document.createElement('canvas'), { width: cols, height: rows });
+  const ic = off.getContext('2d'); const img = ic.createImageData(cols, rows), d = img.data;
+  for (let i = 0; i < rows; i++) for (let j = 0; j < cols; j++) {
+    const c = colorAt(i, j) || [0, 0, 0, 0]; const p = (i * cols + j) * 4;
+    d[p] = c[0]; d[p + 1] = c[1]; d[p + 2] = c[2]; d[p + 3] = c[3] ?? 255;
+  }
+  ic.putImageData(img, 0, 0); ctx.imageSmoothingEnabled = false; ctx.drawImage(off, x, y, dw, dh);
+}
 // signed value in [-mx, mx] → diverging blue · neutral · orange (neutral matches the chart background in each theme)
 export function divColor(v, mx) { const x = Math.max(-1, Math.min(1, v / (mx || 1))); return rgb(ramp(light() ? DIV_LIGHT : DIV_DARK, (x + 1) / 2)); }
 // [0,1] → viridis
@@ -32,20 +110,43 @@ const tfmt = (v) => { const a = Math.abs(v); return a === 0 ? '0' : a >= 1e4 || 
 function rrect(c, x, y, w, h, r) { r = Math.max(0, Math.min(r, w / 2, h / 2)); c.beginPath(); c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r); c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath(); }
 function title(c, t, x) { if (!t) return; c.fillStyle = TX(); c.font = `600 11px ${SANS()}`; c.textAlign = 'left'; c.textBaseline = 'alphabetic'; c.fillText(t, x, 14); }
 function colorbar(c, x, y, w, h, lo, hi, f) { const g = c.createLinearGradient(0, y + h, 0, y); for (let k = 0; k <= 16; k++) g.addColorStop(k / 16, f(lo + (hi - lo) * (k / 16))); c.fillStyle = g; rrect(c, x, y, w, h, 3); c.fill(); c.strokeStyle = axisC(); c.lineWidth = 1; c.stroke(); c.fillStyle = FG(); c.font = `9.5px ${MONO()}`; c.textAlign = 'left'; c.textBaseline = 'middle'; c.fillText(tfmt(hi), x + w + 4, y + 4); c.fillText(tfmt((lo + hi) / 2), x + w + 4, y + h / 2); c.fillText(tfmt(lo), x + w + 4, y + h - 4); }
+// Numbers live in typed columns so a later export posts the buffers. The thumbnail is the PNG source, 96 px on the long side.
+function packSeries(header, labels, columns) {
+  const n = columns.reduce((m, c) => Math.max(m, c.length), 0);
+  return { header, labels: Array.from({ length: n }, (_, i) => String(labels?.[i] ?? i)), cols: columns.map((c) => Float64Array.from({ length: n }, (_, i) => { const v = +c[i]; return Number.isFinite(v) ? v : NaN; })) };
+}
+function thumb(cv) {
+  const sw = cv.width, sh = cv.height;
+  if (!sw || !sh || typeof document === 'undefined') return;
+  const max = 96, scale = Math.min(1, max / Math.max(sw, sh));
+  const w = Math.max(1, Math.round(sw * scale)), h = Math.max(1, Math.round(sh * scale));
+  const t = cv._thumb || (cv._thumb = document.createElement('canvas'));
+  if (t.width !== w) t.width = w;
+  if (t.height !== h) t.height = h;
+  t.getContext('2d').drawImage(cv, 0, 0, w, h);
+  createImageBitmap(t).then((bmp) => { if (cv._bmp) cv._bmp.close(); cv._bmp = bmp; }).catch(() => {});
+}
 // M: rows × cols numbers. opts: {rows,cols labels, diverging, max, label(i,j) -> tooltip, onClick(i,j), h, cmap:'viridis'|'magma', colorbar:false}
 export function heatmap(cv, M, o = {}) {
   stamp(cv); cv._redraw = () => { cv._inRedraw = true; try { heatmap(cv, M, o); } finally { cv._inRedraw = false; } };
-  cv._csv = () => [['row', ...(o.cols || M[0].map((_, j) => j))].join(','), ...M.map((r, i) => [JSON.stringify(String(o.rows ? o.rows[i] : i)), ...Array.from(r, (v) => +(+v).toPrecision(6))].join(','))].join('\n');
+  cv._pack = packSeries(['row', ...(o.cols || M[0].map((_, j) => j))], o.rows || M.map((_, i) => i), M[0].map((_, j) => M.map((r) => r[j])));
   const R = M.length, C = M[0]?.length || 0, padL = o.padL ?? 38, padT = o.padT ?? (o.cols ? 18 : 8), cb = o.colorbar !== false, padR = cb ? 50 : 4; const h = o.h || Math.max(130, Math.min(440, R * 18 + padT + 8));
-  const [c, w] = fit(cv, h); const cw = (w - padL - padR) / C, ch = (h - padT - 6) / R;
-  let mx = o.max; if (mx == null) { mx = 0; for (const r of M) for (const v of r) if (isFinite(v)) mx = Math.max(mx, Math.abs(v)); }
-  const seq = o.diverging === false, col = (v) => (!isFinite(v) ? (light() ? '#e5e7eb' : '#05070c') : seq ? cmap(o.cmap || 'viridis', v / (mx || 1)) : divColor(v, mx));
+  const [c, w] = fit(cv, h); const cw = (w - padL - padR) / Math.max(1, C), ch = (h - padT - 6) / Math.max(1, R);
+  const big = R * C > 4096 && C > 0;
+  let mx = o.max; if (mx == null && !big) { mx = 0; for (const r of M) for (const v of r) if (isFinite(v)) mx = Math.max(mx, Math.abs(v)); }
+  const seq = o.diverging === false, scaleOf = () => cv._heatMx ?? mx ?? 1, col = (v) => (!isFinite(v) ? (light() ? '#e5e7eb' : '#05070c') : seq ? cmap(o.cmap || 'viridis', v / (scaleOf() || 1)) : divColor(v, scaleOf()));
   c.fillStyle = BG(); c.fillRect(0, 0, w, h); const gap = cw > 6 && ch > 6 ? 1 : 0, rad = cw > 10 && ch > 10 ? 2 : 0;
-  for (let i = 0; i < R; i++) for (let j = 0; j < C; j++) { c.fillStyle = col(M[i][j]); const x = padL + j * cw, y = padT + i * ch; if (rad) { rrect(c, x, y, cw - gap, ch - gap, rad); c.fill(); } else c.fillRect(x, y, Math.ceil(cw) - gap, Math.ceil(ch) - gap); }
-  c.fillStyle = FG(); c.font = `9.5px ${MONO()}`; c.textBaseline = 'middle'; c.textAlign = 'right'; const rs = Math.max(1, Math.ceil(11 / ch));
-  for (let i = 0; i < R; i += rs) c.fillText(String(o.rows ? o.rows[i] : i).slice(0, 7), padL - 5, padT + i * ch + ch / 2);
-  if (o.cols) { c.textAlign = 'left'; c.textBaseline = 'alphabetic'; const step = Math.max(1, Math.ceil(C / ((w - padL - padR) / 34))); for (let j = 0; j < C; j += step) c.fillText(String(o.cols[j]).slice(0, 6), padL + j * cw + 1, padT - 5); }
-  if (cb && mx > 0) colorbar(c, w - padR + 10, padT, 9, Math.min(h - padT - 6, 160), seq ? 0 : -mx, mx, (v) => col(v));
+  const labels = () => {
+    c.setTransform(devicePixelRatio || 1, 0, 0, devicePixelRatio || 1, 0, 0);
+    c.fillStyle = FG(); c.font = `9.5px ${MONO()}`; c.textBaseline = 'middle'; c.textAlign = 'right'; const rs = Math.max(1, Math.ceil(11 / ch));
+    for (let i = 0; i < R; i += rs) c.fillText(String(o.rows ? o.rows[i] : i).slice(0, 7), padL - 5, padT + i * ch + ch / 2);
+    if (o.cols) { c.textAlign = 'left'; c.textBaseline = 'alphabetic'; const step = Math.max(1, Math.ceil(C / ((w - padL - padR) / 34))); for (let j = 0; j < C; j += step) c.fillText(String(o.cols[j]).slice(0, 6), padL + j * cw + 1, padT - 5); }
+    const scale = cv._heatMx ?? mx; if (cb && scale > 0) colorbar(c, w - padR + 10, padT, 9, Math.min(h - padT - 6, 160), seq ? 0 : -scale, scale, (v) => col(v));
+  };
+  // A head×token map is hundreds of thousands of cells. fillRect plus a colour string per cell
+  // was a 0.5–2s main-thread task. Large maps rasterise on an OffscreenCanvas in 16ms slices.
+  if (big) rasterHeat(cv, c, M, { R, C, w, h, padL, padT, cw, ch, mx, seq, cmap: o.cmap, light: light() }, labels);
+  else { for (let i = 0; i < R; i++) for (let j = 0; j < C; j++) { c.fillStyle = col(M[i][j]); const x = padL + j * cw, y = padT + i * ch; if (rad) { rrect(c, x, y, cw - gap, ch - gap, rad); c.fill(); } else c.fillRect(x, y, Math.ceil(cw) - gap, Math.ceil(ch) - gap); } labels(); }
   if (o.mark) { c.strokeStyle = css('--w', '#f5b94a'); c.lineWidth = 2; c.shadowColor = c.strokeStyle; c.shadowBlur = 8; c.strokeRect(padL + o.mark[1] * cw, padT + o.mark[0] * ch, cw, ch); c.shadowBlur = 0; }
   if (o.sync && cv._hl >= 0) { const ax = o.syncAxis || 'both'; c.strokeStyle = TX(); c.lineWidth = 1; c.globalAlpha = 0.85; if (ax !== 'col' && cv._hl < R) c.strokeRect(padL + 0.5, padT + cv._hl * ch + 0.5, C * cw - 1, ch - 1); if (ax !== 'row' && cv._hl < C) c.strokeRect(padL + cv._hl * cw + 0.5, padT + 0.5, cw - 1, R * ch - 1); c.globalAlpha = 1; }
   listen(cv, o.sync, (i) => { if (i !== cv._hl) { cv._hl = i; cv._redraw(); } });
@@ -53,13 +154,14 @@ export function heatmap(cv, M, o = {}) {
   cv.style.cursor = o.onClick ? 'pointer' : 'crosshair';
   cv.onmousemove = (e) => { const p = at(e); if (o.sync) { const ii = p ? p[o.syncAxis === 'col' ? 1 : 0] : -1; if (ii !== cv._hl) { cv._hl = ii; emit(o.sync, ii); } } showTip(e, p ? (o.label ? o.label(p[0], p[1]) : `[${o.rows ? o.rows[p[0]] : p[0]}, ${o.cols ? o.cols[p[1]] : p[1]}]  ${(+M[p[0]][p[1]]).toFixed(4)}`) : ''); };
   cv.onmouseleave = () => { showTip(null, ''); if (o.sync) emit(o.sync, -1); }; cv.onclick = (e) => { const p = at(e); if (p && o.onClick) o.onClick(p[0], p[1]); };
+  thumb(cv);
 }
 // series: [{ys:[...], color, width, label}], xs labels optional.
 // v15.1: animated transitions between consecutive draws of the same canvas, drag-to-zoom (brush) on x, double-click to reset,
 // and synced cross-highlighting: charts sharing o.sync ('tok', …) show the same hovered index.
 export function lines(cv, series, o = {}) {
   stamp(cv); cv._redraw = () => { cv._inRedraw = true; try { lines(cv, series, o); } finally { cv._inRedraw = false; } };
-  cv._csv = () => { const n = Math.max(...series.map((s) => s.ys.length)); return ['x,' + series.map((s, i) => JSON.stringify(s.label || 's' + i)).join(','), ...Array.from({ length: n }, (_, i) => [JSON.stringify(String(o.xs ? o.xs[i] : i)), ...series.map((s) => s.ys[i] ?? '')].join(','))].join('\n'); };
+  cv._pack = packSeries(['x', ...series.map((s, i) => s.label || 's' + i)], o.xs, series.map((s) => s.ys));
   const h = o.h || 160, n = Math.max(...series.map((s) => s.ys.length), 1); let view = cv._view && cv._view.n === n ? cv._view : { a: 0, b: n - 1, n }; cv._view = view;
   const prev = !cv._inRedraw && !reduced() && typeof requestAnimationFrame === 'function' && cv._lastYs && cv._lastYs.length === series.length && cv._lastYs.every((p, i) => p.length === series[i].ys.length) ? cv._lastYs : null;
   cv._lastYs = series.map((s) => Array.from(s.ys)); let k = prev ? 0 : 1, hover = -1, brush = null;
@@ -79,7 +181,7 @@ export function lines(cv, series, o = {}) {
     c.save(); c.beginPath(); c.rect(padL, 0, w - padL - padR + 1, h); c.clip();
     series.forEach((s, si) => { const color = s.color || SERIES[si % SERIES.length]; const pts = []; for (let i = Math.max(0, view.a - 1); i <= Math.min(s.ys.length - 1, view.b + 1); i++) { const y = val(si, i); if (isFinite(y)) pts.push([X(i), Y(y)]); } if (!pts.length) return;
       if (series.length <= 2 && (s.width || 1) >= 1 && color.length <= 7) { const g = c.createLinearGradient(0, padT, 0, h - padB); g.addColorStop(0, color + '38'); g.addColorStop(1, color + '00'); c.fillStyle = g; c.beginPath(); c.moveTo(pts[0][0], h - padB); for (const [x, y] of pts) c.lineTo(x, y); c.lineTo(pts[pts.length - 1][0], h - padB); c.closePath(); c.fill(); }
-      c.strokeStyle = color; c.lineWidth = Math.max(1.25, (s.width || 1) * 1.4); if (series.length <= 4) { c.shadowColor = color; c.shadowBlur = 6; } c.beginPath(); pts.forEach(([x, y], i) => (i ? c.lineTo(x, y) : c.moveTo(x, y))); c.stroke(); c.shadowBlur = 0;
+      c.strokeStyle = color; c.lineWidth = Math.max(1.25, (s.width || 1) * 1.4); c.beginPath(); pts.forEach(([x, y], i) => (i ? c.lineTo(x, y) : c.moveTo(x, y))); c.stroke();
       if (pts.length === 1) { c.fillStyle = color; c.beginPath(); c.arc(pts[0][0], pts[0][1], 3, 0, 7); c.fill(); } });
     c.restore();
     title(c, o.title, padL);
@@ -90,18 +192,19 @@ export function lines(cv, series, o = {}) {
     return w;
   };
   draw();
-  if (prev) { const t0 = performance.now(), step = (t) => { k = Math.min(1, (t - t0) / 320); k = 1 - (1 - k) ** 3; draw(); if (k < 1 && cv.isConnected) requestAnimationFrame(step); }; requestAnimationFrame(step); }
+  if (prev && !o.instant) { const t0 = performance.now(), step = (t) => { k = Math.min(1, (t - t0) / 320); k = 1 - (1 - k) ** 3; draw(); if (k < 1 && cv.isConnected) requestAnimationFrame(step); }; requestAnimationFrame(step); }
   const idxAt = (e) => { const r = cv.getBoundingClientRect(); return Math.round(view.a + ((e.clientX - r.left - padL) / (r.width - padL - padR)) * Math.max(1, view.b - view.a)); };
   cv.onpointerdown = (e) => { if (n < 4 || e.button !== 0) return; const r = cv.getBoundingClientRect(); brush = [e.clientX - r.left, e.clientX - r.left]; };
   cv.onmousemove = (e) => { const r = cv.getBoundingClientRect(); if (brush && e.buttons & 1) { brush[1] = Math.max(padL, Math.min(r.width - padR, e.clientX - r.left)); draw(); return; } const i = idxAt(e); if (i < view.a || i > view.b) { hover = -1; draw(); emit(o.sync, -1); return showTip(e, ''); } if (i !== hover) { hover = i; draw(); emit(o.sync, i); } showTip(e, (o.xs ? o.xs[i] + '\n' : `x=${i}\n`) + series.filter((s) => s.label).map((s) => `${s.label}: ${s.ys[i]?.toFixed?.(4)}`).join('\n')); };
   cv.onpointerup = (e) => { if (!brush) return; const r = cv.getBoundingClientRect(), span = Math.max(1, view.b - view.a), toI = (px) => Math.round(view.a + ((px - padL) / (r.width - padL - padR)) * span), a = toI(Math.min(...brush)), b = toI(Math.max(...brush)); const wide = Math.abs(brush[1] - brush[0]) > 8; brush = null; if (wide && b - a >= 2) { view = cv._view = { a: Math.max(0, a), b: Math.min(n - 1, b), n }; } draw(); void e; };
   cv.ondblclick = () => { view = cv._view = { a: 0, b: n - 1, n }; draw(); };
   cv.onmouseleave = () => { hover = -1; brush = null; draw(); showTip(null, ''); emit(o.sync, -1); };
+  thumb(cv);
   listen(cv, o.sync, (i) => { if (i !== hover) { hover = i; draw(); } });
 }
 export function bars(cv, ys, o = {}) {
   stamp(cv); cv._redraw = () => { cv._inRedraw = true; try { bars(cv, ys, o); } finally { cv._inRedraw = false; } };
-  cv._csv = () => ['i,label,value', ...ys.map((y, i) => `${i},${JSON.stringify(o.label ? o.label(i) : String(i))},${y}`)].join('\n');
+  cv._pack = packSeries(['label', 'value'], ys.map((_, i) => (o.label ? o.label(i) : i)), [ys]);
   const h = o.h || 130, n = ys.length; let mx = o.max ?? Math.max(...ys.map(Math.abs)), lo = o.log ? Math.log10(Math.max(1e-12, Math.min(...ys.filter((y) => y > 0)))) : 0; if (!(mx > 0)) mx = 1;
   const padT = o.title ? 22 : 8, padB = 8, padL = 4; let hover = -1, k = !cv._inRedraw && !reduced() && typeof requestAnimationFrame === 'function' ? 0 : 1;
   const draw = () => { const [c, w] = fit(cv, h), bw = (w - padL - 4) / n, base = h - padB, H2 = base - padT;
@@ -116,6 +219,7 @@ export function bars(cv, ys, o = {}) {
   const idx = (e) => { const r = cv.getBoundingClientRect(); return Math.floor((e.clientX - r.left - padL) / ((r.width - padL - 4) / n)); };
   cv.onmousemove = (e) => { const i = idx(e); const ok = i >= 0 && i < n; if ((ok ? i : -1) !== hover) { hover = ok ? i : -1; bw = draw(); } showTip(e, ok ? (o.label ? o.label(i) : `${i}: ${ys[i].toPrecision(4)}`) : ''); }; cv.onmouseleave = () => { hover = -1; draw(); showTip(null, ''); };
   if (o.onClick) { cv.style.cursor = 'pointer'; cv.onclick = (e) => { const i = idx(e); if (i >= 0 && i < n) o.onClick(i); }; } void bw;
+  thumb(cv);
 }
 
 // scatter: pts [{x,y,c,r,label}], optional polylines [{pts:[[x,y]..], color}]
@@ -133,10 +237,11 @@ export function scatter(cv, pts, o = {}) {
   c.globalCompositeOperation = 'source-over';
   for (const p of pts) if (p.text) { c.fillStyle = TX(); c.font = `10px ${SANS()}`; c.textBaseline = 'alphabetic'; c.textAlign = 'left'; c.fillText(p.text, X(p.x) + 5, Y(p.y) - 4); }
   title(c, o.title, 8);
-  cv._csv = () => ['x,y,label', ...pts.map((p) => `${p.x},${p.y},${JSON.stringify(p.label || '')}`)].join('\n');
+  cv._pack = packSeries(['label', 'x', 'y'], pts.map((p) => p.label || ''), [pts.map((p) => p.x), pts.map((p) => p.y)]);
   const near = (e) => { const r = cv.getBoundingClientRect(), mx = e.clientX - r.left, my = e.clientY - r.top; let b = null, bd = 100; for (const p of pts) { const dd = (X(p.x) - mx) ** 2 + (Y(p.y) - my) ** 2; if (dd < bd) { bd = dd; b = p; } } return b; };
   cv.onmousemove = (e) => { const p = near(e); cv.style.cursor = p ? 'pointer' : 'crosshair'; showTip(e, p ? p.label || `${p.x.toFixed(3)}, ${p.y.toFixed(3)}` : ''); }; cv.onmouseleave = () => showTip(null, '');
   if (o.onClick) cv.onclick = (e) => { const p = near(e); if (p) o.onClick(p); };
+  thumb(cv);
 }
 
 // v15.1 attention arc diagram: tokens along a baseline, arcs from each query q to its keys k (height ∝ distance,
@@ -144,7 +249,7 @@ export function scatter(cv, pts, o = {}) {
 export function arcs(cv, labels, A, o = {}) {
   stamp(cv); cv._redraw = () => { cv._inRedraw = true; try { arcs(cv, labels, A, o); } finally { cv._inRedraw = false; } };
   const T = labels.length, h = o.h || 210, thr = o.min ?? 0.04; let hover = -1, k = !cv._inRedraw && !reduced() && typeof requestAnimationFrame === 'function' ? 0 : 1;
-  cv._csv = () => ['query,key,weight', ...A.flatMap((r, q) => Array.from(r, (v, j) => `${q},${j},${v}`))].join('\n');
+  cv._pack = packSeries(['i', 'query', 'key', 'weight'], null, [A.flatMap((r, q) => r.map(() => q)), A.flatMap((r) => r.map((_, j) => j)), A.flatMap((r) => r)]);
   const draw = () => { const [c, w] = fit(cv, h), padX = 18, base = h - 34, dx = (w - 2 * padX) / Math.max(1, T - 1), X = (i) => padX + i * dx;
     c.fillStyle = BG(); c.fillRect(0, 0, w, h); title(c, o.title, padX);
     c.strokeStyle = axisC(); c.lineWidth = 1; c.beginPath(); c.moveTo(padX - 6, base + 0.5); c.lineTo(w - padX + 6, base + 0.5); c.stroke();
@@ -163,11 +268,12 @@ export function arcs(cv, labels, A, o = {}) {
   cv.onmousemove = (e) => { const i = at(e); if (i !== hover) { hover = i; draw(); emit(o.sync, i); } if (i < 0) return showTip(e, ''); const row = A[i] || [], top = [...row.keys()].filter((j) => j <= i).sort((a, b) => row[b] - row[a]).slice(0, 4); showTip(e, `${labels[i]} (q=${i}) attends to\n` + top.map((j) => `  ${labels[j]} [${j}]  ${(+row[j]).toFixed(3)}`).join('\n')); };
   cv.onmouseleave = () => { hover = -1; draw(); showTip(null, ''); emit(o.sync, -1); };
   listen(cv, o.sync, (i) => { if (i !== hover) { hover = i; draw(); } });
+  thumb(cv);
 }
 // v15.1 token heat strip: one cell per token coloured by a value (magma by default), label inside; o.sync cross-highlights.
 export function heatStrip(cv, labels, vals, o = {}) {
   stamp(cv); cv._redraw = () => { cv._inRedraw = true; try { heatStrip(cv, labels, vals, o); } finally { cv._inRedraw = false; } };
-  cv._csv = () => ['i,token,value', ...vals.map((v, i) => `${i},${JSON.stringify(String(labels[i]))},${v}`)].join('\n');
+  cv._pack = packSeries(['token', 'value'], labels, [vals]);
   const T = vals.length, h = o.h || 40; let lo = o.min ?? Math.min(...vals.filter(isFinite)), hi = o.max ?? Math.max(...vals.filter(isFinite)); if (!(hi > lo)) hi = lo + 1; let hover = -1;
   const draw = () => { const [c, w] = fit(cv, h), cbw = 64, cw = (w - cbw - 10) / Math.max(1, T), y0 = o.title ? 16 : 2, ch = h - y0 - 3; c.fillStyle = BG(); c.fillRect(0, 0, w, h); title(c, o.title, 2);
     const f = (v) => cmap(o.cmap || 'magma', 0.08 + 0.9 * (v - lo) / (hi - lo));
@@ -180,9 +286,15 @@ export function heatStrip(cv, labels, vals, o = {}) {
   cv.onmouseleave = () => { hover = -1; cw = draw(); showTip(null, ''); emit(o.sync, -1); };
   if (o.onClick) { cv.style.cursor = 'pointer'; cv.onclick = (e) => { const i = at(e); if (i >= 0) o.onClick(i); }; }
   listen(cv, o.sync, (i) => { if (i !== hover) { hover = i; cw = draw(); } });
+  thumb(cv);
 }
 
-export function redrawAll() { for (const c of document.querySelectorAll('canvas')) if (c._redraw && c.offsetParent) try { c._redraw(); } catch (e) { console.warn(e); } }
+export async function redrawAll() {
+  const list = [...document.querySelectorAll('canvas')].filter((c) => c._redraw && c.offsetParent);
+  await runBudgeted((function* () {
+    for (const c of list) { try { c._redraw(); } catch (e) { console.warn(e); } yield; }
+  })(), { label: 'redrawAll' });
+}
 
 // v12.1 freshness stamps: every chart records when it was computed and under which model state ("generation", bumped on
 // every weight/runtime edit). When the model changes, older charts are labelled stale instead of silently showing old results.

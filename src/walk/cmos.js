@@ -4,6 +4,7 @@
 // Nothing here changes the supply of the machine running Neuralese.
 
 import { mulberry32, gauss } from '../model.js';
+import { runBudgeted } from '../coop.js';
 
 export const CMOS_MODEL = Object.freeze({
   id: 'shichman-hodges-level1-matched',
@@ -132,6 +133,19 @@ export function transferCurve(p, steps = 81) {
   }
   return pts;
 }
+export async function transferCurveYield(p, steps = 81) {
+  const pts = [];
+  const n = Math.max(2, steps);
+  await runBudgeted((function* () {
+    for (let i = 0; i < n; i++) {
+      const vin = p.VDD * (i / (n - 1));
+      const s = solveInverter(p, vin);
+      pts.push({ vin, vout: s.vout, defined: s.defined });
+      yield;
+    }
+  })(), { budgetMs: 8 });
+  return pts;
+}
 
 function unityGain(pts) {
   let vil = null;
@@ -161,9 +175,9 @@ export function stageDelay(p) {
   };
 }
 
-export function assessInverter(p, opts = {}) {
+export function assessInverter(p, opts = {}, curve = null) {
   const steps = opts.steps || 81;
-  const curve = transferCurve(p, steps);
+  if (!curve) curve = transferCurve(p, steps);
   const low = solveInverter(p, p.VDD);
   const high = solveInverter(p, 0);
   const vol = low.vout;

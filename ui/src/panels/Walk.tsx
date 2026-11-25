@@ -1,7 +1,8 @@
 import { createEffect, createMemo, createSignal, For, getOwner, onCleanup, onMount, runWithOwner, Show, type JSX } from 'solid-js';
 import { CHAPTERS } from '../../../src/walk/chapters.js';
-import { CMOS_BANNER, assessInverter, cmosParams, type CmosParams, type InverterReport } from '../../../src/walk/cmos.js';
-import { lowerForge, significandProduct, vmOperands, type ForgeGate, type SigProduct } from '../../../src/walk/forgealu.js';
+import { yieldHost } from '../../../src/coop.js';
+import { CMOS_BANNER, assessInverter, cmosParams, transferCurveYield, type CmosParams, type InverterReport } from '../../../src/walk/cmos.js';
+import { significandProduct, vmOperands, type ForgeGate, type SigProduct } from '../../../src/walk/forgealu.js';
 import { legacy } from '../core/bridge';
 import { forgeCursor, forgeRun } from '../core/forge';
 import { sel, selection, theme } from '../core/store';
@@ -58,6 +59,8 @@ function Stage(): JSX.Element {
         const st = await createStage(host, () => getComputedStyle(document.documentElement).getPropertyValue('--c-bg').trim() || '#070a12');
         const scene = createWalk(st);
         if (owner) runWithOwner(owner, () => {
+          const paint = () => yieldHost();
+          let ticket = 0;
           createEffect(() => {
             const view = walkView();
             if (!view) return;
@@ -65,12 +68,19 @@ function Stage(): JSX.Element {
             const zoom = walkZoom();
             const cell = walkCell();
             const curve = walkCurve();
-            const gates = zoom === 'gates' ? gateBoxes(cell) : null;
-            scene.show(view, zoom, current, cell, gates, zoom === 'voltage' ? curve : null, theme() === 'light');
-            const aim = scene.aim();
-            const next = `${zoom}:${current?.id}:${cell?.opId}:${cell?.index}:${gates?.length ?? 0}:${curve?.length ?? 0}`;
-            if (next !== sig) { sig = next; st.focus(aim.at, aim.dist); }
-            setHud(`${st.backend} · ${ZOOM_LABEL[zoom]} · ${current ? `${current.title} · ${current.note}` : 'model'}`);
+            const light = theme() === 'light';
+            const mine = ++ticket;
+            void (async () => {
+              await paint();
+              if (mine !== ticket) return;
+              const gates = zoom === 'gates' ? gateBoxes(cell) : null;
+              await scene.show(view, zoom, current, cell, gates, zoom === 'voltage' ? curve : null, light, paint);
+              if (mine !== ticket) return;
+              const aim = scene.aim();
+              const next = `${zoom}:${current?.id}:${cell?.opId}:${cell?.index}:${gates?.length ?? 0}:${curve?.length ?? 0}`;
+              if (next !== sig) { sig = next; st.focus(aim.at, aim.dist); }
+              setHud(`${st.backend} · ${ZOOM_LABEL[zoom]} · ${current ? `${current.title} · ${current.note}` : 'model'}`);
+            })();
           });
           onCleanup(() => { scene.dispose(); st.dispose(); });
         });
@@ -102,7 +112,7 @@ function gateBoxes(cell: WalkCell | null): { id: number; op: string; y: number }
     const sig = significandProduct(cell.term.w, cell.term.x, { limit: 48 });
     if (sig.ok && sig.shown && sig.shown.length) return sig.shown;
   }
-  return lowerForge('ADD', 3, 5, { limit: 48 }).shown ?? null;
+  return null;
 }
 
 function Read(): JSX.Element {
@@ -112,12 +122,20 @@ function Read(): JSX.Element {
   onMount(() => {
     const go = (): void => { void runForward(); };
     document.addEventListener('neuralese:walk-run', go);
-    const id = setInterval(() => {
-      if (!walkPlaying()) return;
-      const n = visibleOps(walkView(), walkHead()).length;
-      if (n) setWalkOp((walkOp() + 1) % n);
-    }, 1500);
-    onCleanup(() => { clearInterval(id); document.removeEventListener('neuralese:walk-run', go); });
+    onCleanup(() => document.removeEventListener('neuralese:walk-run', go));
+  });
+  createEffect(() => {
+    if (!walkPlaying()) return;
+    let stop = false;
+    onCleanup(() => { stop = true; });
+    void (async () => {
+      while (!stop && walkPlaying()) {
+        await yieldHost();
+        if (stop || !walkPlaying()) return;
+        const n = visibleOps(walkView(), walkHead()).length;
+        if (n) setWalkOp((walkOp() + 1) % n);
+      }
+    })();
   });
   createEffect(() => {
     const op = current();
@@ -136,9 +154,9 @@ function Read(): JSX.Element {
     <label class="hint">prompt <input aria-label="walk prompt" value={walkPrompt()} onInput={(e) => setWalkPrompt(e.currentTarget.value)} /></label>
     <div class="adv-row">
       <button class="pri" disabled={!!walkBusy()} onClick={() => void runForward()}>Run forward</button>
-      <button disabled={!ops().length} onClick={() => setWalkPlaying(!walkPlaying())}>{walkPlaying() ? 'Pause' : 'Play'}</button>
-      <button disabled={!ops().length} onClick={() => setWalkOp((walkOp() + ops().length - 1) % ops().length)}>Step back</button>
-      <button disabled={!ops().length} onClick={() => setWalkOp((walkOp() + 1) % ops().length)}>Step</button>
+      <button disabled={!ops().length} title={ops().length ? 'Play the recorded steps' : 'Disabled until a forward has been run'} onClick={() => setWalkPlaying(!walkPlaying())}>{walkPlaying() ? 'Pause' : 'Play'}</button>
+      <button disabled={!ops().length} title={ops().length ? 'Step back' : 'Disabled until a forward has been run'} onClick={() => setWalkOp((walkOp() + ops().length - 1) % ops().length)}>Step back</button>
+      <button disabled={!ops().length} title={ops().length ? 'Step' : 'Disabled until a forward has been run'} onClick={() => setWalkOp((walkOp() + 1) % ops().length)}>Step</button>
     </div>
     <Show when={ops().length}>
       <label class="hint">operation
@@ -154,7 +172,7 @@ function Read(): JSX.Element {
       <Show when={current()}>{(o) => <p class="hint">{o().title} · shape [{o().length}] · {o().note}{o().head != null ? ` · head ${o().head}` : ''}</p>}</Show>
     </article>
     <div class="adv-row">
-      <For each={CHAPTERS.slice(0, 9)}>{(c) => <button onClick={() => { const i = ops().findIndex((o) => o.chapter === c.id && (o.layer == null || o.layer === sel().layer)); if (i >= 0) { setWalkPlaying(false); setWalkOp(i); } }}>{c.title}</button>}</For>
+      <For each={CHAPTERS.slice(0, 9)}>{(c) => <button onClick={() => { const i = ops().findIndex((o) => o.chapter === c.id && (o.layer == null || o.layer === sel().layer)); if (i >= 0) { setWalkPlaying(false); void yieldHost().then(() => setWalkOp(i)); } }}>{c.title}</button>}</For>
     </div>
     <Show when={walkView()?.archNote}><p class="hint">{walkView()!.archNote}</p></Show>
   </>;
@@ -187,8 +205,22 @@ function ZoomPanel(): JSX.Element {
   const [vth, setVth] = createSignal(0.25);
   const [temp, setTemp] = createSignal(300);
   const [noise, setNoise] = createSignal(0);
-  const report = createMemo(() => assessInverter(cmosParams({ VDD: vdd(), Vth0: vth(), T: temp() }), { noiseSigma: noise(), noiseDraws: noise() > 0 ? 32 : 0, seed: 1729, steps: 41 }));
-  createEffect(() => setWalkCurve(report().curve));
+  const [report, setReport] = createSignal<InverterReport | null>(null);
+  const paint = () => yieldHost();
+  createEffect(() => {
+    const params = cmosParams({ VDD: vdd(), Vth0: vth(), T: temp() });
+    const sigma = noise();
+    let dead = false;
+    onCleanup(() => { dead = true; });
+    void (async () => {
+      await paint();
+      if (dead) return;
+      const curve = await transferCurveYield(params, 41);
+      if (dead) return;
+      setReport(assessInverter(params, { noiseSigma: sigma, noiseDraws: sigma > 0 ? 32 : 0, seed: 1729, steps: 41 }, curve));
+      setWalkCurve(curve);
+    })();
+  });
   return <>
     <h3>Zoom</h3>
     <div class="zoomladder">
@@ -201,7 +233,9 @@ function ZoomPanel(): JSX.Element {
       <label class="hint">Vth {vth().toFixed(2)} V <input type="range" min="0.05" max="0.8" step="0.01" value={vth()} onInput={(e) => setVth(+e.currentTarget.value)} /></label>
       <label class="hint">T {temp().toFixed(0)} K <input type="range" min="250" max="400" step="1" value={temp()} onInput={(e) => setTemp(+e.currentTarget.value)} /></label>
       <label class="hint">input noise σ {noise().toFixed(3)} V <input type="range" min="0" max="0.4" step="0.005" value={noise()} onInput={(e) => setNoise(+e.currentTarget.value)} /></label>
-      <VoltageReadout r={report()} p={cmosParams({ VDD: vdd(), Vth0: vth(), T: temp() })} />
+      <Show when={report()} fallback={<p class="hint">Computing the transfer curve…</p>}>
+        {(r) => <VoltageReadout r={r()} p={cmosParams({ VDD: vdd(), Vth0: vth(), T: temp() })} />}
+      </Show>
     </Show>
     <Show when={walkZoom() === 'gates'}><p class="hint">Gate zoom draws the significand multiplier of the selected product when both factors are normal float32. A Forge instruction’s ALU is in the Forge link panel. Neither netlist is what the engine executed.</p></Show>
     <Show when={walkZoom() === 'float'}><p class="hint">Bit cells are the float32 rounding of the JavaScript product. Sign, exponent, and fraction are separate colors. The accumulator in the matvec is float64.</p></Show>
@@ -245,7 +279,7 @@ function Fault(): JSX.Element {
     <h3>Fault study</h3>
     <p class="hint">The flips below are real writes into activation floats, then a real forward. Weights are not edited. This is not a voltage change on the GPU.</p>
     <Show when={meta()?.hypothesis}><p>{meta()!.hypothesis}</p></Show>
-    <button class="pri" disabled={!!walkBusy()} onClick={() => void run()}>Run DW-FAULT-1</button>
+    <button class="pri" disabled={!!walkBusy()} title={walkBusy() ? 'Disabled while a forward is running' : 'Run the pre-registered fault study'} onClick={() => void run()}>Run DW-FAULT-1</button>
     <Show when={walkBusy()}><p class="hint">{walkBusy()}</p></Show>
     <Show when={faultReport()}>{(r) => <>
       <p class={r().predictionHolds ? 'hint' : 'warn'}>KL exponent {num(r().meanKlExponent, 6)} · KL mantissa {num(r().meanKlMantissa, 6)} · prediction {r().predictionHolds ? 'holds on this run' : 'does not hold on this run'}</p>
@@ -268,14 +302,19 @@ function ForgeLink(): JSX.Element {
   const [b, setB] = createSignal(35);
   const [gate, setGate] = createSignal<ForgeGate | null>(null);
   const [sig, setSig] = createSignal<SigProduct | null>(null);
+  const lower = (opName: string, av: number, bv: number): void => {
+    const mf = legacy()?.mf;
+    if (!mf) { setWalkErr('forge worker is not ready'); return; }
+    setWalkBusy('lowering ' + opName + ' to gates…');
+    void mf.lower(opName, av, bv).then((g) => { setGate(g as ForgeGate); setWalkZoom('gates'); }).catch((e: Error) => { if (e.message !== 'cancelled') setWalkErr(e.message); }).finally(() => setWalkBusy(''));
+  };
   const take = (): void => {
     const run = forgeRun();
     const rom = run?.compiled?.rom;
     if (!rom) { setWalkErr('Run a Forge program first, or type the op below.'); return; }
     const op = vmOperands(rom, Math.min(forgeCursor(), Math.max(0, rom.length - 1)));
     setName(op.name); setA(op.a); setB(op.b);
-    setGate(lowerForge(op.name, op.a, op.b));
-    setWalkZoom('gates');
+    lower(op.name, op.a, op.b);
   };
   return <>
     <h3>Forge instruction → gates</h3>
@@ -285,7 +324,7 @@ function ForgeLink(): JSX.Element {
       <label class="hint">op <input aria-label="alu op" value={name()} onInput={(e) => setName(e.currentTarget.value.toUpperCase())} /></label>
       <label class="hint">a <input type="number" value={a()} onInput={(e) => setA(+e.currentTarget.value)} /></label>
       <label class="hint">b <input type="number" value={b()} onInput={(e) => setB(+e.currentTarget.value)} /></label>
-      <button class="pri" onClick={() => { setGate(lowerForge(name(), a(), b())); setWalkZoom('gates'); }}>Lower to gates</button>
+      <button class="pri" onClick={() => lower(name(), a(), b())}>Lower to gates</button>
     </div>
     <Show when={gate()}>{(g) => <p class={g().match ? 'hint' : 'warn'}>{g().note}</p>}</Show>
     <Show when={walkCell()?.term}>

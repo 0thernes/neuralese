@@ -45,7 +45,7 @@ test('activation patching (resid × position) matches PyTorch', async () => {
 test('head patching + path patching (head→logits) match PyTorch', async () => {
   const p = REF.patch, e = clean(); const r = await patchHeads(e, tok.encode(p.clean), tok.encode(p.corr), p.ans, p.wrong);
   r.M.forEach((row, l) => row.forEach((c, h) => close(c.raw, REF.patch_heads[l][h], 2e-3, `L${l}H${h}`)));
-  const q = pathPatchHeadsToLogits(e, tok.encode(p.clean), tok.encode(p.corr), p.ans, p.wrong);
+  const q = await pathPatchHeadsToLogits(e, tok.encode(p.clean), tok.encode(p.corr), p.ans, p.wrong);
   q.M.forEach((row, l) => row.forEach((c, h) => close(c.raw, REF.path_heads[l][h], 2e-3, `path L${l}H${h}`)));
 });
 test('SVD: singular values match numpy, reconstruction error tiny', () => {
@@ -61,15 +61,15 @@ test('SVD top-k edit produces a rank-k matrix; undo restores bit-exact', () => {
   ed.setEdits([]); assert.equal(maxDiff(MOD.layers[2].v, ORIG.layers[2].v), 0);
 });
 test('stats + tuned lens beats logit lens on intermediate layers', async () => {
-  STATS = await computeStats(ORIG, CORPUS, 500); fitTunedLens(STATS, 1e-3);
+  STATS = await computeStats(ORIG, CORPUS, 500); await fitTunedLens(STATS, 1e-3);
   const e = clean(); e.stats = STATS; const ids = CORPUS[39].slice(0, 40); const tr = e.run(ids, { trace: true }).traces;
   const G = lensGrid(e, tr, { k: 1 }), T = lensGrid(e, tr, { k: 1, tuned: STATS.tuned });
   const kl = (G2) => { let s = 0; for (let p = 0; p < tr.length; p++) { const fin = G2[p][8].lp; for (const r of [2, 3, 4]) { const q = G2[p][r].lp; for (let i = 0; i < fin.length; i++) { const pf = Math.exp(fin[i]); if (pf > 1e-6) s += pf * (fin[i] - q[i]); } } } return s / tr.length / 3; };
   const a = kl(G), b = kl(T); console.log(`  KL(final‖lens) layers1-3 on held-out story: logit lens ${a.toFixed(3)}, tuned ${b.toFixed(3)}`); assert.ok(b < a);
 });
-test('every runtime control changes the computation', () => {
+test('every runtime control changes the computation', async () => {
   const base = lastLogits(clean(), P0); const e = clean(); e.stats = STATS;
-  const vec = buildControlVector(clean(), tok, [[' happy', ' sad']], {});
+  const vec = await buildControlVector(clean(), tok, [[' happy', ' sad']], {});
   const cases = {
     headTemp: (R) => (R.headTemp[0][3] = 3), abl_zero: (R) => (R.headAbl[1][5] = 'zero'), abl_mean: (R) => (R.headAbl[1][5] = 'mean'), abl_resample: (R) => (R.headAbl[1][5] = 'resample'),
     mask_self: (R) => (R.attnMask[2].mode = 'self'), mask_noself: (R) => (R.attnMask[2].mode = 'noself'), mask_bos: (R) => (R.attnMask[2].mode = 'bos'), mask_uniform: (R) => (R.attnMask[2].mode = 'uniform'), mask_nobos: (R) => (R.attnMask[2].mode = 'nobos'), mask_window: (R) => (R.attnMask[0].window = 3),
@@ -112,9 +112,9 @@ test('SAE trains (loss falls), features are sparse, clamping changes output', as
   const e = clean(); e.sae = sae; const base = lastLogits(e, P0); const f = an.mx.indexOf(Math.max(...an.mx)); e.R.sae.clamps.push({ f, mode: 'clamp', value: 20 });
   assert.ok(maxDiff(lastLogits(e, P0), base) > 1e-3);
 });
-test('control vectors: mean vs PCA agree in direction; arithmetic works', () => {
+test('control vectors: mean vs PCA agree in direction; arithmetic works', async () => {
   const pairs = [['I love this. It is wonderful', 'I hate this. It is terrible'], ['She was so happy', 'She was so sad'], ['What a great day', 'What a awful day']];
-  const a = buildControlVector(clean(), tok, pairs, { method: 'mean' }), b = buildControlVector(clean(), tok, pairs, { method: 'pca' });
+  const a = await buildControlVector(clean(), tok, pairs, { method: 'mean' }), b = await buildControlVector(clean(), tok, pairs, { method: 'pca' });
   for (const l of [2, 4, 6]) { let s = 0, na = 0, nb = 0; for (let i = 0; i < 256; i++) { s += a[l][i] * b[l][i]; na += a[l][i] ** 2; nb += b[l][i] ** 2; } const c = s / Math.sqrt(na * nb); assert.ok(c > 0.5, `cos L${l} ${c}`); }
   const v = vectorArithmetic('2*x - 0.5*x', [{ name: 'x', vecs: a }]); assert.ok(Math.abs(v[3][5] - 1.5 * a[3][5]) < 1e-6);
 });
@@ -135,4 +135,4 @@ test('safetensors export round-trips', () => {
   const n2 = Number(new DataView(bytes.buffer).getBigUint64(0, true)); const h2 = JSON.parse(new TextDecoder().decode(bytes.subarray(8, 8 + n2)));
   const W2 = buildWeights(parseSafetensors(bytes.buffer.slice(8 + n2), n2, h2)); assert.equal(maxDiff(W2.layers[1].o, MOD.layers[1].o), 0); assert.equal(maxDiff(W2.wte, MOD.wte), 0); ed.setEdits([]);
 });
-test('token stats: perplexity finite, entropies sane', () => { const e = clean(); const ids = CORPUS[38].slice(0, 30); const T = tokenStats(e, e.run(ids, { trace: true }).traces, ids); assert.ok(T.ppl > 1 && T.ppl < 50, 'ppl ' + T.ppl); console.log('  corpus-story perplexity', T.ppl.toFixed(2)); });
+test('token stats: perplexity finite, entropies sane', async () => { const e = clean(); const ids = CORPUS[38].slice(0, 30); const T = await tokenStats(e, e.run(ids, { trace: true }).traces, ids); assert.ok(T.ppl > 1 && T.ppl < 50, 'ppl ' + T.ppl); console.log('  corpus-story perplexity', T.ppl.toFixed(2)); });

@@ -3,6 +3,7 @@
 // models) go straight to their https origins and keep the web app's own SHA-256 checks.
 const { app, BrowserWindow, protocol, net, shell, Menu } = require('electron');
 const path = require('node:path'); const { pathToFileURL } = require('node:url');
+const { safeAppPath } = require('./safe-path.cjs');
 const ROOT = path.join(__dirname, 'www');
 // Software WebGL (SwiftShader) is OFF by default (v15.3) and only enabled as a GPU-failure fallback:
 //   • explicitly: `--swiftshader` on the command line or NEURALESE_SWIFTSHADER=1;
@@ -29,9 +30,12 @@ function win() {
 }
 app.whenReady().then(() => {
   try { const st = app.getGPUFeatureStatus(); if (!SW && /^(unavailable|disabled)/.test(String(st.webgl))) fallBackToSoftware('webgl ' + st.webgl); } catch {}
-  protocol.handle('app', (req) => { const u = new URL(req.url); let p = decodeURIComponent(u.pathname); if (p.endsWith('/')) p += 'index.html';
-    const f = path.normalize(path.join(ROOT, p)); if (!f.startsWith(ROOT)) return new Response('forbidden', { status: 403 });
-    return net.fetch(pathToFileURL(f).toString()); });
+  protocol.handle('app', (req) => {
+    let u; try { u = new URL(req.url); } catch { return new Response('bad url', { status: 400 }); }
+    const f = safeAppPath(ROOT, u.pathname);
+    if (!f) return new Response('forbidden', { status: 403 });
+    return net.fetch(pathToFileURL(f).toString());
+  });
   Menu.setApplicationMenu(Menu.buildFromTemplate([{ role: 'fileMenu' }, { role: 'editMenu' }, { role: 'viewMenu' }, { role: 'windowMenu' }]));
   win(); app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) win(); });
 });

@@ -8,11 +8,15 @@ export function gpuTier(): Tier { const t = legacy()?.viz?.tier; return t === 'l
 export interface Stage { scene: THREE.Scene; camera: THREE.PerspectiveCamera; renderer: THREE.WebGPURenderer; backend: string; tier: Tier; focus(p: THREE.Vector3, dist: number): void; dist(): number; onFrame(f: (dt: number) => void): void; pick(e: PointerEvent, objs: THREE.Object3D[]): THREE.Intersection | null; dispose(): void }
 export async function createStage(host: HTMLElement, bg: () => string): Promise<Stage> {
   const tier = gpuTier(); const hasGPU = typeof navigator !== 'undefined' && 'gpu' in navigator && !!(navigator as Navigator & { gpu?: unknown }).gpu;
-  const renderer = new THREE.WebGPURenderer({ antialias: tier !== 'low', forceWebGL: !hasGPU || tier === 'low' });
-  // dispose() deliberately releases the context; only a loss while still mounted is worth reporting
-  renderer.onDeviceLost = (info: { message?: string }) => { if (alive) console.warn('[cosmos] GPU device lost:', info?.message ?? 'unknown'); };
-  renderer.setPixelRatio(Math.min(devicePixelRatio, tier === 'high' ? 2 : tier === 'mid' ? 1.5 : 1));
-  await renderer.init();
+  let alive = true;
+  const renderer = await new Promise<THREE.WebGPURenderer>((resolve, reject) => requestAnimationFrame(() => {
+    try {
+      const r = new THREE.WebGPURenderer({ antialias: tier !== 'low', forceWebGL: !hasGPU || tier === 'low' });
+      r.onDeviceLost = (info: { message?: string }) => { if (alive) console.warn('[cosmos] GPU device lost:', info?.message ?? 'unknown'); };
+      r.setPixelRatio(Math.min(devicePixelRatio, tier === 'high' ? 2 : tier === 'mid' ? 1.5 : 1));
+      r.init().then(() => resolve(r), reject);
+    } catch (e) { reject(e instanceof Error ? e : new Error(String(e))); }
+  }));
   const backend = (renderer.backend as unknown as { isWebGPUBackend?: boolean }).isWebGPUBackend ? 'WebGPU' : 'WebGL2';
   const canvas = renderer.domElement; canvas.className = 'cosmos-canvas'; canvas.tabIndex = 0; host.appendChild(canvas);
   const scene = new THREE.Scene(); const camera = new THREE.PerspectiveCamera(45, 1, 0.05, 2000);
@@ -26,12 +30,14 @@ export async function createStage(host: HTMLElement, bg: () => string): Promise<
   canvas.addEventListener('pointermove', (e) => { if (!drag) return; th.target -= (e.clientX - drag.x) * 0.006; ph.target = Math.min(3.0, Math.max(0.15, ph.target - (e.clientY - drag.y) * 0.006)); drag = { x: e.clientX, y: e.clientY }; });
   canvas.addEventListener('wheel', (e) => { e.preventDefault(); rr.target = Math.min(400, Math.max(1.2, rr.target * Math.exp(e.deltaY * 0.0012))); }, { passive: false });
   canvas.addEventListener('keydown', (e) => { const k = e.key; if (k === 'ArrowLeft') th.target -= 0.15; else if (k === 'ArrowRight') th.target += 0.15; else if (k === 'ArrowUp') ph.target = Math.max(0.15, ph.target - 0.12); else if (k === 'ArrowDown') ph.target = Math.min(3, ph.target + 0.12); else if (k === '+' || k === '=') rr.target = Math.max(1.2, rr.target * 0.8); else if (k === '-') rr.target = Math.min(400, rr.target * 1.25); else return; e.preventDefault(); });
-  const ro = new ResizeObserver(() => { const w = Math.max(1, host.clientWidth), h = Math.max(1, host.clientHeight); renderer.setSize(w, h, false); canvas.style.width = w + 'px'; canvas.style.height = h + 'px'; camera.aspect = w / h; camera.updateProjectionMatrix(); });
+  let sized = false;
+  const ro = new ResizeObserver(() => { sized = false; });
   ro.observe(host);
-  let last = performance.now(), alive = true, visible = true;
+  let last = performance.now(), visible = true;
   const io = new IntersectionObserver((es) => { visible = es.some((x) => x.isIntersecting); }); io.observe(host);
   const loop = (): void => {
     if (!alive) return; const now = performance.now(), dt = Math.min(0.05, (now - last) / 1000); last = now;
+    if (!sized && host.clientWidth > 0) { sized = true; const w = Math.max(1, host.clientWidth), h = Math.max(1, host.clientHeight); renderer.setSize(w, h, false); canvas.style.width = w + 'px'; canvas.style.height = h + 'px'; camera.aspect = w / h; camera.updateProjectionMatrix(); }
     if (visible && host.clientWidth > 0) {
       for (const s of springs) stepSpring(s, dt);
       camera.position.set(tx.x + rr.x * Math.sin(ph.x) * Math.sin(th.x), ty.x + rr.x * Math.cos(ph.x), tz.x + rr.x * Math.sin(ph.x) * Math.cos(th.x));
@@ -48,6 +54,6 @@ export async function createStage(host: HTMLElement, bg: () => string): Promise<
     dist: () => rr.x,
     onFrame: (f) => { frames.push(f); },
     pick(e, objs) { const r = canvas.getBoundingClientRect(); ray.setFromCamera(new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1), camera); return ray.intersectObjects(objs, false)[0] ?? null; },
-    dispose() { alive = false; ro.disconnect(); io.disconnect(); renderer.dispose(); canvas.remove(); },
+    dispose() { alive = false; ro.disconnect(); io.disconnect(); const r = renderer, c = canvas; requestAnimationFrame(() => { r.dispose(); c.remove(); }); },
   };
 }

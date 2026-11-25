@@ -5,7 +5,7 @@ import { buildWeights, parseSafetensors, cloneWeights, CFG } from '../src/model.
 import { Engine, defaultRuntime, logSoftmax, timeMul } from '../src/engine.js';
 import * as C from '../src/labcore.js';
 import { COMMANDS, complete, VERSION } from '../src/term.js';
-import { GLOSSARY, BIBLE, COURSE, gradeQuiz, search, buildIndex, md } from '../src/learn/learn.js';
+import { loadCatalog, gradeQuiz, search, buildIndex, md } from '../src/learn/learn.js';
 import { VER } from './_paths.mjs';
 const { d, L } = CFG;
 const vecOp = (op, vec, coef, extra = {}) => ({ id: 1, name: 't', site: 'resid_pre', vecs: Array.from({ length: L }, () => vec), coef, sched: Array(L).fill(0).map((_, l) => (l === 2 ? 1 : 0)), mask: { kind: 'all' }, on: true, op, ...extra });
@@ -43,7 +43,8 @@ test('terminal: command table, completion, version', () => {
   assert.equal(VERSION, VER); assert.ok(Object.keys(COMMANDS).length >= 52); for (const k of ['drill', 'atp', 'eigen', 'induct', 'geom', 'land', 'mode', 'cam', 'gpu', 'zoo', 'diff', 'share', 'hash', 'manifest', 'stats', 'acdc', 'scrub', 'probe', 'evalh', 'dataset', 'report', 'state', 'qseed', 'claims', 'fsdist', 'typecheck', 'qgtcheck', 'unify', 'frontier', 'scorecard', 'grok', 'pci', 'fclaims']) assert.ok(COMMANDS[k], k);
   assert.deepEqual(complete('ver'), ['version']); assert.ok(complete('sweep bl').includes('sweep blend')); assert.ok(complete('theme l').includes('theme light')); assert.ok(complete('tab ti').includes('tab timeline'));
 });
-test('learning center data: glossary ≥100 unique, cross-links resolve, labs use real commands', () => {
+test('learning center data: glossary ≥100 unique, cross-links resolve, labs use real commands', async () => {
+  const { GLOSSARY, BIBLE, COURSE } = await loadCatalog();
   assert.ok(GLOSSARY.length >= 100); const names = new Set(GLOSSARY.map((g) => g[0])); assert.equal(names.size, GLOSSARY.length);
   for (const [, , rel] of GLOSSARY) for (const r of rel) assert.ok(names.has(r), 'dangling ' + r);
   assert.ok(BIBLE.length >= 25); assert.equal(COURSE.length, 15); assert.ok(BIBLE.length >= 41);
@@ -53,11 +54,12 @@ test('learning center data: glossary ≥100 unique, cross-links resolve, labs us
   assert.ok(!md('<script>').includes('<script>'));
 });
 const MP = 'model/model.safetensors';
-test('model: logit bias, h-steer, blend of identical weights is identity', { skip: !fs.existsSync(MP) }, () => {
+test('model: logit bias, h-steer, blend of identical weights is identity', { skip: !fs.existsSync(MP) }, async () => {
   const buf = fs.readFileSync(MP), ab = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength); const n = Number(new DataView(ab).getBigUint64(0, true)); const header = JSON.parse(new TextDecoder().decode(new Uint8Array(ab, 8, n)));
   const W = buildWeights(parseSafetensors(new Uint8Array(ab), n, header)), R = defaultRuntime(), e = new Engine(W, R), ids = [7454, 2402, 257, 640];
   const h = e.run(ids).last.h, base = e.outLogits(h); R.logitBias = { 3797: 5 }; const b2 = e.outLogits(h); assert.ok(Math.abs(b2[3797] - base[3797] - 5) < 1e-4); assert.equal(b2[1], base[1]); R.logitBias = {};
   const tgt = 3797, u = Float32Array.from(W.wte.subarray(tgt * d, tgt * d + d)); R.hSteer = [{ vec: u, coef: 0.5, on: true }];
   const p1 = logSoftmax(e.outLogits(e.run(ids).last.h))[tgt]; R.hSteer = []; const p0 = logSoftmax(e.outLogits(e.run(ids).last.h))[tgt]; assert.ok(p1 > p0, 'h-steer raises target');
   const S2 = C.blendWeights(W, cloneWeights(W), 0.7); assert.equal(S2.layers[3].fc[100], W.layers[3].fc[100]);
+  const S3 = await C.blendWeightsAsync(W, cloneWeights(W), 0.7); assert.equal(S3.layers[3].fc[100], W.layers[3].fc[100]); assert.equal(S3.wte[1000], W.wte[1000]);
 });

@@ -1,7 +1,9 @@
 import { createEffect, createMemo, createSignal, For, getOwner, onCleanup, onMount, runWithOwner, Show, type JSX } from 'solid-js';
-import { COMPONENTS, LIMITS, measure, packetStatusAt, PRECISION, PROGRAMS, saveStorage, zoomView, type WmMeasure, type WmPacket, type ZoomView } from '../../../src/machine/machine.js';
+import { COMPONENTS, LIMITS, packetStatusAt, PRECISION, PROGRAMS, saveStorage, zoomView, type WmMeasure, type WmPacket, type ZoomView } from '../../../src/machine/machine.js';
 import { launch, setWmBusy, setWmCursor, setWmErr, setWmPipe, setWmPlaying, setWmProgram, setWmRun, setWmSelected, setWmZoom, WM_HELP, wmBusy, wmCursor, wmErr, wmPipe, wmPlaying, wmProgram, wmRun, wmSelected, wmZoom } from '../core/machine';
+import { legacy } from '../core/bridge';
 import { theme } from '../core/store';
+import { VirtualTable } from './VirtualTable';
 
 const ZOOMS = ['board', 'weights', 'gates', 'voltage'] as const;
 
@@ -11,23 +13,29 @@ function num(v: number | null | undefined, d = 2): string {
   return v.toFixed(d);
 }
 
-function frameOf() {
-  const run = wmRun();
-  if (!run?.frames.length) return null;
-  return run.frames[Math.min(wmCursor(), run.frames.length - 1)] ?? null;
+function spanOf(run: { frameCount?: number; frames?: unknown[] } | null | undefined): number {
+  return run?.frameCount || run?.frames?.length || 0;
+}
+function frameOf(): any {
+  const run = wmRun() as { shown?: { fb?: number[]; cycle?: number; console?: string }; frameCount?: number; frames?: { fb?: number[] }[] } | null;
+  if (!run || !spanOf(run)) return null;
+  return run.shown ?? run.frames?.[Math.min(wmCursor(), Math.max(0, (run.frames?.length || 1) - 1))] ?? null;
 }
 
 function go(id: string, fault: object | null = null): void {
   setWmErr(''); setWmBusy('stepping the weight machine and the int32 reference…'); setWmPlaying(false);
   setWmProgram(id);
   queueMicrotask(() => {
+    void (async () => {
     try {
-      const run = launch(id, { pipeline: wmPipe(), fault });
+      const run = await launch(id, { pipeline: wmPipe(), fault });
+      if (!run || (run as { cancelled?: boolean }).cancelled) return;
       setWmRun(run);
-      setWmCursor(Math.max(0, run.frames.length - 1));
+      setWmCursor(Math.max(0, spanOf(run) - 1));
       if (!run.exact) setWmErr(spreadText(run));
-    } catch (e) { setWmErr((e as Error).message); }
+    } catch (e) { if ((e as Error).message !== 'cancelled') setWmErr((e as Error).message); }
     finally { setWmBusy(''); }
+    })();
   });
 }
 
@@ -145,29 +153,39 @@ function Control(): JSX.Element {
   const ids = Object.keys(PROGRAMS);
   const run = createMemo(() => wmRun());
   const fr = createMemo(() => frameOf());
-  let timer = 0;
+  let playGen = 0;
   const play = (): void => {
-    if (wmPlaying()) { setWmPlaying(false); window.clearInterval(timer); return; }
+    if (wmPlaying()) { setWmPlaying(false); playGen++; return; }
     setWmPlaying(true);
-    timer = window.setInterval(() => {
-      const n = wmRun()?.frames.length ?? 0;
-      if (!n) return;
-      const next = wmCursor() + 1;
-      if (next >= n) { setWmPlaying(false); window.clearInterval(timer); return; }
-      setWmCursor(next);
-    }, 80);
+    const gen = ++playGen;
+    void (async () => {
+      while (gen === playGen && wmPlaying()) {
+        const { yieldHost } = await import('../../../src/coop.js');
+        await yieldHost();
+        if (gen !== playGen || !wmPlaying()) return;
+        const n = spanOf(wmRun());
+        if (!n) return;
+        const next = wmCursor() + 1;
+        if (next >= n) { setWmPlaying(false); return; }
+        setWmCursor(next);
+      }
+    })();
   };
-  onCleanup(() => window.clearInterval(timer));
+  onCleanup(() => { playGen++; });
   const fault = (kind: string): void => {
     if (kind === 'ram') {
-      const clean = launch('rot-probe', { fault: null });
-      const store = clean.packets.find((p) => p.op === 'write' && p.dst === 'ram');
-      const at = (store?.arrive ?? 4) + 1;
-      setWmProgram('rot-probe');
-      setWmRun(clean);
-      const bad = launch('rot-probe', { fault: { kind: 'ram-bit', word: store?.addr ?? 3, bit: 0, atCycle: at } });
-      setWmRun(bad); setWmCursor(Math.max(0, bad.frames.length - 1));
-      setWmErr(spreadText(bad));
+      void (async () => {
+        try {
+        const clean = await launch('rot-probe', { fault: null });
+        const store = clean.packets.find((p) => p.op === 'write' && p.dst === 'ram');
+        const at = (store?.arrive ?? 4) + 1;
+        setWmProgram('rot-probe');
+        setWmRun(clean);
+        const bad = await launch('rot-probe', { fault: { kind: 'ram-bit', word: store?.addr ?? 3, bit: 0, atCycle: at } });
+        setWmRun(bad); setWmCursor(Math.max(0, spanOf(bad) - 1));
+        setWmErr(spreadText(bad));
+        } catch (e) { if ((e as Error).message !== 'cancelled') setWmErr((e as Error).message); }
+      })();
       return;
     }
     if (kind === 'drop') { go('hello', { kind: 'drop', dst: 'console' }); return; }
@@ -181,10 +199,10 @@ function Control(): JSX.Element {
     </select></label>
     <p class="hint">{PROGRAMS[wmProgram()]?.blurb}</p>
     <div class="adv-row">
-      <button class="pri" disabled={!!wmBusy()} onClick={() => go(wmProgram())}>Run</button>
-      <button disabled={!run()?.frames.length} onClick={() => setWmCursor(Math.max(0, wmCursor() - 1))}>Step back</button>
-      <button disabled={!run()?.frames.length} onClick={() => setWmCursor(Math.min((run()?.frames.length ?? 1) - 1, wmCursor() + 1))}>Step</button>
-      <button disabled={!run()?.frames.length} onClick={play}>{wmPlaying() ? 'Pause' : 'Play'}</button>
+      <button class="pri" onClick={() => go(wmProgram())}>Run</button>
+      <button disabled={!spanOf(run())} title={spanOf(run()) ? 'Step back' : 'Disabled until a program has been run'} onClick={() => setWmCursor(Math.max(0, wmCursor() - 1))}>Step back</button>
+      <button disabled={!spanOf(run())} title={spanOf(run()) ? 'Step' : 'Disabled until a program has been run'} onClick={() => setWmCursor(Math.min(Math.max(0, spanOf(run()) - 1), wmCursor() + 1))}>Step</button>
+      <button disabled={!spanOf(run())} title={spanOf(run()) ? 'Play' : 'Disabled until a program has been run'} onClick={play}>{wmPlaying() ? 'Pause' : 'Play'}</button>
       <label class="chk"><input type="checkbox" checked={wmPipe()} onChange={(e) => { setWmPipe(e.currentTarget.checked); go(wmProgram()); }} /> pipeline</label>
     </div>
     <div class="adv-row">
@@ -208,6 +226,17 @@ function Control(): JSX.Element {
 
 function Io(): JSX.Element {
   let cv: HTMLCanvasElement | undefined;
+  createEffect(() => {
+    const run = wmRun() as { id?: number; shownIndex?: number } | null;
+    const i = wmCursor();
+    if (!run?.id || run.shownIndex === i) return;
+    void legacy()?.mf?.machineFrame(run.id, i).then((got) => {
+      if (!got) return;
+      const cur = wmRun() as { id?: number } | null;
+      if (!cur || cur.id !== run.id) return;
+      setWmRun({ ...cur, shown: got, shownIndex: i } as never);
+    });
+  });
   const paint = (): void => {
     const canvas = cv; const fb = frameOf()?.fb; if (!canvas) return;
     const ctx = canvas.getContext('2d'); if (!ctx || !fb) return;
@@ -280,16 +309,40 @@ function Zoom(): JSX.Element {
   </>;
 }
 
+type MeasureRow = { name: string; exact: string; weight: string; ref: string; ratio: string };
 function Report(): JSX.Element {
-  const [table, setTable] = createSignal<WmMeasure | null>(null);
+  const [rows, setRows] = createSignal<MeasureRow[]>([]);
   const [busy, setBusy] = createSignal('');
   const runMeasure = (): void => {
+    const mf = legacy()?.mf;
+    if (!mf) { setWmErr('machine worker is not ready'); return; }
     setBusy('timing a small exact-match batch…');
-    queueMicrotask(() => {
-      try { setTable(measure({ seed: 11, cpu: 8, ram: 8, ssd: 4, gpu: 2, tpu: 2, bus: 16, mlp: 1 })); }
-      catch (e) { setWmErr((e as Error).message); }
-      finally { setBusy(''); }
-    });
+    let label = 'timing a small exact-match batch…';
+    let labelQueued = false;
+    const note = (text: string) => {
+      label = text;
+      if (labelQueued) return;
+      labelQueued = true;
+      requestAnimationFrame(() => { labelQueued = false; setBusy(label); });
+    };
+    void mf.measure({ seed: 11, cpu: 8, ram: 8, ssd: 4, gpu: 2, tpu: 2, bus: 16, mlp: 1 }, (p) => { if (p && (p as { label?: string }).label) note(String((p as { label?: string }).label)); }).then(async (data) => {
+      const packed = data as { kind?: string; names?: string[]; nums?: Float64Array; cancelled?: boolean; rows?: WmMeasure['rows']; programs?: WmMeasure['programs'] };
+      if (!packed || packed.cancelled) return;
+      const { yieldHost } = await import('../../../src/coop.js');
+      await yieldHost();
+      const shown: MeasureRow[] = [];
+      const push = (row: MeasureRow) => { shown.push(row); setRows(shown.slice()); };
+      if (packed.kind === 'measure' && packed.names && packed.nums) {
+        const nums = packed.nums;
+        for (let i = 0; i < packed.names.length; i++) {
+          const o = i * 5;
+          const trials = nums[o + 1];
+          const exact = nums[o];
+          push({ name: packed.names[i]!, exact: trials === 1 ? (exact ? 'yes' : 'no') : `${exact}/${trials}`, weight: num(nums[o + 2]), ref: num(nums[o + 3], 3), ratio: Number.isFinite(nums[o + 4]) ? num(nums[o + 4], 1) + '×' : '—' });
+          await yieldHost();
+        }
+      }
+    }).catch((e: Error) => setWmErr(e.message)).finally(() => setBusy(''));
   };
   const run = createMemo(() => wmRun());
   return <>
@@ -298,15 +351,15 @@ function Report(): JSX.Element {
     <Show when={run()} fallback={<p class="hint">Run a program from Cycle.</p>}>
       {(r) => <p class={r().exact ? 'hint' : 'warn'}>{r().program} · {r().exact ? 'exact' : 'not exact'} · rate {r().rate.toFixed(3)} · cycles {r().cycles} = reference {r().refCycles} · packet log {r().packetExact ? 'matches' : 'differs'} · precision faults {r().faults.length}</p>}
     </Show>
-    <div class="adv-row"><button disabled={!!busy()} onClick={runMeasure}>Measure a small batch</button><Show when={busy()}><span class="hint">{busy()}</span></Show></div>
-    <Show when={table()}>
-      {(t) => <table>
-        <thead><tr><th>component</th><th>exact</th><th>weight ms</th><th>reference ms</th><th>ratio</th></tr></thead>
-        <tbody>
-          <For each={t().rows}>{(row) => <tr><td>{row.component}</td><td>{row.exact}/{row.trials}</td><td>{num(row.msWeight)}</td><td>{num(row.msRef, 3)}</td><td>{row.overhead == null ? '—' : num(row.overhead, 1) + '×'}</td></tr>}</For>
-          <For each={t().programs}>{(row) => <tr><td>{row.id}</td><td>{row.exact ? 'yes' : 'no'}</td><td>{num(row.msWeight)}</td><td>{num(row.msRef, 3)}</td><td>{row.overhead == null ? '—' : num(row.overhead, 1) + '×'}</td></tr>}</For>
-        </tbody>
-      </table>}
+    <div class="adv-row"><button onClick={runMeasure}>Measure a small batch</button><Show when={busy()}><span class="hint">{busy()}</span></Show></div>
+    <Show when={rows().length}>
+      <VirtualTable rows={rows()} label="exact match batch" cols={[
+        { h: 'component', f: (r) => r.name },
+        { h: 'exact', f: (r) => r.exact },
+        { h: 'weight ms', f: (r) => r.weight },
+        { h: 'reference ms', f: (r) => r.ref },
+        { h: 'ratio', f: (r) => r.ratio },
+      ]} />
     </Show>
     <p class="hint">Theme sample {theme()} does not change the numbers. bf16: {PRECISION.bf16}.</p>
   </>;

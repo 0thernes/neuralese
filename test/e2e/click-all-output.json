@@ -1,0 +1,62 @@
+{
+  "report": {
+    "url": "https://0thernes.github.io/neuralese/preview/?notour",
+    "views": {
+      "mobile": {
+        "width": 390,
+        "height": 844,
+        "workspaces": 13,
+        "clicked": 580,
+        "disabled": 10,
+        "cosmos": {
+          "ok": true,
+          "w": 390,
+          "h": 658
+        },
+        "gl": {
+          "ok": true,
+          "w": 390,
+          "h": 391
+        },
+        "errors": []
+      },
+      "tablet": {
+        "width": 768,
+        "height": 1024,
+        "workspaces": 13,
+        "clicked": 580,
+        "disabled": 10,
+        "cosmos": {
+          "ok": true,
+          "w": 388,
+          "h": 455
+        },
+        "gl": {
+          "ok": true,
+          "w": 373,
+          "h": 484
+        },
+        "errors": []
+      },
+      "desktop": {
+        "width": 1440,
+        "height": 900,
+        "workspaces": 13,
+        "clicked": 580,
+        "disabled": 10,
+        "cosmos": {
+          "ok": true,
+          "w": 737,
+          "h": 398
+        },
+        "gl": {
+          "ok": true,
+          "w": 709,
+          "h": 417
+        },
+        "errors": []
+      }
+    }
+  },
+  "failures": []
+}

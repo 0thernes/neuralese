@@ -96,12 +96,12 @@ function Runner(): JSX.Element {
     <h3>Condition runner</h3>
     <p class="hint">Same user prompt in every arm. System lines are tokenized, then padded with one token id to equal length, and the lengths are checked again. The run uses the clean weight copy, not the hacked runtime. Default arms are honest and deceptive.</p>
     <Bar>
-      <For each={ALL}>{(c) => <label class="chk"><input type="checkbox" checked={c === 'honest' || !!controls.on()[c]} disabled={c === 'honest'} onChange={(e) => controls.setOn({ ...controls.on(), [c]: e.currentTarget.checked })} />{c}</label>}</For>
+      <For each={ALL}>{(c) => <label class="chk"><input type="checkbox" checked={c === 'honest' || !!controls.on()[c]} disabled={c === 'honest'} title={c === 'honest' ? 'Disabled because the honest condition is the reference and stays on' : c} onChange={(e) => controls.setOn({ ...controls.on(), [c]: e.currentTarget.checked })} />{c}</label>}</For>
     </Bar>
     <div class="adv-row">
       <label>generated tokens <input type="number" min="1" max="32" value={controls.genTokens()} onChange={(e) => controls.setGen(+e.currentTarget.value)} /></label>
       <label>permutations <input type="number" min="19" max="1000" value={controls.nPerm()} onChange={(e) => controls.setPerm(+e.currentTarget.value)} /></label>
-      <button class="pri" disabled={!!busy()} onClick={() => void run()}>Lock and run</button>
+      <button class="pri" onClick={() => void run()}>Lock and run</button>
     </div>
     <Show when={plan()}>{(p) => <p class="hint">Locked v{p().prereg.version} · {p().prereg.sha256.slice(0, 16)}… · {p().trials.length} trials · system length {p().trials[0]?.systemLen} tokens · full prompt {p().trials[0]?.totalLen} · FWL {p().fwl.join(', ') || 'intercept only'}</p>}</Show>
     <Show when={geo()}><p class={geo()!.verdict.label === 'null' ? 'warn' : 'hint'}><b>{geo()!.verdict.label}</b> — {geo()!.verdict.text}</p></Show>
@@ -166,7 +166,7 @@ function Hunt(): JSX.Element {
     <Bar>
       <label>random sets <input type="number" min="2" max="20" value={controls.nPairs()} onChange={(e) => controls.setPairs(+e.currentTarget.value)} /></label>
       <label>push <input type="number" step="0.5" value={controls.magnitude()} onChange={(e) => controls.setMag(+e.currentTarget.value)} /></label>
-      <button class="pri" disabled={!!busy()} onClick={() => void run()}>Hunt and steer</button>
+      <button class="pri" onClick={() => void run()}>Hunt and steer</button>
     </Bar>
     <Show when={neu()} fallback={<p class="hint">No hunt yet. This also runs the steering comparison, because the pass rule needs the random sets.</p>}>
       {(n) => <table>

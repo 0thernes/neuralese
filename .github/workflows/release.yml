@@ -18,12 +18,14 @@ jobs:
         with: { node-version: 24 }
       - run: npm ci
       - uses: actions/cache@v5
-        with: { path: model, key: tinystories-model-v1 }
+        with: { path: model, key: tinystories-8m-d40feb886ae2039dc1d2afffa63400acd0df65663c25eea2f6f554dce2d656aa }
       - run: node tools/fetch-model.mjs
       - uses: actions/cache@v5
         with: { path: model/arch, key: arch-models-v1 }
       - run: node tools/fetch-arch-models.mjs   # ~3 GB, revision- and sha256-pinned; arch/encoder tests need it
       - run: npm run lint
+      - name: never-subtract feature manifest
+        run: node tools/check-features.mjs
       - run: node --test test/*.test.mjs
       - uses: oven-sh/setup-bun@v2
         with:

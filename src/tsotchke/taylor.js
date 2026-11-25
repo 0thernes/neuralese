@@ -3,6 +3,7 @@
 // docs/design/AD_TAYLOR_TOWER.md. A jet stores Taylor coefficients c[k] = f^(k)(x0)/k!, so f^(k) = k!·c[k].
 // Only the recurrences are ported (no Eshkol compiler/runtime code); perturbation tags, exact/bignum coefficients and
 // Taylor models are NOT ported. DOM-free; used by the TAYLOR tab and test/tsotchke.test.mjs.
+import { runBudgeted } from '../coop.js?v=194';
 export const SOURCE = { repo: 'tsotchke/eshkol', commit: '341ac812ed600fd9d27c28e9509d66ab71363947', file: 'lib/core/taylor_recurrences.def', license: 'MIT' };
 export const K_MAX = 16;
 export class Jet {
@@ -71,6 +72,26 @@ export function ceJetLnf(W, xPre, ids, v, K = 3) {
     let m = -Infinity; for (let o = 0; o < V; o++) { let s0 = 0, s1 = 0; const off = o * d; for (let i = 0; i < d; i++) { s0 += W.wte[off + i] * y0[i]; s1 += W.wte[off + i] * y1[i]; } a[o] = s0; b[o] = s1; if (s0 > m) m = s0; }
     let Z = Jet.const(0, K); for (let o = 0; o < V; o++) { const u = Jet.const(a[o] - m, K); u.c[1] = b[o]; Z = add(Z, exp(u)); }
     const tg = ids[t + 1], lt = Jet.const(a[tg] - m, K); lt.c[1] = b[tg]; acc = add(acc, sub(log(Z), lt));
+  }
+  return new Jet(acc.c.map((x) => x / (T - 1)));
+}
+// Same jet, yielding through the vocabulary so a full unembed is not one script.
+export async function ceJetLnfAsync(W, xPre, ids, v, K = 3, pause = null) {
+  const d = W.lnfW.length, V = W.wte.length / d, T = ids.length, eps = 1e-5; let acc = Jet.const(0, K);
+  const n = new Float64Array(d), y0 = new Float64Array(d), y1 = new Float64Array(d), a = new Float64Array(V), b = new Float64Array(V);
+  for (let t = 0; t < T - 1; t++) {
+    let mu = 0; for (let i = 0; i < d; i++) mu += xPre[t * d + i]; mu /= d; let va = 0; for (let i = 0; i < d; i++) va += (xPre[t * d + i] - mu) ** 2; va /= d; const r = 1 / Math.sqrt(va + eps);
+    for (let i = 0; i < d; i++) { n[i] = (xPre[t * d + i] - mu) * r; y0[i] = n[i] * W.lnfW[i] + W.lnfB[i]; y1[i] = n[i] * v[i]; }
+    let m = -Infinity;
+    await runBudgeted((function* () {
+      for (let o = 0; o < V; o++) { let s0 = 0, s1 = 0; const off = o * d; for (let i = 0; i < d; i++) { s0 += W.wte[off + i] * y0[i]; s1 += W.wte[off + i] * y1[i]; } a[o] = s0; b[o] = s1; if (s0 > m) m = s0; yield; }
+    })(), { budgetMs: 8 });
+    let Z = Jet.const(0, K);
+    await runBudgeted((function* () {
+      for (let o = 0; o < V; o++) { const u = Jet.const(a[o] - m, K); u.c[1] = b[o]; Z = add(Z, exp(u)); yield; }
+    })(), { budgetMs: 8 });
+    const tg = ids[t + 1], lt = Jet.const(a[tg] - m, K); lt.c[1] = b[tg]; acc = add(acc, sub(log(Z), lt));
+    if (pause) await pause();
   }
   return new Jet(acc.c.map((x) => x / (T - 1)));
 }

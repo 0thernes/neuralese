@@ -1,5 +1,6 @@
 // NEURALESE audio: calm, data-driven lab-instrument sonification (Web Audio). Everything is synthesized; no samples.
 // Pure mapping functions at the top are unit-tested (test/audio.test.mjs) and have no Web Audio dependency.
+import { frame, slice } from './coop.js?v=194';
 
 // ───────── pure data → sound mappings ─────────
 // Consonant scales only. "lydian" here omits the #4 so no tritone over the root can ever sound.
@@ -70,22 +71,32 @@ export class AudioEngine {
     const C = (this.ctx = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'playback' })), t = C.currentTime;
     this.master = C.createGain(); this.comp = C.createDynamicsCompressor(); this.comp.threshold.value = -20; this.comp.ratio.value = 3; this.comp.attack.value = 0.01;
     this.an = C.createAnalyser(); this.an.fftSize = 512; this.master.connect(this.comp).connect(this.an).connect(C.destination); this.abuf = new Uint8Array(this.an.frequencyBinCount);
-    this.rev = C.createConvolver(); this.revGain = C.createGain(); this.revGain.gain.value = 0.25; this.rev.connect(this.revGain).connect(this.master); this.makeIR();
+    await frame();
+    this.rev = C.createConvolver(); this.revGain = C.createGain(); this.revGain.gain.value = 0.25; this.rev.connect(this.revGain).connect(this.master); await this.fillIR();
+    await frame();
     this.bus = {}; for (const k of ['score', 'tokens', 'choir', 'sfx']) { const g = C.createGain(); g.connect(this.master); const s = C.createGain(); s.gain.value = 0.5; g.connect(s).connect(this.rev); this.bus[k] = g; }
     // warm pad: triangle/sine triad per chord tone → gentle lowpass
     this.padF = C.createBiquadFilter(); this.padF.type = 'lowpass'; this.padF.Q.value = 0.5; this.padF.frequency.value = 900; this.padG = C.createGain(); this.padG.gain.value = 0; this.padF.connect(this.padG).connect(this.bus.score);
     this.pad = []; for (let i = 0; i < 4; i++) { const o = C.createOscillator(); o.type = i % 2 ? 'sine' : 'triangle'; o.start(t); const g = C.createGain(); g.gain.value = 0.08; o.connect(g).connect(this.padF); this.pad.push(o); }
+    await frame();
     // divergence: consonant interval voice above the pad
     this.divO = C.createOscillator(); this.divO.type = 'sine'; this.divG = C.createGain(); this.divG.gain.value = 0; this.divO.connect(this.divG).connect(this.padF); this.divO.start(t);
     // layer choir: 8 soft sines (one per layer), gain ← layer residual norm; head texture: soft FM shimmer, index ← attention entropy
-    this.choir = []; for (let l = 0; l < 8; l++) { const o = C.createOscillator(); o.type = 'sine'; o.start(t); const g = C.createGain(); g.gain.value = 0; const p = C.createStereoPanner(); p.pan.value = (l / 7) * 1.2 - 0.6; o.connect(g).connect(p).connect(this.bus.choir); this.choir.push({ o, g }); }
+    this.choir = [];
+    for (let l = 0; l < 8; l++) { const o = C.createOscillator(); o.type = 'sine'; o.start(t); const g = C.createGain(); g.gain.value = 0; const p = C.createStereoPanner(); p.pan.value = (l / 7) * 1.2 - 0.6; o.connect(g).connect(p).connect(this.bus.choir); this.choir.push({ o, g }); if (l % 2 === 1) await frame(); }
+    await frame();
     this.fmC = C.createOscillator(); this.fmM = C.createOscillator(); this.fmI = C.createGain(); this.fmI.gain.value = 0; this.fmM.connect(this.fmI).connect(this.fmC.frequency); this.fmG = C.createGain(); this.fmG.gain.value = 0;
     this.fmC.connect(this.fmG).connect(this.bus.choir); this.fmC.start(t); this.fmM.start(t);
+    await frame();
     this.on = true; this.applyStyle(); this.applyVol(); this.setHarmony(this.harm);
-    this.timer = setInterval(() => { this.an.getByteFrequencyData(this.abuf); let s = 0; for (let i = 0; i < 64; i++) s += this.abuf[i]; this.level = s / (64 * 255); }, 50);
+    const levelOf = (buf) => { let s = 0; for (let i = 0; i < 64; i++) s += buf[i]; return s / (64 * 255); };
+    const meter = () => { if (!this.on || !this.an) return; this.an.getByteFrequencyData(this.abuf); this.level = levelOf(this.abuf); requestAnimationFrame(meter); };
+    requestAnimationFrame(meter);
   }
   makeIR() { const C = this.ctx, sec = STYLES[this.style].rev * this.revSize, n = Math.max(1, Math.floor(C.sampleRate * sec)), b = C.createBuffer(2, n, C.sampleRate);
     for (let ch = 0; ch < 2; ch++) { const d = b.getChannelData(ch); let lp = 0; for (let i = 0; i < n; i++) { lp = lp * 0.85 + (Math.random() * 2 - 1) * 0.15; d[i] = lp * Math.pow(1 - i / n, 4); } } this.rev.buffer = b; }
+  async fillIR() { const C = this.ctx, sec = STYLES[this.style].rev * this.revSize, n = Math.max(1, Math.floor(C.sampleRate * sec)), b = C.createBuffer(2, n, C.sampleRate);
+    for (let ch = 0; ch < 2; ch++) { const d = b.getChannelData(ch); let lp = 0; for (let i = 0; i < n; i++) { lp = lp * 0.85 + (Math.random() * 2 - 1) * 0.15; d[i] = lp * Math.pow(1 - i / n, 4); { const y = slice(); if (y) await y; } } } this.rev.buffer = b; }
   applyVol() { if (!this.ctx) return; const t = this.ctx.currentTime; this.master.gain.setTargetAtTime(this.muted ? 0 : this.vol.master, t, 0.08); for (const k in this.bus) this.bus[k].gain.setTargetAtTime(this.vol[k], t, 0.08); }
   setMute(m) { this.muted = m; this.applyVol(); }
   applyStyle() { if (!this.ctx) return; const S = STYLES[this.style], t = this.ctx.currentTime; this.padG.gain.setTargetAtTime(0.5 * S.pad, t, 1); this.padF.frequency.setTargetAtTime(S.cutoff * 0.5, t, 1); this.makeIR(); }
@@ -122,6 +133,6 @@ export class AudioEngine {
   resetHistory() { this.hist = { ent: [], ids: [], probs: [], norms: [] }; }
   edit(kind) { if (!this.on || this.muted) return; const c = EDIT_CHIMES[kind] || EDIT_CHIMES.generic, t = this.ctx.currentTime + 0.02, { root } = this.harm;
     c.deg.forEach((d, i) => this.note(t + i * c.gap, midiToHz(degreeToMidi(d, root + 24, 'pentatonic')), { v: c.v, amp: c.v === 'click' ? 0.1 : 0.07, dur: 0.5, pan: (i - (c.deg.length - 1) / 2) * 0.3 })); }
-  anomaly(type) { this.events.push({ type, t: performance.now() }); this.onAnomaly && this.onAnomaly(type); if (!this.on || this.muted) return; const t = this.ctx.currentTime + 0.02, { root } = this.harm;
-    this.note(t, midiToHz(root + 31), { v: 'sine', amp: 0.05, dur: 0.4 }); this.note(t + 0.12, midiToHz(root + 36), { v: 'sine', amp: 0.05, dur: 0.6 }); } // soft rising fifth→octave notification
+  async anomaly(type) { this.events.push({ type, t: performance.now() }); this.onAnomaly && this.onAnomaly(type); if (!this.on || this.muted) return; await frame(); const t = this.ctx.currentTime + 0.02, { root } = this.harm;
+    this.note(t, midiToHz(root + 31), { v: 'sine', amp: 0.05, dur: 0.4 }); await frame(); this.note(t + 0.12, midiToHz(root + 36), { v: 'sine', amp: 0.05, dur: 0.6 }); } // soft rising fifth→octave notification
 }

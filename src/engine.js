@@ -1,6 +1,7 @@
 // NEURALESE engine: GPT-Neo forward pass with a full intervention/hook system.
 // Every runtime control lives in `R` (serialisable). Weight edits live in surgery.js.
-import { CFG, mulberry32 } from './model.js?v=170';
+import { CFG, mulberry32 } from './model.js?v=194';
+import { runBudgeted } from './coop.js?v=194';
 const { d, H, hd, L, ff, V } = CFG;
 export const SITES = ['resid_pre', 'z', 'attn_out', 'mlp_act', 'mlp_out', 'resid_post'];
 
@@ -33,6 +34,17 @@ export function matvec(Wm, x, out, nOut, nIn, bias) { // nIn must be a multiple 
     for (let j = 0; j < nIn; j += 4) { s0 += Wm[o + j] * x[j]; s1 += Wm[o + j + 1] * x[j + 1]; s2 += Wm[o + j + 2] * x[j + 2]; s3 += Wm[o + j + 3] * x[j + 3]; }
     out[i] = (bias ? bias[i] : 0) + s0 + s1 + s2 + s3;
   }
+  return out;
+}
+export async function matvecYield(Wm, x, out, nOut, nIn, bias) {
+  await runBudgeted((function* () {
+    for (let i = 0; i < nOut; i++) {
+      let s0 = 0, s1 = 0, s2 = 0, s3 = 0; const o = i * nIn;
+      for (let j = 0; j < nIn; j += 4) { s0 += Wm[o + j] * x[j]; s1 += Wm[o + j + 1] * x[j + 1]; s2 += Wm[o + j + 2] * x[j + 2]; s3 += Wm[o + j + 3] * x[j + 3]; }
+      out[i] = (bias ? bias[i] : 0) + s0 + s1 + s2 + s3;
+      yield;
+    }
+  })(), { budgetMs: 8 });
   return out;
 }
 export const gelu = (x) => 0.5 * x * (1 + Math.tanh(0.7978845608028654 * (x + 0.044715 * x * x * x)));
@@ -89,11 +101,21 @@ export class Engine {
   // One token through the stack. o: {trace:bool, hook(site,slot,layer,t,vec), rng, detail?: array, detailToken?: number}
   // `detail` only copies vectors. It does not change the arithmetic. detailToken limits those copies to one position.
   step(seq, tok, o = {}) {
-    const W = this.W, R = this.R, t = seq.T, isGen = t >= seq.nPrompt, hook = o.hook;
-    const tr = o.trace ? { tok, t, resid_pre: [], z: [], attn_out: [], mlp_act: [], mlp_out: [], resid_post: [], pattern: [], slotLayer: [] } : null;
+    const W = this.W, R = this.R, hook = o.hook;
+    // o.budget returns after each slot so a traced step can paint. The next call with the same token resumes.
+    const mid = o.budget && seq._mid && seq._mid.tok === tok ? seq._mid : null;
+    if (seq._mid && !mid) seq._mid = null;
+    let t, isGen, tr, x, h, rng, s0;
+    if (mid) { ({ t, isGen, tr, x, h, rng, s0 } = mid); seq._mid = null; }
+    else {
+      t = seq.T; isGen = t >= seq.nPrompt; s0 = 0;
+      tr = o.trace ? { tok, t, resid_pre: [], z: [], attn_out: [], mlp_act: [], mlp_out: [], resid_post: [], pattern: [], slotLayer: [] } : null;
+      x = new Float32Array(d); h = new Float32Array(d);
+      rng = o.rng || mulberry32((R.seed + t * 7919) | 0);
+    }
     const take = (id, kind, values, meta) => { if (o.detail && (o.detailToken == null || o.detailToken === t)) o.detail.push({ id, kind, t, values: values.slice(), ...meta }); };
+    if (!mid) {
     const p = posIndex(R.pos, t);
-    const x = new Float32Array(d);
     for (let i = 0; i < d; i++) x[i] = W.wte[tok * d + i] + W.wpe[p * d + i];
     if (o.detail && (o.detailToken == null || o.detailToken === t)) {
       const wteRow = new Float32Array(d), wpeRow = new Float32Array(d);
@@ -103,9 +125,8 @@ export class Engine {
       take('embed', 'add', x, { pos: p, tok });
     }
     if (tr) tr.embed = x.slice();
-    const h = new Float32Array(d);
-    const rng = o.rng || mulberry32((R.seed + t * 7919) | 0);
-    for (let s = 0; s < R.program.length; s++) {
+    }
+    for (let s = s0; s < R.program.length; s++) {
       const slot = R.program[s], l = slot.layer, P = W.layers[l];
       if (tr) tr.slotLayer[s] = l;
       this._steer('resid_pre', l, t, isGen, x, seq.nPrompt);
@@ -188,6 +209,10 @@ export class Engine {
       if (hook) hook('resid_post', s, l, t, x);
       if (tr) tr.resid_post[s] = x.slice();
       take(`s${s}.L${l}.resid_post`, 'vec', x, { layer: l, slot: s });
+      if (o.budget && s + 1 < R.program.length) {
+        seq._mid = { tok, t, isGen, tr, x, h, rng, s0: s + 1 };
+        return { partial: true, trace: tr };
+      }
     }
     const st = layerNorm(x, W.lnfW, W.lnfB, h);
     for (const v of R.hSteer || []) if (v.on !== false) for (let i = 0; i < d; i++) h[i] += v.coef * v.vec[i];
@@ -198,6 +223,8 @@ export class Engine {
     return { h, trace: tr, x };
   }
   logits(h) { if (this.gpu && this.gpu.ready && this.gpu.W === this.W) return this.gpu.unembedSync ? this.gpu.unembedSync(h) : matvec(this.W.wte, h, new Float32Array(V), V, d); return matvec(this.W.wte, h, new Float32Array(V), V, d); }
+  async logitsYield(h, pause) { const out = new Float32Array(V); await matvecYield(this.W.wte, h, out, V, d, null, pause, 1024); return out; }
+  async lensLogitsYield(x, pause) { const h = new Float32Array(d); layerNorm(x, this.W.lnfW, this.W.lnfB, h); return this.logitsYield(h, pause); }
   // logits used for sampling: unembedding + logit-space bias
   outLogits(h) { const l = this.logits(h), B = this.R.logitBias || {}; for (const k in B) l[+k] += B[k]; return l; }
   logitOf(h, id) { let s = 0; const o = id * d; for (let j = 0; j < d; j++) s += this.W.wte[o + j] * h[j]; return s; }

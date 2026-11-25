@@ -1,0 +1,31 @@
+/* Shell tokens. The legacy stylesheet keeps its own variables; the v17 shell reads these.
+   Accent on panel and muted on panel are chosen for WCAG 2.2 AA body text. */
+:root {
+  --font-sans: "InterV", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrainsMonoV", "JetBrains Mono", ui-monospace, monospace;
+  --c-bg: #0c1220;
+  --c-fg: #e7eef8;
+  --c-muted: #a8b6cc;
+  --c-panel: #121a2b;
+  --c-line: #2a3a52;
+  --c-accent: #3dbeae;
+  --c-accent-fg: #04201c;
+  --c-warn: #f5c16c;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --shadow-panel: 0 1px 2px #00000055;
+  --ease-out: cubic-bezier(.2, .8, .2, 1);
+}
+:root[data-theme="light"] {
+  --c-bg: #f4f7fb;
+  --c-fg: #122033;
+  --c-muted: #4b5c73;
+  --c-panel: #ffffff;
+  --c-line: #d5deea;
+  --c-accent: #0c7568;
+  --c-accent-fg: #ffffff;
+  --c-warn: #8a4b00;
+}

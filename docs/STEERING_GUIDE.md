@@ -8,7 +8,7 @@ Live app: https://0thernes.github.io/neuralese/
 
 ## 1. What is a "tiny language model"?
 
-A language model is a program that reads some text and guesses the next word. To be exact, it guesses the next *token*, which is a word or a piece of a word. It writes a story by guessing one token, adding it to the text, and guessing again. NEURALESE runs **TinyStories-8M**, a very small model (about 8 million numbers, called *weights*) that was trained only on simple children's stories. Big chatbots work the same way, but they are thousands of times larger. The small size is the point here: the whole model fits in your browser, so you can look inside it and change it while it runs. The weights (about 80 MB) are downloaded once from Hugging Face, and everything after that runs on your own computer.
+A language model is a program that reads some text and guesses the next word. To be exact, it guesses the next *token*, which is a word or a piece of a word. It writes a story by guessing one token, adding it to the text, and guessing again. NEURALESE runs **TinyStories-8M**, a very small model (about 8 million numbers, called *weights*) that was trained only on simple children's stories. Big chatbots work the same way, but they are thousands of times larger. The small size is the point here: the whole model fits in your browser, so you can look inside it and change it while it runs. The weights (about 112 MB) are downloaded once from Hugging Face, and everything after that runs on your own computer.
 
 ## 2. The parts you can see (the 3D view)
 
@@ -81,7 +81,7 @@ Bonus without any edits: in GEN, raise **temp** (sampling temperature, default 0
 
 **Why is the story so simple?** The model was trained only on children's stories, and it is tiny. Things that work here may not carry over to big models.
 
-**Is it slow?** Everything runs on your CPU. The first load downloads about 80 MB of weights.
+**Is it slow?** Everything runs on your CPU. The first load downloads about 112 MB of weights.
 
 ## 9. Mini glossary
 

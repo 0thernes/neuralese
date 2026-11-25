@@ -68,7 +68,7 @@ self-test button in the app. Numbers: local headless run, 2026-10-26 (PT); the l
 | H6 ● | Fine-tuning 1,536 params of TinyStories-8M on user text lowers **held-out** CE | 95% bootstrap CI of held-out ΔCE includes 0 or is > 0 | Node, 6 steps: 4.634 → 4.030, Δ −0.604 [−0.724, −0.473]; test (3 steps) and browser (3 steps) also pass |
 | H7 | The fine-tune weight edit is exact and undoable | CE of edited weights ≠ CE of (θ on clean weights) by ≥ 1e-4, or undo does not restore ln_f bit-for-bit | equal to < 1e-4; undo bit-exact (V12-10) |
 | H8 | The runtime is pinned | the worker imports a transformers.js or runs an ORT binary whose SHA-256 ≠ pin | V12-2 (pins + verify-before-import in source); worker aborts on mismatch |
-| H9 | Only the TinyStories zoo is white-box | any HUB ONNX model exposes activations to the interpretability tools | by construction: HUB models return only pipeline outputs (TOOL_MATRIX in `site/hub/models.js`) |
+| H9 | Only the TinyStories zoo is white-box | any HUB ONNX model exposes activations to the interpretability tools | by construction: HUB models return only pipeline outputs (TOOL_MATRIX in `src/hub/models.js`) |
 
 Caveat: the H6 text is repetitive and in-distribution for TinyStories; a held-out gain shows the 1,536-parameter adapter
 generalises to unseen chunks of the **same** text, not that the model learned new facts.

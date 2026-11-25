@@ -1,46 +1,60 @@
 // NEURALESE v2 — UI wiring. All numerics live in engine/analysis/surgery/decode/sae/rome (unit-tested vs PyTorch).
-import * as U152 from './ui152.js?v=170';
-import { GPT2Tokenizer } from './tokenizer.js?v=170';
-import { CFG, buildWeights, parseSafetensors, cloneWeights, mulberry32 } from './model.js?v=170';
-import { Engine, defaultRuntime, logSoftmax, topK, SITES } from './engine.js?v=170';
-import { RemoteEngine, withBias } from './engine-client.js?v=170';
-import { computeStats, actCovariance, fitTunedLens, lensGrid, dla, patchResid, patchHeads, pathPatchHeadsToLogits, ablationSweep, buildControlVector, vectorArithmetic, tokenStats } from './analysis.js?v=170';
-import { Editor, MATS, getMat, toSafetensors, quantize } from './surgery.js?v=170';
-import { defaultDecode, applyPenalties, filterDist, pick, contrastiveLogits, cfgLogits, beamSearch } from './decode.js?v=170';
-import { SAE } from './sae.js?v=170';
-import { computeRome } from './rome.js?v=170';
-import { CORPUS } from './corpus.js?v=170';
-import { heatmap, lines, bars, showTip, seqColor, divColor, markStale, heatStrip, emit } from './charts.js?v=170';
-import { Viz } from './viz.js?v=170';
-import { AudioEngine, editKind, STYLES } from './audio.js?v=170';
-import { buildV5 } from './v5.js?v=170';
-import { vecToJSON as _v2j, vecFromJSON as _j2v } from './labcore.js?v=170';
-import * as UI15 from './ui15.js?v=170';
-import { homeMarkup } from './ui15.js?v=170';
-import { geometryFromSeq, KV_CADENCE } from './adversary/geometry.js?v=170';
-import { attachAdversary } from './adversary/campaign.js?v=170';
-import { CITATIONS, FAULT_SPEC, runFaultOp, runWalkCellOp, runWalkOp } from './walk/session.js?v=170';
+import * as U152 from './ui152.js?v=194';
+import { GPT2Tokenizer, parseVocabYield } from './tokenizer.js?v=194';
+import { CFG, buildWeights, parseSafetensorsYield, cloneWeightsYield, mulberry32 } from './model.js?v=194';
+import { concatUint8 } from './bytes.js?v=194';
+import { Engine, defaultRuntime, logSoftmax, topK, SITES } from './engine.js?v=194';
+import { RemoteEngine, withBias } from './engine-client.js?v=194';
+import { bindRemote } from './trace-remote.js?v=194';
+import { computeStats, actCovariance, fitTunedLens, lensGrid, dla, patchResid, patchHeads, pathPatchHeadsToLogits, ablationSweep, buildControlVector, vectorArithmetic, tokenStats } from './analysis.js?v=194';
+import { Editor, MATS, getMat, toSafetensorsYield, quantize } from './surgery.js?v=194';
+import { defaultDecode, applyPenalties, filterDist, pick, contrastiveLogits, cfgLogits, beamSearch } from './decode.js?v=194';
+import { SAE } from './sae.js?v=194';
+import { computeRome, findSubject } from './rome.js?v=194';
+import { slice, cancelJobs, resetCancel, frame, namedFrame, runBudgeted } from './coop.js?v=194';
+import * as mf from './mf-client.js?v=194';
+mf.ping().catch(() => {});
+import { svdYield } from './linalg.js?v=194';
+import { CORPUS } from './corpus.js?v=194';
+import { heatmap, lines, bars, showTip, seqColor, divColor, markStale, heatStrip, emit } from './charts.js?v=194';
+import { Viz } from './viz.js?v=194';
+import { AudioEngine, editKind, STYLES } from './audio.js?v=194';
+import { buildV5 } from './v5.js?v=194';
+import { vecToJSON as _v2j, vecFromJSON as _j2v } from './labcore.js?v=194';
+import * as UI15 from './ui15.js?v=194';
+import { homeMarkup } from './ui15.js?v=194';
+import { geometryFromSeq, KV_CADENCE } from './adversary/geometry.js?v=194';
+import { attachAdversary } from './adversary/campaign.js?v=194';
+import { CITATIONS, FAULT_SPEC, runFaultOp, runWalkCellOp, runWalkOp } from './walk/session.js?v=194';
 const audio = new AudioEngine();
 const { d, H, L, ff, V } = CFG;
 const $ = (id) => document.getElementById(id), $$ = (s, r = document) => [...r.querySelectorAll(s)];
-const tick = () => new Promise((r) => setTimeout(r, 0));
+const tick = () => frame();
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
-const toast = (m, bad) => { const t = $('toast'); t.textContent = m; t.style.borderColor = bad ? '#f87171' : ''; t.classList.toggle('bad', !!bad); t.style.display = 'block'; clearTimeout(toast.h); toast.h = setTimeout(() => (t.style.display = 'none'), bad ? 6000 : 2500); };
-const guard = (fn) => async (...a) => { const el = a[0]?.currentTarget; U152.busy(el, true); try { await fn(...a); U152.panelNote(el, ''); } catch (e) { console.error(e); toast('✖ ' + e.message, true); U152.panelNote(el, e.message); } finally { U152.busy(el, false); } };
+const toast = (m, bad) => {
+  const t = $('toast'); const t0 = performance.now();
+  t.textContent = m; t.style.borderColor = bad ? '#f87171' : ''; t.classList.toggle('bad', !!bad); t.style.display = 'block';
+  if (typeof globalThis.__timerResume === 'function') globalThis.__timerResume(`toast-show ${(performance.now() - t0).toFixed(1)}ms`);
+  clearTimeout(toast.h);
+  toast.h = setTimeout(() => { const h0 = performance.now(); t.style.display = 'none'; if (typeof globalThis.__timerResume === 'function') globalThis.__timerResume(`toast-hide ${(performance.now() - h0).toFixed(1)}ms`); }, bad ? 6000 : 2500);
+};
+// Yield once so the busy state paints and so a click returns to the event loop before a long compute.
+// Caught failures are shown in the toast. They are warnings: an uncaught exception is still an error.
+const guard = (fn) => async (...a) => { const el = a[0]?.currentTarget; U152.busy(el, true); await namedFrame(fn.name || String(fn).replace(/\s+/g, ' ').slice(0, 160)); if (typeof globalThis.__handler === 'function') globalThis.__handler(fn); try { await fn(...a); U152.panelNote(el, ''); } catch (e) { console.warn(e); toast('✖ ' + (e && e.message ? e.message : e), true); U152.panelNote(el, e && e.message ? e.message : String(e)); } finally { U152.busy(el, false); } };
 
 // ───────── loading (HTTP Range: only the fp32 tensors, skipping the bool attn.bias buffers) ─────────
 const REPO = 'https://huggingface.co/roneneldan/TinyStories-8M/resolve', ST_URL = `${REPO}/refs%2Fpr%2F1/model.safetensors`;
 const setLoad = (m, f) => { $('loadmsg').textContent = m; if (f != null) $('loadbar').style.width = (f * 100).toFixed(1) + '%'; };
 // network: up to 4 attempts with exponential backoff (0.5 s, 1 s, 2 s); 4xx other than 408/429 fail fast
 async function withRetry(what, fn, tries = 4) {
-  for (let k = 0; ; k++) { try { return await fn(); } catch (e) { if (k >= tries - 1 || e.fatal) throw new Error(`${what}: ${e.message}${k ? ` (after ${k + 1} attempts)` : ''}`); const ms = 500 * 2 ** k; setLoad(`${what}: ${e.message} — retrying in ${(ms / 1000).toFixed(1)} s (attempt ${k + 2}/${tries})`); await new Promise((r) => setTimeout(r, ms)); } }
+  for (let k = 0; ; k++) { try { return await fn(); } catch (e) { if (k >= tries - 1 || e.fatal) throw new Error(`${what}: ${e.message}${k ? ` (after ${k + 1} attempts)` : ''}`); const ms = 500 * 2 ** k; setLoad(`${what}: ${e.message} — retrying in ${(ms / 1000).toFixed(1)} s (attempt ${k + 2}/${tries})`); await new Promise((done) => setTimeout(() => { if (typeof globalThis.__timerResume === 'function') globalThis.__timerResume('model-retry'); done(); }, ms)); } }
 }
 const httpErr = (r) => { const e = new Error('HTTP ' + r.status); e.fatal = r.status >= 400 && r.status < 500 && r.status !== 408 && r.status !== 429; return e; };
 async function fetchRange(url, a, b, onp) { return withRetry(`bytes ${a}–${b}`, async () => {
   const r = await fetch(url, { headers: { Range: `bytes=${a}-${b}` } }); if (!r.ok) throw httpErr(r);
   const total = b - a + 1, rd = r.body.getReader(), chunks = []; let got = 0;
   for (;;) { const { done, value } = await rd.read(); if (done) break; chunks.push(value); got += value.length; onp && onp(got / total); }
-  const out = new Uint8Array(got); let o = 0; for (const c of chunks) { out.set(c, o); o += c.length; }
+  const out = await concatUint8(chunks, 65536, typeof document !== 'undefined' ? frame : null);
   if (r.status === 206 && got !== total) throw new Error(`short read ${got}/${total} bytes`);
   return r.status === 206 ? out.buffer : out.buffer.slice(a, b + 1); }); }
 const fetchText = (url, json) => withRetry(url.split('/').pop(), async () => { const r = await fetch(url); if (!r.ok) throw httpErr(r); return json ? r.json() : r.text(); });
@@ -49,10 +63,19 @@ async function loadModel() {
   const n = Number(new DataView(await fetchRange(ST_URL, 0, 7)).getBigUint64(0, true));
   const header = JSON.parse(new TextDecoder().decode(await fetchRange(ST_URL, 8, 8 + n - 1)));
   let end = 0; for (const v of Object.values(header)) if (v.dtype === 'F32') end = Math.max(end, v.data_offsets[1]);
-  const vocabP = fetchText(`${REPO}/main/vocab.json`, true), mergesP = fetchText(`${REPO}/main/merges.txt`); vocabP.catch(() => {}); mergesP.catch(() => {});
+  const vocabP = fetchText(`${REPO}/main/vocab.json`, false); vocabP.catch(() => {});
+  const bin = (name) => fetch(new URL(name, import.meta.url)).then((r) => { if (!r.ok) throw new Error(name + ' ' + r.status); return r.arrayBuffer(); });
+  const ranksP = bin('./bpe-ranks.bin'), invP = bin('./vocab-inv.bin');
   const data = await fetchRange(ST_URL, 8 + n, 8 + n + end - 1, (f) => setLoad(`streaming fp32 weights ${(f * end / 1e6).toFixed(1)} / ${(end / 1e6).toFixed(1)} MB`, f * 0.95));
   setLoad('building tensors + tokenizer…', 0.97);
-  return { W: buildWeights(parseSafetensors(data, n, header)), tok: new GPT2Tokenizer(await vocabP, await mergesP), mb: end / 1e6 };
+  await frame();
+  const T = await parseSafetensorsYield(data, header);
+  await frame();
+  const vocabText = await vocabP, ranks = await ranksP, inverse = await invP;
+  await frame();
+  const vocab = await parseVocabYield(vocabText, typeof document !== 'undefined' ? frame : null);
+  await frame();
+  return { W: buildWeights(T), tok: await GPT2Tokenizer.createFromPairs(vocab, ranks, inverse), mb: end / 1e6 };
 }
 
 // ───────── state ─────────
@@ -63,16 +86,19 @@ const snap = () => ({ edits: structuredClone(ed.edits.map(({ _err, ...e }) => e)
 function restore(s) { R = structuredClone(s.R); eng.R = R; ed.setEdits(structuredClone(s.edits)); afterChange(); }
 // every state-changing action goes through commit → undoable, then a full refresh of dependent views
 function commit(label, fn) { const before = snap(); fn(); S.undo.push({ label, s: before }); S.redo = []; afterChange(); toast('✔ ' + label); audio.edit(editKind(label), { bits: +((label.match(/int(\d)/) || [])[1] || 0), coef: R.steer.length ? R.steer[R.steer.length - 1].coef : 1 }); }
-function undo() { const u = S.undo.pop(); if (!u) return; S.redo.push({ label: u.label, s: snap() }); restore(u.s); toast('↶ ' + u.label); audio.edit('undo'); }
-function redo() { const u = S.redo.pop(); if (!u) return; S.undo.push({ label: u.label, s: snap() }); restore(u.s); toast('↷ ' + u.label); audio.edit('undo'); }
+async function commitAsync(label, fn) { const before = snap(); await fn(); S.undo.push({ label, s: before }); S.redo = []; afterChange(); toast('✔ ' + label); audio.edit(editKind(label), { bits: +((label.match(/int(\d)/) || [])[1] || 0), coef: R.steer.length ? R.steer[R.steer.length - 1].coef : 1 }); }
+async function undo() { const u = S.undo.pop(); if (!u) return; S.redo.push({ label: u.label, s: snap() }); await restoreAsync(u.s); toast('↶ ' + u.label); audio.edit('undo'); }
+async function redo() { const u = S.redo.pop(); if (!u) return; S.undo.push({ label: u.label, s: snap() }); await restoreAsync(u.s); toast('↷ ' + u.label); audio.edit('undo'); }
+async function restoreAsync(s) { R = structuredClone(s.R); eng.R = R; await ed.setEditsAsync(structuredClone(s.edits)); afterChange(); }
 let regenT = null;
-let hashT; function afterChange() { markStale(); clearTimeout(hashT); hashT = setTimeout(() => V5?.out?.hashes?.().catch(() => {}), 400); renderOps(); renderSteerList(); renderProgram(); renderHeadGrid(); refreshWeights(); hud(); clearTimeout(regenT); if ($('autoRegen').checked) regenT = setTimeout(() => generate(), 120); }
+let hashGen = 0;
+function afterChange() { markStale(); const gen = ++hashGen; void frame().then(() => { if (gen === hashGen) V5?.out?.hashes?.().catch(() => {}); }); renderOps(); renderSteerList(); renderProgram(); renderHeadGrid(); refreshWeights(); hud(); clearTimeout(regenT); if ($('autoRegen').checked) regenT = setTimeout(() => { void frame().then(() => generate()); }, 120); }
 async function ensureStats() {
   if (stats) return stats; const n = +$('statN').value;
   stats = await computeStats(W, CORPUS, n, (f) => prog('statP', f)); eng.stats = stats; engClean.stats = stats;
   $('statInfo').textContent = `${stats.N} tokens · ${stats.docs.length} stories`; prog('statP', 1); hud(); return stats;
 }
-async function ensureTuned() { await ensureStats(); if (!stats.tuned) { $('statInfo').textContent += ' · fitting tuned lens…'; await tick(); fitTunedLens(stats, 1e-3); $('statInfo').textContent = `${stats.N} tok · tuned lens ✔`; } return stats.tuned; }
+async function ensureTuned() { await ensureStats(); if (!stats.tuned) { $('statInfo').textContent += ' · fitting tuned lens…'; await tick(); await fitTunedLens(stats, 1e-3); $('statInfo').textContent = `${stats.N} tok · tuned lens ✔`; } return stats.tuned; }
 async function ensureCov(l) { if (!cov.has(l)) { await ensureStats(); cov.set(l, await actCovariance(W, stats, l, (f) => prog('romeP', f * 0.3))); } return cov.get(l); }
 const prog = (id, f) => { const e = $(id); if (e) e.firstElementChild.style.width = (f * 100).toFixed(0) + '%'; };
 function hud() {
@@ -184,13 +210,15 @@ P.audio = `
 <b>divergence</b>: KL(hacked‖clean) on the same context adds a consonant voice (5th → octave → octave+5th) above the pad.<br>
 <b>phenomena</b>: entropy collapse, repetition loop, superposition, residual explosion → soft two-note chime + small badge in the top bar.</div></fieldset>`;
 let V5 = null;
-function buildUI() {
+async function buildUI() {
   const tabs = $('tabs'), panes = $('panes'); V5 = buildV5(TABS, P);
   // v15: grouped, searchable, collapsible sidebar instead of a wall of tabs
   const srch = document.createElement('div'); srch.className = 'navsearch'; srch.innerHTML = `<input id="navQ" type="search" placeholder="Search ${V5.order.length} tabs…" aria-label="search tabs" autocomplete="off" /><kbd>/</kbd>`; tabs.appendChild(srch);
   let sec = null; const GOF = {};
+  await runBudgeted((function* () {
   for (const [k, t] of V5.order) { if (V5.groupStart[k] || !sec) { sec = document.createElement('section'); sec.className = 'ng'; sec.dataset.g = V5.groupStart[k] || 'MORE'; const g = document.createElement('span'); g.className = 'grp'; g.setAttribute('role', 'button'); g.tabIndex = 0; g.textContent = sec.dataset.g; const sx = sec; g.onclick = () => sx.classList.toggle('shut'); g.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); sx.classList.toggle('shut'); } }; sec.appendChild(g); tabs.appendChild(sec); }
-    GOF[k] = sec.dataset.g; const b = document.createElement('button'); b.textContent = V5.long[k] && V5.long[k].length <= 34 ? V5.long[k] : t; b.dataset.short = t; b.dataset.t = k; b.onclick = () => { showTab(k); document.body.classList.remove('navopen'); }; b.setAttribute('role', 'tab'); b.title = V5.long[k] || t; sec.appendChild(b); const p = document.createElement('div'); p.className = 'pane'; p.setAttribute('role', 'tabpanel'); p.id = 'pane_' + k; p.innerHTML = P[k]; panes.appendChild(p); }
+    GOF[k] = sec.dataset.g; const b = document.createElement('button'); b.textContent = V5.long[k] && V5.long[k].length <= 34 ? V5.long[k] : t; b.dataset.short = t; b.dataset.t = k; b.onclick = () => { showTab(k); document.body.classList.remove('navopen'); }; b.setAttribute('role', 'tab'); b.title = V5.long[k] || t; sec.appendChild(b); const p = document.createElement('div'); p.className = 'pane'; p.setAttribute('role', 'tabpanel'); p.id = 'pane_' + k; p.innerHTML = P[k]; panes.appendChild(p); yield; }
+  })(), { budgetMs: 8 });
   const ph = document.createElement('div'); ph.id = 'paneHead'; panes.prepend(ph); V5.groupOf = GOF;
   const q = $('navQ'); q.addEventListener('input', () => { const v = q.value.trim().toLowerCase(); for (const s2 of $$('#tabs .ng')) { let any = false; for (const b of s2.querySelectorAll('button')) { const hit = !v || b.textContent.toLowerCase().includes(v) || b.title.toLowerCase().includes(v) || b.dataset.short.toLowerCase().includes(v) || s2.dataset.g.toLowerCase().includes(v); b.hidden = !hit; any = any || hit; } s2.hidden = !any; s2.classList.toggle('found', !!v); } });
   q.addEventListener('keydown', (e) => { if (e.key === 'Enter') { const b = $$('#tabs button[data-t]').find((x) => !x.hidden && !x.closest('section').hidden); if (b) b.click(); } if (e.key === 'Escape') { q.value = ''; q.dispatchEvent(new Event('input')); q.blur(); } });
@@ -199,7 +227,7 @@ function buildUI() {
   UI15.install({ showTab });
   showTab('home');
 }
-function showTab(k) { if (!$('pane_' + k)) throw new Error('no tab ' + k); document.dispatchEvent(new CustomEvent('neuralese:tab', { detail: k })); V5 && V5.onShow(k); $$('#tabs button').forEach((b) => { const on = b.dataset.t === k; b.classList.toggle('on', on); b.setAttribute('aria-selected', String(on)); if (on) { b.closest('section')?.classList.remove('shut'); b.scrollIntoView?.({ block: 'nearest' }); } }); $$('.pane').forEach((p) => p.classList.toggle('on', p.id === 'pane_' + k));
+function showTab(k) { if (!$('pane_' + k)) throw new Error('no tab ' + k); document.dispatchEvent(new CustomEvent('neuralese:tab', { detail: k })); V5 && V5.onShow(k); const tabsHidden = document.body.classList.contains('v17-on'); $$('#tabs button').forEach((b) => { const on = b.dataset.t === k; b.classList.toggle('on', on); b.setAttribute('aria-selected', String(on)); if (on) { b.closest('section')?.classList.remove('shut'); if (!tabsHidden) b.scrollIntoView?.({ block: 'nearest' }); } }); $$('.pane').forEach((p) => p.classList.toggle('on', p.id === 'pane_' + k));
   const ph = $('paneHead'); if (ph && V5) { const t = TABS[k] || k, lt = V5.long[k] || ''; ph.innerHTML = `<div class="phg">${esc(V5.groupOf?.[k] || '')}<span>${esc(t)}</span></div><h2>${esc(lt || t)}</h2>`; } $('panes')?.scrollTo?.(0, 0); UI15.onTab(k, V5?.groupOf?.[k]); }
 
 // ───────── generation ─────────
@@ -215,7 +243,7 @@ function attachTips(box) { box.onmousemove = (e) => { const t = e.target._info; 
 let RE = null, RE_P = null, RE_FAIL = null;
 async function genBackend() {
   if (!RE && !RE_FAIL && !/[?&]noworker\b/.test(location.search)) { // one shared creation promise: concurrent generate() calls must not race two workers
-    RE_P = RE_P || RemoteEngine.create(); try { RE = await RE_P; } catch (e) { RE_FAIL = String(e.message || e); console.warn('engine worker unavailable, using main thread:', RE_FAIL); } }
+    RE_P = RE_P || RemoteEngine.create(); try { RE = await RE_P; bindRemote(RE); } catch (e) { RE_FAIL = String(e.message || e); console.warn('engine worker unavailable, using main thread:', RE_FAIL); } }
   if (RE) { await RE.sync('main', eng); if (!RE.cleanSynced) { RE.cleanSynced = RE.sync('clean', engClean); } await RE.cleanSynced; S.perf.backend = 'worker';
     return { seq: (k, n) => RE.newSeq(k, n), step: (s, id, trace) => RE.step(s, id, { trace }), steps: (s, ids, trace) => RE.steps(s, ids, { trace }), beam: (s, h, o) => RE.beam(s, h, o), kvgeom: (s, phase) => RE.kvgeom(s, phase), done: (ss) => { RE.free(ss).catch(() => {}); } }; }
   S.perf.backend = 'main-thread';
@@ -326,25 +354,54 @@ const vecToJSON = _v2j, vecFromJSON = _j2v; // v12.1: lossless (was toFixed(6), 
 
 // ───────── analysis ─────────
 const tstr = (id) => JSON.stringify(tok.tokenStr(id)).slice(1, -1);
+async function traced(ids) {
+  if (!RE && !RE_FAIL) { try { await genBackend(); } catch { /* main thread */ } }
+  if (RE) {
+    await RE.sync('main', eng); const seq = await RE.newSeq('main', ids.length); const traces = [];
+    for (const t of ids) { const r = await RE.step(seq, t, true); traces.push(r.trace); const y = slice(); if (y) await y; }
+    RE.free([seq]).catch(() => {}); return traces;
+  }
+  const s = eng.newSeq(ids.length), trs = [];
+  for (const t of ids) { trs.push(eng.step(s, t, { trace: true }).trace); const y = slice(); if (y) await y; }
+  return trs;
+}
+async function offload(kind, payload, onp) {
+  resetCancel();
+  if (!RE && !RE_FAIL) { try { await genBackend(); } catch { /* main thread */ } }
+  if (!RE) return null;
+  try { await RE.sync('main', eng); return await RE.heavy('main', kind, payload, onp); }
+  catch (e) { if (String(e && e.message || e).includes('cancelled')) throw e; console.warn(kind + ' worker failed, using the main thread', e); return null; }
+}
+function stopJobs() { cancelJobs(); RE?.cancelJob(); saeStop = true; }
 async function analyze() {
   const ids = tok.encode($('anText').value); if (!ids.length) return; if (ids.length > 64) throw new Error('analysis input capped at 64 tokens');
-  const t0 = performance.now(); const run = eng.run(ids, { trace: true }), trs = run.traces, slots = R.program.length; const tuned = $('anTuned').checked ? await ensureTuned() : null;
-  S.an = { ids, trs }; const grid = lensGrid(eng, trs, { k: 5, tuned });
+  const t0 = performance.now(); const mark = (n) => { if (!/[?&]profile\b/.test(location.search)) return; const t = performance.now(); (window.__an = window.__an || []).push([n, Math.round(t - (window.__anT || t0))]); window.__anT = t; };
+  const trs = await traced(ids), slots = R.program.length; mark('traced'); const tuned = $('anTuned').checked ? await ensureTuned() : null; mark('tuned');
+  S.an = { ids, trs }; const grid = [];
+  for (let p = 0; p < trs.length; p++) {
+    const nRows = 1 + (trs[p].resid_post?.length || 0), col = [];
+    for (let r = 0; r < nRows; r++) { col[r] = lensGrid(eng, trs, { k: 5, tuned, positions: [p], onlyRow: r })[0][r]; const y = slice(); if (y) await y; }
+    grid.push(col);
+  }
+  mark('grid');
   const rows = ['embed', ...R.program.map((s, i) => `s${i}:L${s.layer}`)];
   let html = '<tr><th></th>' + ids.map((id) => `<th>${esc(tstr(id))}</th>`).join('') + '</tr>';
   rows.forEach((rn, r) => { html += `<tr><th>${rn}</th>` + grid.map((col, p) => { const c = col[r]; return `<td data-p="${p}" data-r="${r}" style="background:${seqColor(c.probs[0])}">${esc(tstr(c.ids[0]))}</td>`; }).join('') + '</tr>'; });
   const T = $('lensT'); T.innerHTML = html; T.onmousemove = (e) => { const td = e.target.closest('td'); if (!td) return showTip(e, ''); const c = grid[+td.dataset.p][+td.dataset.r]; showTip(e, `${rows[+td.dataset.r]} @ pos ${td.dataset.p} (${tuned ? 'tuned' : 'logit'} lens)  H=${c.ent.toFixed(2)} nats\n` + c.ids.map((id, i) => `${JSON.stringify(tok.tokenStr(id)).padEnd(14)} ${c.probs[i].toFixed(4)}`).join('\n')); }; T.onmouseleave = () => showTip(null, '');
   // DLA
   let pos = +$('anPos').value; if (pos < 0) pos = ids.length + pos; const tr = trs[pos]; const lp = logSoftmax(eng.logits(tr.h));
-  const tgt = $('anTgt').value ? tok.encode($('anTgt').value)[0] : topK(lp, 1)[0]; const r = dla(eng, tr, tgt), logit = eng.logitOf(tr.h, tgt);
+  { const y = slice(); if (y) await y; }
+  const tgt = $('anTgt').value ? tok.encode($('anTgt').value)[0] : topK(lp, 1)[0]; const r = dla(eng, tr, tgt), logit = eng.logitOf(tr.h, tgt); mark('dla');
   $('dlaSum').innerHTML = `target <b>${esc(JSON.stringify(tok.tokenStr(tgt)))}</b> @ pos ${pos} (p=${Math.exp(lp[tgt]).toFixed(4)}) · logit ${logit.toFixed(4)} = Σ ${r.total.toFixed(4)} (err ${(logit - r.total).toExponential(1)}) · embed ${r.embed.toFixed(3)} · biases ${r.biases.reduce((a, b) => a + b.v, 0).toFixed(3)} · other(steer/SAE) ${r.other.toFixed(3)}`;
   const HM = Array.from({ length: slots }, () => Array(H).fill(0)); for (const x of r.heads) HM[x.slot][x.h] = x.v;
   heatmap($('dlaHeads'), HM, { rows: rows.slice(1), cols: [...Array(H).keys()], label: (i, j) => `slot ${i} L${R.program[i].layer} H${j}: ${HM[i][j].toFixed(4)}`, onClick: (i, j) => setSel({ l: R.program[i].layer, h: j }) });
   $('dlaHT').innerHTML = '<tr><th>head</th><th>DLA</th></tr>' + r.heads.slice(0, 12).map((x) => `<tr><td>L${x.l}H${x.h}</td><td style="color:${x.v > 0 ? '#5eead4' : '#f87171'}">${x.v.toFixed(4)}</td></tr>`).join('');
   $('dlaNT').innerHTML = '<tr><th>neuron</th><th>DLA</th></tr>' + r.neurons.slice(0, 12).map((x) => `<tr><td>L${x.l}N${x.n}</td><td style="color:${x.v > 0 ? '#5eead4' : '#f87171'}">${x.v.toFixed(4)}</td></tr>`).join('');
   drawAttention();
+  { const y = slice(); if (y) await y; }
   // trajectories + entropy + neurons
-  const st = tokenStats(eng, trs, ids), pal = ['#5eead4', '#f472b6', '#fbbf24', '#60a5fa', '#a78bfa', '#f87171', '#34d399', '#e879f9'];
+  const st = await tokenStats(eng, trs, ids); mark('stats');
+  const pal = ['#5eead4', '#f472b6', '#fbbf24', '#60a5fa', '#a78bfa', '#f87171', '#34d399', '#e879f9'];
   const xs = rows; lines($('normC'), st.rows.map((x, p) => ({ ys: x.norms, color: p === ids.length - 1 ? '#fff' : pal[p % 8] + '88', width: p === ids.length - 1 ? 2 : 1, label: p === ids.length - 1 ? 'last' : null })), { xs, title: '‖resid‖ per slot (each line = one token, white = last)' });
   lines($('cosC'), st.rows.map((x, p) => ({ ys: x.cos, color: p === ids.length - 1 ? '#fff' : pal[p % 8] + '88', width: p === ids.length - 1 ? 2 : 1, label: p === ids.length - 1 ? 'last' : null })), { xs: xs.slice(1), title: 'cos(x_s, x_{s−1})' });
   lines($('entC'), [{ ys: st.rows.map((x) => x.ent), color: '#5eead4', label: 'entropy' }, { ys: st.rows.map((x) => x.nll ?? NaN), color: '#f472b6', label: 'surprisal next' }], { xs: ids.map(tstr), title: 'entropy (teal) / −log p(next actual) (pink), nats' });
@@ -355,9 +412,19 @@ async function analyze() {
 }
 function drawAttention() {
   if (!S.an) return; const trs = S.an.trs, T = trs.length, slots = R.program.length;
-  const big = Array.from({ length: slots * T }, () => Array(H * T).fill(0));
-  for (let s = 0; s < slots; s++) for (let q = 0; q < T; q++) { const pats = trs[q].pattern[s]; if (!pats) continue; for (let h = 0; h < H; h++) for (let k = 0; k <= q; k++) big[s * T + q][h * T + k] = pats[h][k] ?? 0; }
-  heatmap($('attAll'), big, { diverging: false, max: 1, padL: 4, padT: 2, h: Math.min(520, slots * T * 3 + 10), rows: Array(slots * T).fill(''), label: (i, j) => `slot ${(i / T) | 0} H${(j / T) | 0} q=${i % T} k=${j % T}: ${big[i][j].toFixed(3)}`, onClick: (i, j) => { $('attS').value = (i / T) | 0; $('attH').value = (j / T) | 0; setSel({ l: R.program[(i / T) | 0].layer, h: (j / T) | 0 }); } });
+  const big = Array.from({ length: slots * T }, () => new Float32Array(H * T));
+  const gen = (drawAttention.gen = (drawAttention.gen || 0) + 1); let slot = 0;
+  const step = () => {
+    if (drawAttention.gen !== gen) return;
+    const t0 = performance.now();
+    while (slot < slots && performance.now() - t0 < 16) {
+      for (let q = 0; q < T; q++) { const pats = trs[q].pattern[slot]; if (!pats) continue; const row = big[slot * T + q]; for (let h = 0; h < H; h++) for (let k = 0; k <= q; k++) row[h * T + k] = pats[h][k] ?? 0; }
+      slot++;
+    }
+    if (slot < slots) frame().then(step);
+    else heatmap($('attAll'), big, { diverging: false, max: 1, padL: 4, padT: 2, h: Math.min(520, slots * T * 3 + 10), rows: Array(slots * T).fill(''), label: (i, j) => `slot ${(i / T) | 0} H${(j / T) | 0} q=${i % T} k=${j % T}: ${big[i][j].toFixed(3)}`, onClick: (i, j) => { $('attS').value = (i / T) | 0; $('attH').value = (j / T) | 0; setSel({ l: R.program[(i / T) | 0].layer, h: (j / T) | 0 }); } });
+  };
+  step();
   const s = Math.min(+$('attS').value, slots - 1), h = +$('attH').value, one = Array.from({ length: T }, (_, q) => Array.from({ length: T }, (_, k) => trs[q].pattern[s]?.[h]?.[k] ?? 0)), lab = S.an.ids.map(tstr);
   heatmap($('attOne'), one, { diverging: false, max: 1, rows: lab, cols: lab, padL: 60, h: Math.max(160, T * 14 + 20), label: (q, k) => `slot ${s} H${h}: ${lab[q]} → ${lab[k]}  ${one[q][k].toFixed(4)}` });
 }
@@ -375,8 +442,11 @@ function showCausal(res, kind, ids) {
 let saeStop = false;
 async function trainSae() {
   await ensureStats(); const l = +$('saeL').value, m = +$('saeM').value; saeStop = false; const s = new SAE(l, m, 1); const pts = [];
-  await s.train(stats.resid[l], stats.N, { epochs: +$('saeE').value, lr: +$('saeLr').value, l1: +$('saeL1').value, onp: (p) => { prog('saeP', p.frac); pts.push(p); $('saeInfo').textContent = `ep ${p.ep} · loss ${p.loss.toFixed(4)} · nMSE ${p.mse.toFixed(4)} · L0 ${p.l0.toFixed(1)}`; lines($('saeLoss'), [{ ys: pts.map((x) => x.mse), color: '#5eead4', label: 'nMSE' }, { ys: pts.map((x) => x.l0 / m), color: '#f472b6', label: 'L0/m' }], { title: 'nMSE (teal) · L0/m (pink)', min: 0 }); }, shouldStop: () => saeStop });
-  sae = s; saeA = s.analyse(stats.resid[l], stats.N, 10); eng.sae = s; prog('saeP', 1);
+  const paint = (p) => { prog('saeP', p.frac); pts.push(p); $('saeInfo').textContent = `ep ${p.ep} · loss ${p.loss.toFixed(4)} · nMSE ${p.mse.toFixed(4)} · L0 ${p.l0.toFixed(1)}`; lines($('saeLoss'), [{ ys: pts.map((x) => x.mse), color: '#5eead4', label: 'nMSE' }, { ys: pts.map((x) => x.l0 / m), color: '#f472b6', label: 'L0/m' }], { title: 'nMSE (teal) · L0/m (pink)', min: 0 }); };
+  const remote = await offload('sae', { X: stats.resid[l], N: stats.N, layer: l, m, epochs: +$('saeE').value, lr: +$('saeLr').value, l1: +$('saeL1').value }, (_f, p) => p && paint(p));
+  if (remote) { s.Wenc.set(remote.Wenc); s.benc.set(remote.benc); s.Wdec.set(remote.Wdec); s.bdec.set(remote.bdec); s.hist = remote.hist; sae = s; saeA = remote.analysis; }
+  else { await s.train(stats.resid[l], stats.N, { epochs: +$('saeE').value, lr: +$('saeLr').value, l1: +$('saeL1').value, onp: paint, shouldStop: () => saeStop }); sae = s; saeA = s.analyse(stats.resid[l], stats.N, 10); }
+  eng.sae = sae; prog('saeP', 1);
   $('saeInfo').textContent += ` · FVU ${saeA.fvu.toFixed(4)} · alive ${saeA.alive}/${m}`; renderSae(); hud();
 }
 function ctxStr(i) { const c = stats.context(i, 10); return `${esc(tok.decode(c.before))}<b style="color:#fbbf24">${esc(tok.tokenStr(c.tok))}</b>${esc(tok.decode(c.after))}`; }
@@ -399,8 +469,8 @@ function weightEdit(label, e, path) { // records relative Frobenius change of th
 }
 async function showSvd() {
   const path = matPath(); if (path === 'wte') throw new Error('wte SVD (50257×256) is too slow for the browser here; use a layer matrix or wpe'); $('svdInfo').textContent = 'running one-sided Jacobi SVD…'; await tick();
-  const t0 = performance.now(), { a, rows, cols } = getMat(M, path), r = ed.svdOf(path, true), S2 = r.S; const tot = S2.reduce((x, y) => x + y * y, 0); let c = 0; const cum = S2.map((s) => (c += s * s) / tot);
-  const out = new Float32Array(rows * cols); (await import('./linalg.js?v=170')).svdReconstruct(r, Float64Array.from(S2), out); let e = 0; for (let i = 0; i < out.length; i++) e += (out[i] - a[i]) ** 2;
+  const t0 = performance.now(), { a, rows, cols } = getMat(M, path), r = await svdYield(a, rows, cols), S2 = r.S; const tot = S2.reduce((x, y) => x + y * y, 0); let c = 0; const cum = S2.map((s) => (c += s * s) / tot);
+  const out = new Float32Array(rows * cols); (await import('./linalg.js?v=194')).svdReconstruct(r, Float64Array.from(S2), out); let e = 0; for (let i = 0; i < out.length; i++) e += (out[i] - a[i]) ** 2;
   bars($('svdC'), Array.from(S2), { log: true, title: `σ spectrum ${path} (${rows}×${cols}, log) · hover for energy`, label: (i) => `σ${i} = ${S2[i].toPrecision(5)}  cum energy ${(cum[i] * 100).toFixed(2)}%`, onClick: (i) => ($('svK').value = i + 1) });
   $('svdInfo').textContent = `${S2.length} σ · ${r.sweeps} sweeps · ${(performance.now() - t0).toFixed(0)} ms · recon rel.err ${(Math.sqrt(e) / frob(a)).toExponential(2)} · 90% energy @ k=${cum.findIndex((x) => x >= 0.9) + 1}`;
 }
@@ -485,11 +555,11 @@ function palRender() { const q = $('palIn').value.toLowerCase(); const list = CM
 function wire() {
   const on = (id, ev, fn) => $(id).addEventListener(ev, guard(fn));
   V5.wire({ on, guard });
-  on('bGen', 'click', generate); on('bStop', 'click', () => genId++); on('bUndo', 'click', undo); on('bRedo', 'click', redo); on('bU2', 'click', undo); on('bR2', 'click', redo);
+  on('bGen', 'click', generate); on('bStop', 'click', () => { genId++; stopJobs(); }); on('bUndo', 'click', undo); on('bRedo', 'click', redo); on('bU2', 'click', undo); on('bR2', 'click', redo);
   on('bDense', 'click', () => document.body.classList.toggle('dense')); on('bPal', 'click', palOpen); on('readSel', 'change', readout);
   // steering
   on('bCv', 'click', async () => { const pairs = $('cvPairs').value.split('\n').map((s) => s.split('|').map((x) => x.trim())).filter((p) => p.length === 2 && p[0] && p[1]); if (!pairs.length) throw new Error('need lines "positive | negative"');
-    const t0 = performance.now(), site = $('cvSite').value, vecs = buildControlVector(engClean, tok, pairs, { site, method: $('cvMethod').value, agg: $('cvAgg').value });
+    const t0 = performance.now(), site = $('cvSite').value, vecs = await buildControlVector(engClean, tok, pairs, { site, method: $('cvMethod').value, agg: $('cvAgg').value });
     addVector($('cvName').value || 'v', site, vecs, { method: $('cvMethod').value, pairs: pairs.length }); $('cvInfo').textContent = `${pairs.length} pairs · ${(performance.now() - t0).toFixed(0)} ms`; });
   on('bCvExpr', 'click', () => { const vecs = vectorArithmetic($('cvExpr').value, R.steer); addVector($('cvExprName').value || 'mix', R.steer[0]?.site || 'resid_post', vecs, { expr: $('cvExpr').value }); });
   on('bCvExport', 'click', () => download('neuralese-vectors.json', JSON.stringify({ format: 'neuralese-vectors', vectors: R.steer.map(vecToJSON) })));
@@ -499,47 +569,49 @@ function wire() {
   // causal
   for (const id of ['caClean', 'caCorr']) on(id, 'input', caInputs);
   const ca = (kind, f) => async () => { const [c, x, a, w] = caInputs(); prog('caP', 0); const t0 = performance.now(); const res = await f(c, x, a, w); prog('caP', 1); showCausal(res, kind, c); $('caInfo').textContent += ` · ${(performance.now() - t0).toFixed(0)} ms`; };
-  on('bPR', 'click', ca('resid', (c, x, a, w) => patchResid(eng, c, x, a, w, (f) => prog('caP', f))));
-  on('bPH', 'click', ca('heads', (c, x, a, w) => patchHeads(eng, c, x, a, w, (f) => prog('caP', f))));
-  on('bPP', 'click', ca('path', (c, x, a, w) => pathPatchHeadsToLogits(eng, c, x, a, w)));
-  on('bAbl', 'click', ca('abl', async (c, x, a, w) => { const t = $('caAblT').value; if (t !== 'zero') await ensureStats(); return ablationSweep(eng, c, a, w, t, (f) => prog('caP', f)); }));
+  on('bPR', 'click', ca('resid', async (c, x, a, w) => (await offload('patchResid', { clean: c, corr: x, ans: a, wrong: w }, (f) => prog('caP', f))) || patchResid(eng, c, x, a, w, (f) => prog('caP', f))));
+  on('bPH', 'click', ca('heads', async (c, x, a, w) => (await offload('patchHeads', { clean: c, corr: x, ans: a, wrong: w }, (f) => prog('caP', f))) || patchHeads(eng, c, x, a, w, (f) => prog('caP', f))));
+  on('bPP', 'click', ca('path', async (c, x, a, w) => (await offload('path', { clean: c, corr: x, ans: a, wrong: w }, (f) => prog('caP', f))) || pathPatchHeadsToLogits(eng, c, x, a, w)));
+  on('bAbl', 'click', ca('abl', async (c, x, a, w) => { const t = $('caAblT').value; if (t !== 'zero') await ensureStats(); return (await offload('ablate', { ids: c, ans: a, wrong: w, type: t }, (f) => prog('caP', f))) || ablationSweep(eng, c, a, w, t, (f) => prog('caP', f)); }));
   // stats + SAE
   on('bStats', 'click', async () => { stats = null; cov.clear(); await ensureStats(); });
-  on('bSae', 'click', trainSae); on('bSaeStop', 'click', () => (saeStop = true)); on('saeSort', 'change', renderSae); on('saeQ', 'input', renderSae);
+  on('bSae', 'click', trainSae); on('bSaeStop', 'click', stopJobs); on('saeSort', 'change', renderSae); on('saeQ', 'input', renderSae);
   on('bClamp', 'click', () => { if (!sae) throw new Error('train an SAE first'); const f = +$('clF').value; if (!(f >= 0 && f < sae.m)) throw new Error('feature out of range'); commit(`SAE L${sae.layer} f${f} ${$('clMode').value} ${$('clV').value}`, () => R.sae.clamps.push({ f, mode: $('clMode').value, value: +$('clV').value })); });
   // surgery
   on('bSvd', 'click', showSvd);
-  on('bSvTop', 'click', () => weightEdit(`SVD keep top-${$('svK').value} ${matPath()}`, { kind: 'svd', path: matPath(), mode: 'topk', k: +$('svK').value }, matPath()));
-  on('bSvFlat', 'click', () => weightEdit(`SVD flatten ${matPath()}`, { kind: 'svd', path: matPath(), mode: 'flatten', k: +$('svK').value }, matPath()));
-  on('bSvDrop', 'click', () => weightEdit(`SVD drop ${matPath()}`, { kind: 'svd', path: matPath(), mode: 'drop', from: +$('svA').value, to: +$('svB').value }, matPath()));
-  on('bSvScale', 'click', () => weightEdit(`SVD scale ${matPath()}`, { kind: 'svd', path: matPath(), mode: 'scale', from: +$('svA').value, to: +$('svB').value, factor: +$('svF').value }, matPath()));
+  on('bSvTop', 'click', () => commitAsync(`SVD keep top-${$('svK').value} ${matPath()}`, () => ed.pushAsync({ kind: 'svd', path: matPath(), mode: 'topk', k: +$('svK').value })));
+  on('bSvFlat', 'click', () => commitAsync(`SVD flatten ${matPath()}`, () => ed.pushAsync({ kind: 'svd', path: matPath(), mode: 'flatten', k: +$('svK').value })));
+  on('bSvDrop', 'click', () => commitAsync(`SVD drop ${matPath()}`, () => ed.pushAsync({ kind: 'svd', path: matPath(), mode: 'drop', from: +$('svA').value, to: +$('svB').value })));
+  on('bSvScale', 'click', () => commitAsync(`SVD scale ${matPath()}`, () => ed.pushAsync({ kind: 'svd', path: matPath(), mode: 'scale', from: +$('svA').value, to: +$('svB').value, factor: +$('svF').value })));
   on('bLr', 'click', () => weightEdit(`low-rank ${matPath()}`, { kind: 'lowrank', path: matPath(), rank: +$('lrR').value, sigma: +$('lrS').value, seed: Date.now() % 1e6 }, matPath()));
   on('bEl', 'click', () => { const t = $('elT').value, l = +$('smL').value, i = +$('elI').value, fn = $('elF').value, amt = +$('elA').value; let target;
     if (t === 'matrix') target = { type: 'matrix', path: matPath() }; else if (t === 'head') { if (!(i >= 0 && i < H)) throw new Error('head 0..15'); target = { type: 'head', l, i }; } else if (t === 'neuron') { if (!(i >= 0 && i < ff)) throw new Error('neuron 0..1023'); target = { type: 'neuron', l, i }; }
     else { const words = $('elWords').value.split(',').map((s) => s.trim()).filter(Boolean); if (!words.length) throw new Error('enter embed words'); target = { type: 'embed', word: words.join(','), toks: [...new Set(words.flatMap((w) => [tok.encode(' ' + w)[0], tok.encode(w)[0]]))] }; }
     const e = { kind: 'elem', target, fn, amt, seed: Date.now() % 1e6 }; weightEdit(ed.label(e), e, t === 'matrix' ? matPath() : null); });
-  on('bQ', 'click', () => { const bits = +$('qB').value, layers = parseLayers($('qL').value), mats = $('qM').value.split(',').map((s) => s.trim()).filter((m) => MATS.includes(m)); if (!mats.length) throw new Error('no valid mats');
-    let err = 0, n = 0; for (const l of layers) for (const m of mats) { const { a, rows, cols } = getMat(M, `L${l}.${m}`); const c = Float32Array.from(a); err += quantize(c, rows, cols, bits) ** 2; n++; } // preview error on a copy
+  on('bQ', 'click', async () => { const bits = +$('qB').value, layers = parseLayers($('qL').value), mats = $('qM').value.split(',').map((s) => s.trim()).filter((m) => MATS.includes(m)); if (!mats.length) throw new Error('no valid mats');
+    let err = 0, n = 0; for (const l of layers) for (const m of mats) { const { a, rows, cols } = getMat(M, `L${l}.${m}`); const c = Float32Array.from(a); err += quantize(c, rows, cols, bits) ** 2; n++; await tick(); }
     commit(`int${bits} quantize`, () => ed.push({ kind: 'quant', bits, layers, mats })); $('qInfo').textContent = `RMS weight error ≈ ${Math.sqrt(err / n).toExponential(2)}`; });
   on('bIp', 'click', () => commit(`L${$('ipD').value} ← lerp L${$('ipS').value} t=${$('ipT').value}`, () => ed.push({ kind: 'interp', dst: +$('ipD').value, src: +$('ipS').value, t: +$('ipT').value })));
   on('bLn', 'click', () => { const e = { kind: 'ln', which: $('lnW').value, l: +$('lnL').value, gScale: +$('lnG').value, bAdd: +$('lnB').value }; commit(ed.label(e), () => ed.push(e)); });
   on('bWp', 'click', () => { const e = { kind: 'wpe', fn: $('wpF').value, amt: +$('wpA').value, n: 256, seed: Date.now() % 1e6 }; commit(ed.label(e), () => ed.push(e)); });
-  on('bRome', 'click', async () => { const l = +$('roL').value; $('roInfo').textContent = 'computing activation covariance on corpus…'; const C = await ensureCov(l); const prompt = $('roP').value, target = $('roT').value;
-    const before = tok.tokenStr(topK(logSoftmax(eng.logits(eng.run(tok.encode(prompt)).last.h)), 1)[0]);
-    const op = await computeRome(eng, tok, C, { prompt, subject: $('roS').value, target, layer: l }, ({ it, p }) => { prog('romeP', 0.3 + 0.7 * Math.min(1, it / 150)); $('roInfo').textContent = `optimising v* · iter ${it} · p(target) ${p.toFixed(3)}`; });
+  on('bRome', 'click', async () => { const l = +$('roL').value; $('roInfo').textContent = 'computing activation covariance on corpus…'; const C = await ensureCov(l); const prompt = $('roP').value, target = $('roT').value, subject = $('roS').value;
+    const ids = tok.encode(prompt), ps = findSubject(tok, ids, subject), tgt = tok.encode(target)[0];
+    const before = tok.tokenStr(topK(logSoftmax(eng.logits(eng.run(ids).last.h)), 1)[0]);
+    const onRome = ({ it, p }) => { prog('romeP', 0.3 + 0.7 * Math.min(1, it / 150)); $('roInfo').textContent = `optimising v* · iter ${it} · p(target) ${p.toFixed(3)}`; };
+    const op = (await offload('rome', { ids, ps, tgt, layer: l, C, prompt, subject, target }, (_f, note) => note && onRome(note))) || await computeRome(eng, tok, C, { prompt, subject, target, layer: l }, onRome);
     commit(ed.label({ kind: 'rome', l, subject: op.subject, target }), () => ed.push({ kind: 'rome', l, u: op.u, v: op.v, subject: op.subject, target, prompt }));
     const after = tok.tokenStr(topK(logSoftmax(eng.logits(eng.run(tok.encode(prompt)).last.h)), 1)[0]); prog('romeP', 1);
     $('roInfo').innerHTML = `${op.iters} iters · hook p=${op.p.toFixed(3)} · real rank-1 weight edit: top-1 ${esc(JSON.stringify(before))} → <b class="${after === target ? 'ok' : 'err'}">${esc(JSON.stringify(after))}</b>`; });
-  on('chP', 'input', () => ($('chV').textContent = $('chP').value + '%')); on('bChaos', 'click', () => commit(`chaos ${$('chP').value}%`, () => ed.push({ kind: 'chaos', pct: +$('chP').value, seed: Date.now() % 1e6 })));
+  on('chP', 'input', () => ($('chV').textContent = $('chP').value + '%')); on('bChaos', 'click', () => commitAsync(`chaos ${$('chP').value}%`, () => ed.pushAsync({ kind: 'chaos', pct: +$('chP').value, seed: Date.now() % 1e6 })));
   on('smL', 'change', () => setSel({ l: +$('smL').value }));
   // runtime
   on('bProgReset', 'click', () => commit('reset program', () => (R.program = defaultRuntime().program))); on('hgL', 'change', renderHeadGrid);
   on('bPos', 'click', () => commit(`pos scale ${$('psS').value} shift ${$('psH').value} freeze ${$('psF').value}`, () => (R.pos = { scale: +$('psS').value, shift: +$('psH').value, freeze: +$('psF').value })));
   on('bNa', 'click', async () => { const m = $('naM').value; if (m === 'mean') await ensureStats(); const n = +$('naN').value; if (!(n >= 0 && n < ff)) throw new Error('neuron 0..1023'); commit(`L${$('naL').value}N${n} ${m}`, () => R.neuronAbl.push({ l: +$('naL').value, n, mode: m, value: +$('naV').value })); });
   // ops
-  on('bReset', 'click', () => commit('reset everything', () => { R = defaultRuntime(); eng.R = R; ed.setEdits([]); }));
+  on('bReset', 'click', async () => { const before = snap(); R = defaultRuntime(); eng.R = R; await ed.setEditsAsync([]); S.undo.push({ label: 'reset everything', s: before }); S.redo = []; afterChange(); toast('✔ reset everything'); audio.edit('undo'); });
   on('bSnapE', 'click', exportSnap); on('snapI', 'change', (e) => importSnap(e.target.files[0]));
-  on('bST', 'click', () => download('model.safetensors', toSafetensors(M), 'application/octet-stream'));
+  on('bST', 'click', async () => download('model.safetensors', await toSafetensorsYield(M), 'application/octet-stream'));
   // 3D
   on('vzFit', 'click', () => viz?.fit?.()); for (const [id, k] of [['vzBloom', 'bloom'], ['vzDof', 'dof'], ['vzAuto', 'auto']]) on(id, 'change', () => { viz.fx[k] = $(id).checked; if (k !== 'auto') viz.quality = 'manual'; });
   setInterval(() => { const el = $('vzFps'); if (!el || !viz?.fps || !el.offsetParent) return; const f = viz.fps(); el.textContent = `${f.fps} fps · ${f.cpuMs} ms CPU/frame · ${f.quality} · pixel ratio ${f.pixelRatio} · GPU tier ${f.tier}`; $('vzBloom').checked = viz.fx.bloom; $('vzDof').checked = viz.fx.dof; }, 1000); for (const id of ['vzL', 'vzM', 'vzMode', 'vzDiff']) on(id, 'change', () => (id === 'vzL' ? setSel({ l: +$('vzL').value }) : refreshWeights()));
@@ -551,11 +623,17 @@ function wire() {
   on('auBpm', 'change', () => (audio.bpm = Math.max(30, Math.min(200, +$('auBpm').value)))); on('auSync', 'change', () => (audio.sync = $('auSync').checked));
   $$('[data-bus]').forEach((el) => el.addEventListener('input', () => { audio.vol[el.dataset.bus] = +el.value; audio.applyVol(); }));
   $$('[data-sfx]').forEach((b) => b.addEventListener('click', guard(async () => { await startAudio(); audio.edit(b.dataset.sfx); })));
-  $$('[data-anom]').forEach((b) => b.addEventListener('click', guard(async () => { await startAudio(); audio.anomaly(b.dataset.anom); })));
+  $$('[data-anom]').forEach((b) => b.addEventListener('click', () => { void (async () => { await frame(); await audio.start(); await frame(); await audio.anomaly(b.dataset.anom); })().catch((e) => console.warn(e)); }));
   audio.onAnomaly = (t) => { const b = $('anomBadge'); b.textContent = '◆ ' + t.replace('_', ' '); b.style.opacity = 1; clearTimeout(b._t); b._t = setTimeout(() => (b.style.opacity = 0), 4000); };
-  setInterval(() => { if (!audio.on || !$('pane_audio').classList.contains('on')) return; const h = audio.hist, n = h.ent.length;
+  let scopeQueued = false;
+  setInterval(() => {
+    if (!audio.on || !$('pane_audio').classList.contains('on')) return;
+    const h = audio.hist, n = h.ent.length;
     $('auState').textContent = `mode ${audio.harm.mode} · root ${['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'][audio.harm.root % 12]}${Math.floor(audio.harm.root / 12) - 1} (MIDI ${audio.harm.root}) · last entropy ${n ? h.ent[n - 1].toFixed(2) : '–'} nats · KL(hacked‖clean) ${audio.lastKL != null ? audio.lastKL.toFixed(4) : '–'} · level ${audio.level.toFixed(2)} · anomalies ${audio.events.length}`;
-    const buf = new Uint8Array(audio.an.fftSize); audio.an.getByteTimeDomainData(buf); lines($('auScope'), [{ ys: Array.from(buf, (x) => x / 128 - 1), color: '#5eead4' }], { min: -1, max: 1, h: 80 }); }, 120);
+    if (scopeQueued) return;
+    scopeQueued = true;
+    void frame().then(() => { scopeQueued = false; if (!audio.on) return; const buf = new Uint8Array(audio.an.fftSize); audio.an.getByteTimeDomainData(buf); lines($('auScope'), [{ ys: Array.from(buf, (x) => x / 128 - 1), color: '#5eead4' }], { min: -1, max: 1, h: 80 }); });
+  }, 120);
   // keyboard
   addEventListener('keydown', (e) => { const typing = /INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName);
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); palOpen(); return; }
@@ -569,11 +647,13 @@ function wire() {
 // ───────── boot ─────────
 (async () => {
   try {
-    const r = await loadModel(); W = r.W; tok = r.tok; M = cloneWeights(W); ed = new Editor(W, M); R = defaultRuntime(); eng = new Engine(M, R); engClean = new Engine(W, defaultRuntime()); engClean.prefixCache = true; // v15.3: originals are never edited in place
-    buildUI(); viz = new Viz($('gl'), (s) => setSel(s)); wire(); caInputs(); afterChange(); setSel({ l: 0, h: 0 }); $('loader').style.display = 'none'; hud();
+    const r = await loadModel(); await frame(); W = r.W; tok = r.tok; M = await cloneWeightsYield(W); await frame();
+    ed = new Editor(W, M); R = defaultRuntime(); await frame();
+    eng = new Engine(M, R); await frame(); engClean = new Engine(W, defaultRuntime()); engClean.prefixCache = true; await frame(); // v15.3: originals are never edited in place
+    await buildUI(); viz = new Viz($('gl'), (s) => setSel(s)); await frame(); wire(); await frame(); caInputs(); await frame(); afterChange(); await frame(); setSel({ l: 0, h: 0 }); $('loader').style.display = 'none'; hud();
     V5.mount({ viz, W: () => W, M: () => M, eng: () => eng, engClean: () => engClean, tok: () => tok, R: () => R, ed: () => ed, S: () => S, stats: () => stats, sae: () => sae, setSel, showTab, commit, weightEdit, download, generate, analyze, undo, redo, ensureStats, guard, toast, audio, decode: () => D, defaultRuntime,
       applyShared: (st) => commit('load shared experiment', () => { R = Object.assign(defaultRuntime(), st.R || {}); eng.R = R; ed.setEdits(st.edits || []); }),
-      reset: () => commit('reset everything', () => { R = defaultRuntime(); eng.R = R; ed.setEdits([]); }), nextVecId: () => nextVec++,
+      commitAsync, reset: async () => { const before = snap(); R = defaultRuntime(); eng.R = R; await ed.setEditsAsync([]); S.undo.push({ label: 'reset everything', s: before }); S.redo = []; afterChange(); toast('✔ reset everything'); }, nextVecId: () => nextVec++,
       makeEngine: (w, r) => { const e = new Engine(w, r); e.stats = stats; e.sae = eng.sae; return e; } });
     let walkRemote = false;
     async function deepWalk(prompt, opts = {}) {
@@ -611,8 +691,11 @@ function wire() {
         if (RE) { try { await RE.sync('clean', engClean); return RE.walkStudy('clean', ids); } catch (e) { console.warn('study worker failed', e); } }
         return runFaultOp(engClean, ids);
       },
-      deepMeta: () => ({ hypothesis: FAULT_SPEC.hypothesis, citations: CITATIONS }) };
-    Object.defineProperties(window.NEURALESE, Object.getOwnPropertyDescriptors({ showTab, setSel, get sel() { return { ...S.sel }; }, order: V5.order, long: V5.long, cfg: CFG, get lastTraces() { return S.lastTraces; }, get lastIds() { return S.lastIds || null; } })); document.dispatchEvent(new CustomEvent('neuralese:ready')); // v17 shell bridge (typed in ui/src/bridge.ts)
+      deepMeta: () => ({ hypothesis: FAULT_SPEC.hypothesis, citations: CITATIONS }),
+      hostForward: async () => { if (!RE) return null; await RE.sync('main', eng); return RE.forwardOnce('main', tok.encode('Forge.')); },
+      hostGreedy: async (text, n) => { if (!RE) return null; await RE.sync('main', eng); return RE.greedy('main', tok.encode(text), n); },
+      mf };
+    Object.defineProperties(window.NEURALESE, Object.getOwnPropertyDescriptors({ showTab, setSel, get sel() { return { ...S.sel }; }, order: V5.order, long: V5.long, cfg: CFG, get lastTraces() { return S.lastTraces; }, get lastIds() { return S.lastIds || null; } })); document.body.dataset.modelReady = '1'; document.dispatchEvent(new CustomEvent('neuralese:ready')); // v17 shell bridge (typed in ui/src/bridge.ts)
     if (/#x=/.test(location.hash)) { try { await V5.out.shareLoad(location.hash); } catch (e) { toast('share link: ' + e.message); } }
     await generate();
   } catch (e) { console.error(e); setLoad('✖ ' + e.message + ' — check your connection'); const b = $('loadRetry'); if (b) { b.classList.remove('hidden'); b.onclick = () => location.reload(); b.focus(); } }

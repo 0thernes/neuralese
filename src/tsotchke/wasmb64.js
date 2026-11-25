@@ -10,10 +10,18 @@ export const PINS = {
 };
 const isNode = typeof process !== 'undefined' && !!process.versions?.node;
 export const hex = (b) => [...new Uint8Array(b)].map((x) => x.toString(16).padStart(2, '0')).join('');
+let decoder = null;
+function decodeWorker() {
+  if (decoder) return decoder;
+  const src = `onmessage=async(e)=>{try{const text=(await(await fetch(e.data.url)).text()).trim();const bin=atob(text);const bytes=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);postMessage({id:e.data.id,bytes},[bytes.buffer]);}catch(err){postMessage({id:e.data.id,err:String(err&&err.message||err)});}}`;
+  decoder = new Worker(URL.createObjectURL(new Blob([src], { type: 'application/javascript' })));
+  return decoder;
+}
 export async function wasmBytes(name) {
   const { url, sha256 } = PINS[name];
-  const text = isNode ? (await import('node:fs')).readFileSync(url, 'utf8') : await (await fetch(url)).text();
-  const bin = atob(text.trim()), bytes = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  let bytes;
+  if (isNode) { const text = (await import('node:fs')).readFileSync(url, 'utf8'); const bin = atob(text.trim()); bytes = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i); }
+  else bytes = await new Promise((resolve, reject) => { const w = decodeWorker(), id = wasmBytes.n = (wasmBytes.n || 0) + 1; const on = (e) => { if (e.data.id !== id) return; w.removeEventListener('message', on); e.data.err ? reject(new Error(e.data.err)) : resolve(e.data.bytes); }; w.addEventListener('message', on); w.postMessage({ id, url: url.href }); });
   const got = hex(await crypto.subtle.digest('SHA-256', bytes));
   if (got !== sha256) throw new Error(`${name}.wasm integrity check failed: sha256 ${got} ≠ pinned ${sha256}`);
   return bytes;

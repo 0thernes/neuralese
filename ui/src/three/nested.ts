@@ -7,7 +7,7 @@ import * as THREE from 'three/webgpu';
 import type { Stage } from './stage';
 const base = new URL('nested/', document.baseURI);
 const getJSON = async <T,>(p: string): Promise<T> => { const r = await fetch(new URL(p, base)); if (!r.ok) throw new Error(`${p}: HTTP ${r.status}`); return r.json() as Promise<T>; };
-function cloud(pos: number[], colors: number[], size: number): THREE.Points {
+function cloud(pos: ArrayLike<number>, colors: ArrayLike<number>, size: number): THREE.Points {
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
   return new THREE.Points(g, new THREE.PointsMaterial({ size, vertexColors: true, sizeAttenuation: true }));
 }
@@ -43,4 +43,12 @@ export async function moe(sample = 0): Promise<NestedResult> {
   const grp = new THREE.Group(); grp.add(cloud(pos, colors, 0.45));
   return { group: grp, center: new THREE.Vector3(0, s.layers.length * 1.5, 0), dist: 30, info: `MoE-in-MoE routing for “${s.text.slice(0, 60)}…”: ${s.layers.length} layers × ${s.layers[0]?.e.length ?? 0} tokens; depth = group, colour = expert, height = group gate probability.` };
 }
-export function mount(st: Stage, r: NestedResult): void { st.scene.clear(); st.scene.add(r.group); st.focus(r.center, r.dist); }
+export function mountArrays(st: Stage, data: { pos: Float32Array; colors: Float32Array; info: string; center: number[]; dist: number }): void {
+  const g = new THREE.Group();
+  g.add(cloud(data.pos, data.colors, 0.45));
+  mount(st, { group: g, info: data.info, center: new THREE.Vector3(data.center[0] ?? 0, data.center[1] ?? 0, data.center[2] ?? 0), dist: data.dist });
+}
+export function mount(st: Stage, r: NestedResult): void {
+  for (const o of [...st.scene.children]) o.traverse((n) => { const mesh = n as THREE.Points; mesh.geometry?.dispose(); const mat = mesh.material; if (Array.isArray(mat)) mat.forEach((m) => m.dispose()); else mat?.dispose(); });
+  st.scene.clear(); st.scene.add(r.group); st.focus(r.center, r.dist);
+}

@@ -16,6 +16,19 @@ function patchedLayer(M, lin, l, h) { const { d, H, hd, ff } = cfg, P = M.layers
     for (let e = 0; e < hd; e++) { let a = 0; for (let s = 0; s <= t; s++) a += (ex[s] / Z) * v[s * d + hh * hd + e]; z[t * d + hh * hd + e] = a; } }
   const o = mv(P.o, z, d, d), mid = Float64Array.from(h, (a, i) => a + o[i] + P.ob[i % d]), x2 = ln(mid, P.ln2w, P.ln2b, R.r2), u = mv(P.fc, x2, ff, d);
   for (let i = 0; i < u.length; i++) u[i] = (u[i] + P.fcb[i % ff]) * R.phi[i]; const y = mv(P.proj, u, d, ff); return { out: Float64Array.from(mid, (a, i) => a + y[i] + P.projb[i % d]), mid }; }
+test('odd layers mask attention to the local window, even layers stay causal', () => {
+  const M = tiny(), ids = Array.from({ length: 6 }, (_, i) => i % cfg.V);
+  M.cfg = { ...cfg, window: 2 };
+  const f = NL.forward(M, ids, { record: true }), T = ids.length;
+  const row = (l, t) => f.rec[l].P.subarray(t * T, (t + 1) * T);
+  const odd = row(1, 5);
+  for (let s = 0; s < 4; s++) assert.equal(odd[s], 0);
+  let sum = 0; for (let s = 4; s <= 5; s++) sum += odd[s];
+  assert.ok(Math.abs(sum - 1) < 1e-5);
+  const even = row(0, 5);
+  assert.ok(even[0] > 0);
+  assert.ok(Math.abs(even.reduce((a, b) => a + b, 0) - 1) < 1e-5);
+});
 test('V14-1 jvp matches finite differences of the RelP-patched layer (true attention derivative, frozen LN rstd and GELU φ)', () => {
   const M = tiny(), ids = Array.from({ length: 21 }, (_, i) => (i * 7 + 2) % cfg.V), lin = NL.tapeRelP(M, ids), { d } = cfg, N = lin.N, S0 = NL.SKIP_FIRST;
   const f = NL.forward(M, ids.slice(0, lin.T), { outs: true }); const r = NL.mulberry(5), X = Float32Array.from({ length: N * d }, () => r() - 0.5);
@@ -74,7 +87,7 @@ test('V14-8 Neuron Lens DB: every file matches db-manifest sha256, 8×1024 neuro
     for (const h of D.heads) for (const k of ['ov_R', 'ov_S', 'writes_R', 'qk_S', 'qk_self']) assert.equal(h[k][0].length, 10); }
 });
 test('V14-9 wiring + provenance: three NEURON LENS tabs in INTERPRET, lens/ shipped in www, catalog sample attributed CC BY 4.0, original-implementation notice', () => {
-  assert.match(S('lab-ui.js'), /'saed', 'nlens', 'nlval', 'nlext'\]/); assert.match(S('v5.js'), /lab-lens\.js\?v=170/); assert.match(S('tools/build-www.mjs'), /'lens'/);
+  assert.match(S('lab-ui.js'), /'saed', 'nlens', 'nlval', 'nlext'\]/); assert.match(S('v5.js'), /lab-lens\.js\?v=194/); assert.match(S('tools/build-www.mjs'), /'lens'/);
   const x = J('lens/ext/neuron-lens-sample.json'); assert.match(x.license, /CC BY 4\.0/); assert.match(x.attribution, /a9lim/); assert.match(x.attribution, /treetowntree/);
   assert.ok(x.models['qwen3-8b'].heads.length === 1152 && x.models['gemma-4-12b'].heads.length === 768); assert.ok(!JSON.stringify(x).includes('"contexts"'));
   assert.match(S('lens/ext/ATTRIBUTION.md'), /creativecommons\.org\/licenses\/by\/4\.0/); assert.match(S('lab-lens.js'), /CC BY 4\.0/);

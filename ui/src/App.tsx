@@ -1,5 +1,5 @@
 import { createSignal, For, onCleanup, onMount, Show, type JSX } from 'solid-js';
-import { WORKSPACES, NATIVE_PANELS, panelsOf, workspaceOfLegacy, type Workspace } from './core/workspaces';
+import { WORKSPACES, NATIVE_PANELS, panelsOf, workspaceOfLegacy, type Workspace } from '@app/core/workspaces';
 import { deserialize, ensurePanels, serialize, panels, activate, addPanel, tabs, type Node } from './core/layout';
 import { legacy } from './core/bridge';
 import { viewTransition } from './core/motion';
@@ -20,12 +20,18 @@ const flatten = (w: Workspace, n: Node): Node => {
 };
 export function App(): JSX.Element {
   const initial = WORKSPACES.find((w) => w.id === (store.get('neuralese.v17.ws') ?? '')) ?? WORKSPACES[0]!;
+  const [modelReady, setModelReady] = createSignal(!!legacy());
   const [ws, setWs] = createSignal<Workspace>(initial); const [layout, setLayoutSig] = createSignal<Node>(loadLayout(initial));
   const [compact, setCompact] = createSignal(innerWidth < 760); const [pal, setPal] = createSignal(false); const [tour, setTour] = createSignal(false);
   const setLayout = (n: Node): void => { setLayoutSig(n); store.set(LK(ws().id), serialize(n)); };
   const go = (w: Workspace, panel?: string): void => {
-    viewTransition(() => { if (w.id !== ws().id) { setWs(w); setLayoutSig(loadLayout(w)); store.set('neuralese.v17.ws', w.id); } if (panel) setLayout(activate(addPanel(layout(), panel), panel)); });
-    if (panel?.startsWith('legacy:')) setTimeout(() => showLegacy(panel.slice(7)), 0);
+    // The dock updates in this turn. A deferred layout write raced the cooperative queue:
+    // the click returned, and the panel was not in the document yet.
+    const base = w.id === ws().id ? layout() : loadLayout(w);
+    const next = panel ? activate(addPanel(base, panel), panel) : base;
+    if (w.id !== ws().id) { setWs(w); store.set('neuralese.v17.ws', w.id); }
+    setLayout(next);
+    if (panel?.startsWith('legacy:')) showLegacy(panel.slice(7));
   };
   const cmds = (): Cmd[] => [
     ...WORKSPACES.map((w) => ({ id: 'ws-' + w.id, title: `${w.title} workspace`, hint: w.blurb, run: () => go(w) })),
@@ -54,14 +60,26 @@ export function App(): JSX.Element {
     const syncTheme = (): void => { setThemeSig(document.documentElement.dataset.theme === 'light' ? 'light' : 'dark'); }; syncTheme();
     new MutationObserver(syncTheme).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
     // legacy code that calls showTab(k) on its own (links, terminal, quiz) → bring that tab's workspace forward
-    document.addEventListener('neuralese:tab', (e) => { if (isShowing()) return; const k = (e as CustomEvent<string>).detail; if (activeLegacy.has(k)) return; const w = workspaceOfLegacy(k); if (w) go(w, 'legacy:' + k); });
+    document.addEventListener('neuralese:tab', (e) => {
+      if (isShowing()) return;
+      const k = (e as CustomEvent<string>).detail;
+      if (activeLegacy.has(k)) return;
+      const w = workspaceOfLegacy(k);
+      const hold = (window as unknown as { __holdWs?: string }).__holdWs;
+      if (hold && w?.id !== hold) return;
+      if (w) go(w, 'legacy:' + k);
+    });
     if (!store.get(TOUR_KEY) && !/notour/.test(location.search)) setTour(true);
+    (window as unknown as { __manifestPanels?: { id: string; panels: string[] }[] }).__manifestPanels = WORKSPACES.map((w) => ({ id: w.id, panels: panelsOf(w) }));
+    const mark = (): void => setModelReady(true);
+    if (legacy()) mark(); else document.addEventListener('neuralese:ready', mark, { once: true });
   });
   return <div class="v17" classList={{ compact: compact() }} data-theme={theme()}>
+    <Show when={!modelReady()}><div class="loadnote" role="status">Loading the model. The workspaces are here; generation starts when the weights arrive.</div></Show>
     <nav class="wsbar" aria-label="workspaces">
-      <For each={WORKSPACES}>{(w) => <button classList={{ on: w.id === ws().id }} aria-current={w.id === ws().id ? 'page' : undefined} title={`${w.blurb}${/^[0-9]$/.test(w.key) ? ` (Alt+${w.key})` : ''}`} data-ws={w.id} onClick={() => go(w)}>{w.title}</button>}</For>
+      <For each={WORKSPACES}>{(w) => <button classList={{ on: w.id === ws().id }} aria-current={w.id === ws().id ? 'page' : undefined} title={`${w.blurb}${/^[0-9]$/.test(w.key) ? ` (Alt+${w.key})` : ''}`} data-ws={w.id} data-feature={`feature-ws-${w.id}`} onClick={() => go(w)}>{w.title}</button>}</For>
       <span class="sp" />
-      <button class="palbtn" onClick={() => setPal(true)} aria-label="open command palette" title="Command palette (Ctrl/⌘+K)">⌘K search</button>
+      <button class="palbtn" data-feature="feature-action-palette" onClick={() => setPal(true)} aria-label="open command palette" title="Command palette (Ctrl/⌘+K)">⌘K search</button>
     </nav>
     <main class="dock" aria-label={`${ws().title} workspace`}>
       <Show when={compact()} fallback={<Dock node={layout()} set={setLayout} root={layout()} compact={false} />}>

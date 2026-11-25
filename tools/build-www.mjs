@@ -3,9 +3,9 @@
 // plus the repo README.md. Used by the gh-pages deploy, the Electron desktop builds and the Capacitor Android/iOS builds.
 // Usage: node tools/build-www.mjs [outDir]
 import fs from 'node:fs'; import path from 'node:path';
-export const DIRS = ['adversary', 'arch', 'forge', 'frontier', 'gpu', 'hub', 'learn', 'lens', 'machine', 'nested', 'shell', 'tsotchke', 'vendor', 'walk'];
+export const DIRS = ['adversary', 'agent', 'arch', 'forge', 'frontier', 'gpu', 'hub', 'learn', 'lens', 'machine', 'nested', 'shell', 'tsotchke', 'vendor', 'walk'];
 // root = repo root; returns names relative to the web root (src/), plus README.md (copied from the repo root)
-export function wwwFiles(root = '.') { const src = path.join(root, 'src'); return [...fs.readdirSync(src).filter((f) => /\.js$/.test(f) || ['index.html', 'style.css', 'cli.mjs'].includes(f)), 'README.md'].sort().concat(DIRS); }
+export function wwwFiles(root = '.') { const src = path.join(root, 'src'); return [...fs.readdirSync(src).filter((f) => /\.js$/.test(f) || ['index.html', 'style.css', 'cli.mjs', 'bpe-ranks.bin', 'vocab-inv.bin'].includes(f)), 'README.md'].sort().concat(DIRS); }
 if (import.meta.url === `file://${process.argv[1]}`) {
   const out = process.argv[2] || 'www'; fs.rmSync(out, { recursive: true, force: true }); fs.mkdirSync(out, { recursive: true });
   for (const f of wwwFiles()) fs.cpSync(f === 'README.md' ? f : path.join('src', f), path.join(out, f), { recursive: true, filter: (s) => !s.endsWith('moonlab/dist/moonlab.wasm') }); // that .wasm is a test by-product (gitignored)
