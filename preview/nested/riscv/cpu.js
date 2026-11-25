@@ -15,14 +15,27 @@
     return { D: spec.D, S: spec.slots, L };
   }
   async function prepAsync(spec) {
-    const nap = () => new Promise((r) => setTimeout(r, 0));
+    let tSlice = 0;
+    const slice = () => {
+      const now = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+      if (!tSlice) tSlice = now;
+      if (now - tSlice < 8) return null;
+      tSlice = now;
+      const host = globalThis.neuraleseBudget;
+      if (host) return host.yieldHost();
+      const Channel = globalThis.MessageChannel;
+      if (typeof Channel === 'function') return new Promise((resolve) => { const ch = new Channel(); ch.port1.onmessage = () => resolve(); ch.port2.postMessage(null); });
+      if (typeof requestAnimationFrame === 'function') return new Promise((resolve) => requestAnimationFrame(() => resolve()));
+      return Promise.resolve();
+    };
+    const nap = () => slice();
     const L = [];
     for (const l of spec.layers) {
       if (l.type === 'ffn') {
-        const rows = Array.from({ length: l.H }, () => []); let n = 0;
-        for (const [h, d, w] of l.W1) { rows[h].push(d, w); if ((++n & 2047) === 0) await nap(); }
-        const outs = Array.from({ length: l.H }, () => []); n = 0;
-        for (const [d, h, w] of l.W2) { outs[h].push(d, w); if ((++n & 2047) === 0) await nap(); }
+        const rows = Array.from({ length: l.H }, () => []);
+        for (const [h, d, w] of l.W1) { rows[h].push(d, w); { const y = slice(); if (y) await y; } }
+        const outs = Array.from({ length: l.H }, () => []);
+        for (const [d, h, w] of l.W2) { outs[h].push(d, w); { const y = slice(); if (y) await y; } }
         L.push({ type: 'ffn', name: l.name, rows, outs, b1: l.b1 });
       } else {
         const g = (lst) => { let n = 0; for (const [, c] of lst) n = Math.max(n, c + 1); return { lst, n }; };

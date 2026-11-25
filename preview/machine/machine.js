@@ -2,7 +2,7 @@
 // Exact means every architectural field matches and the weight path recorded no precision fault.
 // Wall-clock overhead is measured by running the two machines separately.
 
-import { slice } from '../coop.js?v=170';
+import { slice, runBudgeted } from '../coop.js?v=171';
 import { enc } from '../forge/isa.js';
 import { matvec } from '../engine.js';
 import { mulberry32 } from '../model.js';
@@ -130,20 +130,21 @@ export function runMachine(opts = {}) {
 }
 export async function runMachinePaced(opts = {}) {
   const s = beginRun(opts);
-  while (s.weight.cycle < s.limit && s.ref.cycle < s.limit && !s.stop) {
-    if (opts.shouldStop?.()) break;
-    stepRun(s);
-    const y = slice(); if (y) await y;
-    opts.onProgress?.(s.weight.cycle, s.limit);
-  }
+  await runBudgeted((function* () {
+    while (s.weight.cycle < s.limit && s.ref.cycle < s.limit && !s.stop) {
+      if (opts.shouldStop?.()) return;
+      stepRun(s);
+      opts.onProgress?.(s.weight.cycle, s.limit);
+      yield;
+    }
+  })(), { budgetMs: 8 });
   return endRun(s);
 }
 
 async function pace(m, limit, step) {
-  while (!m.halted && !m.fail && m.cycle < limit) {
-    step(m);
-    const y = slice(); if (y) await y;
-  }
+  await runBudgeted((function* () {
+    while (!m.halted && !m.fail && m.cycle < limit) { step(m); yield; }
+  })(), { budgetMs: 8 });
   if (!m.halted && !m.fail && m.cycle >= limit) m.fail = 'step-limit';
   return m;
 }

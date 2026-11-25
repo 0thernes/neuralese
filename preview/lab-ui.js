@@ -1,8 +1,8 @@
 // Shared helpers for the v5 research tabs (markup builders, export, run tracker).
-import { CFG } from './model.js?v=170';
-import { frame } from './coop.js?v=170';
-import { joinLines } from './bytes.js?v=170';
-import { createLab, fromTracker } from './agent/schema.js?v=170';
+import { CFG } from './model.js?v=171';
+import { frame, runBudgeted } from './coop.js?v=171';
+import { joinLines } from './bytes.js?v=171';
+import { createLab, fromTracker } from './agent/schema.js?v=171';
 export const { d, H, hd, L, ff, V } = CFG;
 export const $ = (id) => document.getElementById(id), $$ = (s, r = document) => [...r.querySelectorAll(s)];
 export const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
@@ -26,19 +26,23 @@ function exportWorker() { return new Worker(new URL('./export-worker.js?v=171', 
 async function blobFromParts(parts, type) {
   const w = exportWorker();
   try {
-    for (let i = 0; i < parts.length; i++) { w.postMessage({ op: 'part', s: parts[i] }); if ((i & 7) === 7) await tick(); }
+    await runBudgeted((function* () { for (let i = 0; i < parts.length; i++) { w.postMessage({ op: 'part', s: parts[i] }); yield; } })(), { budgetMs: 8 });
     return await new Promise((resolve, reject) => { w.onmessage = (e) => resolve(e.data); w.onerror = () => reject(new Error('export worker failed')); w.postMessage({ op: 'end', type }); });
   } finally { w.terminate(); }
 }
 async function pngBlob(el) {
   const w = el.width, h = el.height; if (!w || !h) return null;
-  await tick();
   const cap = 96, scale = Math.min(1, cap / Math.max(w, h));
   const cw = Math.max(1, Math.round(w * scale)), ch = Math.max(1, Math.round(h * scale));
   const c = document.createElement('canvas'); c.width = cw; c.height = ch;
-  await tick();
-  c.getContext('2d').drawImage(el, 0, 0, Math.min(48, el.width), Math.min(48, el.height), 0, 0, cw, ch);
-  await tick();
+  const ctx = c.getContext('2d');
+  const sw = Math.min(48, el.width), sh = Math.min(48, el.height);
+  await runBudgeted((function* () {
+    for (let y = 0; y < sh; y++) {
+      ctx.drawImage(el, 0, y, sw, 1, 0, Math.floor(y * ch / sh), cw, Math.max(1, Math.ceil(ch / sh)));
+      yield;
+    }
+  })(), { budgetMs: 8 });
   const bmp = await createImageBitmap(c);
   const worker = exportWorker();
   try {
@@ -53,7 +57,7 @@ export async function exportFor(id, kind) {
   const el = $(id); if (!el) return false; const name = `neuralese-${id}-${Date.now()}`;
   const dl = (blob, ext) => { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${name}.${ext}`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); };
   if (kind === 'png') { if (el.tagName !== 'CANVAS') return false; const b = await pngBlob(el); if (b) dl(b, 'png'); return !!b; }
-  if (kind === 'svg') { const s = el.tagName === 'svg' ? el : el.querySelector('svg'); if (!s) return false; const parts = [s.cloneNode(false).outerHTML.replace(/<\/[^>]+>$/, '')]; const kids = [...s.childNodes]; for (let i = 0; i < kids.length; i++) { parts.push(kids[i].nodeType === 1 ? kids[i].outerHTML : (kids[i].textContent || '')); if ((i & 1) === 1) await tick(); } parts.push(`</${s.tagName}>`); dl(await blobFromParts(parts, 'image/svg+xml'), 'svg'); return true; }
+  if (kind === 'svg') { const s = el.tagName === 'svg' ? el : el.querySelector('svg'); if (!s) return false; const parts = [s.cloneNode(false).outerHTML.replace(/<\/[^>]+>$/, '')]; const kids = [...s.childNodes]; await runBudgeted((function* () { for (let i = 0; i < kids.length; i++) { parts.push(kids[i].nodeType === 1 ? kids[i].outerHTML : (kids[i].textContent || '')); yield; } })(), { budgetMs: 8 }); parts.push(`</${s.tagName}>`); dl(await blobFromParts(parts, 'image/svg+xml'), 'svg'); return true; }
   if (kind === 'csv') {
     const c = el._csv ? await el._csv() : null; if (c == null || c === '' || (Array.isArray(c) && !c.length)) return false;
     const parts = Array.isArray(c) ? c : joinLines(String(c).split('\n'), 64);

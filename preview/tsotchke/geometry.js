@@ -6,8 +6,8 @@
 // one quarter of the Fisher information (Berry curvature is identically 0 because ψ is real). These are standard facts
 // (e.g. Amari & Nagaoka 2000; Bengtsson & Życzkowski 2006); the fidelity itself is computed by Moonlab's WASM simulator.
 export const SOURCE = { qgtl: { repo: 'tsotchke/quantum_geometric_tensor', commit: '770994aa8ddd858e6bb16eebb25250a7b9f67c96' }, moonlab: { repo: 'tsotchke/moonlab', npm: '@tsotchkecorp/moonlab@1.2.1', commit: 'cd3b2347e3739327548708073d7e4ac710cc6a6c' } };
-import { wasmBytes } from './wasmb64.js?v=170';
-import { frame } from '../coop.js?v=170';
+import { wasmBytes } from './wasmb64.js?v=171';
+import { runBudgeted } from '../coop.js?v=171';
 export const NQ = 16, NA = 1 << NQ;
 export function softmax(l) { let m = -Infinity; for (const x of l) if (x > m) m = x; const p = new Float64Array(l.length); let s = 0; for (let i = 0; i < l.length; i++) { p[i] = Math.exp(l[i] - m); s += p[i]; } for (let i = 0; i < l.length; i++) p[i] /= s; return p; }
 export const bhatt = (p, q) => { let s = 0; for (let i = 0; i < p.length; i++) s += Math.sqrt(p[i] * q[i]); return s; };
@@ -18,13 +18,17 @@ let ML = null;
 // Browser: load the unmodified Emscripten glue, then wrap its factory so it instantiates the SHA-256-verified bytes
 // (Moonlab's own loader uses window.MoonlabModule when present). Node: Moonlab's server loader reads dist/moonlab.wasm,
 // which the test suite materialises from the same verified base64 (see test/tsotchke.test.mjs).
-export async function moonlab() { if (ML) return ML; const mod = await import('../vendor/moonlab/dist/index.mjs?v=170');
+export async function moonlab() { if (ML) return ML; const mod = await import('../vendor/moonlab/dist/index.mjs?v=171');
   if (typeof window !== 'undefined') { const bytes = await wasmBytes('moonlab'), js = new URL('../vendor/moonlab/dist/moonlab.js', import.meta.url).href;
     if (!window.MoonlabModule) await new Promise((res, rej) => { const s = document.createElement('script'); s.src = js; s.onload = res; s.onerror = () => rej(new Error('failed to load ' + js)); document.head.appendChild(s); });
     const F = window.MoonlabModule; if (!F.__neuralese) { window.MoonlabModule = Object.assign((cfg = {}) => F({ ...cfg, wasmBinary: bytes }), { __neuralese: true }); } await mod.preload({ jsPath: js }); }
   else await mod.preload(); ML = mod; return mod; }
 const amps = (p) => { const a = new Array(NA); for (let i = 0; i < NA; i++) a[i] = { real: i < p.length ? Math.sqrt(p[i]) : 0, imag: 0 }; return a; };
-async function ampsReady(p) { if (typeof document === 'undefined') return amps(p); const a = new Array(NA); for (let i = 0; i < NA; i++) { a[i] = { real: i < p.length ? Math.sqrt(p[i]) : 0, imag: 0 }; if ((i & 2047) === 2047) await frame(); } return a; }
+async function ampsReady(p) {
+  const a = new Array(NA);
+  await runBudgeted((function* () { for (let i = 0; i < NA; i++) { a[i] = { real: i < p.length ? Math.sqrt(p[i]) : 0, imag: 0 }; yield; } })(), { budgetMs: 8 });
+  return a;
+}
 // Fidelity |⟨√p|√q⟩|² computed by Moonlab (QuantumState.fidelity on two 16-qubit states).
 export async function moonlabFidelity(p, q) { const M = await moonlab(); const A = await M.QuantumState.create({ numQubits: NQ, amplitudes: await ampsReady(p) }), B = await M.QuantumState.create({ numQubits: NQ, amplitudes: await ampsReady(q) }); try { return A.fidelity(B); } finally { A.dispose(); B.dispose(); } }
 export const fsFromFidelity = (F) => Math.acos(Math.min(1, Math.sqrt(Math.max(0, F))));
@@ -47,7 +51,9 @@ export async function lnfLogitLineAsync(W, xPre, t, v, pause) { const d = W.lnfW
   let mu = 0; for (let i = 0; i < d; i++) mu += xPre[t * d + i]; mu /= d; let va = 0; for (let i = 0; i < d; i++) va += (xPre[t * d + i] - mu) ** 2; va /= d; const r = 1 / Math.sqrt(va + eps);
   for (let i = 0; i < d; i++) { n[i] = (xPre[t * d + i] - mu) * r; y0[i] = n[i] * W.lnfW[i] + W.lnfB[i]; y1[i] = n[i] * v[i]; }
   const a = new Float64Array(V), b = new Float64Array(V);
-  for (let o = 0; o < V; o++) { let s0 = 0, s1 = 0; const off = o * d; for (let i = 0; i < d; i++) { s0 += W.wte[off + i] * y0[i]; s1 += W.wte[off + i] * y1[i]; } a[o] = s0; b[o] = s1; if ((o & 1023) === 1023 && pause) await pause(); }
+  await runBudgeted((function* () {
+    for (let o = 0; o < V; o++) { let s0 = 0, s1 = 0; const off = o * d; for (let i = 0; i < d; i++) { s0 += W.wte[off + i] * y0[i]; s1 += W.wte[off + i] * y1[i]; } a[o] = s0; b[o] = s1; yield; }
+  })(), { budgetMs: 8 });
   return { a, b }; }
 // Mean (over predicted positions) Fisher information along v. Prediction checked in tests: equals g''(0) of the mean CE,
 // i.e. 2·c₂ of the Eshkol-recurrence Taylor jet, and 4× the Fubini–Study metric measured from Moonlab fidelities.

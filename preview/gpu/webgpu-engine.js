@@ -2,7 +2,7 @@
 // traces. The JS Engine stays the reference: create() runs a logits-match gate (every position of a fixed prompt, max |Δlogit| ≤ tol
 // against Engine) and returns null if WebGPU is missing or the gate fails, so callers fall back to JS. f32 throughout; one token per
 // step with a GPU-resident KV cache (maxT positions).
-import { frame } from '../coop.js?v=170';
+import { runBudgeted } from '../coop.js?v=171';
 const WG = 64;
 const SHADERS = /* wgsl */ `
 struct P { nOut: u32, nIn: u32, flags: u32, outOff: u32, layer: u32, pos: u32, win: u32, a: u32 };
@@ -74,8 +74,14 @@ export class WebGPUEngine {
   }
   upload(W) { this.W = W; const u = this.up; this.gw = { wte: u(W.wte), wpe: W.wpe, lnfW: u(W.lnfW), lnfB: u(W.lnfB), layers: W.layers.map((P) => Object.fromEntries(Object.entries(P).map(([k, v]) => [k, u(v)]))) }; if (this.ops) this.ops = this.buildOps(); }
   async uploadYield(W) {
-    this.W = W; const dev = this.dev, step = 262144;
-    const put = async (a) => { const b = this.mk(a.length); for (let i = 0; i < a.length; i += step) { dev.queue.writeBuffer(b, i * 4, a.subarray(i, Math.min(a.length, i + step))); await frame(); } return b; };
+    this.W = W; const dev = this.dev;
+    const put = async (a) => {
+      const b = this.mk(a.length);
+      await runBudgeted((function* () {
+        for (let i = 0; i < a.length; i++) { dev.queue.writeBuffer(b, i * 4, a.subarray(i, i + 1)); yield; }
+      })(), { budgetMs: 8 });
+      return b;
+    };
     const layers = [];
     this.gw = { wte: await put(W.wte), wpe: W.wpe, lnfW: await put(W.lnfW), lnfB: await put(W.lnfB), layers };
     for (const P of W.layers) { const o = {}; for (const [k, v] of Object.entries(P)) o[k] = await put(v); layers.push(o); }

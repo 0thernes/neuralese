@@ -1,6 +1,7 @@
 // NEURALESE engine: GPT-Neo forward pass with a full intervention/hook system.
 // Every runtime control lives in `R` (serialisable). Weight edits live in surgery.js.
-import { CFG, mulberry32 } from './model.js?v=170';
+import { CFG, mulberry32 } from './model.js?v=171';
+import { runBudgeted } from './coop.js?v=171';
 const { d, H, hd, L, ff, V } = CFG;
 export const SITES = ['resid_pre', 'z', 'attn_out', 'mlp_act', 'mlp_out', 'resid_post'];
 
@@ -35,16 +36,15 @@ export function matvec(Wm, x, out, nOut, nIn, bias) { // nIn must be a multiple 
   }
   return out;
 }
-export async function matvecYield(Wm, x, out, nOut, nIn, bias, pause, step = 1024) {
-  for (let i0 = 0; i0 < nOut; i0 += step) {
-    const i1 = Math.min(nOut, i0 + step);
-    for (let i = i0; i < i1; i++) {
+export async function matvecYield(Wm, x, out, nOut, nIn, bias) {
+  await runBudgeted((function* () {
+    for (let i = 0; i < nOut; i++) {
       let s0 = 0, s1 = 0, s2 = 0, s3 = 0; const o = i * nIn;
       for (let j = 0; j < nIn; j += 4) { s0 += Wm[o + j] * x[j]; s1 += Wm[o + j + 1] * x[j + 1]; s2 += Wm[o + j + 2] * x[j + 2]; s3 += Wm[o + j + 3] * x[j + 3]; }
       out[i] = (bias ? bias[i] : 0) + s0 + s1 + s2 + s3;
+      yield;
     }
-    if (pause) await pause();
-  }
+  })(), { budgetMs: 8 });
   return out;
 }
 export const gelu = (x) => 0.5 * x * (1 + Math.tanh(0.7978845608028654 * (x + 0.044715 * x * x * x)));

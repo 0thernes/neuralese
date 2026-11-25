@@ -1,12 +1,12 @@
 // INTERPRET group: attention grid/rollout/head classes, residual geometry, circuit graph, neuron atlas, embeddings, SAE dashboard.
-import * as C from './labcore.js?v=170';
-import { logSoftmax, topK, entropy } from './engine.js?v=170';
-import { dla, steppedRun } from './analysis.js?v=170';
-import { CORPUS } from './corpus.js?v=170';
-import { allDocs } from './dataset.js?v=170';
-import { heatmap, lines, bars, scatter, showTip, seqColor, arcs, heatStrip, stampGrid, viridisBytes } from './charts.js?v=170';
-import { $, esc, fmt, opts, lOpts, XB, cv, tipq, pal, PAL, prog, svgEl, tick, tokId, canvasFit, d, H, L, ff, V } from './lab-ui.js?v=170';
-import { slice } from './coop.js?v=170';
+import * as C from './labcore.js?v=171';
+import { logSoftmax, topK, entropy } from './engine.js?v=171';
+import { dla, steppedRun } from './analysis.js?v=171';
+import { CORPUS } from './corpus.js?v=171';
+import { allDocs } from './dataset.js?v=171';
+import { heatmap, lines, bars, scatter, showTip, seqColor, arcs, heatStrip, stampGrid, viridisBytes } from './charts.js?v=171';
+import { $, esc, fmt, opts, lOpts, XB, cv, tipq, pal, PAL, prog, svgEl, tick, tokId, canvasFit, d, H, L, ff, V } from './lab-ui.js?v=171';
+import { slice } from './coop.js?v=171';
 const IOI = 'When Mary and John went to the store, John gave a drink to';
 export const markup = {
   attn: ['ATTENTION', 'Attention patterns', `<fieldset><legend>input</legend><div class="r"><input id="xAP" style="flex:1" value="${IOI}"/><button class="pri" id="xA">run</button></div><div id="xAInfo" class="sm"></div></fieldset>
@@ -37,7 +37,7 @@ export function install(A, out) {
     const cvs = $('xAGrid'), w0 = cvs.clientWidth || 420, tile = Math.max(6, Math.floor((w0 - 20) / H)), [c, w] = canvasFit(cvs, tile * slots + 4); c.fillStyle = '#000'; c.fillRect(0, 0, w, tile * slots + 4);
     const cell = (tile - 2) / T; for (let s = 0; s < slots; s++) { for (let h = 0; h < H; h++) { const x0 = 18 + h * tile, y0 = s * tile; stampGrid(c, x0, y0, Math.max(1, cell * T), Math.max(1, cell * T), T, T, (q, k) => { if (k > q) return [0, 0, 0, 0]; const v = tr[q].pattern[s]?.[h]?.[k] ?? 0; if (v < 0.02) return [0, 0, 0, 0]; const rgb = viridisBytes(Math.sqrt(v)); return [rgb[0], rgb[1], rgb[2], 255]; }); const y = slice(); if (y) await y; } }
     c.fillStyle = '#7d8aa6'; c.font = '9px monospace'; for (let s = 0; s < slots; s++) c.fillText(String(eng.R.program[s].layer), 2, s * tile + tile / 2 + 3);
-    cvs._csv = async () => { const lines = ['slot,head,query,key,weight']; let n = 0; for (let q = 0; q < tr.length; q++) { const ps = tr[q].pattern || []; for (let s = 0; s < ps.length; s++) { const heads = ps[s] || []; for (let h = 0; h < heads.length; h++) { const p = heads[h]; if (!p) continue; for (let k = 0; k < p.length; k++) { lines.push(`${s},${h},${q},${k},${p[k]}`); if ((++n & 63) === 0) await tick(); } } } } const parts = []; for (let i = 0; i < lines.length; i += 512) { parts.push(lines.slice(i, i + 512).join('\n')); await tick(); } return parts; };
+    cvs._csv = async () => { const lines = ['slot,head,query,key,weight']; for (let q = 0; q < tr.length; q++) { const ps = tr[q].pattern || []; for (let s = 0; s < ps.length; s++) { const heads = ps[s] || []; for (let h = 0; h < heads.length; h++) { const p = heads[h]; if (!p) continue; for (let k = 0; k < p.length; k++) { lines.push(`${s},${h},${q},${k},${p[k]}`); { const y = slice(); if (y) await y; } } } } } const parts = []; for (let i = 0; i < lines.length; i += 512) { parts.push(lines.slice(i, i + 512).join('\n')); await tick(); } return parts; };
     const at = (e) => { const r = cvs.getBoundingClientRect(), h = Math.floor((e.clientX - r.left - 18) / tile), s = Math.floor((e.clientY - r.top) / tile); return h >= 0 && h < H && s >= 0 && s < slots ? [s, h] : null; };
     cvs.onclick = (e) => { const p = at(e); if (p) { drawOne(p[0], p[1]); A.setSel({ l: eng.R.program[p[0]].layer, h: p[1] }); } };
     cvs.onmousemove = (e) => { const p = at(e); showTip(e, p ? `slot ${p[0]} (L${eng.R.program[p[0]].layer}) head ${p[1]} — click to enlarge` : ''); }; cvs.onmouseleave = () => showTip(null, '');
@@ -114,7 +114,7 @@ export function install(A, out) {
     scatter($('xEG'), ids.map((t) => ({ x: at.get(t)[0], y: at.get(t)[1], c: ['#fbbf24', '#5eead4', '#64748b'][set.get(t)], r: set.get(t) ? 3 : 5, text: tstr(t), label: `"${tstr(t)}" id ${t}` })), { h: 300, lines: edges.map(([a, b]) => ({ pts: [at.get(a), at.get(b)], color: '#47556999' })) });
     EM = { id, nn }; if (MAP) drawMap(); return nn; };
   out.embmap = async () => { const n = Math.max(100, Math.min(5000, +$('xES').value || 1500)), W = A.M(), seen = new Set(); for (const doc of CORPUS) for (const t of doc) if (seen.size < n) seen.add(t); for (let t = 0; seen.size < n && t < V; t++) seen.add(t);
-    const ids = [...seen], Xf = new Float32Array(ids.length * d); for (let i = 0; i < ids.length; i++) { Xf.set(C.embedOf(W, ids[i]), i * d); if ((i & 255) === 255) await tick(); } const P = await C.pcaKAsync(Xf, ids.length, d, 2, 40); MAP = { ids, P }; $('xEMI').textContent = `${ids.length} tokens · PC1 ${(100 * P.explained[0]).toFixed(1)}% · PC2 ${(100 * P.explained[1]).toFixed(1)}%`; drawMap(); return MAP; };
+    const ids = [...seen], Xf = new Float32Array(ids.length * d); for (let i = 0; i < ids.length; i++) { Xf.set(C.embedOf(W, ids[i]), i * d); { const y = slice(); if (y) await y; } } const P = await C.pcaKAsync(Xf, ids.length, d, 2, 40); MAP = { ids, P }; $('xEMI').textContent = `${ids.length} tokens · PC1 ${(100 * P.explained[0]).toFixed(1)}% · PC2 ${(100 * P.explained[1]).toFixed(1)}%`; drawMap(); return MAP; };
   on('xE', 'click', () => out.embed()); on('xEM', 'click', out.embmap);
 
   // SAE dashboard

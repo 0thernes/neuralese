@@ -1,9 +1,9 @@
 // v7 research core (DOM-free, tested in Node): hypothesis tests, ACDC-style circuit discovery, causal scrubbing-lite,
 // linear probes with control tasks, eval harness, weight hashing and experiment manifests.
-import { forward, forwardAsync, logitsAt, logitsAtAsync, objective } from './grad.js?v=170';
-import { cloneWeights } from './model.js?v=170';
-import { rng } from './science.js?v=170';
-import { frame } from './coop.js?v=170';
+import { forward, forwardAsync, logitsAt, logitsAtAsync, objective } from './grad.js?v=171';
+import { cloneWeights } from './model.js?v=171';
+import { rng } from './science.js?v=171';
+import { frame, runBudgeted } from './coop.js?v=171';
 const mean = (a) => a.reduce((s, x) => s + x, 0) / (a.length || 1);
 const sd = (a) => { const m = mean(a); return Math.sqrt(a.reduce((s, x) => s + (x - m) ** 2, 0) / Math.max(1, a.length - 1)); };
 // ── hypothesis testing ──
@@ -65,7 +65,16 @@ async function metricAsync(W, A, obj = { kind: 'ce' }) {
   throw new Error('unknown objective ' + obj.kind);
 }
 async function runCorruptedAsync(W, clean, Ac, set, obj) { const d = W.lnfW.length, H = (W.cfg || { H: 16 }).H || 16, hd = d / H;
-  const A = await forwardAsync(W, clean, { patch: async (site, l, X) => { let k = 0; for (const n of set) if (n.l === l) { if (site === 'z' && !n.mlp) { for (let t = 0; t < clean.length; t++) for (let i = n.h * hd; i < n.h * hd + hd; i++) X[t * d + i] = Ac.layers[l].z[t * d + i]; } else if (site === 'mlp_out' && n.mlp) X.set(Ac.layers[l].mlpOut); if ((++k & 7) === 0 && typeof document !== 'undefined') await frame(); } } });
+  const A = await forwardAsync(W, clean, { patch: async (site, l, X) => {
+    const nodes = []; for (const n of set) if (n.l === l) nodes.push(n);
+    await runBudgeted((function* () {
+      for (const n of nodes) {
+        if (site === 'z' && !n.mlp) { for (let t = 0; t < clean.length; t++) for (let i = n.h * hd; i < n.h * hd + hd; i++) X[t * d + i] = Ac.layers[l].z[t * d + i]; }
+        else if (site === 'mlp_out' && n.mlp) { for (let i = 0; i < X.length; i++) X[i] = Ac.layers[l].mlpOut[i]; }
+        yield;
+      }
+    })(), { budgetMs: 8 });
+  } });
   return metricAsync(W, A, obj); }
 export function acdc(W, clean, corr, obj, tau = 0.02) { const g = acdcGen(W, clean, corr, obj, tau); for (;;) { const r = g.next(); if (r.done) return r.value; } }
 // Same search as acdcGen, but each forward returns to the event loop between layers.
@@ -75,7 +84,12 @@ export async function acdcAsync(W, clean, corr, obj, tau = 0.02, onp = () => {})
   const mClean = await metricAsync(W, await forwardAsync(W, clean), obj), mCorr = await metricAsync(W, Ac, obj), gap = mClean - mCorr;
   if (Math.abs(gap) < 1e-6) throw new Error('clean and corrupt metric are identical — nothing to explain');
   const nodes = nodeList(W), pruned = new Set(); let cur = mClean, evals = 2; const order = [...nodes].reverse();
-  for (let k = 0; k < order.length; k++) { await frame(); const n = order[k]; pruned.add(n); const m = await runCorruptedAsync(W, clean, Ac, pruned, obj); evals++; if (Math.abs(m - cur) / Math.abs(gap) < tau) cur = m; else pruned.delete(n); onp((k + 1) / order.length); await frame(); }
+  await runBudgeted((function* () {
+    for (let k = 0; k < order.length; k++) {
+      const n = order[k]; pruned.add(n);
+      yield runCorruptedAsync(W, clean, Ac, pruned, obj).then((m) => { evals++; if (Math.abs(m - cur) / Math.abs(gap) < tau) cur = m; else pruned.delete(n); onp((k + 1) / order.length); });
+    }
+  })(), { budgetMs: 8 });
   const circuit = nodes.filter((n) => !pruned.has(n));
   return { circuit: circuit.map((n) => n.id), nPruned: pruned.size, nNodes: nodes.length, mClean, mCorr, mCircuit: cur, faithfulness: (cur - mCorr) / gap, evals, tau };
 }
@@ -176,7 +190,12 @@ function sha256() {
 }
 export async function weightsHash(W) {
   const s = sha256();
-  for (const [, a] of tensorsOf(W)) { const u = new Uint8Array(a.buffer, a.byteOffset, a.byteLength); let n = 0; for (let i = 0; i < u.length; i += 65536) { s.update(u.subarray(i, Math.min(u.length, i + 65536))); if ((++n & 7) === 0) await frame(); } }
+  await runBudgeted((function* () {
+    for (const [, a] of tensorsOf(W)) {
+      const u = new Uint8Array(a.buffer, a.byteOffset, a.byteLength);
+      for (let i = 0; i < u.length; i += 64) { s.update(u.subarray(i, Math.min(u.length, i + 64))); yield; }
+    }
+  })(), { budgetMs: 8 });
   return s.hex();
 }
 export function manifest({ version, modelId, origHash, curHash, edits, runtime, prompt, decode, seed, env, extra = {} }) { return { schema: 'neuralese.manifest/1', created: new Date().toISOString(), app: version, model: { id: modelId, sha256_original: origHash }, weights_sha256_current: curHash, seed, deterministic: decode?.mode === 'greedy' || seed != null, edits, runtime, prompt, decode, env, ...extra }; }

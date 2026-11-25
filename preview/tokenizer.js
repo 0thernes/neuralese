@@ -1,5 +1,5 @@
 // Minimal GPT-2 byte-level BPE tokenizer (vocab.json + merges.txt)
-import { frame } from './coop.js?v=170';
+import { runBudgeted } from './coop.js?v=171';
 function bytesToUnicode() {
   const bs = [];
   for (let i = 33; i <= 126; i++) bs.push(i);
@@ -14,14 +14,14 @@ function bytesToUnicode() {
 }
 const PAT = /'s|'t|'re|'ve|'m|'ll|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+/gu;
 // vocab.json is one object. JSON.parse of it is one script of several hundred milliseconds, so the page walks the text.
-export async function parseVocabYield(text, pause = null) {
+export async function parseVocabYield(text) {
   const vocab = Object.create(null);
-  let i = 0, n = 0;
+  let i = 0;
   while (i < text.length && text[i] !== '{') i++;
   i++;
-  while (i < text.length) {
+  const pull = () => {
     while (i < text.length && text[i] !== '"' && text[i] !== '}') i++;
-    if (text[i] !== '"') break;
+    if (text[i] !== '"') return false;
     i++;
     let key = '';
     while (i < text.length) {
@@ -43,9 +43,11 @@ export async function parseVocabYield(text, pause = null) {
     let num = '';
     while (i < text.length && text[i] !== ',' && text[i] !== '}') num += text[i++];
     vocab[key] = +num;
-    n++;
-    if (pause && (n & 127) === 0) await pause();
-  }
+    return true;
+  };
+  await runBudgeted((function* () {
+    while (pull()) yield;
+  })(), { budgetMs: 8 });
   return vocab;
 }
 const STR_CACHE = 48;
@@ -113,18 +115,19 @@ export class GPT2Tokenizer {
     tok.encoder = vocab;
     tok.decoder = [];
     const keys = Object.keys(vocab);
-    for (let i = 0; i < keys.length; i++) {
-      tok.decoder[vocab[keys[i]]] = keys[i];
-      if ((i & 63) === 63 && typeof document !== 'undefined') await frame();
-    }
+    await runBudgeted((function* () {
+      for (let i = 0; i < keys.length; i++) { tok.decoder[vocab[keys[i]]] = keys[i]; yield; }
+    })(), { budgetMs: 8 });
     tok.ranks = new Map();
     const lines = String(mergesText).split('\n');
     let r = 0;
-    for (let i = 0; i < lines.length; i++) {
-      const l = lines[i];
-      if (l && !l.startsWith('#version')) tok.ranks.set(l, r++);
-      if ((i & 7) === 7 && typeof document !== 'undefined') await frame();
-    }
+    await runBudgeted((function* () {
+      for (let i = 0; i < lines.length; i++) {
+        const l = lines[i];
+        if (l && !l.startsWith('#version')) tok.ranks.set(l, r++);
+        yield;
+      }
+    })(), { budgetMs: 8 });
     return tok;
   }
   // Page path. The inverse table is already a binary; this only keeps the typed-array views.
@@ -132,7 +135,10 @@ export class GPT2Tokenizer {
     const tok = GPT2Tokenizer.fromPairs(vocab, buffer, true);
     if (inverse) { tok.installInverse(inverse); return tok; }
     tok.decoder = [];
-    for (const [k, v] of Object.entries(vocab)) tok.decoder[v] = k;
+    const entries = Object.entries(vocab);
+    await runBudgeted((function* () {
+      for (let i = 0; i < entries.length; i++) { tok.decoder[entries[i][1]] = entries[i][0]; yield; }
+    })(), { budgetMs: 8 });
     return tok;
   }
   piece(id) {

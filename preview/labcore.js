@@ -1,8 +1,9 @@
 // NEURALESE lab core: pure, testable research computations behind every v5 visualization.
 // These functions compute from the weights/engine passed in at call time (no cached or precomputed results inside this module).
-import { CFG, mulberry32, cloneWeights } from './model.js?v=170';
-import { Engine, defaultRuntime, logSoftmax, layerNorm, entropy } from './engine.js?v=170';
-import { slice, frame } from './coop.js?v=170';
+import { CFG, mulberry32, cloneWeights } from './model.js?v=171';
+import { Engine, defaultRuntime, logSoftmax, layerNorm, entropy } from './engine.js?v=171';
+import { slice, frame, runBudgeted } from './coop.js?v=171';
+import { allocZeroYield } from './model.js?v=171';
 const { d, H, hd, L, ff, V } = CFG;
 const tick = () => frame();
 
@@ -175,26 +176,30 @@ export function nearestTokens(W, vec, k = 12, exclude = -1) {
 }
 export async function nearestTokensAsync(W, vec, k = 12, exclude = -1) {
   let n = _normCache && _normCache.W === W.wte ? _normCache.n : null;
-  if (!n) { n = new Float32Array(W.wte.length / d); for (let i = 0; i < n.length; i++) { let s = 0; for (let j = 0; j < d; j++) s += W.wte[i * d + j] ** 2; n[i] = Math.sqrt(s) || 1; if ((i & 2047) === 2047) await tick(); } _normCache = { W: W.wte, n }; }
+  if (!n) {
+    n = new Float32Array(W.wte.length / d);
+    await runBudgeted((function* () { for (let i = 0; i < n.length; i++) { let s = 0; for (let j = 0; j < d; j++) s += W.wte[i * d + j] ** 2; n[i] = Math.sqrt(s) || 1; yield; } })(), { budgetMs: 8 });
+    _normCache = { W: W.wte, n };
+  }
   const vn = Math.hypot(...vec) || 1, best = [];
   for (let i = 0; i < n.length; i++) { if (i === exclude) continue; let s = 0; const o = i * d; for (let j = 0; j < d; j++) s += W.wte[o + j] * vec[j]; s /= n[i] * vn;
     if (best.length < k || s > best[best.length - 1][1]) { best.push([i, s]); best.sort((a, b) => b[1] - a[1]); if (best.length > k) best.pop(); }
-    if ((i & 2047) === 2047) await tick(); }
+    const y = slice(); if (y) await y; }
   return best;
 }
 export async function pcaKAsync(X, n, dim, k = 3, iters = 60) {
-  const mu = new Float64Array(dim); for (let i = 0; i < n; i++) { for (let j = 0; j < dim; j++) mu[j] += X[i * dim + j] / n; if ((i & 255) === 255) await tick(); }
+  const mu = new Float64Array(dim); for (let i = 0; i < n; i++) { for (let j = 0; j < dim; j++) mu[j] += X[i * dim + j] / n; { const y = slice(); if (y) await y; } }
   const C = new Float64Array(dim * dim);
-  for (let i = 0; i < n; i++) { for (let a = 0; a < dim; a++) { const xa = X[i * dim + a] - mu[a]; if (!xa) continue; for (let b = a; b < dim; b++) C[a * dim + b] += xa * (X[i * dim + b] - mu[b]); } if ((i & 15) === 15) await tick(); }
+  for (let i = 0; i < n; i++) { for (let a = 0; a < dim; a++) { const xa = X[i * dim + a] - mu[a]; if (!xa) continue; for (let b = a; b < dim; b++) C[a * dim + b] += xa * (X[i * dim + b] - mu[b]); } { const y = slice(); if (y) await y; } }
   for (let a = 0; a < dim; a++) for (let b = 0; b < a; b++) C[a * dim + b] = C[b * dim + a]; let totVar = 0; for (let a = 0; a < dim; a++) totVar += C[a * dim + a];
   const comps = [], vars = [];
   for (let c = 0; c < k; c++) { let v = new Float64Array(dim).map((_, i) => Math.sin(i * (c + 1) + 1)), lam = 0;
     for (let it = 0; it < iters; it++) { const w = new Float64Array(dim); for (let a = 0; a < dim; a++) { let s = 0; for (let b = 0; b < dim; b++) s += C[a * dim + b] * v[b]; w[a] = s; }
       for (const u of comps) { let p = 0; for (let a = 0; a < dim; a++) p += w[a] * u[a]; for (let a = 0; a < dim; a++) w[a] -= p * u[a]; }
-      lam = Math.hypot(...w); v = w.map((x) => x / (lam || 1)); if ((it & 3) === 3) await tick(); }
+      lam = Math.hypot(...w); v = w.map((x) => x / (lam || 1)); { const y = slice(); if (y) await y; } }
     comps.push(v); vars.push(lam / (totVar || 1)); }
   const proj = [];
-  for (let i = 0; i < n; i++) { proj.push(comps.map((u) => { let s = 0; for (let j = 0; j < dim; j++) s += (X[i * dim + j] - mu[j]) * u[j]; return s; })); if ((i & 255) === 255) await tick(); }
+  for (let i = 0; i < n; i++) { proj.push(comps.map((u) => { let s = 0; for (let j = 0; j < dim; j++) s += (X[i * dim + j] - mu[j]) * u[j]; return s; })); { const y = slice(); if (y) await y; } }
   return { comps, mu, explained: vars, proj };
 }
 export const embedOf = (W, id) => W.wte.subarray(id * d, id * d + d);
@@ -205,14 +210,14 @@ export const embedOf = (W, id) => W.wte.subarray(id * d, id * d + d);
 export async function neuronAtlas(Wc, docs, l, N = 400, k = 16, onp = () => {}) {
   const eng = new Engine(Wc, defaultRuntime()); const acts = new Float32Array(N * ff), ids = new Int32Array(N), where = []; let n = 0;
   for (let di = 0; di < docs.length && n < N; di++) { const s = eng.newSeq(docs[di].length);
-    for (let t = 0; t < docs[di].length && n < N; t++) { eng.step(s, docs[di][t], { hook: (site, slot, layer, tt, x) => { if (site === 'mlp_act' && layer === l) acts.set(x, n * ff); } }); ids[n] = docs[di][t]; where.push([di, t]); n++; if ((t & 3) === 3) await tick(); }
+    for (let t = 0; t < docs[di].length && n < N; t++) { eng.step(s, docs[di][t], { hook: (site, slot, layer, tt, x) => { if (site === 'mlp_act' && layer === l) acts.set(x, n * ff); } }); ids[n] = docs[di][t]; where.push([di, t]); n++; { const y = slice(); if (y) await y; } }
     onp(n / N); await tick(); }
   const neurons = [];
   for (let j = 0; j < ff; j++) { let mx = -Infinity, mean = 0, fire = 0; const top = [];
     for (let i = 0; i < n; i++) { const a = acts[i * ff + j]; mean += a; if (a > 0) fire++; if (a > mx) mx = a; if (top.length < k || a > top[top.length - 1][1]) { top.push([i, a]); top.sort((x, y) => y[1] - x[1]); if (top.length > k) top.pop(); } }
     const mass = new Map(); let tot = 0; for (const [i, a] of top) { const w = Math.max(0, a); mass.set(ids[i], (mass.get(ids[i]) || 0) + w); tot += w; }
     let Hh = 0; for (const w of mass.values()) { const p = w / (tot || 1); if (p > 0) Hh -= p * Math.log(p); }
-    neurons.push({ n: j, max: mx, mean: mean / n, freq: fire / n, top: top.map(([i, a]) => ({ i, a, id: ids[i], doc: where[i][0], pos: where[i][1] })), poly: Math.exp(Hh) }); if ((j & 31) === 31) { const y = slice(); if (y) await y; } }
+    neurons.push({ n: j, max: mx, mean: mean / n, freq: fire / n, top: top.map(([i, a]) => ({ i, a, id: ids[i], doc: where[i][0], pos: where[i][1] })), poly: Math.exp(Hh) }); { const y = slice(); if (y) await y; } }
   return { l, N: n, neurons };
 }
 
@@ -270,12 +275,16 @@ export function blendWeights(W, M, alpha, scratch) {
 }
 // Same blend, but the wte copy is ~50MB. Yield between slices so it is not one animation frame.
 export async function blendWeightsAsync(W, M, alpha, scratch) {
-  const chunk = async (src) => { const o = new Float32Array(src.length), N = 262144; for (let i = 0; i < src.length; i += N) { o.set(src.subarray(i, Math.min(src.length, i + N)), i); const y = slice(); if (y) await y; } return o; };
+  const chunk = async (src) => {
+    const o = await allocZeroYield(src.length);
+    await runBudgeted((function* () { for (let i = 0; i < src.length; i++) { o[i] = src[i]; yield; } })(), { budgetMs: 8 });
+    return o;
+  };
   if (!scratch) {
     scratch = { wte: await chunk(W.wte), wpe: await chunk(W.wpe), lnfW: await chunk(W.lnfW), lnfB: await chunk(W.lnfB), layers: [] };
     for (const P of W.layers) { const o = {}; for (const k of Object.keys(P)) o[k] = await chunk(P[k]); scratch.layers.push(o); }
   }
-  const mix = async (a, b, o) => { const N = 65536; for (let i = 0; i < a.length; i += N) { const end = Math.min(a.length, i + N); for (let j = i; j < end; j++) o[j] = a[j] + alpha * (b[j] - a[j]); const y = slice(); if (y) await y; } };
+  const mix = async (a, b, o) => { await runBudgeted((function* () { for (let j = 0; j < a.length; j++) { o[j] = a[j] + alpha * (b[j] - a[j]); yield; } })(), { budgetMs: 8 }); };
   await mix(W.wte, M.wte, scratch.wte); await mix(W.wpe, M.wpe, scratch.wpe); await mix(W.lnfW, M.lnfW, scratch.lnfW); await mix(W.lnfB, M.lnfB, scratch.lnfB);
   for (let l = 0; l < W.layers.length; l++) for (const k of Object.keys(W.layers[l])) await mix(W.layers[l][k], M.layers[l][k], scratch.layers[l][k]);
   return scratch;

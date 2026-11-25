@@ -1,17 +1,18 @@
 // v6 SCIENCE group: drill-down inspector, gradients & attribution, head circuits, representation geometry, loss landscape;
 // VIEW: 3D modes; TOOLS: WebGPU, model zoo + diff, shareable experiment URLs. Every number is computed live from the current weights.
-import { CORPUS } from './corpus.js?v=170';
-import { docs as DSdocs } from './dataset.js?v=170';
-import { lines, bars, heatmap, scatter } from './charts.js?v=170';
-import { $, esc, fmt, opts, cv, tipq, prog, tick, lOpts, hOpts } from './lab-ui.js?v=170';
-import * as D from './drill.js?v=170';
-import * as G from './grad.js?v=170';
-import * as S from './science.js?v=170';
-import { svdYield } from './linalg.js?v=170';
-import { GPU, bench, cpuMatVec } from './gpu.js?v=170';
-import { ZOO, loadZoo, httpRange, weightDiff } from './zoo.js?v=170';
-import { cloneWeightsYield } from './model.js?v=170';
-import { frame } from './coop.js?v=170';
+import { CORPUS } from './corpus.js?v=171';
+import { docs as DSdocs } from './dataset.js?v=171';
+import { lines, bars, heatmap, scatter } from './charts.js?v=171';
+import { $, esc, fmt, opts, cv, tipq, prog, tick, lOpts, hOpts } from './lab-ui.js?v=171';
+import * as D from './drill.js?v=171';
+import * as G from './grad.js?v=171';
+import * as S from './science.js?v=171';
+import { svdYield } from './linalg.js?v=171';
+import { slice } from './coop.js?v=171';
+import { GPU, bench, cpuMatVec } from './gpu.js?v=171';
+import { ZOO, loadZoo, httpRange, weightDiff } from './zoo.js?v=171';
+import { cloneWeightsYield } from './model.js?v=171';
+import { frame } from './coop.js?v=171';
 const P = (id) => `<div class="prog" id="${id}"><i></i></div>`;
 const docsN = (n, T = 24) => DSdocs(n, T); // shared dataset (built-in or user corpus)
 const pearson = (a, b) => { const n = a.length, ma = a.reduce((s, x) => s + x, 0) / n, mb = b.reduce((s, x) => s + x, 0) / n; let ab = 0, aa = 0, bb = 0; for (let i = 0; i < n; i++) { ab += (a[i] - ma) * (b[i] - mb); aa += (a[i] - ma) ** 2; bb += (b[i] - mb) ** 2; } return ab / Math.sqrt(aa * bb || 1); };
@@ -160,8 +161,8 @@ ${row('∂L/∂(θ̂) analytic vs finite-diff', `${fmt(g.dirDeriv, 6)} vs ${fmt(
   on('l1', 'click', () => out.land(false)); on('l2', 'click', () => out.land(true));
   // ── 3D MODES ──
   const pca3 = async (X) => { const d = X[0].length, mu = new Float64Array(d); for (const x of X) for (let i = 0; i < d; i++) mu[i] += x[i] / X.length; const Cv = new Float64Array(d * d);
-    for (let t = 0; t < X.length; t++) { const x = X[t]; for (let i = 0; i < d; i++) { const a = x[i] - mu[i]; for (let j = 0; j < d; j++) Cv[i * d + j] += a * (x[j] - mu[j]); } if ((t & 15) === 15) await frame(); }
-    const R = await svdYield(Cv, d, d), U = R.U.slice(0, 3); const pts = []; for (let t = 0; t < X.length; t++) { const x = X[t]; pts.push(U.map((u) => { let s = 0; for (let i = 0; i < d; i++) s += (x[i] - mu[i]) * u[i]; return s; })); if ((t & 31) === 31) await frame(); } const sc = 6 / Math.max(...pts.flat().map(Math.abs)); return pts.map((p) => p.map((v) => v * sc)); };
+    for (let t = 0; t < X.length; t++) { const x = X[t]; for (let i = 0; i < d; i++) { const a = x[i] - mu[i]; for (let j = 0; j < d; j++) Cv[i * d + j] += a * (x[j] - mu[j]); } { const y = slice(); if (y) await y; } }
+    const R = await svdYield(Cv, d, d), U = R.U.slice(0, 3); const pts = []; for (let t = 0; t < X.length; t++) { const x = X[t]; pts.push(U.map((u) => { let s = 0; for (let i = 0; i < d; i++) s += (x[i] - mu[i]) * u[i]; return s; })); { const y = slice(); if (y) await y; } } const sc = 6 / Math.max(...pts.flat().map(Math.abs)); return pts.map((p) => p.map((v) => v * sc)); };
   out.mode = async (name) => { const W = M(); let data = {};
     if (name === 'field') { const l = node.key && MATK.includes(node.key) ? node.l : +$('mL').value, k = node.key && MATK.includes(node.key) ? node.key : $('mK').value, [rows, cols] = D.shapeOf(W, k); data = { a: W.layers[l][k], rows, cols, label: `L${l}.${k}` }; }
     else if (name === 'surface') { if (!cache.land || !cache.land.twoD) { $('lN').value = 9; await out.land(true); return A.viz.info3d; } data = cache.land; }

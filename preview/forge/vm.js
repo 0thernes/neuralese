@@ -1,6 +1,7 @@
 // Integer reference VM for ForgeISA/1. Ground truth. Words are int32. No float rounding.
 
 import { FUNCT_HALT, FUNCT_OP, OP, STEP_LIMIT, dec, padRom } from './isa.js';
+import { runBudgeted } from '../coop.js?v=171';
 
 export class VM {
   constructor(words) {
@@ -70,11 +71,13 @@ export function runVM(words, limit = STEP_LIMIT) {
 export async function runVMAsync(words, limit = STEP_LIMIT, shouldStop = () => false) {
   const vm = new VM(words);
   const trace = [];
-  while (!vm.halted && !vm.fail && trace.length < limit) {
-    if (shouldStop()) { vm.fail = 'cancelled'; break; }
-    trace.push(vm.step());
-    if ((trace.length & 31) === 0) await new Promise((r) => setTimeout(r, 0));
-  }
+  await runBudgeted((function* () {
+    while (!vm.halted && !vm.fail && trace.length < limit) {
+      if (shouldStop()) { vm.fail = 'cancelled'; return; }
+      trace.push(vm.step());
+      yield;
+    }
+  })(), { budgetMs: 8 });
   if (!vm.halted && !vm.fail) vm.fail = 'step-limit';
   return finishVM(vm, trace);
 }

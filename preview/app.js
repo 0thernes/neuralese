@@ -1,31 +1,31 @@
 // NEURALESE v2 — UI wiring. All numerics live in engine/analysis/surgery/decode/sae/rome (unit-tested vs PyTorch).
-import * as U152 from './ui152.js?v=170';
-import { GPT2Tokenizer, parseVocabYield } from './tokenizer.js?v=170';
-import { CFG, buildWeights, parseSafetensorsYield, cloneWeightsYield, mulberry32 } from './model.js?v=170';
-import { concatUint8 } from './bytes.js?v=170';
-import { Engine, defaultRuntime, logSoftmax, topK, SITES } from './engine.js?v=170';
-import { RemoteEngine, withBias } from './engine-client.js?v=170';
-import { bindRemote } from './trace-remote.js?v=170';
-import { computeStats, actCovariance, fitTunedLens, lensGrid, dla, patchResid, patchHeads, pathPatchHeadsToLogits, ablationSweep, buildControlVector, vectorArithmetic, tokenStats } from './analysis.js?v=170';
-import { Editor, MATS, getMat, toSafetensorsYield, quantize } from './surgery.js?v=170';
-import { defaultDecode, applyPenalties, filterDist, pick, contrastiveLogits, cfgLogits, beamSearch } from './decode.js?v=170';
-import { SAE } from './sae.js?v=170';
-import { computeRome, findSubject } from './rome.js?v=170';
-import { slice, cancelJobs, resetCancel, frame, namedFrame } from './coop.js?v=170';
-import * as mf from './mf-client.js?v=170';
+import * as U152 from './ui152.js?v=171';
+import { GPT2Tokenizer, parseVocabYield } from './tokenizer.js?v=171';
+import { CFG, buildWeights, parseSafetensorsYield, cloneWeightsYield, mulberry32 } from './model.js?v=171';
+import { concatUint8 } from './bytes.js?v=171';
+import { Engine, defaultRuntime, logSoftmax, topK, SITES } from './engine.js?v=171';
+import { RemoteEngine, withBias } from './engine-client.js?v=171';
+import { bindRemote } from './trace-remote.js?v=171';
+import { computeStats, actCovariance, fitTunedLens, lensGrid, dla, patchResid, patchHeads, pathPatchHeadsToLogits, ablationSweep, buildControlVector, vectorArithmetic, tokenStats } from './analysis.js?v=171';
+import { Editor, MATS, getMat, toSafetensorsYield, quantize } from './surgery.js?v=171';
+import { defaultDecode, applyPenalties, filterDist, pick, contrastiveLogits, cfgLogits, beamSearch } from './decode.js?v=171';
+import { SAE } from './sae.js?v=171';
+import { computeRome, findSubject } from './rome.js?v=171';
+import { slice, cancelJobs, resetCancel, frame, namedFrame, runBudgeted } from './coop.js?v=171';
+import * as mf from './mf-client.js?v=171';
 mf.ping().catch(() => {});
-import { svdYield } from './linalg.js?v=170';
-import { CORPUS } from './corpus.js?v=170';
-import { heatmap, lines, bars, showTip, seqColor, divColor, markStale, heatStrip, emit } from './charts.js?v=170';
-import { Viz } from './viz.js?v=170';
-import { AudioEngine, editKind, STYLES } from './audio.js?v=170';
-import { buildV5 } from './v5.js?v=170';
-import { vecToJSON as _v2j, vecFromJSON as _j2v } from './labcore.js?v=170';
-import * as UI15 from './ui15.js?v=170';
-import { homeMarkup } from './ui15.js?v=170';
-import { geometryFromSeq, KV_CADENCE } from './adversary/geometry.js?v=170';
-import { attachAdversary } from './adversary/campaign.js?v=170';
-import { CITATIONS, FAULT_SPEC, runFaultOp, runWalkCellOp, runWalkOp } from './walk/session.js?v=170';
+import { svdYield } from './linalg.js?v=171';
+import { CORPUS } from './corpus.js?v=171';
+import { heatmap, lines, bars, showTip, seqColor, divColor, markStale, heatStrip, emit } from './charts.js?v=171';
+import { Viz } from './viz.js?v=171';
+import { AudioEngine, editKind, STYLES } from './audio.js?v=171';
+import { buildV5 } from './v5.js?v=171';
+import { vecToJSON as _v2j, vecFromJSON as _j2v } from './labcore.js?v=171';
+import * as UI15 from './ui15.js?v=171';
+import { homeMarkup } from './ui15.js?v=171';
+import { geometryFromSeq, KV_CADENCE } from './adversary/geometry.js?v=171';
+import { attachAdversary } from './adversary/campaign.js?v=171';
+import { CITATIONS, FAULT_SPEC, runFaultOp, runWalkCellOp, runWalkOp } from './walk/session.js?v=171';
 const audio = new AudioEngine();
 const { d, H, L, ff, V } = CFG;
 const $ = (id) => document.getElementById(id), $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -203,13 +203,15 @@ P.audio = `
 <b>divergence</b>: KL(hacked‖clean) on the same context adds a consonant voice (5th → octave → octave+5th) above the pad.<br>
 <b>phenomena</b>: entropy collapse, repetition loop, superposition, residual explosion → soft two-note chime + small badge in the top bar.</div></fieldset>`;
 let V5 = null;
-function buildUI() {
+async function buildUI() {
   const tabs = $('tabs'), panes = $('panes'); V5 = buildV5(TABS, P);
   // v15: grouped, searchable, collapsible sidebar instead of a wall of tabs
   const srch = document.createElement('div'); srch.className = 'navsearch'; srch.innerHTML = `<input id="navQ" type="search" placeholder="Search ${V5.order.length} tabs…" aria-label="search tabs" autocomplete="off" /><kbd>/</kbd>`; tabs.appendChild(srch);
   let sec = null; const GOF = {};
+  await runBudgeted((function* () {
   for (const [k, t] of V5.order) { if (V5.groupStart[k] || !sec) { sec = document.createElement('section'); sec.className = 'ng'; sec.dataset.g = V5.groupStart[k] || 'MORE'; const g = document.createElement('span'); g.className = 'grp'; g.setAttribute('role', 'button'); g.tabIndex = 0; g.textContent = sec.dataset.g; const sx = sec; g.onclick = () => sx.classList.toggle('shut'); g.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); sx.classList.toggle('shut'); } }; sec.appendChild(g); tabs.appendChild(sec); }
-    GOF[k] = sec.dataset.g; const b = document.createElement('button'); b.textContent = V5.long[k] && V5.long[k].length <= 34 ? V5.long[k] : t; b.dataset.short = t; b.dataset.t = k; b.onclick = () => { showTab(k); document.body.classList.remove('navopen'); }; b.setAttribute('role', 'tab'); b.title = V5.long[k] || t; sec.appendChild(b); const p = document.createElement('div'); p.className = 'pane'; p.setAttribute('role', 'tabpanel'); p.id = 'pane_' + k; p.innerHTML = P[k]; panes.appendChild(p); }
+    GOF[k] = sec.dataset.g; const b = document.createElement('button'); b.textContent = V5.long[k] && V5.long[k].length <= 34 ? V5.long[k] : t; b.dataset.short = t; b.dataset.t = k; b.onclick = () => { showTab(k); document.body.classList.remove('navopen'); }; b.setAttribute('role', 'tab'); b.title = V5.long[k] || t; sec.appendChild(b); const p = document.createElement('div'); p.className = 'pane'; p.setAttribute('role', 'tabpanel'); p.id = 'pane_' + k; p.innerHTML = P[k]; panes.appendChild(p); yield; }
+  })(), { budgetMs: 8 });
   const ph = document.createElement('div'); ph.id = 'paneHead'; panes.prepend(ph); V5.groupOf = GOF;
   const q = $('navQ'); q.addEventListener('input', () => { const v = q.value.trim().toLowerCase(); for (const s2 of $$('#tabs .ng')) { let any = false; for (const b of s2.querySelectorAll('button')) { const hit = !v || b.textContent.toLowerCase().includes(v) || b.title.toLowerCase().includes(v) || b.dataset.short.toLowerCase().includes(v) || s2.dataset.g.toLowerCase().includes(v); b.hidden = !hit; any = any || hit; } s2.hidden = !any; s2.classList.toggle('found', !!v); } });
   q.addEventListener('keydown', (e) => { if (e.key === 'Enter') { const b = $$('#tabs button[data-t]').find((x) => !x.hidden && !x.closest('section').hidden); if (b) b.click(); } if (e.key === 'Escape') { q.value = ''; q.dispatchEvent(new Event('input')); q.blur(); } });
@@ -461,7 +463,7 @@ function weightEdit(label, e, path) { // records relative Frobenius change of th
 async function showSvd() {
   const path = matPath(); if (path === 'wte') throw new Error('wte SVD (50257×256) is too slow for the browser here; use a layer matrix or wpe'); $('svdInfo').textContent = 'running one-sided Jacobi SVD…'; await tick();
   const t0 = performance.now(), { a, rows, cols } = getMat(M, path), r = await svdYield(a, rows, cols), S2 = r.S; const tot = S2.reduce((x, y) => x + y * y, 0); let c = 0; const cum = S2.map((s) => (c += s * s) / tot);
-  const out = new Float32Array(rows * cols); (await import('./linalg.js?v=170')).svdReconstruct(r, Float64Array.from(S2), out); let e = 0; for (let i = 0; i < out.length; i++) e += (out[i] - a[i]) ** 2;
+  const out = new Float32Array(rows * cols); (await import('./linalg.js?v=171')).svdReconstruct(r, Float64Array.from(S2), out); let e = 0; for (let i = 0; i < out.length; i++) e += (out[i] - a[i]) ** 2;
   bars($('svdC'), Array.from(S2), { log: true, title: `σ spectrum ${path} (${rows}×${cols}, log) · hover for energy`, label: (i) => `σ${i} = ${S2[i].toPrecision(5)}  cum energy ${(cum[i] * 100).toFixed(2)}%`, onClick: (i) => ($('svK').value = i + 1) });
   $('svdInfo').textContent = `${S2.length} σ · ${r.sweeps} sweeps · ${(performance.now() - t0).toFixed(0)} ms · recon rel.err ${(Math.sqrt(e) / frob(a)).toExponential(2)} · 90% energy @ k=${cum.findIndex((x) => x >= 0.9) + 1}`;
 }
@@ -635,7 +637,7 @@ function wire() {
     const r = await loadModel(); await frame(); W = r.W; tok = r.tok; M = await cloneWeightsYield(W); await frame();
     ed = new Editor(W, M); R = defaultRuntime(); await frame();
     eng = new Engine(M, R); await frame(); engClean = new Engine(W, defaultRuntime()); engClean.prefixCache = true; await frame(); // v15.3: originals are never edited in place
-    buildUI(); await frame(); viz = new Viz($('gl'), (s) => setSel(s)); await frame(); wire(); caInputs(); await frame(); afterChange(); setSel({ l: 0, h: 0 }); $('loader').style.display = 'none'; hud();
+    await buildUI(); viz = new Viz($('gl'), (s) => setSel(s)); await frame(); wire(); await frame(); caInputs(); await frame(); afterChange(); await frame(); setSel({ l: 0, h: 0 }); $('loader').style.display = 'none'; hud();
     V5.mount({ viz, W: () => W, M: () => M, eng: () => eng, engClean: () => engClean, tok: () => tok, R: () => R, ed: () => ed, S: () => S, stats: () => stats, sae: () => sae, setSel, showTab, commit, weightEdit, download, generate, analyze, undo, redo, ensureStats, guard, toast, audio, decode: () => D, defaultRuntime,
       applyShared: (st) => commit('load shared experiment', () => { R = Object.assign(defaultRuntime(), st.R || {}); eng.R = R; ed.setEdits(st.edits || []); }),
       reset: () => commit('reset everything', () => { R = defaultRuntime(); eng.R = R; ed.setEdits([]); }), nextVecId: () => nextVec++,
