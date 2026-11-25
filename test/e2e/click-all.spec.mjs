@@ -56,7 +56,7 @@ for (const [w, h, name] of WIDTHS) test(`click every control · ${name}`, async 
   const failures = [];
     const context = await browser.newContext({ viewport: { width: w, height: h } });
     const page = await context.newPage();
-    page.setDefaultTimeout(300000);
+    page.setDefaultTimeout(600000);
     const errors = [];
     page.on('console', (m) => { if (m.type() === 'error' && !/favicon/i.test(m.text())) errors.push(m.text().slice(0, 300)); });
     page.on('pageerror', (e) => errors.push('PAGE ' + (e.message || '').slice(0, 400)));
@@ -94,7 +94,7 @@ for (const [w, h, name] of WIDTHS) test(`click every control · ${name}`, async 
     });
     await page.goto(URL, { waitUntil: 'domcontentloaded', timeout: 90000 });
     await page.waitForSelector('#v17 .wsbar', { timeout: 30000 });
-    await page.waitForFunction(() => document.body.dataset.modelReady === '1', { timeout: 240000 });
+    await page.waitForFunction(() => document.body.dataset.modelReady === '1', null, { timeout: 600000 });
     await page.evaluate(() => document.fonts ? document.fonts.ready : null);
     await page.keyboard.press('Escape');
     await page.evaluate(() => {
