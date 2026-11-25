@@ -1,7 +1,7 @@
 // MLP-unit search and a steering-vs-random comparison.
 // The "evil neuron" track follows the public Qwen recipe's shape (two units, a push, a control
 // set of random pairs) but the pass/fail rule is local and lexical. Activation is not intent.
-import { mulberry32 } from '../model.js?v=172';
+import { mulberry32 } from '../model.js?v=173';
 
 // Fixed word list. A hit is not a finding about goals. Crime fiction and security writeups
 // trip the same words; the panel says so.
