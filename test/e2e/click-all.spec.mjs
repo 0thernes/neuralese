@@ -80,6 +80,13 @@ for (const [w, h, name] of WIDTHS) test(`click every control · ${name}`, async 
       // function immediately; LoAF still times that work. Empty-URL setTimeout(resolve) has no
       // source of its own, so the stack at the call is what names the function.
       window.__timerRuns = [];
+      window.__timerMarks = [];
+      globalThis.__timerResume = (stack) => {
+        const name = String(stack || '').split('\n').slice(0, 6).map((s) => s.trim()).join(' | ').slice(0, 240);
+        performance.mark('timer-resume');
+        window.__timerMarks.push({ t: performance.now(), name });
+        if (window.__timerMarks.length > 80) window.__timerMarks.shift();
+      };
       const tidy = (stack) => (stack || '').split('\n').slice(1, 10).map((s) => s.trim().replace(/\?v=\d+/, '')).join('\n');
       globalThis.__yieldFrom = (stack) => {
         const lines = String(stack || '').split('\n').map((s) => s.trim()).filter(Boolean);
@@ -164,6 +171,12 @@ for (const [w, h, name] of WIDTHS) test(`click every control · ${name}`, async 
                 const dt = Math.abs(h.t - start);
                 if (dt < handlerDt && h.t >= start - 40 && h.t <= start + 80) { handler = h.src; handlerDt = dt; }
               }
+              const marks = window.__timerMarks || [];
+              let resume = '';
+              for (let i = marks.length - 1; i >= 0; i--) {
+                const m = marks[i];
+                if (m.t <= start + 8 && start - m.t < 50) { resume = m.name; break; }
+              }
               window.__scripts.push({
                 d: Math.round(s.duration), start: Math.round(start), exec: Math.round(s.executionStart || start),
                 url: (s.sourceURL || '').split('/').pop(), fn: s.sourceFunctionName || '', pos: String(s.sourceCharPosition || ''),
@@ -172,6 +185,7 @@ for (const [w, h, name] of WIDTHS) test(`click every control · ${name}`, async 
                 click: window.__click || '',
                 scheduled: best ? best.scheduled : '',
                 then: best ? best.yield : '',
+                resume,
                 handler,
                 timerMs: best ? Math.round(best.t1 - best.t0) : 0,
               });
@@ -350,7 +364,7 @@ for (const [w, h, name] of WIDTHS) test(`click every control · ${name}`, async 
     console.log(`${name} raw max=${longMax} p95=${longP95} n=${raw.length} | paint/GL max=${paintMax} n=${paint.length} gl-init max=${glMax}${glName ? ' (' + glName.name + ')' : ''} | app max=${jsMax} p95=${jsP95} n=${js.length}${worst ? ' worst=' + worst.name + (worst.click ? ' @' + worst.click : '') : ''}${timing.loaf ? '' : ' (no long-animation-frames)'}`);
     if (topApp.length) console.log(`${name} top`, topApp.map((f) => `${f.app ?? f.d}ms @${f.click || '?'} ${f.name}`).join(' | '));
     const named = [...(timing.scripts || [])].sort((a, b) => b.d - a.d).slice(0, 8);
-    if (named.length) console.log(`${name} src`, named.map((s) => `${s.d}ms inv=${s.inv || ''} ${(s.scheduled || s.handler || '').replace(/\s+/g, ' ').slice(0, 180)}`).join(' || '));
+    if (named.length) console.log(`${name} src`, named.map((s) => `${s.d}ms inv=${s.inv || ''} ${(s.resume || s.scheduled || s.handler || '').replace(/\s+/g, ' ').slice(0, 180)}`).join(' || '));
     report.views[name] = { width: w, height: h, workspaces: workspaces.length, clicked, disabled, disabledNames: [...new Set(disabledNames)], cosmos, gl, errors: errors.slice(0, 8), longMax, longP95, longN: raw.length, paintMax, paintN: paint.length, glInitMax: glMax, glInit: glName ? glName.name : '', appMax: jsMax, appP95: jsP95, appN: js.length, worst: worst ? worst.name : '', loaf: timing.loaf };
     await Promise.race([page.close(), new Promise((r) => setTimeout(r, 5000))]);
   fs.mkdirSync('test/e2e', { recursive: true });

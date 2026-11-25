@@ -18,6 +18,8 @@ function files(dir, out = []) {
 }
 
 const HEAVY = /querySelectorAll|innerHTML|weightsHash|\ba11y\b|\blines\(|\bheatmap\(|\bmeasure\(|\blowerForge\b|\bfor\s*\(|\bwhile\s*\(/;
+// A bare resolver has no script URL. The synchronous work after the await is charged to that timer.
+const RESOLVE_TIMER = /setTimeout\(\s*(?:resolve|res|rej|r)\s*[,)]|scheduler\.yield\s*\(|\b(?:async\s+)?function\s+sleep\s*\(|\b(?:const|let|var)\s+sleep\s*=/;
 
 test('timer callbacks do not do heavy work', () => {
   const hits = [];
@@ -29,6 +31,17 @@ test('timer callbacks do not do heavy work', () => {
       const body = m[1];
       if (HEAVY.test(body)) hits.push(`${path.relative(root, file)}: ${body.replace(/\s+/g, ' ').slice(0, 140)}`);
     }
+  }
+  assert.deepEqual(hits, []);
+});
+
+test('timer awaits do not pass the native resolver or hide behind a sleep helper', () => {
+  const hits = [];
+  const roots = [path.join(root, 'src'), path.join(root, 'ui', 'src')];
+  for (const file of roots.flatMap((dir) => files(dir))) {
+    if (file.includes(`${path.sep}shell${path.sep}`)) continue;
+    const text = fs.readFileSync(file, 'utf8');
+    if (RESOLVE_TIMER.test(text)) hits.push(path.relative(root, file));
   }
   assert.deepEqual(hits, []);
 });

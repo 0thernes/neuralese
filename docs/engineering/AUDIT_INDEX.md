@@ -5,9 +5,9 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 | | |
 |---|---|
 | Files | 505 |
-| Reviewed (passes 23–84) | 170 |
-| Indexed, not reviewed | 335 |
-| Coverage | 33.7% |
+| Reviewed (passes 23–87) | 173 |
+| Indexed, not reviewed | 332 |
+| Coverage | 34.3% |
 
 
 ## `/`
@@ -369,11 +369,11 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 
 | File | Purpose | Owner | Tests | Status |
 |---|---|---|---|---|
-| `gadget.js` | Weight gadgets. A gadget is a fixed net of linear combinations, ReLU gates, and hard attention. | machine | none mapped | indexed |
+| `gadget.js` | Weight gadgets. A gadget is a fixed net of linear combinations, ReLU gates, and hard attention. | machine | none mapped | reviewed, pass 85 |
 | `isa.js` | Weight-Machine / WM-ISA. ForgeISA/1 plus a SYS opcode for the devices around it. | machine | none mapped | reviewed, pass 71 |
 | `machine.d.ts` | ts | machine | none mapped | indexed |
 | `machine.js` | Host stepper. The weight machine and the int32 reference run the same program. | machine | none mapped | indexed |
-| `programs.js` | Demo programs for WM-ISA. They are assembled here, not borrowed from another machine. | machine | none mapped | indexed |
+| `programs.js` | Demo programs for WM-ISA. They are assembled here, not borrowed from another machine. | machine | none mapped | reviewed, pass 86 |
 | `ref.js` | Integer reference machine. Ground truth for Weight-Machine. Words are int32. No float rounding. | machine | none mapped | indexed |
 | `weight.js` | Weight-Machine datapath. Same phase order as ref.js. ALU, memory, MAC, lanes, grant, and | machine | none mapped | indexed |
 | `zoom.js` | Deep Walk chain for one Weight-Machine component: gadget weights, then a Boolean | machine | none mapped | indexed |
@@ -525,7 +525,7 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 | `cmos.d.ts` | ts | walk | none mapped | indexed |
 | `cmos.js` | Teaching CMOS model. Square-law Shichman–Hodges (the SPICE level-1 MOSFET), matched | walk | none mapped | reviewed, passes 54–55 |
 | `explain.js` | How one recorded cell was computed. The arithmetic matches the engine's loops, including the four-lane matvec. | walk | none mapped | indexed |
-| `fault.js` | Real bit faults in a real forward. The mask is deterministic for a fixed seed. | walk | none mapped | indexed |
+| `fault.js` | Real bit faults in a real forward. The mask is deterministic for a fixed seed. | walk | none mapped | reviewed, pass 87 |
 | `forgealu.d.ts` | ts | walk | none mapped | indexed |
 | `forgealu.js` | Lower a ForgeISA arithmetic op to the gate netlist, or say when the op is wiring or memory. | walk | none mapped | indexed |
 | `gates.js` | Gate netlist. Every gate is AND, OR, XOR, or NOT, plus constant 0/1 sources. | walk | none mapped | indexed |

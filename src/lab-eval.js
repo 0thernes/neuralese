@@ -1,10 +1,10 @@
 // EVALUATE group: token timeline, calibration, edit impact, profiler, experiment tracker.
-import * as C from './labcore.js?v=192';
-import { topK } from './engine.js?v=192';
-import { CORPUS } from './corpus.js?v=192';
-import { lines, bars } from './charts.js?v=192';
-import { frame, runBudgeted } from './coop.js?v=192';
-import { $, $$, esc, fmt, opts, cv, tipq, PAL, prog, canvasFit, chartBg, exportFor, saveParts, runs, lab, L } from './lab-ui.js?v=192';
+import * as C from './labcore.js?v=193';
+import { topK } from './engine.js?v=193';
+import { CORPUS } from './corpus.js?v=193';
+import { lines, bars } from './charts.js?v=193';
+import { frame, runBudgeted } from './coop.js?v=193';
+import { $, $$, esc, fmt, opts, cv, tipq, PAL, prog, canvasFit, chartBg, exportFor, saveParts, runs, lab, L } from './lab-ui.js?v=193';
 
 export const markup = {
   timeline: ['TIMELINE', 'Token timeline', `<fieldset><legend>per-token timeline of the last generation ${tipq('Recorded from the raw (pre-filter) distribution of the hacked model at every generated step, including the first generation after load.')}</legend><div class="r"><button class="pri" id="xT">refresh</button><span id="xTInfo" class="sm"></span></div>${cv('xTP', 'p(chosen) teal · top-1 p pink')}${cv('xTH', 'entropy (nats) teal · surprisal −ln p pink')}${cv('xTM', 'top-1 − top-2 probability margin')}</fieldset>`],
@@ -77,14 +77,18 @@ export function install(A, out) {
     A.logRun({ kind: 'profile', label: `profile T=${T}`, metrics: { ms_per_step: tot / T, gflops: fl / (tot / T / 1000) / 1e9 } }); return pr; };
   on('xP', 'click', () => out.prof());
 
-  out.runs = () => { const all = runs.all(), keys = [...new Set(all.flatMap((r) => Object.keys(r.metrics || {})))], cur = $('xRm').value; $('xRm').innerHTML = opts(keys, keys.includes(cur) ? cur : keys[0]);
-    $('xRtab').innerHTML = `<table><tr><th></th><th>time</th><th>kind</th><th>label</th><th>metrics</th></tr>${all.map((r, i) => `<tr><td><input type="checkbox" aria-label="select run" data-run="${i}" ${r.sel !== false ? 'checked' : ''}/></td><td>${esc(r.t.slice(11, 19))}</td><td>${esc(r.kind)}</td><td>${esc(r.label || '')}</td><td>${Object.entries(r.metrics || {}).map(([k, v]) => `${esc(k)}=${typeof v === 'number' ? fmt(v) : esc(v)}`).join(' ')}</td></tr>`).reverse().join('')}</table>`;
-    $$('#xRtab [data-run]').forEach((cb) => cb.addEventListener('change', () => { const a = runs.all(); a[+cb.dataset.run].sel = cb.checked; runs.save(a); out.runs(); }));
+  let runsGen = 0;
+  out.runs = async () => { const gen = ++runsGen; const all = runs.all(), keys = [...new Set(all.flatMap((r) => Object.keys(r.metrics || {})))], cur = $('xRm').value; $('xRm').innerHTML = opts(keys, keys.includes(cur) ? cur : keys[0]);
+    const host = $('xRtab'); host.replaceChildren(); const table = document.createElement('table'); const body = document.createElement('tbody'); table.innerHTML = '<thead><tr><th></th><th>time</th><th>kind</th><th>label</th><th>metrics</th></tr></thead>'; table.append(body); host.append(table);
+    const order = []; for (let i = all.length - 1; i >= 0; i--) order.push(i);
+    await runBudgeted((function* () { for (let n = 0; n < order.length; n++) { if (gen !== runsGen) return; const i = order[n], r = all[i]; body.insertAdjacentHTML('beforeend', `<tr><td><input type="checkbox" aria-label="select run" data-run="${i}" ${r.sel !== false ? 'checked' : ''}/></td><td>${esc(r.t.slice(11, 19))}</td><td>${esc(r.kind)}</td><td>${esc(r.label || '')}</td><td>${Object.entries(r.metrics || {}).map(([k, v]) => `${esc(k)}=${typeof v === 'number' ? fmt(v) : esc(v)}`).join(' ')}</td></tr>`); if ((n + 1) % 8 === 0) yield; } })(), { budgetMs: 8, label: 'runs-table' });
+    if (gen !== runsGen) return all;
+    $$('#xRtab [data-run]').forEach((cb) => cb.addEventListener('change', () => { const a = runs.all(); a[+cb.dataset.run].sel = cb.checked; runs.save(a); void out.runs(); }));
     const m = $('xRm').value, sel = all.filter((r) => r.sel !== false && r.metrics && typeof r.metrics[m] === 'number'); if (m && sel.length) bars($('xRch'), sel.map((r) => r.metrics[m]), { label: (i) => `${sel[i].label}: ${m}=${fmt(sel[i].metrics[m])}` });
     const sw = all.filter((r) => r.sel !== false && r.series); if (sw.length) lines($('xRsw'), sw.map((r, i) => ({ ys: r.series.ppl, color: PAL[i % 8], label: r.label })), { xs: sw[0].series.x.map((x) => (+x).toFixed(2)) });
-    $('xRtab')._csv = () => C.toCSV(all.map((r) => [r.t, r.kind, r.label || '', JSON.stringify(r.metrics || {})]), ['time', 'kind', 'label', 'metrics']); return all; };
-  on('xRr', 'click', out.runs); on('xRm', 'change', out.runs); on('xRclr', 'click', () => { runs.save([]); out.runs(); });
-  on('xRcsv', 'click', () => { out.runs(); exportFor('xRtab', 'csv'); });
+    host._csv = () => C.toCSV(all.map((r) => [r.t, r.kind, r.label || '', JSON.stringify(r.metrics || {})]), ['time', 'kind', 'label', 'metrics']); return all; };
+  on('xRr', 'click', () => { void out.runs(); }); on('xRm', 'change', () => { void out.runs(); }); on('xRclr', 'click', () => { runs.save([]); void out.runs(); });
+  on('xRcsv', 'click', async () => { await out.runs(); exportFor('xRtab', 'csv'); });
   on('xRjson', 'click', async () => {
     const all = runs.all();
     const parts = ['{"runs":['];

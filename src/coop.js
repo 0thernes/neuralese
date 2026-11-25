@@ -1,6 +1,6 @@
 // One queue, one frame budget. Every concurrent job spends the same ~8 ms, then waits for the
 // next paint. requestAnimationFrame, then a MessageChannel post, so the continuation runs after
-// the browser has rendered. scheduler.yield() is not used: its continuations pile into one frame.
+// the browser has rendered. The scheduler's yield method is not used: its continuations pile into one frame.
 const FRAME_MS = 8;
 const SLOW_STEP_MS = 16;
 let stop = false;

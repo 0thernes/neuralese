@@ -1,31 +1,31 @@
 // NEURALESE v2 — UI wiring. All numerics live in engine/analysis/surgery/decode/sae/rome (unit-tested vs PyTorch).
-import * as U152 from './ui152.js?v=192';
-import { GPT2Tokenizer, parseVocabYield } from './tokenizer.js?v=192';
-import { CFG, buildWeights, parseSafetensorsYield, cloneWeightsYield, mulberry32 } from './model.js?v=192';
-import { concatUint8 } from './bytes.js?v=192';
-import { Engine, defaultRuntime, logSoftmax, topK, SITES } from './engine.js?v=192';
-import { RemoteEngine, withBias } from './engine-client.js?v=192';
-import { bindRemote } from './trace-remote.js?v=192';
-import { computeStats, actCovariance, fitTunedLens, lensGrid, dla, patchResid, patchHeads, pathPatchHeadsToLogits, ablationSweep, buildControlVector, vectorArithmetic, tokenStats } from './analysis.js?v=192';
-import { Editor, MATS, getMat, toSafetensorsYield, quantize } from './surgery.js?v=192';
-import { defaultDecode, applyPenalties, filterDist, pick, contrastiveLogits, cfgLogits, beamSearch } from './decode.js?v=192';
-import { SAE } from './sae.js?v=192';
-import { computeRome, findSubject } from './rome.js?v=192';
-import { slice, cancelJobs, resetCancel, frame, namedFrame, runBudgeted } from './coop.js?v=192';
-import * as mf from './mf-client.js?v=192';
+import * as U152 from './ui152.js?v=193';
+import { GPT2Tokenizer, parseVocabYield } from './tokenizer.js?v=193';
+import { CFG, buildWeights, parseSafetensorsYield, cloneWeightsYield, mulberry32 } from './model.js?v=193';
+import { concatUint8 } from './bytes.js?v=193';
+import { Engine, defaultRuntime, logSoftmax, topK, SITES } from './engine.js?v=193';
+import { RemoteEngine, withBias } from './engine-client.js?v=193';
+import { bindRemote } from './trace-remote.js?v=193';
+import { computeStats, actCovariance, fitTunedLens, lensGrid, dla, patchResid, patchHeads, pathPatchHeadsToLogits, ablationSweep, buildControlVector, vectorArithmetic, tokenStats } from './analysis.js?v=193';
+import { Editor, MATS, getMat, toSafetensorsYield, quantize } from './surgery.js?v=193';
+import { defaultDecode, applyPenalties, filterDist, pick, contrastiveLogits, cfgLogits, beamSearch } from './decode.js?v=193';
+import { SAE } from './sae.js?v=193';
+import { computeRome, findSubject } from './rome.js?v=193';
+import { slice, cancelJobs, resetCancel, frame, namedFrame, runBudgeted } from './coop.js?v=193';
+import * as mf from './mf-client.js?v=193';
 mf.ping().catch(() => {});
-import { svdYield } from './linalg.js?v=192';
-import { CORPUS } from './corpus.js?v=192';
-import { heatmap, lines, bars, showTip, seqColor, divColor, markStale, heatStrip, emit } from './charts.js?v=192';
-import { Viz } from './viz.js?v=192';
-import { AudioEngine, editKind, STYLES } from './audio.js?v=192';
-import { buildV5 } from './v5.js?v=192';
-import { vecToJSON as _v2j, vecFromJSON as _j2v } from './labcore.js?v=192';
-import * as UI15 from './ui15.js?v=192';
-import { homeMarkup } from './ui15.js?v=192';
-import { geometryFromSeq, KV_CADENCE } from './adversary/geometry.js?v=192';
-import { attachAdversary } from './adversary/campaign.js?v=192';
-import { CITATIONS, FAULT_SPEC, runFaultOp, runWalkCellOp, runWalkOp } from './walk/session.js?v=192';
+import { svdYield } from './linalg.js?v=193';
+import { CORPUS } from './corpus.js?v=193';
+import { heatmap, lines, bars, showTip, seqColor, divColor, markStale, heatStrip, emit } from './charts.js?v=193';
+import { Viz } from './viz.js?v=193';
+import { AudioEngine, editKind, STYLES } from './audio.js?v=193';
+import { buildV5 } from './v5.js?v=193';
+import { vecToJSON as _v2j, vecFromJSON as _j2v } from './labcore.js?v=193';
+import * as UI15 from './ui15.js?v=193';
+import { homeMarkup } from './ui15.js?v=193';
+import { geometryFromSeq, KV_CADENCE } from './adversary/geometry.js?v=193';
+import { attachAdversary } from './adversary/campaign.js?v=193';
+import { CITATIONS, FAULT_SPEC, runFaultOp, runWalkCellOp, runWalkOp } from './walk/session.js?v=193';
 const audio = new AudioEngine();
 const { d, H, L, ff, V } = CFG;
 const $ = (id) => document.getElementById(id), $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -41,7 +41,7 @@ const REPO = 'https://huggingface.co/roneneldan/TinyStories-8M/resolve', ST_URL 
 const setLoad = (m, f) => { $('loadmsg').textContent = m; if (f != null) $('loadbar').style.width = (f * 100).toFixed(1) + '%'; };
 // network: up to 4 attempts with exponential backoff (0.5 s, 1 s, 2 s); 4xx other than 408/429 fail fast
 async function withRetry(what, fn, tries = 4) {
-  for (let k = 0; ; k++) { try { return await fn(); } catch (e) { if (k >= tries - 1 || e.fatal) throw new Error(`${what}: ${e.message}${k ? ` (after ${k + 1} attempts)` : ''}`); const ms = 500 * 2 ** k; setLoad(`${what}: ${e.message} — retrying in ${(ms / 1000).toFixed(1)} s (attempt ${k + 2}/${tries})`); await new Promise((r) => setTimeout(r, ms)); } }
+  for (let k = 0; ; k++) { try { return await fn(); } catch (e) { if (k >= tries - 1 || e.fatal) throw new Error(`${what}: ${e.message}${k ? ` (after ${k + 1} attempts)` : ''}`); const ms = 500 * 2 ** k; setLoad(`${what}: ${e.message} — retrying in ${(ms / 1000).toFixed(1)} s (attempt ${k + 2}/${tries})`); await new Promise((done) => setTimeout(() => { if (typeof globalThis.__timerResume === 'function') globalThis.__timerResume('model-retry'); done(); }, ms)); } }
 }
 const httpErr = (r) => { const e = new Error('HTTP ' + r.status); e.fatal = r.status >= 400 && r.status < 500 && r.status !== 408 && r.status !== 429; return e; };
 async function fetchRange(url, a, b, onp) { return withRetry(`bytes ${a}–${b}`, async () => {
@@ -464,7 +464,7 @@ function weightEdit(label, e, path) { // records relative Frobenius change of th
 async function showSvd() {
   const path = matPath(); if (path === 'wte') throw new Error('wte SVD (50257×256) is too slow for the browser here; use a layer matrix or wpe'); $('svdInfo').textContent = 'running one-sided Jacobi SVD…'; await tick();
   const t0 = performance.now(), { a, rows, cols } = getMat(M, path), r = await svdYield(a, rows, cols), S2 = r.S; const tot = S2.reduce((x, y) => x + y * y, 0); let c = 0; const cum = S2.map((s) => (c += s * s) / tot);
-  const out = new Float32Array(rows * cols); (await import('./linalg.js?v=192')).svdReconstruct(r, Float64Array.from(S2), out); let e = 0; for (let i = 0; i < out.length; i++) e += (out[i] - a[i]) ** 2;
+  const out = new Float32Array(rows * cols); (await import('./linalg.js?v=193')).svdReconstruct(r, Float64Array.from(S2), out); let e = 0; for (let i = 0; i < out.length; i++) e += (out[i] - a[i]) ** 2;
   bars($('svdC'), Array.from(S2), { log: true, title: `σ spectrum ${path} (${rows}×${cols}, log) · hover for energy`, label: (i) => `σ${i} = ${S2[i].toPrecision(5)}  cum energy ${(cum[i] * 100).toFixed(2)}%`, onClick: (i) => ($('svK').value = i + 1) });
   $('svdInfo').textContent = `${S2.length} σ · ${r.sweeps} sweeps · ${(performance.now() - t0).toFixed(0)} ms · recon rel.err ${(Math.sqrt(e) / frob(a)).toExponential(2)} · 90% energy @ k=${cum.findIndex((x) => x >= 0.9) + 1}`;
 }

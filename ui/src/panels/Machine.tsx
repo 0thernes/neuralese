@@ -329,6 +329,7 @@ function Report(): JSX.Element {
       const packed = data as { kind?: string; names?: string[]; nums?: Float64Array; cancelled?: boolean; rows?: WmMeasure['rows']; programs?: WmMeasure['programs'] };
       if (!packed || packed.cancelled) return;
       const { yieldHost } = await import('../../../src/coop.js');
+      await yieldHost();
       const shown: MeasureRow[] = [];
       const push = (row: MeasureRow) => { shown.push(row); setRows(shown.slice()); };
       if (packed.kind === 'measure' && packed.names && packed.nums) {

@@ -3,12 +3,13 @@ import solid from 'vite-plugin-solid';
 import tailwindcss from '@tailwindcss/vite';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { patchThreeYield } from './three-yield.mjs';
 const VERSION = (JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as { version: string }).version;
 
 // The shell is built into src/shell/ (the legacy web root), so gh-pages, Electron and Capacitor ship it unchanged.
 // Fixed file names: the legacy index.html references shell/shell.js and shell/shell.css directly (no inline script → CSP stays strict).
 export default defineConfig({
-  plugins: [solid(), tailwindcss()],
+  plugins: [solid(), tailwindcss(), { name: 'three-frame-yield', transform(code, id) { return patchThreeYield(code, id); } }],
   resolve: { alias: { '@app': fileURLToPath(new URL('./src', import.meta.url)), '@design': fileURLToPath(new URL('./src/design-system', import.meta.url)) } },
   base: './',
   define: { __APP_VERSION__: JSON.stringify(VERSION) },

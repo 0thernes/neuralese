@@ -126,7 +126,12 @@ test('a measure result is a transferred number buffer', () => {
   assert.match(fn, /new Float64Array/);
   assert.match(fn, /nums\.buffer/);
   const ui = readFileSync(new URL('../ui/src/panels/Machine.tsx', import.meta.url), 'utf8');
-  assert.match(ui, /await yieldHost\(\)/);
+  const start = ui.indexOf('const runMeasure');
+  const measure = ui.slice(start, ui.indexOf('const run = createMemo', start));
+  const yieldAt = measure.indexOf('await yieldHost()');
+  assert.ok(yieldAt >= 0 && yieldAt < measure.indexOf('push({'));
+  const runs = readFileSync(new URL('../src/lab-eval.js', import.meta.url), 'utf8');
+  assert.match(runs, /label: 'runs-table'/);
 });
 
 test('hub embed posts the float buffer instead of a copied array', () => {
