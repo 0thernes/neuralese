@@ -22,7 +22,8 @@ export function filterDist(l, o) {
     for (const [, i] of ord) { keep.push(i); c += p[i]; if (c >= o.typical) break; }
     keep.sort((a, b) => a - b); ids = keep.map((i) => ids[i]); p = keep.map((i) => p[i]);
   }
-  const s = p.reduce((a, b) => a + b, 0); return { ids, probs: p.map((x) => x / s), lp };
+  if (!ids.length) { const i = topK(lp, 1)[0]; return { ids: [i], probs: [1], lp }; }
+  const s = p.reduce((a, b) => a + b, 0) || 1; return { ids, probs: p.map((x) => x / (s || 1)), lp };
 }
 export function pick(dist, rng, greedy) { if (greedy) return dist.ids[0]; let r = rng(); for (let i = 0; i < dist.ids.length; i++) { r -= dist.probs[i]; if (r <= 0) return dist.ids[i]; } return dist.ids[dist.ids.length - 1]; }
 // Contrastive decoding (Li et al. 2023): score = log p_exp − β·log p_ama over tokens with p_exp ≥ α·max p_exp.

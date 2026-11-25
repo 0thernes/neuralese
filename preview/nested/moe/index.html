@@ -9,7 +9,8 @@
 </main>
 <script src="../shared/iso.js"></script><script>
 const $ = id => document.getElementById(id), HUE = [205, 320, 150, 40];
-fetch('routing.json').then(r => r.json()).then(R => {
+const pull = (msg) => new Promise((resolve, reject) => { const w = new Worker(new URL('../../json-worker.js?v=171', location.href)); w.onmessage = (e) => { w.terminate(); e.data && e.data.err ? reject(new Error(e.data.err)) : resolve(e.data); }; w.onerror = () => { w.terminate(); reject(new Error('worker')); }; w.postMessage(msg); });
+pull({ url: new URL('routing.json', location.href).href }).then((m) => m.json).then(R => {
   const draw = () => {
     const l = +$('lay').value;
     $('tok').innerHTML = R.samples.map(s => '<div>' + [...s.text].map((c, i) => `<span class="ch" title="g${s.layers[l].g[i]} e${s.layers[l].e[i]} p=${s.layers[l].pg[i]}" style="background:hsl(${HUE[s.layers[l].g[i]]} 70% ${25 + 12 * s.layers[l].e[i]}%)">${c === ' ' ? '·' : c === '\n' ? '⏎' : c}</span>`).join('') + '</div>').join('');
