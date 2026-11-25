@@ -6,19 +6,19 @@
 //   free   {sid}
 //   beam   {key, sid, h0, opts}        → beamSearch result (decode.js), computed entirely in the worker
 // Hooks (JS functions) cannot cross the thread boundary; callers that need hooks use the main-thread Engine (still exported).
-import { Engine } from './engine.js?v=176';
-import { beamSearch } from './decode.js?v=176';
-import { CFG } from './model.js?v=176';
-import { pci } from './frontier/mind.js?v=176';
-import { randomInit } from './frontier/core.js?v=176';
-import { geometryFromSeq } from './adversary/geometry.js?v=176';
-import { runFaultOp, runWalkOp, runWalkCellOp, runForgeOp, runSignificandOp, runVoltageOp } from './walk/session.js?v=176';
-import { cancelJobs } from './coop.js?v=176';
+import { Engine } from './engine.js?v=178';
+import { beamSearch } from './decode.js?v=178';
+import { CFG } from './model.js?v=178';
+import { pci } from './frontier/mind.js?v=178';
+import { randomInit } from './frontier/core.js?v=178';
+import { geometryFromSeq } from './adversary/geometry.js?v=178';
+import { runFaultOp, runWalkOp, runWalkCellOp, runForgeOp, runSignificandOp, runVoltageOp } from './walk/session.js?v=178';
+import { cancelJobs } from './coop.js?v=178';
 const E = {}, seqs = new Map(); let nextSid = 1;
 function statsOf(s) { if (!s) return null; const d = s.meanZ[0].length, N = s.N, Z = s.Z;
   return { ...s, sampleZ(l, rng) { const i = Math.floor(rng() * N); return Z[l].subarray(i * d, i * d + d); } }; }
 function runHeavy(m) {
-  import('./heavy.js?v=176').then(async ({ dispatchHeavy }) => {
+  import('./heavy.js?v=178').then(async ({ dispatchHeavy }) => {
     const onp = (frac, note) => self.postMessage({ id: m.id, progress: true, frac, note });
     const out = await dispatchHeavy(E[m.key], m, onp);
     self.postMessage({ id: m.id, out });
@@ -31,8 +31,8 @@ function labJob(m) {
       if (!eng) throw new Error('no engine ' + m.key);
       let out;
       if (m.op === 'taylorJet') {
-        const { forward } = await import('./grad.js?v=176');
-        const { ceJetLnf } = await import('./tsotchke/taylor.js?v=176');
+        const { forward } = await import('./grad.js?v=178');
+        const { ceJetLnf } = await import('./tsotchke/taylor.js?v=178');
         const W = eng.W;
         const A = forward(W, m.ids);
         const v = Float64Array.from(m.v);
@@ -44,7 +44,7 @@ function labJob(m) {
         }
         out = { c: Array.from(jet.c), act };
       } else if (m.op === 'headCE') {
-        const { headAblationCE } = await import('./research.js?v=176');
+        const { headAblationCE } = await import('./research.js?v=178');
         out = headAblationCE(eng.W, m.layer | 0, m.docs);
       } else throw new Error('unknown lab op ' + m.op);
       self.postMessage({ id: m.id, out });

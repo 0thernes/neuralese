@@ -152,19 +152,25 @@ function Control(): JSX.Element {
   const ids = Object.keys(PROGRAMS);
   const run = createMemo(() => wmRun());
   const fr = createMemo(() => frameOf());
-  let timer = 0;
+  let playGen = 0;
   const play = (): void => {
-    if (wmPlaying()) { setWmPlaying(false); window.clearInterval(timer); return; }
+    if (wmPlaying()) { setWmPlaying(false); playGen++; return; }
     setWmPlaying(true);
-    timer = window.setInterval(() => {
-      const n = spanOf(wmRun());
-      if (!n) return;
-      const next = wmCursor() + 1;
-      if (next >= n) { setWmPlaying(false); window.clearInterval(timer); return; }
-      setWmCursor(next);
-    }, 80);
+    const gen = ++playGen;
+    void (async () => {
+      while (gen === playGen && wmPlaying()) {
+        const { yieldHost } = await import('../../../src/coop.js');
+        await yieldHost();
+        if (gen !== playGen || !wmPlaying()) return;
+        const n = spanOf(wmRun());
+        if (!n) return;
+        const next = wmCursor() + 1;
+        if (next >= n) { setWmPlaying(false); return; }
+        setWmCursor(next);
+      }
+    })();
   };
-  onCleanup(() => window.clearInterval(timer));
+  onCleanup(() => { playGen++; });
   const fault = (kind: string): void => {
     if (kind === 'ram') {
       void (async () => {
@@ -193,9 +199,9 @@ function Control(): JSX.Element {
     <p class="hint">{PROGRAMS[wmProgram()]?.blurb}</p>
     <div class="adv-row">
       <button class="pri" onClick={() => go(wmProgram())}>Run</button>
-      <button disabled={!spanOf(run())} onClick={() => setWmCursor(Math.max(0, wmCursor() - 1))}>Step back</button>
-      <button disabled={!spanOf(run())} onClick={() => setWmCursor(Math.min(Math.max(0, spanOf(run()) - 1), wmCursor() + 1))}>Step</button>
-      <button disabled={!spanOf(run())} onClick={play}>{wmPlaying() ? 'Pause' : 'Play'}</button>
+      <button disabled={!spanOf(run())} title={spanOf(run()) ? 'Step back' : 'Disabled until a program has been run'} onClick={() => setWmCursor(Math.max(0, wmCursor() - 1))}>Step back</button>
+      <button disabled={!spanOf(run())} title={spanOf(run()) ? 'Step' : 'Disabled until a program has been run'} onClick={() => setWmCursor(Math.min(Math.max(0, spanOf(run()) - 1), wmCursor() + 1))}>Step</button>
+      <button disabled={!spanOf(run())} title={spanOf(run()) ? 'Play' : 'Disabled until a program has been run'} onClick={play}>{wmPlaying() ? 'Pause' : 'Play'}</button>
       <label class="chk"><input type="checkbox" checked={wmPipe()} onChange={(e) => { setWmPipe(e.currentTarget.checked); go(wmProgram()); }} /> pipeline</label>
     </div>
     <div class="adv-row">

@@ -122,12 +122,20 @@ function Read(): JSX.Element {
   onMount(() => {
     const go = (): void => { void runForward(); };
     document.addEventListener('neuralese:walk-run', go);
-    const id = setInterval(() => {
-      if (!walkPlaying()) return;
-      const n = visibleOps(walkView(), walkHead()).length;
-      if (n) setWalkOp((walkOp() + 1) % n);
-    }, 1500);
-    onCleanup(() => { clearInterval(id); document.removeEventListener('neuralese:walk-run', go); });
+    onCleanup(() => document.removeEventListener('neuralese:walk-run', go));
+  });
+  createEffect(() => {
+    if (!walkPlaying()) return;
+    let stop = false;
+    onCleanup(() => { stop = true; });
+    void (async () => {
+      while (!stop && walkPlaying()) {
+        await yieldHost();
+        if (stop || !walkPlaying()) return;
+        const n = visibleOps(walkView(), walkHead()).length;
+        if (n) setWalkOp((walkOp() + 1) % n);
+      }
+    })();
   });
   createEffect(() => {
     const op = current();
@@ -146,9 +154,9 @@ function Read(): JSX.Element {
     <label class="hint">prompt <input aria-label="walk prompt" value={walkPrompt()} onInput={(e) => setWalkPrompt(e.currentTarget.value)} /></label>
     <div class="adv-row">
       <button class="pri" disabled={!!walkBusy()} onClick={() => void runForward()}>Run forward</button>
-      <button disabled={!ops().length} onClick={() => setWalkPlaying(!walkPlaying())}>{walkPlaying() ? 'Pause' : 'Play'}</button>
-      <button disabled={!ops().length} onClick={() => setWalkOp((walkOp() + ops().length - 1) % ops().length)}>Step back</button>
-      <button disabled={!ops().length} onClick={() => setWalkOp((walkOp() + 1) % ops().length)}>Step</button>
+      <button disabled={!ops().length} title={ops().length ? 'Play the recorded steps' : 'Disabled until a forward has been run'} onClick={() => setWalkPlaying(!walkPlaying())}>{walkPlaying() ? 'Pause' : 'Play'}</button>
+      <button disabled={!ops().length} title={ops().length ? 'Step back' : 'Disabled until a forward has been run'} onClick={() => setWalkOp((walkOp() + ops().length - 1) % ops().length)}>Step back</button>
+      <button disabled={!ops().length} title={ops().length ? 'Step' : 'Disabled until a forward has been run'} onClick={() => setWalkOp((walkOp() + 1) % ops().length)}>Step</button>
     </div>
     <Show when={ops().length}>
       <label class="hint">operation
@@ -271,7 +279,7 @@ function Fault(): JSX.Element {
     <h3>Fault study</h3>
     <p class="hint">The flips below are real writes into activation floats, then a real forward. Weights are not edited. This is not a voltage change on the GPU.</p>
     <Show when={meta()?.hypothesis}><p>{meta()!.hypothesis}</p></Show>
-    <button class="pri" disabled={!!walkBusy()} onClick={() => void run()}>Run DW-FAULT-1</button>
+    <button class="pri" disabled={!!walkBusy()} title={walkBusy() ? 'Disabled while a forward is running' : 'Run the pre-registered fault study'} onClick={() => void run()}>Run DW-FAULT-1</button>
     <Show when={walkBusy()}><p class="hint">{walkBusy()}</p></Show>
     <Show when={faultReport()}>{(r) => <>
       <p class={r().predictionHolds ? 'hint' : 'warn'}>KL exponent {num(r().meanKlExponent, 6)} · KL mantissa {num(r().meanKlMantissa, 6)} · prediction {r().predictionHolds ? 'holds on this run' : 'does not hold on this run'}</p>

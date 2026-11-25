@@ -178,74 +178,100 @@ for (const [w, h, name] of WIDTHS) test(`click every control · ${name}`, async 
     });
     const workspaces = await page.locator('.wsbar button[data-ws]').evaluateAll((els) => els.map((e) => e.getAttribute('data-ws')));
     expect(workspaces.length).toBeGreaterThanOrEqual(13);
-    const showWs = async (id) => {
-      const found = await page.evaluate((ws) => { const b = document.querySelector(`#v17 .wsbar button[data-ws="${ws}"]`); if (!b) return false; b.click(); return true; }, id);
-      if (!found) return false;
-      return page.waitForFunction((ws) => document.querySelector('#v17 .wsbar button.on')?.dataset.ws === ws, id, { timeout: 180000 }).then(() => true).catch(() => false);
-    };
-    const clickControls = (ws, panel) => page.evaluate(async ({ ws, pid }) => {
-      const paint = () => new Promise((resolve) => requestAnimationFrame(() => {
-        const ch = new MessageChannel();
-        ch.port1.onmessage = () => { ch.port1.close(); ch.port2.close(); resolve(); };
-        ch.port2.postMessage(0);
-      }));
+    const idle = () => page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => {
+      const ch = new MessageChannel();
+      ch.port1.onmessage = () => { ch.port1.close(); ch.port2.close(); resolve(); };
+      ch.port2.postMessage(0);
+    })));
+    const openPanel = (ws, pid) => page.evaluate(({ ws, pid }) => {
       window.__holdWs = ws;
-      const hostOf = () => {
-        const cur = document.querySelector('#v17 .wsbar button.on')?.getAttribute('data-ws');
-        if (cur !== ws) document.querySelector(`#v17 .wsbar button[data-ws="${ws}"]`)?.click();
-        const btn = [...document.querySelectorAll('#v17 .tabstrip button[role=tab]')].find((b) => b.getAttribute('data-panel') === pid);
-        btn?.click();
-        return [...document.querySelectorAll('#v17 .panel')].find((el) => el.getAttribute('data-panel') === pid) || null;
-      };
-      let host = hostOf();
-      const deadline = performance.now() + 4000;
-      while (!host && performance.now() < deadline) { await paint(); host = hostOf(); }
-      if (!host) return { missing: true, clicked: 0, disabled: 0, disabledNames: [], ws: document.querySelector('#v17 .wsbar button.on')?.getAttribute('data-ws'), panels: [...document.querySelectorAll('#v17 .panel')].map((p) => p.getAttribute('data-panel')) };
-      const spec = [...host.querySelectorAll('button, input[type="checkbox"]')].map((el, i) => ({ i, id: el.id || '', text: (el.textContent || '').trim().slice(0, 48), file: el instanceof HTMLInputElement && el.type === 'file' }));
-      let clicked = 0; let disabled = 0; const disabledNames = [];
-      for (const s of spec) {
-        if (s.file) continue;
-        let el = null;
-        const until = performance.now() + 2000;
-        while (performance.now() < until) {
-          let live = [...document.querySelectorAll('#v17 .panel')].find((node) => node.getAttribute('data-panel') === pid);
-          if (!live) live = hostOf();
-          const els = live ? [...live.querySelectorAll('button, input[type="checkbox"]')] : [];
-          el = els.find((e) => (s.id && e.id === s.id) || (!s.id && (e.textContent || '').trim().slice(0, 48) === s.text)) || els[s.i] || null;
-          if (el) break;
-          await paint();
-        }
-        if (!el || (el instanceof HTMLInputElement && el.type === 'file')) continue;
-        if (el.disabled) { disabled++; disabledNames.push(s.id || s.text || pid); continue; }
-        window.__click = (s.id || s.text || pid).slice(0, 48);
-        const t0 = performance.now();
-        performance.mark('click-before');
-        window.__marks.push({ k: 'before', label: window.__click, t: Math.round(t0) });
-        el.click();
-        performance.mark('click-after');
-        window.__marks.push({ k: 'after', label: window.__click, t: Math.round(performance.now()), sync: Math.round(performance.now() - t0) });
-        clicked++;
-        await paint();
+      if (document.querySelector('#v17 .wsbar button.on')?.getAttribute('data-ws') !== ws) document.querySelector(`#v17 .wsbar button[data-ws="${ws}"]`)?.click();
+      const tab = [...document.querySelectorAll('#v17 .tabstrip button[role=tab]')].find((b) => b.getAttribute('data-panel') === pid);
+      tab?.click();
+      const hosts = [...document.querySelectorAll('#v17 .panel')].filter((el) => el.getAttribute('data-panel') === pid);
+      return hosts.length > 0;
+    }, { ws, pid });
+    const listControls = (ws, pid) => page.evaluate(({ ws, pid }) => {
+      const hosts = [...document.querySelectorAll('#v17 .panel')].filter((el) => el.getAttribute('data-panel') === pid);
+      const legacyId = pid.startsWith('legacy:') ? 'pane_' + pid.slice(7) : '';
+      const pane = legacyId ? document.getElementById(legacyId) : null;
+      const host = (pane && hosts.find((el) => el.contains(pane))) || hosts.sort((a, b) => b.querySelectorAll('button, input[type="checkbox"]').length - a.querySelectorAll('button, input[type="checkbox"]').length)[0];
+      if (!host) return [];
+      const seen = new Map();
+      const out = [];
+      for (const el of host.querySelectorAll('button, input[type="checkbox"]')) {
+        if (el instanceof HTMLInputElement && el.type === 'file') continue;
+        const text = (el.textContent || el.getAttribute('aria-label') || '').trim().replace(/\s+/g, ' ').slice(0, 60);
+        const key = el.id ? '#' + el.id : `${el.tagName}:${el.getAttribute('type') || ''}:${text}`;
+        const n = (seen.get(key) || 0) + 1;
+        seen.set(key, n);
+        out.push({ id: `${ws}|${pid}|${key}${n > 1 ? '@' + n : ''}`, selector: el.id ? '#' + CSS.escape(el.id) : '', text, index: out.length, disabled: !!el.disabled, reason: el.disabled ? (el.title || 'disabled') : '' });
       }
-      return { missing: false, clicked, disabled, disabledNames };
-    }, { ws, pid: panel });
-    let clicked = 0;
-    let disabled = 0;
-    const disabledNames = [];
-    if (!process.env.E2E_PIXELS_ONLY) for (const id of workspaces) {
-      if (!await showWs(id)) { failures.push(`${name} lost workspace button ${id} url=${page.url()}`); break; }
-      fs.appendFileSync('/tmp/e2e-progress.txt', `${name} ${id}\n`);
-      const fromManifest = (manifest.find((w) => w.id === id) || {}).panels;
-      const tabs = fromManifest && fromManifest.length ? fromManifest : await page.locator('#v17 .tabstrip button[role=tab]').evaluateAll((els) => [...new Set(els.map((e) => e.getAttribute('data-panel')))]);
-      for (const panel of tabs) {
-        const stats = await clickControls(id, panel);
-        if (stats.missing) { console.log('MISSING', name, panel, JSON.stringify(stats)); failures.push(`${name} missing panel ${panel} ws=${stats.ws} panels=${(stats.panels || []).join('|')}`); }
-        clicked += stats.clicked || 0;
-        disabled += stats.disabled || 0;
-        if (stats.disabledNames) disabledNames.push(...stats.disabledNames);
+      return out;
+    }, { ws, pid });
+    const clickOne = (row) => page.evaluate((row) => {
+      window.__holdWs = row.ws;
+      if (document.querySelector('#v17 .wsbar button.on')?.getAttribute('data-ws') !== row.ws) document.querySelector(`#v17 .wsbar button[data-ws="${row.ws}"]`)?.click();
+      const tab = [...document.querySelectorAll('#v17 .tabstrip button[role=tab]')].find((b) => b.getAttribute('data-panel') === row.panel);
+      tab?.click();
+      const hosts = [...document.querySelectorAll('#v17 .panel')].filter((el) => el.getAttribute('data-panel') === row.panel);
+      const legacyId = row.panel.startsWith('legacy:') ? 'pane_' + row.panel.slice(7) : '';
+      const pane = legacyId ? document.getElementById(legacyId) : null;
+      const host = (pane && hosts.find((el) => el.contains(pane))) || hosts.sort((a, b) => b.querySelectorAll('button, input[type="checkbox"]').length - a.querySelectorAll('button, input[type="checkbox"]').length)[0];
+      if (!host) return { state: 'missing', reason: 'panel not mounted' };
+      const els = [...host.querySelectorAll('button, input[type="checkbox"]')].filter((el) => !(el instanceof HTMLInputElement && el.type === 'file'));
+      const el = row.selector ? host.querySelector(row.selector) : els[row.index];
+      if (!el || !host.contains(el)) return { state: 'missing', reason: 'control not in the panel' };
+      if (el.disabled) return { state: 'disabled', reason: el.title || 'disabled' };
+      window.__click = (el.id || (el.textContent || '').trim()).slice(0, 48);
+      const t0 = performance.now();
+      performance.mark('click-before');
+      window.__marks.push({ k: 'before', label: window.__click, t: Math.round(t0) });
+      el.click();
+      performance.mark('click-after');
+      window.__marks.push({ k: 'after', label: window.__click, t: Math.round(performance.now()), sync: Math.round(performance.now() - t0) });
+      return { state: 'clicked', reason: '' };
+    }, row);
+    const inventory = [];
+    const seenIds = new Set();
+    if (!process.env.E2E_PIXELS_ONLY) for (const ws of manifest) {
+      fs.appendFileSync('/tmp/e2e-progress.txt', `${name} ${ws.id}\n`);
+      for (const pid of ws.panels) {
+        const opened = await openPanel(ws.id, pid);
+        if (!opened) { failures.push(`${name} missing panel ${pid} in ${ws.id}`); continue; }
+        await idle();
+        for (const row of await listControls(ws.id, pid)) {
+          if (seenIds.has(row.id)) continue;
+          seenIds.add(row.id);
+          inventory.push({ ...row, ws: ws.id, panel: pid });
+        }
       }
     }
-    if (disabledNames.length) console.log(name, 'disabled', [...new Set(disabledNames)].join(', '));
+    const results = [];
+    for (const row of inventory) {
+      await openPanel(row.ws, row.panel);
+      await idle();
+      const status = await clickOne(row);
+      if (status.state === 'clicked') await idle();
+      results.push({ ...row, state: status.state, reason: status.reason || row.reason });
+    }
+    const clickedIds = results.filter((r) => r.state === 'clicked').map((r) => r.id);
+    const disabledRows = results.filter((r) => r.state === 'disabled');
+    const missingRows = results.filter((r) => r.state === 'missing');
+    const clicked = clickedIds.length;
+    const disabled = disabledRows.length;
+    const disabledNames = disabledRows.map((r) => `${r.id} (${r.reason})`);
+    for (const row of missingRows) failures.push(`${name} missing control ${row.id}: ${row.reason}`);
+    const baselinePath = new URL('./controls-e7c4f7e.json', import.meta.url);
+    let baseline = fs.existsSync(baselinePath) ? JSON.parse(fs.readFileSync(baselinePath, 'utf8')) : [];
+    if (!baseline.length && inventory.length) {
+      baseline = inventory.map((r) => r.id).sort();
+      fs.writeFileSync(baselinePath, JSON.stringify(baseline, null, 2));
+    }
+    const present = new Set(results.filter((r) => r.state !== 'missing').map((r) => r.id));
+    for (const id of baseline) if (!present.has(id)) failures.push(`${name} baseline control missing ${id}`);
+    if (disabledNames.length) console.log(name, 'disabled', disabledNames.join(' | '));
+    console.log(name, 'inventory', inventory.length, 'clicked', clicked, 'disabled', disabled, 'missing', missingRows.length, 'baseline', baseline.length);
     // Heavy buttons keep the main thread after they yield. A fresh page is the check that the
     // stage still draws; the clicks above already ran on this page.
     const shotContext = await browser.newContext({ viewport: { width: w, height: h } });

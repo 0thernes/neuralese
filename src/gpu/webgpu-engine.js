@@ -2,7 +2,7 @@
 // traces. The JS Engine stays the reference: create() runs a logits-match gate (every position of a fixed prompt, max |Δlogit| ≤ tol
 // against Engine) and returns null if WebGPU is missing or the gate fails, so callers fall back to JS. f32 throughout; one token per
 // step with a GPU-resident KV cache (maxT positions).
-import { runBudgeted } from '../coop.js?v=176';
+import { runBudgeted } from '../coop.js?v=178';
 const WG = 64;
 const SHADERS = /* wgsl */ `
 struct P { nOut: u32, nIn: u32, flags: u32, outOff: u32, layer: u32, pos: u32, win: u32, a: u32 };

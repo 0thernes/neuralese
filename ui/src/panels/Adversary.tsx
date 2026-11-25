@@ -96,7 +96,7 @@ function Runner(): JSX.Element {
     <h3>Condition runner</h3>
     <p class="hint">Same user prompt in every arm. System lines are tokenized, then padded with one token id to equal length, and the lengths are checked again. The run uses the clean weight copy, not the hacked runtime. Default arms are honest and deceptive.</p>
     <Bar>
-      <For each={ALL}>{(c) => <label class="chk"><input type="checkbox" checked={c === 'honest' || !!controls.on()[c]} disabled={c === 'honest'} onChange={(e) => controls.setOn({ ...controls.on(), [c]: e.currentTarget.checked })} />{c}</label>}</For>
+      <For each={ALL}>{(c) => <label class="chk"><input type="checkbox" checked={c === 'honest' || !!controls.on()[c]} disabled={c === 'honest'} title={c === 'honest' ? 'Disabled because the honest condition is the reference and stays on' : c} onChange={(e) => controls.setOn({ ...controls.on(), [c]: e.currentTarget.checked })} />{c}</label>}</For>
     </Bar>
     <div class="adv-row">
       <label>generated tokens <input type="number" min="1" max="32" value={controls.genTokens()} onChange={(e) => controls.setGen(+e.currentTarget.value)} /></label>

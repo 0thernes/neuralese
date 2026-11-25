@@ -17,13 +17,18 @@ function files(dir, out = []) {
   return out;
 }
 
-test('app code does not do work from setTimeout(0)', () => {
+const HEAVY = /querySelectorAll|innerHTML|weightsHash|\ba11y\b|\blines\(|\bheatmap\(|\bmeasure\(|\blowerForge\b|\bfor\s*\(|\bwhile\s*\(/;
+
+test('timer callbacks do not do heavy work', () => {
   const hits = [];
   for (const file of [...files(path.join(root, 'src')), ...files(path.join(root, 'ui', 'src'))]) {
     const text = fs.readFileSync(file, 'utf8');
-    const re = /setTimeout\s*\([\s\S]{0,180}?,\s*0\s*\)/g;
+    const re = /set(?:Timeout|Interval)\s*\(([\s\S]{0,500}?)\s*,\s*[^)]+\)/g;
     let m;
-    while ((m = re.exec(text))) hits.push(`${path.relative(root, file)}: ${m[0].replace(/\s+/g, ' ').slice(0, 120)}`);
+    while ((m = re.exec(text))) {
+      const body = m[1];
+      if (HEAVY.test(body)) hits.push(`${path.relative(root, file)}: ${body.replace(/\s+/g, ' ').slice(0, 140)}`);
+    }
   }
   assert.deepEqual(hits, []);
 });

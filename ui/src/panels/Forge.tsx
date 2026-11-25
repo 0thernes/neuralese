@@ -94,7 +94,7 @@ function Cpu(): JSX.Element {
     <h3>Forge CPU</h3>
     <p class="hint">{PRECISION.note}</p>
     <div class="adv-row">
-      <button disabled={!forgeRun()?.vm} onClick={clock}>Clock one</button>
+      <button disabled={!forgeRun()?.vm} title={forgeRun()?.vm ? 'Clock one instruction' : 'Disabled until a Forge program has been run'} onClick={clock}>Clock one</button>
       <Show when={forgeClockMs() != null}><span class="hint">one host forward beside this clock: {num(forgeClockMs(), 2)} ms. The residual is the model’s, not the ALU.</span></Show>
     </div>
     <Show when={stepOf(forgeRun())} fallback={<p class="hint">Run a program. Registers fill from the int32 reference trace. The float32 engine is checked against that trace.</p>}>
