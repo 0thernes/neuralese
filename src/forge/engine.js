@@ -3,7 +3,7 @@
 // Gadgets are the functions in bits.js. A fault is recorded if any bit leaves {0, 1}.
 
 import { FUNCT_HALT, OP, OP_NAME, ROM_WORDS, STEP_LIMIT, WORD_BITS, padRom } from './isa.js';
-import { runBudgeted } from '../coop.js?v=185';
+import { runBudgeted } from '../coop.js?v=186';
 import { addBits, bitsToInt32, bitsToUint, checkBit, mux, muxBank, not, oneHot, or2, orN, sltBit, writeBank, writeBits, xor2 } from './bits.js';
 
 export const PRECISION = Object.freeze({
