@@ -317,20 +317,30 @@ function Report(): JSX.Element {
     const mf = legacy()?.mf;
     if (!mf) { setWmErr('machine worker is not ready'); return; }
     setBusy('timing a small exact-match batch…');
-    void mf.measure({ seed: 11, cpu: 8, ram: 8, ssd: 4, gpu: 2, tpu: 2, bus: 16, mlp: 1 }, (p) => { if (p.label) setBusy(String(p.label)); }).then((data) => {
-      const table = data as WmMeasure & { cancelled?: boolean };
-      if (!table || table.cancelled) return;
-      const all: MeasureRow[] = [
-        ...(table.rows || []).map((row) => ({ name: row.component, exact: `${row.exact}/${row.trials}`, weight: num(row.msWeight), ref: num(row.msRef, 3), ratio: row.overhead == null ? '—' : num(row.overhead, 1) + '×' })),
-        ...(table.programs || []).map((row) => ({ name: row.id, exact: row.exact ? 'yes' : 'no', weight: num(row.msWeight), ref: num(row.msRef, 3), ratio: row.overhead == null ? '—' : num(row.overhead, 1) + '×' })),
-      ];
-      let shown = 0;
-      const paint = (): void => {
-        shown = Math.min(all.length, shown + 4);
-        setRows(all.slice(0, shown));
-        if (shown < all.length) requestAnimationFrame(paint);
-      };
-      requestAnimationFrame(paint);
+    let label = 'timing a small exact-match batch…';
+    let labelQueued = false;
+    const note = (text: string) => {
+      label = text;
+      if (labelQueued) return;
+      labelQueued = true;
+      requestAnimationFrame(() => { labelQueued = false; setBusy(label); });
+    };
+    void mf.measure({ seed: 11, cpu: 8, ram: 8, ssd: 4, gpu: 2, tpu: 2, bus: 16, mlp: 1 }, (p) => { if (p && (p as { label?: string }).label) note(String((p as { label?: string }).label)); }).then(async (data) => {
+      const packed = data as { kind?: string; names?: string[]; nums?: Float64Array; cancelled?: boolean; rows?: WmMeasure['rows']; programs?: WmMeasure['programs'] };
+      if (!packed || packed.cancelled) return;
+      const { yieldHost } = await import('../../../src/coop.js');
+      const shown: MeasureRow[] = [];
+      const push = (row: MeasureRow) => { shown.push(row); setRows(shown.slice()); };
+      if (packed.kind === 'measure' && packed.names && packed.nums) {
+        const nums = packed.nums;
+        for (let i = 0; i < packed.names.length; i++) {
+          const o = i * 5;
+          const trials = nums[o + 1];
+          const exact = nums[o];
+          push({ name: packed.names[i]!, exact: trials === 1 ? (exact ? 'yes' : 'no') : `${exact}/${trials}`, weight: num(nums[o + 2]), ref: num(nums[o + 3], 3), ratio: Number.isFinite(nums[o + 4]) ? num(nums[o + 4], 1) + '×' : '—' });
+          await yieldHost();
+        }
+      }
     }).catch((e: Error) => setWmErr(e.message)).finally(() => setBusy(''));
   };
   const run = createMemo(() => wmRun());

@@ -120,6 +120,15 @@ test('kl of a distribution with itself is 0, and a one-bit shift matches log 2',
   assert.equal(kl([0.2, 0.8], [0, 1]), Infinity);
 });
 
+test('a measure result is a transferred number buffer', () => {
+  const src = readFileSync(new URL('../src/mf-worker.js', import.meta.url), 'utf8');
+  const fn = src.slice(src.indexOf("m.op === 'measure'"), src.indexOf("m.op === 'machine'"));
+  assert.match(fn, /new Float64Array/);
+  assert.match(fn, /nums\.buffer/);
+  const ui = readFileSync(new URL('../ui/src/panels/Machine.tsx', import.meta.url), 'utf8');
+  assert.match(ui, /await yieldHost\(\)/);
+});
+
 test('hub embed posts the float buffer instead of a copied array', () => {
   const src = readFileSync(new URL('../src/hub/worker.js', import.meta.url), 'utf8');
   assert.ok(!src.includes('data: Array.from'));

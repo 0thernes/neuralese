@@ -1,9 +1,9 @@
 // Machine and Forge compute. The page sends a job and renders the plain result.
 // Cancel is a message; long loops notice it between steps. Nothing here touches the DOM.
-import { measure, runMachinePaced } from './machine/machine.js?v=191';
-import { openRunAsync, reproBundle, runLanesAsync } from './forge/session.js?v=191';
-import { lowerForge } from './walk/forgealu.js?v=191';
-import { spectral } from './labcore.js?v=191';
+import { measure, runMachinePaced } from './machine/machine.js?v=192';
+import { openRunAsync, reproBundle, runLanesAsync } from './forge/session.js?v=192';
+import { lowerForge } from './walk/forgealu.js?v=192';
+import { spectral } from './labcore.js?v=192';
 
 const stop = new Set();
 const machines = new Map();
@@ -87,7 +87,14 @@ self.onmessage = async (e) => {
     let result;
     if (m.op === 'ping') result = { ok: true };
     else if (m.op === 'measure') {
-      result = await measure(m.opts || {}, { cancelled: () => stopped(id), onProgress: progress });
+      const raw = await measure(m.opts || {}, { cancelled: () => stopped(id), onProgress: progress });
+      const names = [...raw.rows.map((row) => row.component), ...raw.programs.map((row) => row.id)];
+      const nums = new Float64Array(names.length * 5);
+      let i = 0;
+      for (const row of raw.rows) { nums[i++] = row.exact; nums[i++] = row.trials; nums[i++] = row.msWeight; nums[i++] = row.msRef ?? NaN; nums[i++] = row.overhead ?? NaN; }
+      for (const row of raw.programs) { nums[i++] = row.exact ? 1 : 0; nums[i++] = 1; nums[i++] = row.msWeight ?? NaN; nums[i++] = row.msRef ?? NaN; nums[i++] = row.overhead ?? NaN; }
+      result = { kind: 'measure', names, nums };
+      transfer = [nums.buffer];
     } else if (m.op === 'machine') {
       progress('stepping the weight machine and the int32 reference…', 0);
       const run = await runMachinePaced({

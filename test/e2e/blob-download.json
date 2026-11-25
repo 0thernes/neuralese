@@ -1,0 +1,65 @@
+[
+  {
+    "bytes": 4096,
+    "id": "anchor",
+    "picker": "",
+    "anon": [],
+    "all": []
+  },
+  {
+    "bytes": 4096,
+    "id": "worker",
+    "picker": "",
+    "anon": [],
+    "all": []
+  },
+  {
+    "bytes": 4096,
+    "id": "bitmap",
+    "picker": "",
+    "anon": [],
+    "all": []
+  },
+  {
+    "bytes": 262144,
+    "id": "anchor",
+    "picker": "",
+    "anon": [],
+    "all": []
+  },
+  {
+    "bytes": 262144,
+    "id": "worker",
+    "picker": "",
+    "anon": [],
+    "all": []
+  },
+  {
+    "bytes": 262144,
+    "id": "bitmap",
+    "picker": "",
+    "anon": [],
+    "all": []
+  },
+  {
+    "bytes": 2000000,
+    "id": "anchor",
+    "picker": "",
+    "anon": [],
+    "all": []
+  },
+  {
+    "bytes": 2000000,
+    "id": "worker",
+    "picker": "",
+    "anon": [],
+    "all": []
+  },
+  {
+    "bytes": 2000000,
+    "id": "bitmap",
+    "picker": "",
+    "anon": [],
+    "all": []
+  }
+]

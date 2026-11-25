@@ -1,0 +1,66 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>blob download fixture</title>
+<p>Standalone download. No chart, no worker, no app.</p>
+<button id="anchor">anchor</button>
+<button id="defer">defer</button>
+<button id="picker">picker</button>
+<button id="bitmap">bitmap</button>
+<button id="thumb">thumb</button>
+<button id="worker">worker</button>
+<canvas id="cv"></canvas>
+<script>
+const q = new URLSearchParams(location.search);
+const bytes = Math.max(1, Number(q.get('bytes')) || 32768);
+function payload() {
+  const u = new Uint8Array(bytes);
+  for (let i = 0; i < u.length; i += 64) u[i] = 65 + (i % 26);
+  return new Blob([u], { type: 'text/csv' });
+}
+document.getElementById('anchor').onclick = () => clickBlob(payload());
+document.getElementById('defer').onclick = () => {
+  const blob = payload();
+  setTimeout(() => clickBlob(blob), 50);
+};
+function fill(id, w, h) {
+  const c = document.getElementById(id);
+  c.width = w; c.height = h;
+  const g = c.getContext('2d');
+  g.fillStyle = '#123';
+  g.fillRect(0, 0, w, h);
+  return c;
+}
+document.getElementById('bitmap').onclick = async () => {
+  const c = fill('cv', 1600, 1200);
+  window.__bmp = await createImageBitmap(c);
+};
+document.getElementById('thumb').onclick = async () => {
+  const c = fill('cv', 96, 64);
+  window.__bmp = await createImageBitmap(c);
+};
+document.getElementById('worker').onclick = () => {
+  const src = `onmessage=(e)=>{const n=e.data.n|0;const parts=[];for(let i=0;i<n;i++)parts.push(i+','+(i*1.25).toPrecision(6));const blob=new Blob([parts.join('\\n')],{type:'text/csv'});postMessage({url:URL.createObjectURL(blob),size:blob.size});}`;
+  const w = new Worker(URL.createObjectURL(new Blob([src], { type: 'text/javascript' })));
+  w.onmessage = (e) => { clickBlob(null, e.data.url); window.__workerSize = e.data.size; w.terminate(); };
+  w.postMessage({ n: bytes / 16 });
+};
+function clickBlob(blob, existing) {
+  const a = document.createElement('a');
+  a.href = existing || URL.createObjectURL(blob);
+  a.download = 'fixture.csv';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+document.getElementById('picker').onclick = async () => {
+  const blob = payload();
+  if (typeof showSaveFilePicker !== 'function') { window.__picker = 'missing'; return; }
+  try {
+    const handle = await showSaveFilePicker({ suggestedName: 'fixture.csv' });
+    const w = await handle.createWritable();
+    await w.write(blob);
+    await w.close();
+    window.__picker = 'wrote';
+  } catch (e) { window.__picker = String(e && e.name || e); }
+};
+</script>

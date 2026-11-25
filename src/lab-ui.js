@@ -1,8 +1,8 @@
 // Shared helpers for the v5 research tabs (markup builders, export, run tracker).
-import { CFG } from './model.js?v=191';
-import { frame, runBudgeted } from './coop.js?v=191';
-import { joinLines } from './bytes.js?v=191';
-import { createLab, fromTracker } from './agent/schema.js?v=191';
+import { CFG } from './model.js?v=192';
+import { frame, runBudgeted } from './coop.js?v=192';
+import { joinLines } from './bytes.js?v=192';
+import { createLab, fromTracker } from './agent/schema.js?v=192';
 export const { d, H, hd, L, ff, V } = CFG;
 export const $ = (id) => document.getElementById(id), $$ = (s, r = document) => [...r.querySelectorAll(s)];
 export const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
@@ -22,7 +22,7 @@ export function tokId(tok, s) { const ids = tok.encode(s); if (!ids.length) thro
 export function parseLayers(s) { const out = new Set(); for (const p of String(s).split(',')) { const m = p.trim().match(/^(\d+)(?:-(\d+))?$/); if (!m) throw new Error('bad layer list ' + s); for (let l = +m[1]; l <= +(m[2] ?? m[1]); l++) if (l < L) out.add(l); } if (!out.size) throw new Error('no valid layers'); return out; }
 export function canvasFit(cvs, h) { const w = cvs.clientWidth || 420; cvs.width = w * devicePixelRatio; cvs.height = h * devicePixelRatio; cvs.style.height = h + 'px'; const c = cvs.getContext('2d'); c.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0); return [c, w]; }
 export const chartBg = () => getComputedStyle(document.documentElement).getPropertyValue('--chart-bg').trim() || '#060a12';
-function exportWorker() { return new Worker(new URL('./export-worker.js?v=191', import.meta.url)); }
+function exportWorker() { return new Worker(new URL('./export-worker.js?v=192', import.meta.url)); }
 function workerBuffer(w) {
   return new Promise((resolve, reject) => {
     w.onmessage = (e) => resolve(e.data);
@@ -88,10 +88,13 @@ export async function exportFor(id, kind) {
   if (kind === 'csv') {
     const pack = el._pack;
     if (!pack || !pack.cols || !pack.cols.length) return false;
-    const cols = pack.cols.map((c) => c.slice());
+    const cols = pack.cols;
+    const buffers = cols.map((c) => c.buffer);
+    pack.cols = [];
+    const labels = pack.labels && pack.labels.length <= 512 ? pack.labels : [];
     const w = exportWorker();
     armDownload(w, `${name}.csv`);
-    w.postMessage({ op: 'series', header: pack.header, labels: pack.labels, cols: cols.map((c) => c.buffer) }, cols.map((c) => c.buffer));
+    w.postMessage({ op: 'series', header: pack.header, labels, cols: buffers }, buffers);
     return true;
   }
   return false;

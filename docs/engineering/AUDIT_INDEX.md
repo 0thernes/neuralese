@@ -5,9 +5,9 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 | | |
 |---|---|
 | Files | 505 |
-| Reviewed (passes 23–79) | 167 |
-| Indexed, not reviewed | 338 |
-| Coverage | 33.1% |
+| Reviewed (passes 23–84) | 170 |
+| Indexed, not reviewed | 335 |
+| Coverage | 33.7% |
 
 
 ## `/`
@@ -221,7 +221,7 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 |---|---|---|---|---|
 | `arch.js` | v16 Arch interface: one decoder-only transformer forward for several HF families, replacing the single hard-wi | arch | none mapped | indexed |
 | `encoder-worker.js` | v16 HUB interpretability worker: loads a revision-pinned HF safetensors checkpoint (ViT, CLIP vision tower, Wh | arch | none mapped | reviewed, passes 74–79 |
-| `encoder.js` | v16 encoder forwards for the HUB families, written from the HF reference implementations so that hidden states | arch | none mapped | indexed |
+| `encoder.js` | v16 encoder forwards for the HUB families, written from the HF reference implementations so that hidden states | arch | none mapped | reviewed, passes 81–84 |
 | `remote.js` | v16: read only the tensors you need from a remote .safetensors with HTTP Range requests (e.g. the CLIP vision  | arch | none mapped | reviewed, pass 58 |
 
 ## `src/forge/`
@@ -239,7 +239,7 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 | `mdcc.js` | MDCC lane: a deterministic proposer reads the task string, then the host computes with bigint. | forge | none mapped | reviewed, passes 52–53 |
 | `nestlang.js` | NestLang/1 — Neuralese-original surface language for ForgeISA. | forge | none mapped | reviewed, pass 69 |
 | `session.d.ts` | ts | forge | none mapped | indexed |
-| `session.js` | One Forge run: language-model tokens, then the delimiter, then one engine token group per clock. | forge | none mapped | indexed |
+| `session.js` | One Forge run: language-model tokens, then the delimiter, then one engine token group per clock. | forge | none mapped | reviewed, passes 81–84 |
 | `vm.js` | Integer reference VM for ForgeISA/1. Ground truth. Words are int32. No float rounding. | forge | none mapped | reviewed, passes 74–79 |
 
 ## `src/frontier/`
@@ -531,7 +531,7 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 | `gates.js` | Gate netlist. Every gate is AND, OR, XOR, or NOT, plus constant 0/1 sources. | walk | none mapped | indexed |
 | `record.js` | One real forward, with the engine's own tensors copied out. Logits are Engine.matvec on the final hidden state | walk | none mapped | reviewed, pass 73 |
 | `sample.js` | Display sampling. The stored tensor is complete. The picture shows a capped window and says so. | walk | none mapped | indexed |
-| `session.js` | Worker and main-thread entry for a walk. The last session stays here so a cell query can explain it. | walk | none mapped | indexed |
+| `session.js` | Worker and main-thread entry for a walk. The last session stays here so a cell query can explain it. | walk | none mapped | reviewed, passes 81–84 |
 
 ## `src/walk/data/`
 
