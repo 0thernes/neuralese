@@ -2,8 +2,8 @@
 // exact backward for every op (embeddings, LayerNorm, unscaled causal/local attention, GELU-tanh MLP, tied unembedding).
 // Computes gradients w.r.t. activations at every hook site and (optionally) every weight. Runtime interventions are NOT
 // applied here: gradients describe the current weight set M with the default forward pass.
-import { CFG } from './model.js?v=179';
-import { slice, frame, runBudgeted } from './coop.js?v=179';
+import { CFG } from './model.js?v=180';
+import { slice, frame, runBudgeted } from './coop.js?v=180';
 function pause() { return typeof document === 'undefined' ? null : slice(); }
 export const dims = (W) => W.cfg || CFG;
 const GC = 0.7978845608028654, GA = 0.044715;
@@ -213,7 +213,7 @@ export function activationPatchingHeads(W, clean, corr, obj) { const { d, H, hd,
 export async function fisherDiag(W, docs, maxT = 48, onp = () => {}) {
   const F = await zerosLikeAsync(W, false), S = await zerosLikeAsync(W, false); let n = 0;
   for (const doc of docs) { const r = await gradAsync(W, doc.slice(0, maxT), { kind: 'ce' }, { weights: true }); n++;
-    const acc = async (g, f, s, w) => { const N = 65536; for (let i = 0; i < g.length; i += N) { const end = Math.min(g.length, i + N); for (let j = i; j < end; j++) { f[j] += g[j] * g[j]; s[j] += g[j] * w[j]; } if (g.length > N) await frame(); } };
+    const acc = async (g, f, s, w) => { const N = 4096; for (let i = 0; i < g.length; i += N) { const end = Math.min(g.length, i + N); for (let j = i; j < end; j++) { f[j] += g[j] * g[j]; s[j] += g[j] * w[j]; } await frame(); } };
     for (const [l, P] of r.G.layers.entries()) for (const k in P) await acc(P[k], F.layers[l][k], S.layers[l][k], W.layers[l][k]); await acc(r.G.lnfW, F.lnfW, S.lnfW, W.lnfW); onp(n / docs.length); }
   const fin = (a) => { for (let i = 0; i < a.length; i++) a[i] /= n; };
   F.layers.forEach((P, l) => { for (const k in P) { fin(P[k]); fin(S.layers[l][k]); } }); fin(F.lnfW); fin(S.lnfW);
