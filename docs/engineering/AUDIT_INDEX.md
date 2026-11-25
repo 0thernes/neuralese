@@ -5,9 +5,9 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 | | |
 |---|---|
 | Files | 505 |
-| Reviewed (passes 23–44) | 104 |
-| Indexed, not reviewed | 401 |
-| Coverage | 20.6% |
+| Reviewed (passes 23–49) | 119 |
+| Indexed, not reviewed | 386 |
+| Coverage | 23.6% |
 
 
 ## `/`
@@ -65,18 +65,18 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 | `FRONTIER.md` | documentation | docs | none mapped | reviewed, passes 43–44 |
 | `GLOSSARY.md` | documentation | docs | none mapped | indexed |
 | `KANBAN.md` | documentation | docs | none mapped | indexed |
-| `NEST_CPU.md` | documentation | docs | none mapped | indexed |
+| `NEST_CPU.md` | documentation | docs | none mapped | reviewed, passes 47–49 |
 | `NEURON_LENS_METHOD.md` | documentation | docs | none mapped | reviewed, passes 43–44 |
-| `PREREG-v11.md` | documentation | docs | none mapped | indexed |
+| `PREREG-v11.md` | documentation | docs | none mapped | reviewed, passes 47–49 |
 | `PREREG-v14.md` | documentation | docs | none mapped | reviewed, passes 41–42 |
-| `PREREG-v14x.md` | documentation | docs | none mapped | indexed |
+| `PREREG-v14x.md` | documentation | docs | none mapped | reviewed, passes 47–49 |
 | `REPORT-v14.md` | documentation | docs | none mapped | reviewed, passes 41–42 |
 | `ROADMAP-v12.md` | documentation | docs | none mapped | indexed |
 | `ROADMAP-v14.md` | documentation | docs | none mapped | reviewed, passes 41–42 |
 | `STACK.md` | documentation | docs | none mapped | reviewed, passes 41–42 |
-| `STEERING_GUIDE.md` | documentation | docs | none mapped | indexed |
+| `STEERING_GUIDE.md` | documentation | docs | none mapped | reviewed, passes 47–49 |
 | `TSOTCHKE.md` | documentation | docs | none mapped | indexed |
-| `WEIGHT_MACHINE.md` | documentation | docs | none mapped | indexed |
+| `WEIGHT_MACHINE.md` | documentation | docs | none mapped | reviewed, passes 47–49 |
 | `prereg.schema.json` | json | docs | none mapped | indexed |
 
 ## `docs/engineering/`
@@ -90,24 +90,24 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 | `PASSES.md` | documentation | docs | none mapped | reviewed, passes 23–30 |
 | `RESEARCH_TRACKS.md` | documentation | docs | none mapped | indexed |
 | `SOP.md` | documentation | docs | none mapped | reviewed, passes 41–42 |
-| `WANDB_PARITY.md` | documentation | docs | none mapped | indexed |
+| `WANDB_PARITY.md` | documentation | docs | none mapped | reviewed, passes 47–49 |
 
 ## `docs/progress/`
 
 | File | Purpose | Owner | Tests | Status |
 |---|---|---|---|---|
-| `V12_PROGRESS.md` | documentation | docs | none mapped | indexed |
-| `V13_PROGRESS.md` | documentation | docs | none mapped | indexed |
-| `V14_PROGRESS.md` | documentation | docs | none mapped | indexed |
-| `V15_2_PROGRESS.md` | documentation | docs | none mapped | indexed |
-| `V15_PROGRESS.md` | documentation | docs | none mapped | indexed |
+| `V12_PROGRESS.md` | documentation | docs | none mapped | reviewed, passes 47–49 |
+| `V13_PROGRESS.md` | documentation | docs | none mapped | reviewed, passes 47–49 |
+| `V14_PROGRESS.md` | documentation | docs | none mapped | reviewed, passes 47–49 |
+| `V15_2_PROGRESS.md` | documentation | docs | none mapped | reviewed, passes 47–49 |
+| `V15_PROGRESS.md` | documentation | docs | none mapped | reviewed, passes 47–49 |
 
 ## `docs/roadmap/`
 
 | File | Purpose | Owner | Tests | Status |
 |---|---|---|---|---|
-| `FRONTIER_100.md` | documentation | docs | none mapped | indexed |
-| `README.md` | documentation | docs | none mapped | indexed |
+| `FRONTIER_100.md` | documentation | docs | none mapped | reviewed, passes 47–49 |
+| `README.md` | documentation | docs | none mapped | reviewed, passes 47–49 |
 | `TABLE_STAKES_100.md` | documentation | docs | none mapped | indexed |
 
 ## `features/releases/`
@@ -160,7 +160,7 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 | `lab-lens.js` | v14 NEURON LENS group: browsable, searchable DB of every TinyStories-8M MLP neuron and attention head read thr | lab core | none mapped | indexed |
 | `lab-model.js` | MODEL group: architecture schematic, parameter/FLOP breakdown, weight statistics (live tensors). | lab core | none mapped | reviewed, passes 39–40 |
 | `lab-nested.js` | v14.7 / v14.8 NESTED group: a RISC-V CPU baked into transformer weights, a language model baked into a languag | lab core | none mapped | indexed |
-| `lab-research.js` | v7 RESEARCH group: reproducibility (hashes, manifests, replay), hypothesis tests, ACDC-style circuit discovery | lab core | none mapped | indexed |
+| `lab-research.js` | v7 RESEARCH group: reproducibility (hashes, manifests, replay), hypothesis tests, ACDC-style circuit discovery | lab core | none mapped | reviewed, passes 47–49 |
 | `lab-science.js` | v6 SCIENCE group: drill-down inspector, gradients & attribution, head circuits, representation geometry, loss  | lab core | none mapped | reviewed, passes 37–38 |
 | `lab-tsotchke.js` | v8 TSOTCHKE group — components that genuinely use the open-source work of Tsotchke (github.com/tsotchke, MIT): | lab core | none mapped | reviewed, passes 23–30 |
 | `lab-ui.js` | Shared helpers for the v5 research tabs (markup builders, export, run tracker). | lab core | test/audit-hardening.test.mjs | reviewed, passes 23–30 |
@@ -459,7 +459,7 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 | `qrng.js` | Browser/Node wrapper over tsotchke/quantum_rng (commit 1a77e77, MIT, © 2024 Tsotchke) compiled to WebAssembly  | tsotchke | none mapped | indexed |
 | `qrng.mjs` | mjs | tsotchke | none mapped | indexed |
 | `qrng.wasm.b64` | b64 | tsotchke | none mapped | indexed |
-| `taylor.js` | Univariate truncated-Taylor ("jet") arithmetic to order K — a faithful JavaScript port of the recurrence table | tsotchke | none mapped | indexed |
+| `taylor.js` | Univariate truncated-Taylor ("jet") arithmetic to order K — a faithful JavaScript port of the recurrence table | tsotchke | none mapped | reviewed, passes 47–49 |
 | `types.js` | Type-checks the real NEURALESE computation graph with Eshkol's own compile-time type layer, compiled to WebAss | tsotchke | none mapped | indexed |
 | `wasmb64.js` | The deploy pipeline for this site (GitHub contents API via text-only tooling) cannot carry raw binary files, s | tsotchke | none mapped | indexed |
 

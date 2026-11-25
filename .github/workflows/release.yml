@@ -18,7 +18,7 @@ jobs:
         with: { node-version: 24 }
       - run: npm ci
       - uses: actions/cache@v5
-        with: { path: model, key: tinystories-model-v1 }
+        with: { path: model, key: tinystories-8m-d40feb886ae2039dc1d2afffa63400acd0df65663c25eea2f6f554dce2d656aa }
       - run: node tools/fetch-model.mjs
       - uses: actions/cache@v5
         with: { path: model/arch, key: arch-models-v1 }

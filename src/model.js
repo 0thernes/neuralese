@@ -57,7 +57,7 @@ export async function cloneWeightsYield(W) {
   return dst;
 }
 export async function copyWeightsIntoYield(dst, src) {
-  const put = async (d, s) => { const N = 262144; for (let i = 0; i < s.length; i += N) { d.set(s.subarray(i, Math.min(s.length, i + N)), i); if (s.length > N) await frame(); } };
+  const put = async (d, s) => { const N = 8192; if (s.length <= N) { d.set(s); return; } for (let i = 0; i < s.length; i += N) { d.set(s.subarray(i, Math.min(s.length, i + N)), i); await frame(); } };
   await put(dst.wte, src.wte); await put(dst.wpe, src.wpe); await put(dst.lnfW, src.lnfW); await put(dst.lnfB, src.lnfB);
   for (let i = 0; i < dst.layers.length; i++) for (const k of Object.keys(dst.layers[i])) await put(dst.layers[i][k], src.layers[i][k]);
 }

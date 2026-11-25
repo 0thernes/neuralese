@@ -9,6 +9,8 @@ import { kl } from '../src/analytics.js';
 import { svd, svdReconstruct } from '../src/linalg.js';
 import { filterDist, pick } from '../src/decode.js';
 import * as Grok from '../src/frontier/grok.js';
+import { headAblationCE } from '../src/research.js';
+import { ceJetLnf, ceJetLnfAsync, Jet } from '../src/tsotchke/taylor.js';
 
 test('concatUint8 matches a single copy and yields between steps', async () => {
   const a = Uint8Array.from({ length: 50 }, (_, i) => i);
@@ -123,6 +125,47 @@ test('a yielded unembed matches a full matvec', async () => {
   const a = matvec(W, x, new Float32Array(nOut), nOut, nIn);
   const b = await matvecYield(W, x, new Float32Array(nOut), nOut, nIn, null, async () => {}, 1024);
   for (let i = 0; i < nOut; i++) assert.ok(Math.abs(a[i] - b[i]) < 1e-5);
+});
+
+test('the beginner guide states the weight download size', () => {
+  const guide = readFileSync(new URL('../docs/STEERING_GUIDE.md', import.meta.url), 'utf8');
+  assert.equal((guide.match(/112 MB/g) || []).length, 2);
+  assert.ok(!guide.includes('80 MB'));
+  try { const st = statSync(new URL('../model/model.safetensors', import.meta.url)); if (st.isFile()) assert.ok(st.size > 100e6 && st.size < 120e6); } catch { /* the science test fetches the file; this check is the prose */ }
+});
+
+test('the CI model cache key is the pinned TinyStories-8M hash', () => {
+  const yml = readFileSync(new URL('../.github/workflows/release.yml', import.meta.url), 'utf8');
+  const fetchSrc = readFileSync(new URL('../tools/fetch-model.mjs', import.meta.url), 'utf8');
+  const pin = fetchSrc.match(/model\.safetensors': \[[^\]]*'([0-9a-f]{64})'/);
+  assert.ok(pin, 'pin');
+  assert.match(yml, new RegExp('key: tinystories-8m-' + pin[1]));
+  assert.match(yml, /node tools\/fetch-model\.mjs/);
+});
+
+test('a yielded CE jet matches the sync jet', async () => {
+  const d = 4, V = 7, T = 3;
+  const W = { lnfW: Float32Array.from([1, 0.8, 1.1, 0.9]), lnfB: Float32Array.from([0.1, -0.1, 0, 0.2]), wte: Float32Array.from({ length: V * d }, (_, i) => ((i * 3) % 11) / 10 - 0.5) };
+  const x = Float32Array.from({ length: T * d }, (_, i) => ((i * 5) % 9) / 20);
+  const ids = [1, 4, 2], v = Float64Array.from([0.2, -0.1, 0.05, 0.1]);
+  const a = ceJetLnf(W, x, ids, v, 2);
+  const b = await ceJetLnfAsync(W, x, ids, v, 2, async () => {});
+  assert.ok(a instanceof Jet);
+  for (let k = 0; k < a.c.length; k++) assert.ok(Math.abs(a.c[k] - b.c[k]) < 1e-8, k + ' ' + a.c[k] + ' ' + b.c[k]);
+});
+
+test('head ablation CE changes when a head is zeroed and restores the columns', () => {
+  const d = 8, hd = 4, H = 2, ff = 8, V = 12;
+  const g = (n, s = 1) => Float32Array.from({ length: n }, (_, i) => Math.sin(i * 1.3 + s) * 0.2);
+  const layer = () => ({ ln1w: g(d, 2).map((x) => 1 + x * 0.1), ln1b: g(d, 3), q: g(d * d, 4), k: g(d * d, 5), v: g(d * d, 6), o: g(d * d, 7), ob: g(d, 8), ln2w: g(d, 9).map((x) => 1 + x * 0.1), ln2b: g(d, 10), fc: g(ff * d, 11), fcb: g(ff, 12), proj: g(d * ff, 13), projb: g(d, 14) });
+  const W = { wte: g(V * d, 15), wpe: g(32 * d, 16), lnfW: g(d, 17).map((x) => 1 + x * 0.1), lnfB: g(d, 18), layers: [layer()], cfg: { d, H, hd, ff, V, eps: 1e-5 } };
+  const docs = [[1, 2, 3, 4], [3, 1, 5, 2]];
+  const r = headAblationCE(W, 0, docs);
+  assert.equal(r.base.length, 2);
+  assert.equal(r.ablated.length, H);
+  assert.ok(Math.abs(r.ablated[0][0] - r.base[0]) > 1e-6);
+  const again = headAblationCE(W, 0, docs);
+  assert.ok(Math.abs(again.base[0] - r.base[0]) < 1e-8);
 });
 
 test('a yielded grokking step matches one full step', async () => {

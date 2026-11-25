@@ -253,7 +253,8 @@ iframe{border:1px solid var(--b)!important;border-radius:var(--rad);background:v
 }
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
 .tb button,#bGuide{white-space:nowrap}
-@media (max-width:900px){.logo{letter-spacing:.16em;font-size:12px}.tb button{font-size:11px;padding:0 6px}header#top button{white-space:nowrap}#bGuide{font-size:0;padding:0 7px}#bGuide::first-letter{font-size:13px}}
+@media (max-width:900px){.logo{letter-spacing:.16em;font-size:12px}.tb button{font-size:12px;padding:0 6px;color:#f8fafc;background:#0b1220}header#top button{white-space:nowrap;color:#f8fafc;background:#0b1220}#bGuide{font-size:0;padding:0 7px}#bGuide::first-letter{font-size:13px}}
+@media (max-width:900px){:root[data-theme=light] header#top button,:root[data-theme=light] .tb button{color:#0b1220;background:#ffffff}}
 
 /* ═══════════ v15.1 polish layer ═══════════ */
 :root{--sa:#4fd8c4;--fs-xs:10.5px;--fs-s:11.5px;--fs-m:12.5px;--fs-l:14px;--fs-xl:19px;--fs-2xl:26px}

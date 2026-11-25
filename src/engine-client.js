@@ -67,6 +67,8 @@ export class RemoteEngine {
   forwardOnce(key, ids) { return this.call({ op: 'forwardOnce', key, ids }); }
   greedy(key, ids, n) { return this.call({ op: 'greedy', key, ids, n }); }
   pci(key, ids, opts = {}) { return this.call({ op: 'pci', key, ids, ...opts }); }
+  taylorJet(key, ids, v, K, eps) { return this.call({ op: 'taylorJet', key, ids, v: Array.from(v), K, eps }); }
+  headCE(key, layer, docs) { return this.call({ op: 'headCE', key, layer, docs }); }
   free(seqs) { return this.call({ op: 'free', sids: seqs.filter(Boolean).map((s) => s.sid) }); }
   terminate() { this.w.terminate(); }
 }

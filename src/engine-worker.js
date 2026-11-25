@@ -24,11 +24,39 @@ function runHeavy(m) {
     self.postMessage({ id: m.id, out });
   }).catch((err) => self.postMessage({ id: m.id, err: String(err && err.stack || err) }));
 }
+function labJob(m) {
+  (async () => {
+    try {
+      const eng = E[m.key];
+      if (!eng) throw new Error('no engine ' + m.key);
+      let out;
+      if (m.op === 'taylorJet') {
+        const { forward } = await import('./grad.js?v=170');
+        const { ceJetLnf } = await import('./tsotchke/taylor.js?v=170');
+        const W = eng.W;
+        const A = forward(W, m.ids);
+        const v = Float64Array.from(m.v);
+        const jet = ceJetLnf(W, A.xf, m.ids, v, m.K | 0);
+        const act = [];
+        for (const e of m.eps || []) {
+          const w = Float32Array.from(W.lnfW, (x, i) => x + e * v[i]);
+          act.push(ceJetLnf({ ...W, lnfW: w }, A.xf, m.ids, v, 0).c[0]);
+        }
+        out = { c: Array.from(jet.c), act };
+      } else if (m.op === 'headCE') {
+        const { headAblationCE } = await import('./research.js?v=170');
+        out = headAblationCE(eng.W, m.layer | 0, m.docs);
+      } else throw new Error('unknown lab op ' + m.op);
+      self.postMessage({ id: m.id, out });
+    } catch (err) { self.postMessage({ id: m.id, err: String(err && err.stack || err) }); }
+  })();
+}
 self.onmessage = (ev) => {
   const m = ev.data;
   if (!m || typeof m !== 'object') return;
   if (m.op === 'cancelJob') { cancelJobs(); return; }
   if (m.op === 'heavy') { runHeavy(m); return; }
+  if (m.op === 'taylorJet' || m.op === 'headCE') { labJob(m); return; }
   let out, tr = [];
   const needSeq = m.op === 'step' || m.op === 'steps' || m.op === 'beam' || m.op === 'kvgeom';
   try {
