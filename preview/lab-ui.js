@@ -36,7 +36,8 @@ async function pngBlob(el) {
   const cap = 96, scale = Math.min(1, cap / Math.max(w, h));
   const cw = Math.max(1, Math.round(w * scale)), ch = Math.max(1, Math.round(h * scale));
   const c = document.createElement('canvas'); c.width = cw; c.height = ch;
-  c.getContext('2d').drawImage(el, 0, 0, cw, ch);
+  await tick();
+  c.getContext('2d').drawImage(el, 0, 0, Math.min(48, el.width), Math.min(48, el.height), 0, 0, cw, ch);
   await tick();
   const bmp = await createImageBitmap(c);
   const worker = exportWorker();

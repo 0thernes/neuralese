@@ -13,6 +13,41 @@ function bytesToUnicode() {
   return m;
 }
 const PAT = /'s|'t|'re|'ve|'m|'ll|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+/gu;
+// vocab.json is one object. JSON.parse of it is one script of several hundred milliseconds, so the page walks the text.
+export async function parseVocabYield(text, pause = null) {
+  const vocab = Object.create(null);
+  let i = 0, n = 0;
+  while (i < text.length && text[i] !== '{') i++;
+  i++;
+  while (i < text.length) {
+    while (i < text.length && text[i] !== '"' && text[i] !== '}') i++;
+    if (text[i] !== '"') break;
+    i++;
+    let key = '';
+    while (i < text.length) {
+      const c = text[i++];
+      if (c === '\\') {
+        const e = text[i++];
+        if (e === 'u') { key += String.fromCharCode(parseInt(text.slice(i, i + 4), 16)); i += 4; }
+        else if (e === 'n') key += '\n';
+        else if (e === 't') key += '\t';
+        else if (e === '"') key += '"';
+        else if (e === '\\') key += '\\';
+        else if (e === '/') key += '/';
+        else key += e;
+      } else if (c === '"') break;
+      else key += c;
+    }
+    while (i < text.length && text[i] !== ':') i++;
+    i++;
+    let num = '';
+    while (i < text.length && text[i] !== ',' && text[i] !== '}') num += text[i++];
+    vocab[key] = +num;
+    n++;
+    if (pause && (n & 127) === 0) await pause();
+  }
+  return vocab;
+}
 const STR_CACHE = 48;
 
 export class GPT2Tokenizer {
