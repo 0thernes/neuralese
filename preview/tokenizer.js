@@ -82,10 +82,10 @@ export class GPT2Tokenizer {
   static async createFromPairs(vocab, buffer) {
     const tok = GPT2Tokenizer.fromPairs(vocab, buffer, true);
     tok.decoder = [];
-    const keys = Object.keys(vocab);
-    for (let i = 0; i < keys.length; i++) {
-      tok.decoder[vocab[keys[i]]] = keys[i];
-      if ((i & 511) === 511 && typeof document !== 'undefined') await frame();
+    let i = 0;
+    for (const k in vocab) {
+      tok.decoder[vocab[k]] = k;
+      if ((++i & 63) === 0 && typeof document !== 'undefined') await frame();
     }
     return tok;
   }
