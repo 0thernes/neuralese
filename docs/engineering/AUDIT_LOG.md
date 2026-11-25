@@ -42,6 +42,14 @@ Passes 1–22 are the earlier engineering log in [PASSES.md](PASSES.md). This fi
 
 ## Open
 
+- Preview of `e7c4f7e` is the latest finished 3-width run. Workers 1. Console errors 0. Axe is clean. The inverse vocab is a binary and the Voltage curve yields. The gate still fails. The worst script is the startup continuation after the weight copy (305 ms mobile). Tablet and desktop are 220 and 223 ms, an export while a zoom button is current.
+
+| Width | Clicked | Disabled | Console | Axe | Cosmos | #gl | Raw max | Raw p95 | Paint/GL max | App max | App p95 | Worst |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 390×844 | 514 | 9 | 0 | none | 390×607 | 390×445 | 741 | 456 | 741 | 305 | 305 | startup after the weight copy |
+| 768×1024 | 489 | 9 | 0 | none | 388×407 | 373×551 | 1166 | 471 | 1166 | 220 | 220 | @TPU MAC stuck-at |
+| 1440×900 | 514 | 9 | 0 | none | 737×350 | 709×469 | 1748 | 482 | 1748 | 223 | 223 | export @Lower to gates |
+
 - Preview of `a81f36c` is the latest finished 3-width run. Workers 1. Console errors 0. Axe is clean at all three widths. The shell is on screen in under a second, before the weights. The gate still fails on application script. The worst script is the worker message that delivers the inverse vocab (315 ms mobile, 328 ms desktop). Tablet's worst is 183 ms. With only 3–7 frames at or above 50 ms, p95 is the same as the max.
 
 | Width | Clicked | Disabled | Console | Axe | Cosmos | #gl | Raw max | Raw p95 | Paint/GL max | App max | App p95 | Worst |
