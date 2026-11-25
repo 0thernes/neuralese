@@ -32,18 +32,9 @@ async function blobFromParts(parts, type) {
 }
 async function pngBlob(el) {
   const w = el.width, h = el.height; if (!w || !h) return null;
-  const worker = exportWorker();
-  try {
-    worker.postMessage({ op: 'png-init', w, h });
-    const strip = 8;
-    for (let y = 0; y < h; y += strip) {
-      const sh = Math.min(strip, h - y);
-      let bmp; try { bmp = await createImageBitmap(el, 0, y, w, sh); } catch { return new Promise((resolve) => el.toBlob((b) => resolve(b))); }
-      worker.postMessage({ op: 'png-bitmap', y, bmp }, [bmp]);
-      await tick();
-    }
-    return await new Promise((resolve, reject) => { worker.onmessage = (e) => resolve(e.data); worker.onerror = () => reject(new Error('png worker failed')); worker.postMessage({ op: 'png-end' }); });
-  } finally { worker.terminate(); }
+  await tick();
+  // createImageBitmap on a live canvas flushed the whole framebuffer (~180 ms) even for an 8-row strip.
+  return await new Promise((resolve) => el.toBlob((b) => resolve(b), 'image/png'));
 }
 export async function exportFor(id, kind) {
   await tick();

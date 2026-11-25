@@ -48,7 +48,7 @@ export class GPT2Tokenizer {
     for (let i = 0; i < lines.length; i++) {
       const l = lines[i];
       if (l && !l.startsWith('#version')) tok.ranks.set(l, r++);
-      if ((i & 63) === 63 && typeof document !== 'undefined') await frame();
+      if ((i & 7) === 7 && typeof document !== 'undefined') await frame();
     }
     return tok;
   }

@@ -309,7 +309,7 @@ function Report(): JSX.Element {
     const mf = legacy()?.mf;
     if (!mf) { setWmErr('machine worker is not ready'); return; }
     setBusy('timing a small exact-match batch…');
-    void mf.measure({ seed: 11, cpu: 8, ram: 8, ssd: 4, gpu: 2, tpu: 2, bus: 16, mlp: 1 }, (p) => { if (p.label) setBusy(String(p.label)); }).then((table) => { if (!(table as { cancelled?: boolean })?.cancelled) setTable(table as WmMeasure); }).catch((e: Error) => setWmErr(e.message)).finally(() => setBusy(''));
+    void mf.measure({ seed: 11, cpu: 8, ram: 8, ssd: 4, gpu: 2, tpu: 2, bus: 16, mlp: 1 }, (p) => { if (p.label) setBusy(String(p.label)); }).then((table) => new Promise((resolve) => setTimeout(resolve, 0)).then(() => { if (!(table as { cancelled?: boolean })?.cancelled) setTable(table as WmMeasure); })).catch((e: Error) => setWmErr(e.message)).finally(() => setBusy(''));
   };
   const run = createMemo(() => wmRun());
   return <>

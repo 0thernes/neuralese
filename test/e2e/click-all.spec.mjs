@@ -152,7 +152,7 @@ for (const [w, h, name] of WIDTHS) test(`click every control · ${name}`, async 
     });
     const axe = await new AxeBuilder({ page }).include('#top').include('#v17').analyze();
     const serious = axe.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical');
-    if (serious.length) failures.push(`${name} axe ${serious.map((v) => v.id + ':' + v.nodes.length).slice(0, 8).join(',')}`);
+    if (serious.length) failures.push(`${name} axe ${serious.map((v) => { const n = v.nodes[0]; const where = n ? ` ${(n.target || []).join(' ')} ${String(n.html || '').replace(/\s+/g, ' ').slice(0, 90)}` : ''; return v.id + ':' + v.nodes.length + where; }).slice(0, 4).join(' | ')}`);
     const workspaces = await page.locator('.wsbar button[data-ws]').evaluateAll((els) => els.map((e) => e.getAttribute('data-ws')));
     expect(workspaces.length).toBeGreaterThanOrEqual(13);
     const showWs = async (id) => {
