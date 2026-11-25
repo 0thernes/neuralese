@@ -1,5 +1,5 @@
 // Tiny GPT-Neo forward pass in plain JS. Weights are mutable Float32Arrays.
-import { runBudgeted } from './coop.js?v=188';
+import { runBudgeted } from './coop.js?v=189';
 export const CFG = { d: 256, H: 16, hd: 16, L: 8, ff: 1024, V: 50257, window: 256, eps: 1e-5 };
 
 export function parseSafetensors(buf, hdrLen, header) {
