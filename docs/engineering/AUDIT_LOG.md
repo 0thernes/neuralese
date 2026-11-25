@@ -48,7 +48,7 @@ Passes 1–22 are the earlier engineering log in [PASSES.md](PASSES.md). This fi
 | 768×1024 | 514 | 9 | 0 | none | 388×407 | 373×551 | 1109 | 452 | 1109 | 183 | 183 | @Voltage |
 | 1440×900 | 514 | 9 | 0 | none | 737×350 | 709×469 | 2321 | 464 | 2321 | 328 | 328 | vocab worker message |
 
-- Preview of `ab1361d` is the latest finished 3-width run. Workers 1. Console errors 0. 514 clicked, 9 disabled. Mobile passed the script gate and axe. Tablet and desktop did not. The long script is one merge-table chunk inside `GPT2Tokenizer.create` (354 ms tablet, 361 ms desktop). Axe is `color-contrast` on `#bTheme` (tablet) and `#bDense` (desktop). Yielding every merge line kept the shell from mounting within 240 s, so the yield is every 8 lines again.
+- Preview of `ab1361d` was the run before the rank table. Workers 1. Console errors 0. 514 clicked, 9 disabled. Mobile passed the script gate and axe. Tablet and desktop did not. The long script is one merge-table chunk inside `GPT2Tokenizer.create` (354 ms tablet, 361 ms desktop). Axe is `color-contrast` on `#bTheme` (tablet) and `#bDense` (desktop). Yielding every merge line kept the shell from mounting within 240 s, so the yield is every 8 lines again.
 
 | Width | Clicked | Disabled | Console | Axe | Cosmos | #gl | Raw max | Raw p95 | Paint/GL max | App max | App p95 | Worst |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
