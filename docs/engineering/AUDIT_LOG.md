@@ -58,6 +58,14 @@ Passes 1–22 are the earlier engineering log in [PASSES.md](PASSES.md). This fi
 
 ## Open
 
+- Preview of `3c011e6` keeps the shared frame budget. Large heatmaps are filled on an OffscreenCanvas in a worker. `setTimeout(0)` is rejected by `test/no-heavy-timeout.test.mjs`. The click sweep held the workspace and walked the manifest. It clicked 147 / 171 / 170 controls. That is not 514, so the run does not count as coverage. The 21 disabled controls are buttons with nothing to run yet: `adv-run`, Clock one, Play, Step back, Step, and Run DW-FAULT-1. Console errors 0. Axe was not in the failure list. Screenshots succeeded. App max is 273 / 338 / 254 and p95 is 75 / 77 / 84. Mobile max is under `e7c4f7e` (305). Tablet and desktop are over it (220 / 223). The remaining long script is still a `setTimeout` callback, about 208–258 ms, during Lower to gates and Measure a small batch.
+
+| Width | Clicked | Disabled | Console | Axe | Cosmos | #gl | Raw max | Raw p95 | Paint/GL max | App max | App p95 | Worst |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 390×844 | 147 | 21 | 0 | none in the failure list | 390×657 | 390×477 | 956 | 286 | 956 | 273 | 75 | Lower to gates, `setTimeout` handler, 245 ms |
+| 768×1024 | 171 | 21 | 0 | none in the failure list | 388×425 | 373×571 | 940 | 370 | 940 | 338 | 77 | Measure a small batch, `setTimeout` handler, 258 ms |
+| 1440×900 | 170 | 21 | 0 | none in the failure list | 737×368 | 709×489 | 1129 | 715 | 1129 | 254 | 84 | Measure a small batch, `setTimeout` handler, 208 ms |
+
 - Preview of `a592537` shares one 8 ms frame budget and waits for the next paint with `requestAnimationFrame`, then a `MessageChannel` post. Workers 1. A separate load check found every manifest panel in all 13 workspaces. The click sweep still missed panels on mobile, so that width clicked 198. Tablet and desktop screenshots succeeded. Console errors 0. Axe was not in the failure list. App max is 218 / 247 / 228. That is under `e7c4f7e` on mobile (305) and over it on tablet (220) and desktop (223). p95 is 72 / 80 / 79.
 
 | Width | Clicked | Disabled | Console | Axe | Cosmos | #gl | Raw max | Raw p95 | Paint/GL max | App max | App p95 | Worst |
