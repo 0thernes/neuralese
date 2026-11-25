@@ -57,16 +57,17 @@ async function loadModel() {
   const n = Number(new DataView(await fetchRange(ST_URL, 0, 7)).getBigUint64(0, true));
   const header = JSON.parse(new TextDecoder().decode(await fetchRange(ST_URL, 8, 8 + n - 1)));
   let end = 0; for (const v of Object.values(header)) if (v.dtype === 'F32') end = Math.max(end, v.data_offsets[1]);
-  const vocabP = fetchText(`${REPO}/main/vocab.json`, true); vocabP.catch(() => {});
+  const vocabP = fetchText(`${REPO}/main/vocab.json`, false); vocabP.catch(() => {});
   const ranksP = fetch(new URL('./bpe-ranks.bin', import.meta.url)).then((r) => { if (!r.ok) throw new Error('bpe rank table ' + r.status); return r.arrayBuffer(); });
   const data = await fetchRange(ST_URL, 8 + n, 8 + n + end - 1, (f) => setLoad(`streaming fp32 weights ${(f * end / 1e6).toFixed(1)} / ${(end / 1e6).toFixed(1)} MB`, f * 0.95));
   setLoad('building tensors + tokenizer…', 0.97);
   await frame();
   const T = await parseSafetensorsYield(data, header);
   await frame();
-  const vocab = await vocabP, ranks = await ranksP;
+  const vocabText = await vocabP, ranks = await ranksP;
   await frame();
-  return { W: buildWeights(T), tok: await GPT2Tokenizer.createFromPairs(vocab, ranks), mb: end / 1e6 };
+  const vocab = JSON.parse(vocabText);
+  return { W: buildWeights(T), tok: await GPT2Tokenizer.createFromPairs(vocab, ranks, vocabText), mb: end / 1e6 };
 }
 
 // ───────── state ─────────
