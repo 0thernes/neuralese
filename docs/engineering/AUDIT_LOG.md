@@ -46,6 +46,8 @@ Passes 1–22 are the earlier engineering log in [PASSES.md](PASSES.md). This fi
 | AUD-061 | 61 | `src/ui152.js` | info | `classifyGpu` maps software renderers to low. `initialTheme` keeps a saved light or dark choice and otherwise follows the OS. | no code change | existing UI tests if present |
 | AUD-062 | 62 | `src/forge/isa.js` | info | The encoding is 4-bit op, 3-bit registers, 3-bit funct, 16-bit immediate. `padRom` stops at 256 words. | no code change | `test/forge.test.mjs` |
 | AUD-065 | 65 | `docs/KANBAN.md` | info | The board is still a solo list. The in-progress item is the live bug list and the preview click-all, which this change is part of. | no code change | no new test |
+| AUD-066 | 66 | `src/forge/cells.js` | info | The eight frozen cells and the five bad programs are the comparison set. `programFor` emits NestLang for mul, add, and sub and throws on any other op. | no code change | `test/forge.test.mjs` |
+| AUD-067 | 67 | `src/frontier/core.js` | info | `randomInit` uses N(0, 0.02²) with LayerNorm gain 1 and bias 0. `bootCI` is a percentile interval. `tLess` uses the regularized incomplete beta, not a normal tail. | no code change | frontier tests |
 | AUD-035 | 35 | `src/linalg.js:21` | info | One-sided Jacobi SVD of a 3×3 matrix reconstructs it within 1e-8 and returns singular values in descending order. | no code change | `test/audit-hardening.test.mjs` |
 | AUD-036 | 36 | `src/` first-party scripts | info | `eval` and `new Function` appear only under `src/vendor` and `src/hub/vendor`. | no code change | `test/audit-hardening.test.mjs` |
 
@@ -110,4 +112,4 @@ Passes 1–22 are the earlier engineering log in [PASSES.md](PASSES.md). This fi
 Raw / paint (not gated): mobile raw max 684 p95 460, paint/GL 684, gl-init 684. Tablet raw 1230 / 379, paint 906, gl-init 618. Desktop raw 1129 / 365, paint 1129, gl-init 1129. Scripts still between 100 and 200 ms on that run, which fails p95 whenever fewer than 20 frames are at least 50 ms: mobile dot-product tour 178, `lab-v16.js` import 137, weight snapshot 102; tablet SVG export 187, grok live 114.
 
 - `test/science.test.mjs` fetches the pinned TinyStories-8M files when they are missing and fails if that download fails. It passed 8/8 after `node tools/fetch-model.mjs`.
-- 153 of 505 files in [AUDIT_INDEX.md](AUDIT_INDEX.md) are reviewed (30.3%). Passes 56–62 and 65 read the agent store, Forge gadgets, the range loader, the WebGPU upload, the notebook worker, the GPU tier helper, the ISA, and the kanban.
+- 155 of 505 files in [AUDIT_INDEX.md](AUDIT_INDEX.md) are reviewed (30.7%). Passes 56–62 and 65–67 read the agent store, Forge gadgets and cells, the range loader, the WebGPU upload, the notebook worker, the GPU tier helper, the ISA, the frontier core, and the kanban.

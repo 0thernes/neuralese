@@ -5,9 +5,9 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 | | |
 |---|---|
 | Files | 505 |
-| Reviewed (passes 23–65) | 153 |
-| Indexed, not reviewed | 352 |
-| Coverage | 30.3% |
+| Reviewed (passes 23–67) | 155 |
+| Indexed, not reviewed | 350 |
+| Coverage | 30.7% |
 
 
 ## `/`
@@ -230,7 +230,7 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 |---|---|---|---|---|
 | `bits.js` | Binary gadgets for the Forge weight engine. | forge | none mapped | reviewed, pass 57 |
 | `cells.d.ts` | ts | forge | none mapped | indexed |
-| `cells.js` | Frozen arithmetic cells for the WeightCPU / MDCC comparison. | forge | none mapped | indexed |
+| `cells.js` | Frozen arithmetic cells for the WeightCPU / MDCC comparison. | forge | none mapped | reviewed, pass 66 |
 | `engine.d.ts` | ts | forge | none mapped | indexed |
 | `engine.js` | Weight-constructed Forge engine. One step is one clock: fetch, decode, ALU, writeback. | forge | none mapped | indexed |
 | `host.d.ts` | ts | forge | none mapped | indexed |
@@ -247,7 +247,7 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 | File | Purpose | Owner | Tests | Status |
 |---|---|---|---|---|
 | `cites.js` | v11 FRONTIER citations. Every entry was checked against its arXiv abstract page or its DOI record (Crossref) o | frontier | none mapped | indexed |
-| `core.js` | v11 FRONTIER shared core: null models, cross-entropy, statistics, LZ76 complexity. Pure ES module (Node + brow | frontier | none mapped | indexed |
+| `core.js` | v11 FRONTIER shared core: null models, cross-entropy, statistics, LZ76 complexity. Pure ES module (Node + brow | frontier | none mapped | reviewed, pass 67 |
 | `grok.js` | v11 P5: grokking on a + b mod p (Power et al. 2022; MLP construction after Gromov 2023), trainable in the brow | frontier | none mapped | reviewed, passes 37–38 |
 | `mind.js` | v11 consciousness-science PROXIES (operational definitions only — see docs/FRONTIER.md for what they cannot sh | frontier | none mapped | indexed |
 | `rsi.js` | v11 P4: a closed self-improvement loop on TinyStories-8M. Editable θ = ln_f gain/bias (512) + output gains γ o | frontier | none mapped | indexed |
