@@ -1,9 +1,9 @@
 // v14.7 / v14.8 NESTED group: a RISC-V CPU baked into transformer weights, a language model baked into a language model,
 // a mixture-of-experts inside an expert, and the lens results on those nested models. The three demos come from the
 // neuralese-nested workstream (nested/*, self-contained pages, framed so their ids never collide with the lab's).
-import * as N from './nestedlens.js?v=193';
-import { $, esc, fmt, tipq, tick } from './lab-ui.js?v=193';
-const frame = (src, h = 760) => `<iframe class="nestfr" loading="lazy" src="${src}" style="width:100%;height:${h}px;border:1px solid var(--line,#243049);border-radius:10px;background:#07090f"></iframe>`;
+import * as N from './nestedlens.js?v=194';
+import { $, esc, fmt, tipq, tick } from './lab-ui.js?v=194';
+const frame = (src, h = 760) => `<iframe class="nestfr" loading="lazy" src="${src}?v=194" style="width:100%;height:${h}px;border:1px solid var(--line,#243049);border-radius:10px;background:#07090f"></iframe>`;
 export const markup = {
   nriscv: ['RISC-V IN WEIGHTS', 'A RISC-V CPU compiled into transformer weights', `<fieldset><legend>RV32I in weights ${tipq('Each forward pass of a hand-compiled transformer executes one RV32I instruction; the page checks every step against a plain-JS reference interpreter.')}</legend>${frame('nested/riscv/index.html')}</fieldset>`],
   nslm: ['SLM IN SLM', 'A language model baked into another language model', `<fieldset><legend>guest LM inside a host LM ${tipq('Weights are a float32 binary (nested/slm/models.f32, sha256-checked on load). The baked composite reproduces the standalone guest to KL ≈ 1e-16 nats.')}</legend>${frame('nested/slm/index.html')}</fieldset>`],

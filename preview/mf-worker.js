@@ -1,9 +1,9 @@
 // Machine and Forge compute. The page sends a job and renders the plain result.
 // Cancel is a message; long loops notice it between steps. Nothing here touches the DOM.
-import { measure, runMachinePaced } from './machine/machine.js?v=193';
-import { openRunAsync, reproBundle, runLanesAsync } from './forge/session.js?v=193';
-import { lowerForge } from './walk/forgealu.js?v=193';
-import { spectral } from './labcore.js?v=193';
+import { measure, runMachinePaced } from './machine/machine.js?v=194';
+import { openRunAsync, reproBundle, runLanesAsync } from './forge/session.js?v=194';
+import { lowerForge } from './walk/forgealu.js?v=194';
+import { spectral } from './labcore.js?v=194';
 
 const stop = new Set();
 const machines = new Map();

@@ -1,37 +1,43 @@
 // NEURALESE v2 — UI wiring. All numerics live in engine/analysis/surgery/decode/sae/rome (unit-tested vs PyTorch).
-import * as U152 from './ui152.js?v=193';
-import { GPT2Tokenizer, parseVocabYield } from './tokenizer.js?v=193';
-import { CFG, buildWeights, parseSafetensorsYield, cloneWeightsYield, mulberry32 } from './model.js?v=193';
-import { concatUint8 } from './bytes.js?v=193';
-import { Engine, defaultRuntime, logSoftmax, topK, SITES } from './engine.js?v=193';
-import { RemoteEngine, withBias } from './engine-client.js?v=193';
-import { bindRemote } from './trace-remote.js?v=193';
-import { computeStats, actCovariance, fitTunedLens, lensGrid, dla, patchResid, patchHeads, pathPatchHeadsToLogits, ablationSweep, buildControlVector, vectorArithmetic, tokenStats } from './analysis.js?v=193';
-import { Editor, MATS, getMat, toSafetensorsYield, quantize } from './surgery.js?v=193';
-import { defaultDecode, applyPenalties, filterDist, pick, contrastiveLogits, cfgLogits, beamSearch } from './decode.js?v=193';
-import { SAE } from './sae.js?v=193';
-import { computeRome, findSubject } from './rome.js?v=193';
-import { slice, cancelJobs, resetCancel, frame, namedFrame, runBudgeted } from './coop.js?v=193';
-import * as mf from './mf-client.js?v=193';
+import * as U152 from './ui152.js?v=194';
+import { GPT2Tokenizer, parseVocabYield } from './tokenizer.js?v=194';
+import { CFG, buildWeights, parseSafetensorsYield, cloneWeightsYield, mulberry32 } from './model.js?v=194';
+import { concatUint8 } from './bytes.js?v=194';
+import { Engine, defaultRuntime, logSoftmax, topK, SITES } from './engine.js?v=194';
+import { RemoteEngine, withBias } from './engine-client.js?v=194';
+import { bindRemote } from './trace-remote.js?v=194';
+import { computeStats, actCovariance, fitTunedLens, lensGrid, dla, patchResid, patchHeads, pathPatchHeadsToLogits, ablationSweep, buildControlVector, vectorArithmetic, tokenStats } from './analysis.js?v=194';
+import { Editor, MATS, getMat, toSafetensorsYield, quantize } from './surgery.js?v=194';
+import { defaultDecode, applyPenalties, filterDist, pick, contrastiveLogits, cfgLogits, beamSearch } from './decode.js?v=194';
+import { SAE } from './sae.js?v=194';
+import { computeRome, findSubject } from './rome.js?v=194';
+import { slice, cancelJobs, resetCancel, frame, namedFrame, runBudgeted } from './coop.js?v=194';
+import * as mf from './mf-client.js?v=194';
 mf.ping().catch(() => {});
-import { svdYield } from './linalg.js?v=193';
-import { CORPUS } from './corpus.js?v=193';
-import { heatmap, lines, bars, showTip, seqColor, divColor, markStale, heatStrip, emit } from './charts.js?v=193';
-import { Viz } from './viz.js?v=193';
-import { AudioEngine, editKind, STYLES } from './audio.js?v=193';
-import { buildV5 } from './v5.js?v=193';
-import { vecToJSON as _v2j, vecFromJSON as _j2v } from './labcore.js?v=193';
-import * as UI15 from './ui15.js?v=193';
-import { homeMarkup } from './ui15.js?v=193';
-import { geometryFromSeq, KV_CADENCE } from './adversary/geometry.js?v=193';
-import { attachAdversary } from './adversary/campaign.js?v=193';
-import { CITATIONS, FAULT_SPEC, runFaultOp, runWalkCellOp, runWalkOp } from './walk/session.js?v=193';
+import { svdYield } from './linalg.js?v=194';
+import { CORPUS } from './corpus.js?v=194';
+import { heatmap, lines, bars, showTip, seqColor, divColor, markStale, heatStrip, emit } from './charts.js?v=194';
+import { Viz } from './viz.js?v=194';
+import { AudioEngine, editKind, STYLES } from './audio.js?v=194';
+import { buildV5 } from './v5.js?v=194';
+import { vecToJSON as _v2j, vecFromJSON as _j2v } from './labcore.js?v=194';
+import * as UI15 from './ui15.js?v=194';
+import { homeMarkup } from './ui15.js?v=194';
+import { geometryFromSeq, KV_CADENCE } from './adversary/geometry.js?v=194';
+import { attachAdversary } from './adversary/campaign.js?v=194';
+import { CITATIONS, FAULT_SPEC, runFaultOp, runWalkCellOp, runWalkOp } from './walk/session.js?v=194';
 const audio = new AudioEngine();
 const { d, H, L, ff, V } = CFG;
 const $ = (id) => document.getElementById(id), $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const tick = () => frame();
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
-const toast = (m, bad) => { const t = $('toast'); t.textContent = m; t.style.borderColor = bad ? '#f87171' : ''; t.classList.toggle('bad', !!bad); t.style.display = 'block'; clearTimeout(toast.h); toast.h = setTimeout(() => (t.style.display = 'none'), bad ? 6000 : 2500); };
+const toast = (m, bad) => {
+  const t = $('toast'); const t0 = performance.now();
+  t.textContent = m; t.style.borderColor = bad ? '#f87171' : ''; t.classList.toggle('bad', !!bad); t.style.display = 'block';
+  if (typeof globalThis.__timerResume === 'function') globalThis.__timerResume(`toast-show ${(performance.now() - t0).toFixed(1)}ms`);
+  clearTimeout(toast.h);
+  toast.h = setTimeout(() => { const h0 = performance.now(); t.style.display = 'none'; if (typeof globalThis.__timerResume === 'function') globalThis.__timerResume(`toast-hide ${(performance.now() - h0).toFixed(1)}ms`); }, bad ? 6000 : 2500);
+};
 // Yield once so the busy state paints and so a click returns to the event loop before a long compute.
 // Caught failures are shown in the toast. They are warnings: an uncaught exception is still an error.
 const guard = (fn) => async (...a) => { const el = a[0]?.currentTarget; U152.busy(el, true); await namedFrame(fn.name || String(fn).replace(/\s+/g, ' ').slice(0, 160)); if (typeof globalThis.__handler === 'function') globalThis.__handler(fn); try { await fn(...a); U152.panelNote(el, ''); } catch (e) { console.warn(e); toast('✖ ' + (e && e.message ? e.message : e), true); U152.panelNote(el, e && e.message ? e.message : String(e)); } finally { U152.busy(el, false); } };
@@ -464,7 +470,7 @@ function weightEdit(label, e, path) { // records relative Frobenius change of th
 async function showSvd() {
   const path = matPath(); if (path === 'wte') throw new Error('wte SVD (50257×256) is too slow for the browser here; use a layer matrix or wpe'); $('svdInfo').textContent = 'running one-sided Jacobi SVD…'; await tick();
   const t0 = performance.now(), { a, rows, cols } = getMat(M, path), r = await svdYield(a, rows, cols), S2 = r.S; const tot = S2.reduce((x, y) => x + y * y, 0); let c = 0; const cum = S2.map((s) => (c += s * s) / tot);
-  const out = new Float32Array(rows * cols); (await import('./linalg.js?v=193')).svdReconstruct(r, Float64Array.from(S2), out); let e = 0; for (let i = 0; i < out.length; i++) e += (out[i] - a[i]) ** 2;
+  const out = new Float32Array(rows * cols); (await import('./linalg.js?v=194')).svdReconstruct(r, Float64Array.from(S2), out); let e = 0; for (let i = 0; i < out.length; i++) e += (out[i] - a[i]) ** 2;
   bars($('svdC'), Array.from(S2), { log: true, title: `σ spectrum ${path} (${rows}×${cols}, log) · hover for energy`, label: (i) => `σ${i} = ${S2[i].toPrecision(5)}  cum energy ${(cum[i] * 100).toFixed(2)}%`, onClick: (i) => ($('svK').value = i + 1) });
   $('svdInfo').textContent = `${S2.length} σ · ${r.sweeps} sweeps · ${(performance.now() - t0).toFixed(0)} ms · recon rel.err ${(Math.sqrt(e) / frob(a)).toExponential(2)} · 90% energy @ k=${cum.findIndex((x) => x >= 0.9) + 1}`;
 }
