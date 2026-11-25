@@ -1,6 +1,6 @@
 // NEURALESE audio: calm, data-driven lab-instrument sonification (Web Audio). Everything is synthesized; no samples.
 // Pure mapping functions at the top are unit-tested (test/audio.test.mjs) and have no Web Audio dependency.
-import { frame, slice } from './coop.js?v=184';
+import { frame, slice } from './coop.js?v=185';
 
 // ───────── pure data → sound mappings ─────────
 // Consonant scales only. "lydian" here omits the #4 so no tritone over the root can ever sound.

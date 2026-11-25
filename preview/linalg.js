@@ -1,5 +1,5 @@
 // Small dense linear algebra kit (Float64, row-major unless noted).
-import { slice } from './coop.js?v=184';
+import { slice } from './coop.js?v=185';
 // Cholesky solve of SPD system A X = B. A: n×n, B: n×m. Returns X (n×m).
 export function cholSolve(A, n, B, m) {
   const Lm = new Float64Array(n * n);

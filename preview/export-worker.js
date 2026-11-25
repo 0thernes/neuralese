@@ -1,5 +1,5 @@
 // Chart CSV and PNG assembly. The page posts UTF-8 bytes or one ImageBitmap.
-// The reply is a Blob built here, so the page never copies the bytes.
+// The reply is a blob: URL created here. The page only assigns it and clicks.
 let chunks = [];
 onmessage = async (e) => {
   const m = e.data;
@@ -7,10 +7,14 @@ onmessage = async (e) => {
     chunks.push(new Uint8Array(m.buf));
     return;
   }
+  if (m && m.op === 'revoke' && m.url) {
+    URL.revokeObjectURL(m.url);
+    return;
+  }
   if (m && m.op === 'end') {
     const blob = new Blob(chunks, { type: m.type || 'application/octet-stream' });
     chunks = [];
-    postMessage(blob);
+    postMessage({ url: URL.createObjectURL(blob) });
     return;
   }
   if (m && m.op === 'png' && m.bmp) {
@@ -22,6 +26,7 @@ onmessage = async (e) => {
     const ctx = canvas.getContext('2d');
     ctx.drawImage(m.bmp, 0, 0, w, h);
     m.bmp.close();
-    postMessage(await canvas.convertToBlob({ type: 'image/png' }));
+    const blob = await canvas.convertToBlob({ type: 'image/png' });
+    postMessage({ url: URL.createObjectURL(blob) });
   }
 };

@@ -1,10 +1,10 @@
 // EVALUATE group: token timeline, calibration, edit impact, profiler, experiment tracker.
-import * as C from './labcore.js?v=184';
-import { topK } from './engine.js?v=184';
-import { CORPUS } from './corpus.js?v=184';
-import { lines, bars } from './charts.js?v=184';
-import { frame } from './coop.js?v=184';
-import { $, $$, esc, fmt, opts, cv, tipq, PAL, prog, canvasFit, chartBg, exportFor, runs, lab, L } from './lab-ui.js?v=184';
+import * as C from './labcore.js?v=185';
+import { topK } from './engine.js?v=185';
+import { CORPUS } from './corpus.js?v=185';
+import { lines, bars } from './charts.js?v=185';
+import { frame, runBudgeted } from './coop.js?v=185';
+import { $, $$, esc, fmt, opts, cv, tipq, PAL, prog, canvasFit, chartBg, exportFor, saveParts, runs, lab, L } from './lab-ui.js?v=185';
 
 export const markup = {
   timeline: ['TIMELINE', 'Token timeline', `<fieldset><legend>per-token timeline of the last generation ${tipq('Recorded from the raw (pre-filter) distribution of the hacked model at every generated step, including the first generation after load.')}</legend><div class="r"><button class="pri" id="xT">refresh</button><span id="xTInfo" class="sm"></span></div>${cv('xTP', 'p(chosen) teal · top-1 p pink')}${cv('xTH', 'entropy (nats) teal · surprisal −ln p pink')}${cv('xTM', 'top-1 − top-2 probability margin')}</fieldset>`],
@@ -85,6 +85,22 @@ export function install(A, out) {
     $('xRtab')._csv = () => C.toCSV(all.map((r) => [r.t, r.kind, r.label || '', JSON.stringify(r.metrics || {})]), ['time', 'kind', 'label', 'metrics']); return all; };
   on('xRr', 'click', out.runs); on('xRm', 'change', out.runs); on('xRclr', 'click', () => { runs.save([]); out.runs(); });
   on('xRcsv', 'click', () => { out.runs(); exportFor('xRtab', 'csv'); });
-  on('xRjson', 'click', () => A.download('neuralese-runs.json', JSON.stringify(runs.all(), null, 1)));
-  on('xRlab', 'click', () => A.download('neuralese-lab.json', JSON.stringify(lab.dump(), null, 1)));
+  on('xRjson', 'click', async () => {
+    const all = runs.all();
+    const parts = ['{"runs":['];
+    await runBudgeted((function* () { for (let i = 0; i < all.length; i++) { parts.push((i ? ',' : '') + JSON.stringify(all[i])); yield; } })(), { budgetMs: 8, label: 'runs-export' });
+    parts.push(']}');
+    await saveParts('neuralese-runs.json', parts);
+  });
+  on('xRlab', 'click', async () => {
+    const { runs: rs, artifacts } = lab.rows();
+    const parts = ['{"runs":['];
+    await runBudgeted((function* () {
+      for (let i = 0; i < rs.length; i++) { parts.push((i ? ',' : '') + JSON.stringify(rs[i])); yield; }
+      parts.push('],"artifacts":[');
+      for (let i = 0; i < artifacts.length; i++) { parts.push((i ? ',' : '') + JSON.stringify(artifacts[i])); yield; }
+    })(), { budgetMs: 8, label: 'lab-export' });
+    parts.push(']}');
+    await saveParts('neuralese-lab.json', parts);
+  });
 }
