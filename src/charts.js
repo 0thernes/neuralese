@@ -1,7 +1,7 @@
 // Canvas charts (v15): HiDPI, axes + gridlines + nice ticks, legends, colorbars, perceptual colormaps, hover crosshairs.
 // heatmap (hover/click), multi-line, bars, scatter. No chart library.
-import { runBudgeted, slice, waitNextFrame } from './coop.js?v=180';
-import { joinLines } from './bytes.js?v=180';
+import { runBudgeted, slice, waitNextFrame } from './coop.js?v=181';
+import { joinLines } from './bytes.js?v=181';
 async function csvParts(lines, n) { const parts = joinLines(lines, n); for (let i = 0; i < parts.length; i++) { const y = slice(); if (y) await y; } return parts; }
 const tip = () => document.getElementById('tip');
 const css = (v, f) => (typeof document !== 'undefined' && getComputedStyle(document.documentElement).getPropertyValue(v).trim()) || f;
@@ -165,7 +165,7 @@ export function lines(cv, series, o = {}) {
     return w;
   };
   draw();
-  if (prev) { const t0 = performance.now(), step = (t) => { k = Math.min(1, (t - t0) / 320); k = 1 - (1 - k) ** 3; draw(); if (k < 1 && cv.isConnected) requestAnimationFrame(step); }; requestAnimationFrame(step); }
+  if (prev && !o.instant) { const t0 = performance.now(), step = (t) => { k = Math.min(1, (t - t0) / 320); k = 1 - (1 - k) ** 3; draw(); if (k < 1 && cv.isConnected) requestAnimationFrame(step); }; requestAnimationFrame(step); }
   const idxAt = (e) => { const r = cv.getBoundingClientRect(); return Math.round(view.a + ((e.clientX - r.left - padL) / (r.width - padL - padR)) * Math.max(1, view.b - view.a)); };
   cv.onpointerdown = (e) => { if (n < 4 || e.button !== 0) return; const r = cv.getBoundingClientRect(); brush = [e.clientX - r.left, e.clientX - r.left]; };
   cv.onmousemove = (e) => { const r = cv.getBoundingClientRect(); if (brush && e.buttons & 1) { brush[1] = Math.max(padL, Math.min(r.width - padR, e.clientX - r.left)); draw(); return; } const i = idxAt(e); if (i < view.a || i > view.b) { hover = -1; draw(); emit(o.sync, -1); return showTip(e, ''); } if (i !== hover) { hover = i; draw(); emit(o.sync, i); } showTip(e, (o.xs ? o.xs[i] + '\n' : `x=${i}\n`) + series.filter((s) => s.label).map((s) => `${s.label}: ${s.ys[i]?.toFixed?.(4)}`).join('\n')); };

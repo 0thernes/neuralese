@@ -3,10 +3,10 @@
 // (bloom + depth of field, adaptive quality), hover picking with info cards, smooth camera fly-to, fps meter.
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { CFG } from './model.js?v=180';
-import { getMat } from './surgery.js?v=180';
-import { Post } from './post.js?v=180';
-import { classifyGpu, startLevel, readRenderer, store, LADDER } from './ui152.js?v=180';
+import { CFG } from './model.js?v=181';
+import { getMat } from './surgery.js?v=181';
+import { Post } from './post.js?v=181';
+import { classifyGpu, startLevel, readRenderer, store, LADDER } from './ui152.js?v=181';
 const { L, H, ff, d } = CFG, GAP = 2.4, RX = 4.9;
 const headPos = (l, h) => new THREE.Vector3(-4 + h * 0.53, l * GAP + 0.6, 1.6);
 export class Viz {

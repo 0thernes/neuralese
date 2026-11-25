@@ -3,6 +3,7 @@ import { COMPONENTS, LIMITS, packetStatusAt, PRECISION, PROGRAMS, saveStorage, z
 import { launch, setWmBusy, setWmCursor, setWmErr, setWmPipe, setWmPlaying, setWmProgram, setWmRun, setWmSelected, setWmZoom, WM_HELP, wmBusy, wmCursor, wmErr, wmPipe, wmPlaying, wmProgram, wmRun, wmSelected, wmZoom } from '../core/machine';
 import { legacy } from '../core/bridge';
 import { theme } from '../core/store';
+import { VirtualTable } from './VirtualTable';
 
 const ZOOMS = ['board', 'weights', 'gates', 'voltage'] as const;
 
@@ -308,14 +309,29 @@ function Zoom(): JSX.Element {
   </>;
 }
 
+type MeasureRow = { name: string; exact: string; weight: string; ref: string; ratio: string };
 function Report(): JSX.Element {
-  const [table, setTable] = createSignal<WmMeasure | null>(null);
+  const [rows, setRows] = createSignal<MeasureRow[]>([]);
   const [busy, setBusy] = createSignal('');
   const runMeasure = (): void => {
     const mf = legacy()?.mf;
     if (!mf) { setWmErr('machine worker is not ready'); return; }
     setBusy('timing a small exact-match batch…');
-    void mf.measure({ seed: 11, cpu: 8, ram: 8, ssd: 4, gpu: 2, tpu: 2, bus: 16, mlp: 1 }, (p) => { if (p.label) setBusy(String(p.label)); }).then(async (table) => { const { yieldHost } = await import('../../../src/coop.js'); await yieldHost(); if (!(table as { cancelled?: boolean })?.cancelled) setTable(table as WmMeasure); }).catch((e: Error) => setWmErr(e.message)).finally(() => setBusy(''));
+    void mf.measure({ seed: 11, cpu: 8, ram: 8, ssd: 4, gpu: 2, tpu: 2, bus: 16, mlp: 1 }, (p) => { if (p.label) setBusy(String(p.label)); }).then((data) => {
+      const table = data as WmMeasure & { cancelled?: boolean };
+      if (!table || table.cancelled) return;
+      const all: MeasureRow[] = [
+        ...(table.rows || []).map((row) => ({ name: row.component, exact: `${row.exact}/${row.trials}`, weight: num(row.msWeight), ref: num(row.msRef, 3), ratio: row.overhead == null ? '—' : num(row.overhead, 1) + '×' })),
+        ...(table.programs || []).map((row) => ({ name: row.id, exact: row.exact ? 'yes' : 'no', weight: num(row.msWeight), ref: num(row.msRef, 3), ratio: row.overhead == null ? '—' : num(row.overhead, 1) + '×' })),
+      ];
+      let shown = 0;
+      const paint = (): void => {
+        shown = Math.min(all.length, shown + 4);
+        setRows(all.slice(0, shown));
+        if (shown < all.length) requestAnimationFrame(paint);
+      };
+      requestAnimationFrame(paint);
+    }).catch((e: Error) => setWmErr(e.message)).finally(() => setBusy(''));
   };
   const run = createMemo(() => wmRun());
   return <>
@@ -325,14 +341,14 @@ function Report(): JSX.Element {
       {(r) => <p class={r().exact ? 'hint' : 'warn'}>{r().program} · {r().exact ? 'exact' : 'not exact'} · rate {r().rate.toFixed(3)} · cycles {r().cycles} = reference {r().refCycles} · packet log {r().packetExact ? 'matches' : 'differs'} · precision faults {r().faults.length}</p>}
     </Show>
     <div class="adv-row"><button onClick={runMeasure}>Measure a small batch</button><Show when={busy()}><span class="hint">{busy()}</span></Show></div>
-    <Show when={table()}>
-      {(t) => <table>
-        <thead><tr><th>component</th><th>exact</th><th>weight ms</th><th>reference ms</th><th>ratio</th></tr></thead>
-        <tbody>
-          <For each={t().rows}>{(row) => <tr><td>{row.component}</td><td>{row.exact}/{row.trials}</td><td>{num(row.msWeight)}</td><td>{num(row.msRef, 3)}</td><td>{row.overhead == null ? '—' : num(row.overhead, 1) + '×'}</td></tr>}</For>
-          <For each={t().programs}>{(row) => <tr><td>{row.id}</td><td>{row.exact ? 'yes' : 'no'}</td><td>{num(row.msWeight)}</td><td>{num(row.msRef, 3)}</td><td>{row.overhead == null ? '—' : num(row.overhead, 1) + '×'}</td></tr>}</For>
-        </tbody>
-      </table>}
+    <Show when={rows().length}>
+      <VirtualTable rows={rows()} label="exact match batch" cols={[
+        { h: 'component', f: (r) => r.name },
+        { h: 'exact', f: (r) => r.exact },
+        { h: 'weight ms', f: (r) => r.weight },
+        { h: 'reference ms', f: (r) => r.ref },
+        { h: 'ratio', f: (r) => r.ratio },
+      ]} />
     </Show>
     <p class="hint">Theme sample {theme()} does not change the numbers. bf16: {PRECISION.bf16}.</p>
   </>;

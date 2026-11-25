@@ -1,7 +1,7 @@
 // NEURALESE engine: GPT-Neo forward pass with a full intervention/hook system.
 // Every runtime control lives in `R` (serialisable). Weight edits live in surgery.js.
-import { CFG, mulberry32 } from './model.js?v=180';
-import { runBudgeted } from './coop.js?v=180';
+import { CFG, mulberry32 } from './model.js?v=181';
+import { runBudgeted } from './coop.js?v=181';
 const { d, H, hd, L, ff, V } = CFG;
 export const SITES = ['resid_pre', 'z', 'attn_out', 'mlp_act', 'mlp_out', 'resid_post'];
 
