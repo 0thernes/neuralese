@@ -1,10 +1,10 @@
 // EVALUATE group: token timeline, calibration, edit impact, profiler, experiment tracker.
-import * as C from './labcore.js?v=183';
-import { topK } from './engine.js?v=183';
-import { CORPUS } from './corpus.js?v=183';
-import { lines, bars } from './charts.js?v=183';
-import { frame } from './coop.js?v=183';
-import { $, $$, esc, fmt, opts, cv, tipq, PAL, prog, canvasFit, chartBg, exportFor, runs, lab, L } from './lab-ui.js?v=183';
+import * as C from './labcore.js?v=184';
+import { topK } from './engine.js?v=184';
+import { CORPUS } from './corpus.js?v=184';
+import { lines, bars } from './charts.js?v=184';
+import { frame } from './coop.js?v=184';
+import { $, $$, esc, fmt, opts, cv, tipq, PAL, prog, canvasFit, chartBg, exportFor, runs, lab, L } from './lab-ui.js?v=184';
 
 export const markup = {
   timeline: ['TIMELINE', 'Token timeline', `<fieldset><legend>per-token timeline of the last generation ${tipq('Recorded from the raw (pre-filter) distribution of the hacked model at every generated step, including the first generation after load.')}</legend><div class="r"><button class="pri" id="xT">refresh</button><span id="xTInfo" class="sm"></span></div>${cv('xTP', 'p(chosen) teal · top-1 p pink')}${cv('xTH', 'entropy (nats) teal · surprisal −ln p pink')}${cv('xTM', 'top-1 − top-2 probability margin')}</fieldset>`],

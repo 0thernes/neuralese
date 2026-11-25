@@ -1,7 +1,7 @@
 // Integer reference VM for ForgeISA/1. Ground truth. Words are int32. No float rounding.
 
 import { FUNCT_HALT, FUNCT_OP, OP, STEP_LIMIT, dec, padRom } from './isa.js';
-import { runBudgeted } from '../coop.js?v=183';
+import { runBudgeted } from '../coop.js?v=184';
 
 export class VM {
   constructor(words) {

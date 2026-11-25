@@ -1,5 +1,5 @@
-import { runBudgeted } from './coop.js?v=183';
-import { allocZeroYield } from './model.js?v=183';
+import { runBudgeted } from './coop.js?v=184';
+import { allocZeroYield } from './model.js?v=184';
 // v15.3 main-thread client for engine-worker.js. RemoteEngine mirrors the Engine calls used by generation, but async:
 //   const re = await RemoteEngine.create(); await re.sync('main', eng); const s = await re.newSeq('main', n); const r = await re.step(s, tok, {trace})
 // r = {h, trace, l}: l are the raw logits (Engine.logits); add R.logitBias on the main thread for Engine.outLogits.
@@ -34,7 +34,7 @@ const cloneR = (R) => { try { return structuredClone(R); } catch { return JSON.p
 const plainStats = (s) => s && { N: s.N, Z: s.Z, meanZ: s.meanZ, meanAct: s.meanAct };
 const plainSae = (s) => s && { layer: s.layer, Wenc: s.Wenc, benc: s.benc, bdec: s.bdec, Wdec: s.Wdec };
 export class RemoteEngine {
-  static async create(url = new URL('./engine-worker.js?v=183', import.meta.url)) {
+  static async create(url = new URL('./engine-worker.js?v=184', import.meta.url)) {
     if (typeof Worker === 'undefined') throw new Error('Worker unavailable');
     const w = new Worker(url, { type: 'module' }), re = new RemoteEngine(w);
     await new Promise((res, rej) => { const to = setTimeout(() => rej(new Error('engine worker did not start')), 15000); w.addEventListener('message', function f(e) { if (e.data && e.data.ready) { clearTimeout(to); w.removeEventListener('message', f); res(); } }); w.addEventListener('error', (e) => { clearTimeout(to); rej(new Error('engine worker error: ' + (e.message || 'load failed'))); }); });
