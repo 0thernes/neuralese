@@ -59,6 +59,14 @@ Passes 1–22 are the earlier engineering log in [PASSES.md](PASSES.md). This fi
 
 ## Open
 
+- Preview of `53836df` (page scripts `?v=181`). The 493-id set is unchanged: 485 clicked, 8 disabled, 0 missing at every width. The batch table is stored and then painted a few rows per frame through the virtual table. The timeline refresh draws one chart per animation frame and skips a redraw when the series is unchanged. Notebook and fine-tune worker messages schedule their text and charts on a later frame. `test/worker-handlers.test.mjs` rejects a page-side worker handler that writes the DOM before it yields. Console errors 0. Axe was not in the failure list. Screenshots succeeded. Mobile app max is 198 and p95 is 80, inside the gate. Tablet is 218 / 90 and desktop is 348 / 95. The remaining long turns are a PNG export readback (218 ms) and a CSV export (348 ms). Desktop is worse than `e7c4f7e` (223).
+
+| Width | Clicked | Disabled | Missing | Console | Axe | Cosmos | #gl | Raw max | Raw p95 | Paint/GL max | App max | App p95 | Worst |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 390×844 | 485 | 8 | 0 | 0 | none in the failure list | 390×657 | 390×477 | 702 | 104 | 702 | 198 | 80 | entropy collapse, `setTimeout`, 190 ms |
+| 768×1024 | 485 | 8 | 0 | 0 | none in the failure list | 388×425 | 373×571 | 1113 | 275 | 941 | 218 | 90 | png export, message port, 218 ms |
+| 1440×900 | 485 | 8 | 0 | 0 | none in the failure list | 737×368 | 709×489 | 1460 | 400 | 1350 | 348 | 95 | csv export, message port, 348 ms |
+
 - Preview of `86be9d4` (page scripts `?v=180`). The dock at `e7c4f7e` already mounted one panel per tab group, including the phone layout, so that was not restored as a new mode. The sweep now keys controls by workspace, tab, and selector, reopens that tab, and clicks the copy that holds the legacy pane. `test/e2e/controls-e7c4f7e.json` has the 493 distinct controls those panels contain. All 493 are accounted for at every width: 485 clicked, 8 disabled, 0 missing. There is no saved list of 514 ids from `e7c4f7e`; 514 was a click counter. The 8 disabled controls are speech stop buttons with nothing playing, the fine-tune apply button, the honest-condition checkbox (it stays on), Walk play/step before a forward, and Run DW-FAULT-1 while a forward is running. Console errors 0. Axe was not in the failure list. Screenshots succeeded. p95 is 79 / 84 / 85. App max is 209 / 201 / 846. Desktop is worse than `e7c4f7e` (223) because applying the machine-room batch table is one 846 ms message-port task.
 
 | Width | Clicked | Disabled | Missing | Console | Axe | Cosmos | #gl | Raw max | Raw p95 | Paint/GL max | App max | App p95 | Worst |
