@@ -16,6 +16,7 @@ import * as G from './tsotchke/geometry.js?v=170';
 import * as TY from './tsotchke/types.js?v=170';
 import * as QG from './tsotchke/qgtl.js?v=170';
 import { CFG } from './model.js?v=170';
+import { remoteEngine } from './trace-remote.js?v=170';
 const GH = 'https://github.com/', DOCS = 'https://github.com/0thernes/neuralese/blob/main/docs/';
 export const BADGE = `<a class="tsk-badge" href="${GH}tsotchke" target="_blank" rel="noopener" title="This component runs code from, or a faithful attributed port of, Tsotchke’s MIT-licensed repositories">⚛ Powered by Tsotchke</a>`;
 export const USED = [
@@ -85,9 +86,13 @@ export function install(A, out) {
   // ── TAYLOR ──
   out.taylorSelf = (K0) => { const K = Math.max(2, Math.min(16, +(K0 ?? $('tyK').value) || 8)), rs = T.selfTest(K); $('tySOut').innerHTML = `<table><tr><th>function</th><th>x₀</th><th>reference</th><th>max rel. error</th></tr>${rs.map((r) => row([r.name, r.x0, r.ref, `<span class="${r.relErr < 1e-10 ? 'good' : 'warn'}">${r.relErr.toExponential(1)}</span>`])).join('')}</table>`; return rs; };
   on('tyS', 'click', () => out.taylorSelf());
-  out.taylorJet = async (s0, K0) => { const W = A.M(), t = ids(), K = Math.max(1, Math.min(8, +(K0 ?? $('tyJK').value) || 4)), v = dirV(W.lnfW.length, +(s0 ?? $('tyV').value) || 1), Af = await forwardAsync(W, t), j = T.ceJetLnf(W, Af.xf, t, v, K);
-    const poly = (e) => j.c.reduce((s, c, k) => s + c * e ** k, 0), eps = [-0.5, -0.2, -0.05, 0.05, 0.2, 0.5], act = [];
-    for (const e of eps) { await tick(); const w0 = W.lnfW, w = Float32Array.from(w0, (x, i) => x + e * v[i]), W2 = { ...W, lnfW: w }; act.push(T.ceJetLnf(W2, Af.xf, t, v, 0).c[0]); }
+  out.taylorJet = async (s0, K0) => { const W = A.M(), t = ids(), K = Math.max(1, Math.min(8, +(K0 ?? $('tyJK').value) || 4)), v = dirV(W.lnfW.length, +(s0 ?? $('tyV').value) || 1);
+    const polyOf = (c) => (e) => c.reduce((s, ck, k) => s + ck * e ** k, 0), eps = [-0.5, -0.2, -0.05, 0.05, 0.2, 0.5];
+    const RE = remoteEngine();
+    let j, act;
+    if (RE) { await RE.sync('main', A.eng()); const r = await RE.taylorJet('main', t, v, K, eps); j = new T.Jet(r.c); act = r.act; }
+    else { const Af = await forwardAsync(W, t); j = await T.ceJetLnfAsync(W, Af.xf, t, v, K, tick); act = []; for (const e of eps) { await tick(); const w = Float32Array.from(W.lnfW, (x, i) => x + e * v[i]); act.push((await T.ceJetLnfAsync({ ...W, lnfW: w }, Af.xf, t, v, 0, tick)).c[0]); } }
+    const poly = polyOf(j.c);
     $('tyJOut').innerHTML = `<table class="kv">${T.derivRows(j)}</table><table><tr><th>ε</th><th>Taylor polynomial</th><th>actual CE</th><th>|error|</th></tr>${eps.map((e, i) => row([e, poly(e).toFixed(7), act[i].toFixed(7), Math.abs(poly(e) - act[i]).toExponential(1)])).join('')}</table>`;
     lines($('tyCh'), [{ ys: eps.map(poly), label: 'Taylor' }, { ys: act, label: 'actual' }], { xs: eps }); keep('taylor', `jet K=${K}`, { g0: j.c[0], d1: j.deriv(1), d2: j.deriv(2) }); return { jet: j, eps, act, poly: eps.map(poly) }; };
   on('tyJ', 'click', () => out.taylorJet());

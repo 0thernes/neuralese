@@ -1,6 +1,7 @@
 // v7 research core (DOM-free, tested in Node): hypothesis tests, ACDC-style circuit discovery, causal scrubbing-lite,
 // linear probes with control tasks, eval harness, weight hashing and experiment manifests.
 import { forward, forwardAsync, logitsAt, logitsAtAsync, objective } from './grad.js?v=170';
+import { cloneWeights } from './model.js?v=170';
 import { rng } from './science.js?v=170';
 import { frame } from './coop.js?v=170';
 const mean = (a) => a.reduce((s, x) => s + x, 0) / (a.length || 1);
@@ -22,6 +23,21 @@ export function bootCI(xs, B = 2000, seed = 1, stat = mean) { const r = rng(seed
 export function tokenCE(W, ids) { const A = forward(W, ids), out = []; for (let t = 0; t < ids.length - 1; t++) { const l = logitsAt(W, A, t); let m = -Infinity; for (const x of l) if (x > m) m = x; let s = 0; for (const x of l) s += Math.exp(x - m); out.push(m + Math.log(s) - l[ids[t + 1]]); } return out; }
 async function tokenCEAsync(W, ids) { const A = await forwardAsync(W, ids), out = []; for (let t = 0; t < ids.length - 1; t++) { const l = await logitsAtAsync(W, A, t); let m = -Infinity; for (const x of l) if (x > m) m = x; let s = 0; for (const x of l) s += Math.exp(x - m); out.push(m + Math.log(s) - l[ids[t + 1]]); } return out; }
 export const docCE = (W, docs) => docs.map((d) => mean(tokenCE(W, d)));
+// Per-head output-projection ablation, measured as mean next-token CE. Runs in the engine worker so the copy and the forwards stay off the page thread.
+export function headAblationCE(W, layer, docs) {
+  const C = cloneWeights(W);
+  C.cfg = W.cfg;
+  const base = docs.map((d) => mean(tokenCE(C, d)));
+  const d = C.lnfW.length, H = (W.cfg && W.cfg.H) || 16, hd = d / H, O = C.layers[layer].o, ablated = [];
+  for (let h = 0; h < H; h++) {
+    const save = [];
+    for (let r = 0; r < d; r++) for (let i = h * hd; i < h * hd + hd; i++) { save.push(O[r * d + i]); O[r * d + i] = 0; }
+    ablated.push(docs.map((doc) => mean(tokenCE(C, doc))));
+    let k = 0;
+    for (let r = 0; r < d; r++) for (let i = h * hd; i < h * hd + hd; i++) O[r * d + i] = save[k++];
+  }
+  return { base, ablated };
+}
 // ── circuits: node-level ACDC-style pruning + causal scrubbing-lite ──
 // nodes: every attention head (z slice) and every MLP (mlp_out). A "corrupted" node takes its activation from the corrupt run.
 export function nodeList(W) { const H = (W.cfg || { H: 16 }).H || 16, out = []; for (let l = 0; l < W.layers.length; l++) { for (let h = 0; h < H; h++) out.push({ l, h, id: `L${l}H${h}` }); out.push({ l, mlp: true, id: `L${l}MLP` }); } return out; }
