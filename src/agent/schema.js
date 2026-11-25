@@ -85,6 +85,7 @@ export function createLab(persist) {
     return { ...meta, text: art.text };
   }
   function dump() { return JSON.parse(JSON.stringify(state)); }
+  function rows() { return { runs: state.runs, artifacts: state.artifacts }; }
   function importState(dumpIn) {
     const rows = Array.isArray(dumpIn) ? dumpIn.map(fromTracker) : (dumpIn?.runs || (dumpIn?.tracker || []).map(fromTracker));
     for (const r of rows) {
@@ -95,7 +96,7 @@ export function createLab(persist) {
     save();
     return state.runs.length;
   }
-  return { logRun, patchRun, listRuns, getRun, lineage, putArtifact, getArtifact, dump, importState };
+  return { logRun, patchRun, listRuns, getRun, lineage, putArtifact, getArtifact, dump, rows, importState };
 }
 
 export function fromTracker(r) {

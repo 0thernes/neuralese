@@ -1,8 +1,8 @@
 // Shared helpers for the v5 research tabs (markup builders, export, run tracker).
-import { CFG } from './model.js?v=184';
-import { frame, runBudgeted } from './coop.js?v=184';
-import { joinLines } from './bytes.js?v=184';
-import { createLab, fromTracker } from './agent/schema.js?v=184';
+import { CFG } from './model.js?v=185';
+import { frame, runBudgeted } from './coop.js?v=185';
+import { joinLines } from './bytes.js?v=185';
+import { createLab, fromTracker } from './agent/schema.js?v=185';
 export const { d, H, hd, L, ff, V } = CFG;
 export const $ = (id) => document.getElementById(id), $$ = (s, r = document) => [...r.querySelectorAll(s)];
 export const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
@@ -22,23 +22,34 @@ export function tokId(tok, s) { const ids = tok.encode(s); if (!ids.length) thro
 export function parseLayers(s) { const out = new Set(); for (const p of String(s).split(',')) { const m = p.trim().match(/^(\d+)(?:-(\d+))?$/); if (!m) throw new Error('bad layer list ' + s); for (let l = +m[1]; l <= +(m[2] ?? m[1]); l++) if (l < L) out.add(l); } if (!out.size) throw new Error('no valid layers'); return out; }
 export function canvasFit(cvs, h) { const w = cvs.clientWidth || 420; cvs.width = w * devicePixelRatio; cvs.height = h * devicePixelRatio; cvs.style.height = h + 'px'; const c = cvs.getContext('2d'); c.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0); return [c, w]; }
 export const chartBg = () => getComputedStyle(document.documentElement).getPropertyValue('--chart-bg').trim() || '#060a12';
-function exportWorker() { return new Worker(new URL('./export-worker.js?v=184', import.meta.url)); }
+function exportWorker() { return new Worker(new URL('./export-worker.js?v=185', import.meta.url)); }
 function workerBuffer(w) {
   return new Promise((resolve, reject) => {
     w.onmessage = (e) => resolve(e.data);
     w.onerror = () => reject(new Error('export worker failed'));
   });
 }
-async function takeBlob(w) {
-  const blob = await workerBuffer(w);
-  if (!(blob instanceof Blob)) throw new Error('export worker returned no blob');
-  return blob;
+async function takeUrl(w) {
+  const msg = await workerBuffer(w);
+  if (!msg || typeof msg.url !== 'string') throw new Error('export worker returned no url');
+  return msg.url;
+}
+function clickUrl(url, name) {
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+function releaseUrl(w, url) {
+  setTimeout(() => { try { w.postMessage({ op: 'revoke', url }); } catch { /* worker already stopped */ } w.terminate(); }, 2000);
 }
 async function blobFromParts(parts, type) {
   const w = exportWorker();
   const enc = new TextEncoder();
+  const done = takeUrl(w);
   try {
-    const done = takeBlob(w);
     await runBudgeted((function* () {
       for (let i = 0; i < parts.length; i++) {
         const part = parts[i];
@@ -50,8 +61,8 @@ async function blobFromParts(parts, type) {
       }
     })(), { budgetMs: 8, label: 'csv-export' });
     w.postMessage({ op: 'end', type });
-    return await done;
-  } finally { w.terminate(); }
+    return { url: await done, worker: w };
+  } catch (e) { w.terminate(); throw e; }
 }
 async function pngBlob(el) {
   if (!el.width || !el.height) return null;
@@ -59,22 +70,25 @@ async function pngBlob(el) {
   const scale = Math.min(1, max / Math.max(el.width, el.height));
   const bmp = await createImageBitmap(el, { resizeWidth: Math.max(1, Math.round(el.width * scale)), resizeHeight: Math.max(1, Math.round(el.height * scale)), resizeQuality: 'low' });
   const w = exportWorker();
+  const done = takeUrl(w);
   try {
-    const done = takeBlob(w);
     w.postMessage({ op: 'png', bmp, max }, [bmp]);
-    return await done;
-  } finally { w.terminate(); }
+    return { url: await done, worker: w };
+  } catch (e) { w.terminate(); throw e; }
+}
+function deliver(got, name) { clickUrl(got.url, name); releaseUrl(got.worker, got.url); }
+export async function saveParts(filename, parts, type = 'application/json') {
+  deliver(await blobFromParts(parts, type), filename);
 }
 export async function exportFor(id, kind) {
   await tick();
   const el = $(id); if (!el) return false; const name = `neuralese-${id}-${Date.now()}`;
-  const dl = (blob, ext) => { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${name}.${ext}`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); };
-  if (kind === 'png') { if (el.tagName !== 'CANVAS') return false; const b = await pngBlob(el); if (b) dl(b, 'png'); return !!b; }
-  if (kind === 'svg') { const s = el.tagName === 'svg' ? el : el.querySelector('svg'); if (!s) return false; const parts = [s.cloneNode(false).outerHTML.replace(/<\/[^>]+>$/, '')]; const kids = [...s.childNodes]; await runBudgeted((function* () { for (let i = 0; i < kids.length; i++) { parts.push(kids[i].nodeType === 1 ? kids[i].outerHTML : (kids[i].textContent || '')); yield; } })(), { budgetMs: 8 }); parts.push(`</${s.tagName}>`); dl(await blobFromParts(parts, 'image/svg+xml'), 'svg'); return true; }
+  if (kind === 'png') { if (el.tagName !== 'CANVAS') return false; const b = await pngBlob(el); if (!b) return false; deliver(b, `${name}.png`); return true; }
+  if (kind === 'svg') { const s = el.tagName === 'svg' ? el : el.querySelector('svg'); if (!s) return false; const parts = [s.cloneNode(false).outerHTML.replace(/<\/[^>]+>$/, '')]; const kids = [...s.childNodes]; await runBudgeted((function* () { for (let i = 0; i < kids.length; i++) { parts.push(kids[i].nodeType === 1 ? kids[i].outerHTML : (kids[i].textContent || '')); yield; } })(), { budgetMs: 8 }); parts.push(`</${s.tagName}>`); deliver(await blobFromParts(parts, 'image/svg+xml'), `${name}.svg`); return true; }
   if (kind === 'csv') {
     const c = el._csv ? await el._csv() : null; if (c == null || c === '' || (Array.isArray(c) && !c.length)) return false;
     const parts = Array.isArray(c) ? c : joinLines(String(c).split('\n'), 64);
-    dl(await blobFromParts(parts, 'text/csv'), 'csv'); return true;
+    deliver(await blobFromParts(parts, 'text/csv'), `${name}.csv`); return true;
   }
   return false;
 }

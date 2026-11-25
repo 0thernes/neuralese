@@ -9,4 +9,5 @@ test('a page tracker row imports into the CLI lab without a second schema', () =
   assert.equal(run.project, 'sweep');
   assert.equal(run.metrics.ppl, 12);
   assert.equal(lab.importState(lab.dump()), 1);
+  assert.deepEqual(lab.rows().runs.map((r) => r.id), ['r1']);
 });

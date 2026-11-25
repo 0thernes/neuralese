@@ -1,9 +1,9 @@
 // v7 research core (DOM-free, tested in Node): hypothesis tests, ACDC-style circuit discovery, causal scrubbing-lite,
 // linear probes with control tasks, eval harness, weight hashing and experiment manifests.
-import { forward, forwardAsync, logitsAt, logitsAtAsync, objective } from './grad.js?v=184';
-import { cloneWeights } from './model.js?v=184';
-import { rng } from './science.js?v=184';
-import { frame, runBudgeted } from './coop.js?v=184';
+import { forward, forwardAsync, logitsAt, logitsAtAsync, objective } from './grad.js?v=185';
+import { cloneWeights } from './model.js?v=185';
+import { rng } from './science.js?v=185';
+import { frame, runBudgeted } from './coop.js?v=185';
 const mean = (a) => a.reduce((s, x) => s + x, 0) / (a.length || 1);
 const sd = (a) => { const m = mean(a); return Math.sqrt(a.reduce((s, x) => s + (x - m) ** 2, 0) / Math.max(1, a.length - 1)); };
 // ── hypothesis testing ──

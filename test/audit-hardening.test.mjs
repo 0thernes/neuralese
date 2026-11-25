@@ -120,6 +120,12 @@ test('kl of a distribution with itself is 0, and a one-bit shift matches log 2',
   assert.equal(kl([0.2, 0.8], [0, 1]), Infinity);
 });
 
+test('lab export stringifies one run at a time', () => {
+  const src = readFileSync(new URL('../src/lab-eval.js', import.meta.url), 'utf8');
+  assert.ok(!src.includes('JSON.stringify(lab.dump()'));
+  assert.match(src, /label: 'lab-export'/);
+});
+
 test('chart csv export no longer builds one Blob from the whole string on the main thread', () => {
   const ui = readFileSync(new URL('../src/lab-ui.js', import.meta.url), 'utf8');
   assert.ok(!ui.includes('new Blob(Array.isArray'));
@@ -199,6 +205,7 @@ test('png export captures an ImageBitmap and encodes the blob in the worker', ()
   const worker = readFileSync(new URL('../src/export-worker.js', import.meta.url), 'utf8');
   assert.match(worker, /convertToBlob/);
   assert.match(worker, /new Blob/);
+  assert.match(worker, /createObjectURL/);
   assert.ok(!worker.includes('arrayBuffer'));
 });
 
