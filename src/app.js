@@ -1,7 +1,7 @@
 // NEURALESE v2 — UI wiring. All numerics live in engine/analysis/surgery/decode/sae/rome (unit-tested vs PyTorch).
 import * as U152 from './ui152.js?v=170';
 import { GPT2Tokenizer, parseVocabYield } from './tokenizer.js?v=170';
-import { CFG, buildWeights, parseSafetensorsYield, cloneWeights, mulberry32 } from './model.js?v=170';
+import { CFG, buildWeights, parseSafetensorsYield, cloneWeightsYield, mulberry32 } from './model.js?v=170';
 import { concatUint8 } from './bytes.js?v=170';
 import { Engine, defaultRuntime, logSoftmax, topK, SITES } from './engine.js?v=170';
 import { RemoteEngine, withBias } from './engine-client.js?v=170';
@@ -632,7 +632,7 @@ function wire() {
 // ───────── boot ─────────
 (async () => {
   try {
-    const r = await loadModel(); W = r.W; tok = r.tok; M = cloneWeights(W); ed = new Editor(W, M); R = defaultRuntime(); eng = new Engine(M, R); engClean = new Engine(W, defaultRuntime()); engClean.prefixCache = true; // v15.3: originals are never edited in place
+    const r = await loadModel(); await frame(); W = r.W; tok = r.tok; M = await cloneWeightsYield(W); await frame(); ed = new Editor(W, M); R = defaultRuntime(); eng = new Engine(M, R); engClean = new Engine(W, defaultRuntime()); engClean.prefixCache = true; // v15.3: originals are never edited in place
     buildUI(); viz = new Viz($('gl'), (s) => setSel(s)); wire(); caInputs(); afterChange(); setSel({ l: 0, h: 0 }); $('loader').style.display = 'none'; hud();
     V5.mount({ viz, W: () => W, M: () => M, eng: () => eng, engClean: () => engClean, tok: () => tok, R: () => R, ed: () => ed, S: () => S, stats: () => stats, sae: () => sae, setSel, showTab, commit, weightEdit, download, generate, analyze, undo, redo, ensureStats, guard, toast, audio, decode: () => D, defaultRuntime,
       applyShared: (st) => commit('load shared experiment', () => { R = Object.assign(defaultRuntime(), st.R || {}); eng.R = R; ed.setEdits(st.edits || []); }),
