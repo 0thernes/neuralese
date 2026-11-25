@@ -29,13 +29,21 @@ Passes 1–22 are the earlier engineering log in [PASSES.md](PASSES.md). This fi
 | AUD-044 | 44 | `docs/NEURON_LENS_METHOD.md:68` | low | The method page still said distilgpt2 and GPT-2 were planned for v14.1. That release fitted TinyStories-1M and 3M instead, and the report already said so. | `00cd131` | `test/audit-hardening.test.mjs` |
 | AUD-045 | 45 | `src/frontier/grok.js` `step` | high | One live grokking step was still a single script (104 ms on the desktop preview of `3a62a0d`). The training pass now yields every 32 examples. The Adam update matches a full step. | `f16a77b` | `test/audit-hardening.test.mjs` |
 | AUD-046 | 46 | `src/style.css` header; `ui/src/Dock.tsx` panel; `ui/src/styles.css` `.cosmos-hud` | medium | At 768×1024, axe reported contrast on `#bTheme`, `#bPal`, and `.cosmos-hud`, and a scrollable `#panel-cosmos` that could not take focus. The header was translucent. The hud had no background. The panel had no tabindex. | `f16a77b` | the click-all axe gate |
-| AUD-047 | 47 | `src/lab-tsotchke.js` `taylorJet`; `src/lab-research.js` `statsHeads`; `src/model.js` `copyWeightsIntoYield` | high | On preview `3d36ace`, mobile app max was 628 ms and tablet 621 ms. The scripts were `forwardAsync` and `ceJetLnf` inside the Taylor jet, `docCE` inside the head study, and a 262144-float weight copy. | this commit | `test/audit-hardening.test.mjs`. The jet and the head study run in `engine-worker.js` and return the coefficients or the CE vectors. Main-thread copies are 8192 floats. |
-| AUD-048 | 48 | `.github/workflows/release.yml` | medium | The TinyStories cache key was `tinystories-model-v1`, so a pin change could reuse the wrong files. The key is now the pinned `model.safetensors` SHA-256. `fetch-model.mjs` still runs, and `test/science.test.mjs` still throws if the file is missing. | this commit | `test/audit-hardening.test.mjs` |
-| AUD-049 | 49 | `docs/STEERING_GUIDE.md` | low | The beginner guide said the weight download is about 80 MB. The pinned file is 112377544 bytes. | this commit | `test/audit-hardening.test.mjs` |
+| AUD-047 | 47 | `src/lab-tsotchke.js` `taylorJet`; `src/lab-research.js` `statsHeads`; `src/model.js` `copyWeightsIntoYield` | high | On preview `3d36ace`, mobile app max was 628 ms and tablet 621 ms. The scripts were `forwardAsync` and `ceJetLnf` inside the Taylor jet, `docCE` inside the head study, and a 262144-float weight copy. | `d81bc83` | `test/audit-hardening.test.mjs`. The jet and the head study run in `engine-worker.js` and return the coefficients or the CE vectors. Main-thread copies are 8192 floats. |
+| AUD-048 | 48 | `.github/workflows/release.yml` | medium | The TinyStories cache key was `tinystories-model-v1`, so a pin change could reuse the wrong files. The key is now the pinned `model.safetensors` SHA-256. `fetch-model.mjs` still runs, and `test/science.test.mjs` still throws if the file is missing. | `d81bc83` | `test/audit-hardening.test.mjs` |
+| AUD-049 | 49 | `docs/STEERING_GUIDE.md` | low | The beginner guide said the weight download is about 80 MB. The pinned file is 112377544 bytes. | `d81bc83` | `test/audit-hardening.test.mjs` |
 | AUD-035 | 35 | `src/linalg.js:21` | info | One-sided Jacobi SVD of a 3×3 matrix reconstructs it within 1e-8 and returns singular values in descending order. | no code change | `test/audit-hardening.test.mjs` |
 | AUD-036 | 36 | `src/` first-party scripts | info | `eval` and `new Function` appear only under `src/vendor` and `src/hub/vendor`. | no code change | `test/audit-hardening.test.mjs` |
 
 ## Open
+
+- Preview of `3d36ace` finished, workers 1, 0 console errors, 514 clicked and 9 disabled at each width. It failed. App max 628 / 621 / 624 ms. Mobile and desktop axe were clean. Tablet axe was `color-contrast:5`, first node `#bTheme`. The long scripts were the Taylor jet, the head-study loss, and the weight copy. `d81bc83` moves the jet and the study into the engine worker.
+
+| Width | Clicked | Disabled | Console | Axe | Cosmos | #gl | Raw max | Raw p95 | Paint/GL max | App max | App p95 | Worst |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 390×844 | 514 | 9 | 0 | none | 390×658 | 390×478 | 646 | 527 | 646 | 628 | 535 | taylorJet forwardAsync |
+| 768×1024 | 514 | 9 | 0 | contrast 5, first `#bTheme` | 388×426 | 373×572 | 1344 | 519 | 1194 | 621 | 547 | taylorJet forwardAsync |
+| 1440×900 | 514 | 9 | 0 | none | 737×369 | 709×490 | 1137 | 385 | 1137 | 624 | 514 | taylorJet forwardAsync |
 
 - Preview of `fa80009` (one 3-width run, workers 1, 0 console errors) failed the gate. Axe on every width: `color-contrast` on `.logo > span` (`ESE`), 4.47:1 in the light theme (`#0b7d70` on `#eef2f8`). App script max was about 1 s. The long scripts were the edit-impact unembed, `taylorJet`, and a weight copy, all between yields. `d8a8a6f` chunks that unembed (1024 rows) and sets the light-theme logo to `#085e54`. It is not in this table.
 
@@ -64,4 +72,4 @@ Passes 1–22 are the earlier engineering log in [PASSES.md](PASSES.md). This fi
 Raw / paint (not gated): mobile raw max 684 p95 460, paint/GL 684, gl-init 684. Tablet raw 1230 / 379, paint 906, gl-init 618. Desktop raw 1129 / 365, paint 1129, gl-init 1129. Scripts still between 100 and 200 ms on that run, which fails p95 whenever fewer than 20 frames are at least 50 ms: mobile dot-product tour 178, `lab-v16.js` import 137, weight snapshot 102; tablet SVG export 187, grok live 114.
 
 - `test/science.test.mjs` fetches the pinned TinyStories-8M files when they are missing and fails if that download fails. It passed 8/8 after `node tools/fetch-model.mjs`.
-- 104 of 505 files in [AUDIT_INDEX.md](AUDIT_INDEX.md) are reviewed (20.6%).
+- 119 of 505 files in [AUDIT_INDEX.md](AUDIT_INDEX.md) are reviewed (23.6%).
