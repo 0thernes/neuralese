@@ -5,9 +5,9 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 | | |
 |---|---|
 | Files | 505 |
-| Reviewed (passes 23–72) | 160 |
-| Indexed, not reviewed | 345 |
-| Coverage | 31.7% |
+| Reviewed (passes 23–73) | 161 |
+| Indexed, not reviewed | 344 |
+| Coverage | 31.9% |
 
 
 ## `/`
@@ -529,7 +529,7 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 | `forgealu.d.ts` | ts | walk | none mapped | indexed |
 | `forgealu.js` | Lower a ForgeISA arithmetic op to the gate netlist, or say when the op is wiring or memory. | walk | none mapped | indexed |
 | `gates.js` | Gate netlist. Every gate is AND, OR, XOR, or NOT, plus constant 0/1 sources. | walk | none mapped | indexed |
-| `record.js` | One real forward, with the engine's own tensors copied out. Logits are Engine.matvec on the final hidden state | walk | none mapped | indexed |
+| `record.js` | One real forward, with the engine's own tensors copied out. Logits are Engine.matvec on the final hidden state | walk | none mapped | reviewed, pass 73 |
 | `sample.js` | Display sampling. The stored tensor is complete. The picture shows a capped window and says so. | walk | none mapped | indexed |
 | `session.js` | Worker and main-thread entry for a walk. The last session stays here so a cell query can explain it. | walk | none mapped | indexed |
 
