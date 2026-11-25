@@ -114,6 +114,13 @@ test('ACDC async path yields per node and does not score with the sync objective
   assert.ok(!fn.slice(0, fn.indexOf('export async function scrubAsync')).includes('objective('));
 });
 
+test('the v13 stack record points at the current src tree', () => {
+  const doc = readFileSync(new URL('../docs/STACK.md', import.meta.url), 'utf8');
+  assert.match(doc, /src\/vendor\/three\/three\.module\.min\.js/);
+  assert.match(doc, /package\.json/);
+  assert.ok(statSync(new URL('../src/vendor/three/three.module.min.js', import.meta.url)).isFile());
+});
+
 test('H9 cites the hub registry that exists in this tree', () => {
   const claims = readFileSync(new URL('../docs/CLAIMS.md', import.meta.url), 'utf8');
   assert.match(claims, /TOOL_MATRIX in `src\/hub\/models\.js`/);

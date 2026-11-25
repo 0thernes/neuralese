@@ -1,5 +1,7 @@
 # Stack — exact versions (v13.0.0, 2026-10-26)
 
+Paths below say `site/`. Those files now live under `src/` (`src/vendor/three/three.module.min.js`, `src/tsotchke/`, `src/hub/`, `src/frontier/`). This page is the v13 pin record. The running app version is `package.json`, not the 12.0.0 row.
+
 v13 packaging: Electron ^38 + electron-builder ^26 (desktop/), Capacitor ^7.6.9 (Android/iOS, generated in CI).
 
 

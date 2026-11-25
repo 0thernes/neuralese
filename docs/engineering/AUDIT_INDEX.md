@@ -5,9 +5,9 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 | | |
 |---|---|
 | Files | 505 |
-| Reviewed (passes 23–40) | 86 |
-| Indexed, not reviewed | 419 |
-| Coverage | 17.0% |
+| Reviewed (passes 23–42) | 100 |
+| Indexed, not reviewed | 405 |
+| Coverage | 19.8% |
 
 
 ## `/`
@@ -20,7 +20,7 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 | `PARITY.md` | documentation | repo root | none mapped | reviewed, passes 31–36 |
 | `README.md` | documentation | repo root | none mapped | reviewed, passes 31–36 |
 | `RELEASE_NOTES.md` | documentation | repo root | none mapped | reviewed, passes 31–36 |
-| `V16_PROGRESS.md` | documentation | repo root | none mapped | indexed |
+| `V16_PROGRESS.md` | documentation | repo root | none mapped | reviewed, passes 41–42 |
 | `V17_1_PROGRESS.md` | documentation | repo root | none mapped | reviewed, passes 39–40 |
 | `V17_2_PROGRESS.md` | documentation | repo root | none mapped | reviewed, passes 39–40 |
 | `V17_3_PROGRESS.md` | documentation | repo root | none mapped | reviewed, passes 39–40 |
@@ -43,10 +43,10 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 
 | File | Purpose | Owner | Tests | Status |
 |---|---|---|---|---|
-| `.gitignore` | file | electron | none mapped | indexed |
+| `.gitignore` | file | electron | none mapped | reviewed, passes 41–42 |
 | `main.cjs` | Electron desktop shell. Serves the bundled web app from app://local/ (a privileged, secure custom scheme) so f | electron | none mapped | reviewed, passes 23–30 |
 | `package-lock.json` | json | electron | none mapped | indexed |
-| `package.json` | json | electron | none mapped | indexed |
+| `package.json` | json | electron | none mapped | reviewed, passes 41–42 |
 | `prep.cjs` | Builds www/ for packaging from the repo root with the same file set as gh-pages (tools/build-www.mjs). | electron | none mapped | reviewed, passes 31–36 |
 | `safe-path.cjs` | Resolve a request path under the app root. Bad escapes and odd encodings are rejected. | electron | test/desktop-path.test.mjs | reviewed, passes 23–30 |
 | `smoke.cjs` | Desktop smoke: launch the packaged app (linux-unpacked) with a CDP port, wait for the web app to finish loadin | electron | none mapped | reviewed, passes 31–36 |
@@ -55,10 +55,10 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 
 | File | Purpose | Owner | Tests | Status |
 |---|---|---|---|---|
-| `ADVERSARY.md` | documentation | docs | none mapped | indexed |
+| `ADVERSARY.md` | documentation | docs | none mapped | reviewed, passes 41–42 |
 | `BIBLE.md` | documentation | docs | none mapped | indexed |
-| `CLAIMS-v14.md` | documentation | docs | none mapped | indexed |
-| `CLAIMS-v14x.md` | documentation | docs | none mapped | indexed |
+| `CLAIMS-v14.md` | documentation | docs | none mapped | reviewed, passes 41–42 |
+| `CLAIMS-v14x.md` | documentation | docs | none mapped | reviewed, passes 41–42 |
 | `CLAIMS.md` | documentation | docs | none mapped | reviewed, passes 39–40 |
 | `COURSE.md` | documentation | docs | none mapped | indexed |
 | `DEEP_WALKTHROUGH.md` | documentation | docs | none mapped | indexed |
@@ -68,12 +68,12 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 | `NEST_CPU.md` | documentation | docs | none mapped | indexed |
 | `NEURON_LENS_METHOD.md` | documentation | docs | none mapped | indexed |
 | `PREREG-v11.md` | documentation | docs | none mapped | indexed |
-| `PREREG-v14.md` | documentation | docs | none mapped | indexed |
+| `PREREG-v14.md` | documentation | docs | none mapped | reviewed, passes 41–42 |
 | `PREREG-v14x.md` | documentation | docs | none mapped | indexed |
-| `REPORT-v14.md` | documentation | docs | none mapped | indexed |
+| `REPORT-v14.md` | documentation | docs | none mapped | reviewed, passes 41–42 |
 | `ROADMAP-v12.md` | documentation | docs | none mapped | indexed |
-| `ROADMAP-v14.md` | documentation | docs | none mapped | indexed |
-| `STACK.md` | documentation | docs | none mapped | indexed |
+| `ROADMAP-v14.md` | documentation | docs | none mapped | reviewed, passes 41–42 |
+| `STACK.md` | documentation | docs | none mapped | reviewed, passes 41–42 |
 | `STEERING_GUIDE.md` | documentation | docs | none mapped | indexed |
 | `TSOTCHKE.md` | documentation | docs | none mapped | indexed |
 | `WEIGHT_MACHINE.md` | documentation | docs | none mapped | indexed |
@@ -89,7 +89,7 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 | `FEATURE_PARITY.md` | documentation | docs | none mapped | indexed |
 | `PASSES.md` | documentation | docs | none mapped | reviewed, passes 23–30 |
 | `RESEARCH_TRACKS.md` | documentation | docs | none mapped | indexed |
-| `SOP.md` | documentation | docs | none mapped | indexed |
+| `SOP.md` | documentation | docs | none mapped | reviewed, passes 41–42 |
 | `WANDB_PARITY.md` | documentation | docs | none mapped | indexed |
 
 ## `docs/progress/`
@@ -166,12 +166,12 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 | `lab-ui.js` | Shared helpers for the v5 research tabs (markup builders, export, run tracker). | lab core | test/audit-hardening.test.mjs | reviewed, passes 23–30 |
 | `lab-v16.js` | v16 tabs: HUB interpretability (logit lens / CLIP embedding lens, attention rollout, linear probes on ViT, CLI | lab core | none mapped | indexed |
 | `labcore.js` | NEURALESE lab core: pure, testable research computations behind every v5 visualization. | lab core | test/lab.test.mjs | reviewed, passes 37–38 |
-| `lens-worker.js` | Neuron Lens in-browser refit: fits one document's R-lens and S-lens on the current weights (same code path as  | lab core | none mapped | indexed |
+| `lens-worker.js` | Neuron Lens in-browser refit: fits one document's R-lens and S-lens on the current weights (same code path as  | lab core | none mapped | reviewed, passes 41–42 |
 | `linalg.js` | Small dense linear algebra kit (Float64, row-major unless noted). | lab core | none mapped | reviewed, passes 31–36 |
-| `mf-client.js` | Page-side handle for mf-worker.js. The worker runs machine and Forge compute. | lab core | none mapped | indexed |
+| `mf-client.js` | Page-side handle for mf-worker.js. The worker runs machine and Forge compute. | lab core | none mapped | reviewed, passes 41–42 |
 | `mf-worker.js` | Machine and Forge compute. The page sends a job and renders the plain result. | lab core | none mapped | indexed |
 | `model.js` | Tiny GPT-Neo forward pass in plain JS. Weights are mutable Float32Arrays. | lab core | test/core.test.mjs | reviewed, passes 23–30 |
-| `nestedlens.js` | Neuralese v14.7 — float32-weight forward pass + finite-difference R-lens for the nested char LMs (guest, emula | lab core | none mapped | indexed |
+| `nestedlens.js` | Neuralese v14.7 — float32-weight forward pass + finite-difference R-lens for the nested char LMs (guest, emula | lab core | none mapped | reviewed, passes 41–42 |
 | `neuronlens.js` | NEURALESE v14 Neuron Lens: R-lens, S-lens and their mid targets for GPT-Neo (TinyStories-8M). | lab core | none mapped | reviewed, passes 39–40 |
 | `notebook-worker.js` | Notebook cells run here, not on the page. They get the research functions and a copy of the | lab core | none mapped | indexed |
 | `post.js` | v15.1 post-processing chain (no addons): scene → half-float MSAA target with depth; bloom = soft-threshold bri | lab core | none mapped | reviewed, passes 31–36 |
