@@ -1,14 +1,14 @@
 // Condition runner: equal-length system prompts, dual-phase key geometry, FWL, logistic AUROC.
 // Neuron hunt and steering-vs-random share the same locked pre-registration.
-import { canonical, sha256Hex } from '../prereg.js?v=187';
-import { slice } from '../coop.js?v=187';
+import { canonical, sha256Hex } from '../prereg.js?v=188';
+import { slice } from '../coop.js?v=188';
 import {
   FEATURE_NAMES, KV_CADENCE, deltaValues, geometryFromTokenKeys, geometryVerdict, lopoAUROC,
   permutationAUROC, residualize, syntheticSelfTest,
-} from './geometry.js?v=187';
-import { ACTIVATION_CAVEAT, RUBRIC_LEXICON, randomSets, rankNeurons, scoreText, steeringVerdict, unitKey } from './neurons.js?v=187';
-import { CONDITIONS, PROMPT_BANK, padTokenIds } from './prompts.js?v=187';
-import { lockPrereg, notebookMarkdown, preregBody, reproBundle, revisePrereg, sameBody, toYAML } from './prereg.js?v=187';
+} from './geometry.js?v=188';
+import { ACTIVATION_CAVEAT, RUBRIC_LEXICON, randomSets, rankNeurons, scoreText, steeringVerdict, unitKey } from './neurons.js?v=188';
+import { CONDITIONS, PROMPT_BANK, padTokenIds } from './prompts.js?v=188';
+import { lockPrereg, notebookMarkdown, preregBody, reproBundle, revisePrereg, sameBody, toYAML } from './prereg.js?v=188';
 
 export { KV_CADENCE, syntheticSelfTest, notebookMarkdown, toYAML, CONDITIONS, PROMPT_BANK, FEATURE_NAMES, RUBRIC_LEXICON };
 
