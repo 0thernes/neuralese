@@ -113,3 +113,12 @@ test('ACDC async path yields per node and does not score with the sync objective
   assert.match(fn, /metricAsync\(/);
   assert.ok(!fn.slice(0, fn.indexOf('export async function scrubAsync')).includes('objective('));
 });
+
+test('H9 cites the hub registry that exists in this tree', () => {
+  const claims = readFileSync(new URL('../docs/CLAIMS.md', import.meta.url), 'utf8');
+  assert.match(claims, /TOOL_MATRIX in `src\/hub\/models\.js`/);
+  assert.ok(!claims.includes('site/hub/models.js'));
+  const hub = readFileSync(new URL('../src/hub/models.js', import.meta.url), 'utf8');
+  assert.match(hub, /export const TOOL_MATRIX/);
+  assert.match(hub, /no log-prob readout, no activations, no patching/);
+});

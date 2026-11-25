@@ -5,9 +5,9 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 | | |
 |---|---|
 | Files | 505 |
-| Reviewed (passes 23–38) | 73 |
-| Indexed, not reviewed | 432 |
-| Coverage | 14.5% |
+| Reviewed (passes 23–40) | 86 |
+| Indexed, not reviewed | 419 |
+| Coverage | 17.0% |
 
 
 ## `/`
@@ -21,10 +21,10 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 | `README.md` | documentation | repo root | none mapped | reviewed, passes 31–36 |
 | `RELEASE_NOTES.md` | documentation | repo root | none mapped | reviewed, passes 31–36 |
 | `V16_PROGRESS.md` | documentation | repo root | none mapped | indexed |
-| `V17_1_PROGRESS.md` | documentation | repo root | none mapped | indexed |
-| `V17_2_PROGRESS.md` | documentation | repo root | none mapped | indexed |
-| `V17_3_PROGRESS.md` | documentation | repo root | none mapped | indexed |
-| `V17_PROGRESS.md` | documentation | repo root | none mapped | indexed |
+| `V17_1_PROGRESS.md` | documentation | repo root | none mapped | reviewed, passes 39–40 |
+| `V17_2_PROGRESS.md` | documentation | repo root | none mapped | reviewed, passes 39–40 |
+| `V17_3_PROGRESS.md` | documentation | repo root | none mapped | reviewed, passes 39–40 |
+| `V17_PROGRESS.md` | documentation | repo root | none mapped | reviewed, passes 39–40 |
 | `capacitor.config.json` | json | repo root | none mapped | reviewed, passes 31–36 |
 | `eslint.config.js` | flat config: recommended correctness rules only (style is not enforced); vendored three.js is excluded. | repo root | none mapped | reviewed, passes 31–36 |
 | `features.json` | json | repo root | none mapped | indexed |
@@ -59,7 +59,7 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 | `BIBLE.md` | documentation | docs | none mapped | indexed |
 | `CLAIMS-v14.md` | documentation | docs | none mapped | indexed |
 | `CLAIMS-v14x.md` | documentation | docs | none mapped | indexed |
-| `CLAIMS.md` | documentation | docs | none mapped | indexed |
+| `CLAIMS.md` | documentation | docs | none mapped | reviewed, passes 39–40 |
 | `COURSE.md` | documentation | docs | none mapped | indexed |
 | `DEEP_WALKTHROUGH.md` | documentation | docs | none mapped | indexed |
 | `FRONTIER.md` | documentation | docs | none mapped | indexed |
@@ -142,7 +142,7 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 | `dataset.js` | shared dataset: built-in TinyStories-style corpus, or a user-uploaded corpus used by every docs-based tool. | lab core | none mapped | reviewed, passes 31–36 |
 | `decode.js` | Decoding: logit processors, samplers, contrastive decoding, CFG, beam search. | lab core | none mapped | reviewed, passes 31–36 |
 | `drill.js` | Drill-down hierarchy: model → layer → sublayer → matrix → unit (head / neuron) → row/col → weight. | lab core | none mapped | reviewed, passes 31–36 |
-| `engine-client.js` | v15.3 main-thread client for engine-worker.js. RemoteEngine mirrors the Engine calls used by generation, but a | lab core | none mapped | indexed |
+| `engine-client.js` | v15.3 main-thread client for engine-worker.js. RemoteEngine mirrors the Engine calls used by generation, but a | lab core | none mapped | reviewed, passes 39–40 |
 | `engine-worker.js` | v15.3 engine worker: runs the GPT-Neo forward pass (Engine) off the UI thread. Protocol (all messages {id, op, | lab core | none mapped | reviewed, passes 31–36 |
 | `engine.js` | NEURALESE engine: GPT-Neo forward pass with a full intervention/hook system. | lab core | test/engine-kv.test.mjs | reviewed, passes 37–38 |
 | `export-worker.js` | Chart CSV/PNG assembly off the main thread. The page posts small strings or bitmaps. | lab core | none mapped | reviewed, passes 23–30 |
@@ -150,15 +150,15 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 | `grad.js` | Analytic reverse-mode autodiff for GPT-Neo (TinyStories-8M family): full-sequence forward with stored activati | lab core | test/grad.test.mjs | reviewed, passes 23–30 |
 | `guide.js` | v12.1 guided path through the 65 tabs: ten stops that build on each other, each with one concrete thing to try | lab core | none mapped | reviewed, passes 31–36 |
 | `heavy.js` | Jobs the engine worker runs so the page thread only paints progress. | lab core | none mapped | reviewed, passes 31–36 |
-| `hero.js` | v15.1 overview hero: a stylised 3D network (8 layer rings × 16 instanced head nodes + MLP dust, sparse inter-l | lab core | none mapped | indexed |
+| `hero.js` | v15.1 overview hero: a stylised 3D network (8 layer rings × 16 instanced head nodes + MLP dust, sparse inter-l | lab core | none mapped | reviewed, passes 39–40 |
 | `index.html` | html | lab core | none mapped | indexed |
 | `lab-eval.js` | EVALUATE group: token timeline, calibration, edit impact, profiler, experiment tracker. | lab core | none mapped | reviewed, passes 31–36 |
 | `lab-frontier.js` | v11 FRONTIER group — consciousness-science proxies, introspection, a self-improvement loop, grokking and a com | lab core | none mapped | reviewed, passes 37–38 |
-| `lab-hub.js` | v12 HUB group — a model hub on transformers.js (pinned 4.3.1, hash-checked, ONNX Runtime Web, in a Web Worker) | lab core | none mapped | indexed |
+| `lab-hub.js` | v12 HUB group — a model hub on transformers.js (pinned 4.3.1, hash-checked, ONNX Runtime Web, in a Web Worker) | lab core | none mapped | reviewed, passes 39–40 |
 | `lab-interpret.js` | INTERPRET group: attention grid/rollout/head classes, residual geometry, circuit graph, neuron atlas, embeddin | lab core | none mapped | indexed |
-| `lab-intervene.js` | INTERVENE/RUN extras: parameter sweeps, batch experiments, advanced steering controls (all act on the real eng | lab core | none mapped | indexed |
+| `lab-intervene.js` | INTERVENE/RUN extras: parameter sweeps, batch experiments, advanced steering controls (all act on the real eng | lab core | none mapped | reviewed, passes 39–40 |
 | `lab-lens.js` | v14 NEURON LENS group: browsable, searchable DB of every TinyStories-8M MLP neuron and attention head read thr | lab core | none mapped | indexed |
-| `lab-model.js` | MODEL group: architecture schematic, parameter/FLOP breakdown, weight statistics (live tensors). | lab core | none mapped | indexed |
+| `lab-model.js` | MODEL group: architecture schematic, parameter/FLOP breakdown, weight statistics (live tensors). | lab core | none mapped | reviewed, passes 39–40 |
 | `lab-nested.js` | v14.7 / v14.8 NESTED group: a RISC-V CPU baked into transformer weights, a language model baked into a languag | lab core | none mapped | indexed |
 | `lab-research.js` | v7 RESEARCH group: reproducibility (hashes, manifests, replay), hypothesis tests, ACDC-style circuit discovery | lab core | none mapped | indexed |
 | `lab-science.js` | v6 SCIENCE group: drill-down inspector, gradients & attribution, head circuits, representation geometry, loss  | lab core | none mapped | reviewed, passes 37–38 |
@@ -172,7 +172,7 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 | `mf-worker.js` | Machine and Forge compute. The page sends a job and renders the plain result. | lab core | none mapped | indexed |
 | `model.js` | Tiny GPT-Neo forward pass in plain JS. Weights are mutable Float32Arrays. | lab core | test/core.test.mjs | reviewed, passes 23–30 |
 | `nestedlens.js` | Neuralese v14.7 — float32-weight forward pass + finite-difference R-lens for the nested char LMs (guest, emula | lab core | none mapped | indexed |
-| `neuronlens.js` | NEURALESE v14 Neuron Lens: R-lens, S-lens and their mid targets for GPT-Neo (TinyStories-8M). | lab core | none mapped | indexed |
+| `neuronlens.js` | NEURALESE v14 Neuron Lens: R-lens, S-lens and their mid targets for GPT-Neo (TinyStories-8M). | lab core | none mapped | reviewed, passes 39–40 |
 | `notebook-worker.js` | Notebook cells run here, not on the page. They get the research functions and a copy of the | lab core | none mapped | indexed |
 | `post.js` | v15.1 post-processing chain (no addons): scene → half-float MSAA target with depth; bloom = soft-threshold bri | lab core | none mapped | reviewed, passes 31–36 |
 | `prereg.js` | v16 enforced pre-registration. A run is described by a JSON document that must validate against PREREG_SCHEMA, | lab core | none mapped | reviewed, passes 31–36 |
@@ -183,7 +183,7 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 | `science.js` | Quantitative analyses for NEURALESE v6. Every function is deterministic given a seed and documented with its d | lab core | test/science.test.mjs | reviewed, passes 23–30 |
 | `style.css` | gl{position: | lab core | none mapped | indexed |
 | `surgery.js` | Weight surgery: a replayable list of edit ops applied to a fresh copy of the original weights. | lab core | none mapped | reviewed, passes 31–36 |
-| `term-util.js` | js | lab core | none mapped | indexed |
+| `term-util.js` | js | lab core | none mapped | reviewed, passes 39–40 |
 | `term.js` | In-app terminal: a small, safe command language over the real app API (no eval). Shared by the batch runner. | lab core | none mapped | reviewed, passes 31–36 |
 | `tokenizer.js` | Minimal GPT-2 byte-level BPE tokenizer (vocab.json + merges.txt) | lab core | test/audit-hardening.test.mjs | reviewed, passes 23–30 |
 | `trace-remote.js` | The page binds the engine worker here. Lab tools call steppedRun, which uses it when present. | lab core | none mapped | reviewed, passes 31–36 |
@@ -282,7 +282,7 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 |---|---|---|---|---|
 | `finetune.js` | v12 in-browser fine-tuning of TinyStories-8M on the user's own text. Honest scope: parameter-efficient, 1,536  | hub | none mapped | indexed |
 | `ft-worker.js` | v12: runs the fine-tune off the main thread (the exact-gradient loop costs ~10 s per Adam step on CPU). | hub | none mapped | indexed |
-| `models.js` | v12 MODEL HUB registry. Every entry is a real, public ONNX repo on the Hugging Face Hub, run by transformers.j | hub | none mapped | indexed |
+| `models.js` | v12 MODEL HUB registry. Every entry is a real, public ONNX repo on the Hugging Face Hub, run by transformers.j | hub | none mapped | reviewed, passes 39–40 |
 | `worker.js` | v12 MODEL HUB worker: runs transformers.js pipelines off the main thread. Messages: {id, op:'load'/'run'/'info | hub | none mapped | indexed |
 
 ## `src/hub/vendor/`
