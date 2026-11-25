@@ -1,9 +1,9 @@
 // Interpretability toolkit: corpus statistics, logit/tuned lens, DLA, activation & path patching, control vectors.
-import { CFG, mulberry32 } from './model.js?v=186';
-import { Engine, defaultRuntime, layerNorm, logSoftmax, topK, entropy } from './engine.js?v=186';
-import { cholSolve, pca1, dot } from './linalg.js?v=186';
-import { slice } from './coop.js?v=186';
-import { remoteEngine } from './trace-remote.js?v=186';
+import { CFG, mulberry32 } from './model.js?v=187';
+import { Engine, defaultRuntime, layerNorm, logSoftmax, topK, entropy } from './engine.js?v=187';
+import { cholSolve, pca1, dot } from './linalg.js?v=187';
+import { slice } from './coop.js?v=187';
+import { remoteEngine } from './trace-remote.js?v=187';
 const { d, H, hd, L, ff } = CFG;
 function breathe() { return slice(); }
 // One token per slice so a traced forward is not a single 0.5–2s task.

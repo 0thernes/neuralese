@@ -5,11 +5,10 @@ const FRAME_MS = 8;
 const SLOW_STEP_MS = 16;
 let stop = false;
 let frameStart = 0;
-const waiters = [];
-let armed = false;
+let gate = null;
 
 export function cancelJobs() { stop = true; }
-export function resetCancel() { stop = false; frameStart = 0; waiters.length = 0; armed = false; }
+export function resetCancel() { stop = false; frameStart = 0; gate = null; }
 export function cancelled() { return stop; }
 
 function noteYield(label) {
@@ -33,7 +32,14 @@ function nextPaint(label) {
       const Channel = globalThis.MessageChannel;
       if (typeof Channel === 'function') {
         const ch = new Channel();
-        ch.port1.onmessage = () => { ch.port1.close(); ch.port2.close(); resolve(); };
+        ch.port1.onmessage = () => {
+          const t0 = performance.now();
+          ch.port1.close(); ch.port2.close(); resolve();
+          queueMicrotask(() => {
+            const dt = performance.now() - t0;
+            if (dt > 40) console.warn(`budget: resume ${String(label || 'frame').split('\n').slice(0, 3).join(' | ').slice(0, 160)} took ${dt.toFixed(0)} ms`);
+          });
+        };
         ch.port2.postMessage(0);
         return;
       }
@@ -44,40 +50,14 @@ function nextPaint(label) {
   });
 }
 
-function arm() {
-  if (armed || !waiters.length) return;
-  armed = true;
-  nextPaint(waiters[0].label).then(() => {
-    armed = false;
-    frameStart = performance.now();
-    const batch = waiters.splice(0);
-    const release = () => {
-      if (!batch.length) { arm(); return; }
-      if (performance.now() - frameStart >= FRAME_MS) {
-        for (let i = batch.length - 1; i >= 0; i--) waiters.unshift(batch[i]);
-        arm();
-        return;
-      }
-      const job = batch.shift();
-      const t0 = performance.now();
-      job.resolve();
-      queueMicrotask(() => {
-        const dt = performance.now() - t0;
-        if (dt > 40) console.warn(`budget: resume ${(job.label || 'frame').toString().split('\n').slice(0, 3).join(' | ').slice(0, 180)} took ${dt.toFixed(1)} ms`);
-        release();
-      });
-    };
-    release();
-  });
-}
-
-// One paint releases waiters until the shared budget is spent. The rest wait for the next paint,
-// so twenty small resumes cannot add up to one long message-port turn.
 export function waitNextFrame(label) {
-  return new Promise((resolve) => {
-    waiters.push({ label: label || 'frame', resolve });
-    arm();
-  });
+  if (!gate) {
+    gate = nextPaint(label).then(() => {
+      frameStart = performance.now();
+      gate = null;
+    });
+  }
+  return gate;
 }
 
 export function yieldHost(label) { return waitNextFrame(label); }
@@ -102,7 +82,7 @@ export async function runBudgeted(iter, opts = {}) {
   const label = opts.label || 'anonymous';
   for (;;) {
     if (stop) { stop = false; throw new Error('cancelled'); }
-    if (armed || waiters.length || frameBudgetSpent()) await waitNextFrame(label);
+    if (gate || frameBudgetSpent()) await waitNextFrame(label);
     const t0 = performance.now();
     const step = it.next();
     noteSlow(label, performance.now() - t0);
@@ -116,6 +96,7 @@ export function frame() { return waitNextFrame(new Error().stack); }
 export function namedFrame(label) { return waitNextFrame(String(label || '')); }
 export function slice() {
   if (stop) { stop = false; throw new Error('cancelled'); }
-  if (armed || waiters.length || frameBudgetSpent()) return waitNextFrame(new Error().stack);
-  return null;
+  if (gate) return waitNextFrame(new Error().stack);
+  if (!frameBudgetSpent()) return null;
+  return waitNextFrame(new Error().stack);
 }
