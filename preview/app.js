@@ -1,31 +1,31 @@
 // NEURALESE v2 — UI wiring. All numerics live in engine/analysis/surgery/decode/sae/rome (unit-tested vs PyTorch).
-import * as U152 from './ui152.js?v=173';
-import { GPT2Tokenizer, parseVocabYield } from './tokenizer.js?v=173';
-import { CFG, buildWeights, parseSafetensorsYield, cloneWeightsYield, mulberry32 } from './model.js?v=173';
-import { concatUint8 } from './bytes.js?v=173';
-import { Engine, defaultRuntime, logSoftmax, topK, SITES } from './engine.js?v=173';
-import { RemoteEngine, withBias } from './engine-client.js?v=173';
-import { bindRemote } from './trace-remote.js?v=173';
-import { computeStats, actCovariance, fitTunedLens, lensGrid, dla, patchResid, patchHeads, pathPatchHeadsToLogits, ablationSweep, buildControlVector, vectorArithmetic, tokenStats } from './analysis.js?v=173';
-import { Editor, MATS, getMat, toSafetensorsYield, quantize } from './surgery.js?v=173';
-import { defaultDecode, applyPenalties, filterDist, pick, contrastiveLogits, cfgLogits, beamSearch } from './decode.js?v=173';
-import { SAE } from './sae.js?v=173';
-import { computeRome, findSubject } from './rome.js?v=173';
-import { slice, cancelJobs, resetCancel, frame, namedFrame, runBudgeted } from './coop.js?v=173';
-import * as mf from './mf-client.js?v=173';
+import * as U152 from './ui152.js?v=174';
+import { GPT2Tokenizer, parseVocabYield } from './tokenizer.js?v=174';
+import { CFG, buildWeights, parseSafetensorsYield, cloneWeightsYield, mulberry32 } from './model.js?v=174';
+import { concatUint8 } from './bytes.js?v=174';
+import { Engine, defaultRuntime, logSoftmax, topK, SITES } from './engine.js?v=174';
+import { RemoteEngine, withBias } from './engine-client.js?v=174';
+import { bindRemote } from './trace-remote.js?v=174';
+import { computeStats, actCovariance, fitTunedLens, lensGrid, dla, patchResid, patchHeads, pathPatchHeadsToLogits, ablationSweep, buildControlVector, vectorArithmetic, tokenStats } from './analysis.js?v=174';
+import { Editor, MATS, getMat, toSafetensorsYield, quantize } from './surgery.js?v=174';
+import { defaultDecode, applyPenalties, filterDist, pick, contrastiveLogits, cfgLogits, beamSearch } from './decode.js?v=174';
+import { SAE } from './sae.js?v=174';
+import { computeRome, findSubject } from './rome.js?v=174';
+import { slice, cancelJobs, resetCancel, frame, namedFrame, runBudgeted } from './coop.js?v=174';
+import * as mf from './mf-client.js?v=174';
 mf.ping().catch(() => {});
-import { svdYield } from './linalg.js?v=173';
-import { CORPUS } from './corpus.js?v=173';
-import { heatmap, lines, bars, showTip, seqColor, divColor, markStale, heatStrip, emit } from './charts.js?v=173';
-import { Viz } from './viz.js?v=173';
-import { AudioEngine, editKind, STYLES } from './audio.js?v=173';
-import { buildV5 } from './v5.js?v=173';
-import { vecToJSON as _v2j, vecFromJSON as _j2v } from './labcore.js?v=173';
-import * as UI15 from './ui15.js?v=173';
-import { homeMarkup } from './ui15.js?v=173';
-import { geometryFromSeq, KV_CADENCE } from './adversary/geometry.js?v=173';
-import { attachAdversary } from './adversary/campaign.js?v=173';
-import { CITATIONS, FAULT_SPEC, runFaultOp, runWalkCellOp, runWalkOp } from './walk/session.js?v=173';
+import { svdYield } from './linalg.js?v=174';
+import { CORPUS } from './corpus.js?v=174';
+import { heatmap, lines, bars, showTip, seqColor, divColor, markStale, heatStrip, emit } from './charts.js?v=174';
+import { Viz } from './viz.js?v=174';
+import { AudioEngine, editKind, STYLES } from './audio.js?v=174';
+import { buildV5 } from './v5.js?v=174';
+import { vecToJSON as _v2j, vecFromJSON as _j2v } from './labcore.js?v=174';
+import * as UI15 from './ui15.js?v=174';
+import { homeMarkup } from './ui15.js?v=174';
+import { geometryFromSeq, KV_CADENCE } from './adversary/geometry.js?v=174';
+import { attachAdversary } from './adversary/campaign.js?v=174';
+import { CITATIONS, FAULT_SPEC, runFaultOp, runWalkCellOp, runWalkOp } from './walk/session.js?v=174';
 const audio = new AudioEngine();
 const { d, H, L, ff, V } = CFG;
 const $ = (id) => document.getElementById(id), $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -463,7 +463,7 @@ function weightEdit(label, e, path) { // records relative Frobenius change of th
 async function showSvd() {
   const path = matPath(); if (path === 'wte') throw new Error('wte SVD (50257×256) is too slow for the browser here; use a layer matrix or wpe'); $('svdInfo').textContent = 'running one-sided Jacobi SVD…'; await tick();
   const t0 = performance.now(), { a, rows, cols } = getMat(M, path), r = await svdYield(a, rows, cols), S2 = r.S; const tot = S2.reduce((x, y) => x + y * y, 0); let c = 0; const cum = S2.map((s) => (c += s * s) / tot);
-  const out = new Float32Array(rows * cols); (await import('./linalg.js?v=173')).svdReconstruct(r, Float64Array.from(S2), out); let e = 0; for (let i = 0; i < out.length; i++) e += (out[i] - a[i]) ** 2;
+  const out = new Float32Array(rows * cols); (await import('./linalg.js?v=174')).svdReconstruct(r, Float64Array.from(S2), out); let e = 0; for (let i = 0; i < out.length; i++) e += (out[i] - a[i]) ** 2;
   bars($('svdC'), Array.from(S2), { log: true, title: `σ spectrum ${path} (${rows}×${cols}, log) · hover for energy`, label: (i) => `σ${i} = ${S2[i].toPrecision(5)}  cum energy ${(cum[i] * 100).toFixed(2)}%`, onClick: (i) => ($('svK').value = i + 1) });
   $('svdInfo').textContent = `${S2.length} σ · ${r.sweeps} sweeps · ${(performance.now() - t0).toFixed(0)} ms · recon rel.err ${(Math.sqrt(e) / frob(a)).toExponential(2)} · 90% energy @ k=${cum.findIndex((x) => x >= 0.9) + 1}`;
 }
@@ -640,7 +640,7 @@ function wire() {
     await buildUI(); viz = new Viz($('gl'), (s) => setSel(s)); await frame(); wire(); await frame(); caInputs(); await frame(); afterChange(); await frame(); setSel({ l: 0, h: 0 }); $('loader').style.display = 'none'; hud();
     V5.mount({ viz, W: () => W, M: () => M, eng: () => eng, engClean: () => engClean, tok: () => tok, R: () => R, ed: () => ed, S: () => S, stats: () => stats, sae: () => sae, setSel, showTab, commit, weightEdit, download, generate, analyze, undo, redo, ensureStats, guard, toast, audio, decode: () => D, defaultRuntime,
       applyShared: (st) => commit('load shared experiment', () => { R = Object.assign(defaultRuntime(), st.R || {}); eng.R = R; ed.setEdits(st.edits || []); }),
-      reset: () => commit('reset everything', () => { R = defaultRuntime(); eng.R = R; ed.setEdits([]); }), nextVecId: () => nextVec++,
+      commitAsync, reset: async () => { const before = snap(); R = defaultRuntime(); eng.R = R; await ed.setEditsAsync([]); S.undo.push({ label: 'reset everything', s: before }); S.redo = []; afterChange(); toast('✔ reset everything'); }, nextVecId: () => nextVec++,
       makeEngine: (w, r) => { const e = new Engine(w, r); e.stats = stats; e.sae = eng.sae; return e; } });
     let walkRemote = false;
     async function deepWalk(prompt, opts = {}) {
