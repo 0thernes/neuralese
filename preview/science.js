@@ -171,8 +171,9 @@ export async function lossSlice(W, docs, { mats = [[7, 'fc']], dir = 'random', n
 }
 // ── superposition / interference geometry of neuron write directions (proj columns, ff=1024 in d=256) ──
 // Feature dimensionality D_i = ‖w_i‖² / Σ_j (ŵ_i·w_j)²  (Elhage 2022 "Toy models"), interference = |cos(w_i,w_j)| distribution.
-export async function superposition(W, l) { const { d, ff } = dims(W); const P = W.layers[l], n = ff, cols = Array.from({ length: n }, (_, j) => { const v = new Float64Array(d); for (let i = 0; i < d; i++) v[i] = P.proj[i * n + j]; return v; });
+export async function superposition(W, l) { const { d, ff } = dims(W); const P = W.layers[l], n = ff, cols = [];
+  for (let j = 0; j < n; j++) { const v = new Float64Array(d); for (let i = 0; i < d; i++) v[i] = P.proj[i * n + j]; cols.push(v); if ((j & 15) === 15) { const y = breath(); if (y) await y; } }
   const nr = cols.map((v) => Math.sqrt(v.reduce((a, b) => a + b * b, 0))); const D = new Float64Array(n), hist = new Array(20).fill(0); let maxCos = 0, sumCos = 0, cnt = 0;
-  for (let i = 0; i < n; i++) { let s = 0; for (let j = 0; j < n; j++) { let p = 0; for (let k = 0; k < d; k++) p += cols[i][k] * cols[j][k]; s += (p / (nr[i] || 1)) ** 2; if (j > i) { const c = Math.abs(p / (nr[i] * nr[j] || 1)); hist[Math.min(19, Math.floor(c * 20))]++; sumCos += c; cnt++; if (c > maxCos) maxCos = c; } } D[i] = nr[i] ** 2 / (s || 1); if ((i & 31) === 31) { const y = breath(); if (y) await y; } }
+  for (let i = 0; i < n; i++) { let s = 0; for (let j = 0; j < n; j++) { let p = 0; for (let k = 0; k < d; k++) p += cols[i][k] * cols[j][k]; s += (p / (nr[i] || 1)) ** 2; if (j > i) { const c = Math.abs(p / (nr[i] * nr[j] || 1)); hist[Math.min(19, Math.floor(c * 20))]++; sumCos += c; cnt++; if (c > maxCos) maxCos = c; } } D[i] = nr[i] ** 2 / (s || 1); if ((i & 3) === 3) { const y = breath(); if (y) await y; } }
   const dimsPerFeature = Array.from(D).reduce((a, b) => a + b, 0); return { D, hist, meanAbsCos: sumCos / cnt, maxCos, sumD: dimsPerFeature, randomBaselineCos: Math.sqrt(2 / (Math.PI * d)) };
 }

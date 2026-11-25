@@ -1,6 +1,8 @@
 // Canvas charts (v15): HiDPI, axes + gridlines + nice ticks, legends, colorbars, perceptual colormaps, hover crosshairs.
 // heatmap (hover/click), multi-line, bars, scatter. No chart library.
 import { frame } from './coop.js?v=170';
+import { joinLines } from './bytes.js?v=170';
+async function csvParts(lines, n) { const parts = joinLines(lines, n); for (let i = 0; i < parts.length; i++) if ((i & 3) === 3) await frame(); return parts; }
 const tip = () => document.getElementById('tip');
 const css = (v, f) => (typeof document !== 'undefined' && getComputedStyle(document.documentElement).getPropertyValue(v).trim()) || f;
 export const BG = () => css('--chart-bg', '#0a0f1a'), FG = () => css('--m', '#7c89a3'), GRID = () => css('--b', '#1f2a42'), TX = () => css('--t', '#dbe4f3');
@@ -84,7 +86,7 @@ function colorbar(c, x, y, w, h, lo, hi, f) { const g = c.createLinearGradient(0
 // M: rows × cols numbers. opts: {rows,cols labels, diverging, max, label(i,j) -> tooltip, onClick(i,j), h, cmap:'viridis'|'magma', colorbar:false}
 export function heatmap(cv, M, o = {}) {
   stamp(cv); cv._redraw = () => { cv._inRedraw = true; try { heatmap(cv, M, o); } finally { cv._inRedraw = false; } };
-  cv._csv = async () => { const lines = [['row', ...(o.cols || M[0].map((_, j) => j))].join(',')]; for (let i = 0; i < M.length; i++) { const r = M[i]; let line = JSON.stringify(String(o.rows ? o.rows[i] : i)); for (let j = 0; j < r.length; j++) { line += ',' + (+(+r[j]).toPrecision(6)); if ((j & 127) === 127) await frame(); } lines.push(line); if ((i & 3) === 3) await frame(); } let out = ''; for (let i = 0; i < lines.length; i += 32) { out += (out ? '\n' : '') + lines.slice(i, i + 32).join('\n'); await frame(); } return out; };
+  cv._csv = async () => { const lines = [['row', ...(o.cols || M[0].map((_, j) => j))].join(',')]; for (let i = 0; i < M.length; i++) { const r = M[i]; let line = JSON.stringify(String(o.rows ? o.rows[i] : i)); for (let j = 0; j < r.length; j++) { line += ',' + (+(+r[j]).toPrecision(6)); if ((j & 127) === 127) await frame(); } lines.push(line); if ((i & 3) === 3) await frame(); } return csvParts(lines, 32); };
   const R = M.length, C = M[0]?.length || 0, padL = o.padL ?? 38, padT = o.padT ?? (o.cols ? 18 : 8), cb = o.colorbar !== false, padR = cb ? 50 : 4; const h = o.h || Math.max(130, Math.min(440, R * 18 + padT + 8));
   const [c, w] = fit(cv, h); const cw = (w - padL - padR) / C, ch = (h - padT - 6) / R;
   let mx = o.max; if (mx == null) { mx = 0; for (const r of M) for (const v of r) if (isFinite(v)) mx = Math.max(mx, Math.abs(v)); }
@@ -114,7 +116,7 @@ export function heatmap(cv, M, o = {}) {
 // and synced cross-highlighting: charts sharing o.sync ('tok', …) show the same hovered index.
 export function lines(cv, series, o = {}) {
   stamp(cv); cv._redraw = () => { cv._inRedraw = true; try { lines(cv, series, o); } finally { cv._inRedraw = false; } };
-  cv._csv = async () => { const n = Math.max(...series.map((s) => s.ys.length)); const lines = ['x,' + series.map((s, i) => JSON.stringify(s.label || 's' + i)).join(',')]; for (let i = 0; i < n; i++) { lines.push([JSON.stringify(String(o.xs ? o.xs[i] : i)), ...series.map((s) => s.ys[i] ?? '')].join(',')); if ((i & 63) === 63) await frame(); } let out = ''; for (let i = 0; i < lines.length; i += 64) { out += (out ? '\n' : '') + lines.slice(i, i + 64).join('\n'); await frame(); } return out; };
+  cv._csv = async () => { const n = Math.max(...series.map((s) => s.ys.length)); const lines = ['x,' + series.map((s, i) => JSON.stringify(s.label || 's' + i)).join(',')]; for (let i = 0; i < n; i++) { lines.push([JSON.stringify(String(o.xs ? o.xs[i] : i)), ...series.map((s) => s.ys[i] ?? '')].join(',')); if ((i & 63) === 63) await frame(); } return csvParts(lines, 64); };
   const h = o.h || 160, n = Math.max(...series.map((s) => s.ys.length), 1); let view = cv._view && cv._view.n === n ? cv._view : { a: 0, b: n - 1, n }; cv._view = view;
   const prev = !cv._inRedraw && !reduced() && typeof requestAnimationFrame === 'function' && cv._lastYs && cv._lastYs.length === series.length && cv._lastYs.every((p, i) => p.length === series[i].ys.length) ? cv._lastYs : null;
   cv._lastYs = series.map((s) => Array.from(s.ys)); let k = prev ? 0 : 1, hover = -1, brush = null;
@@ -156,7 +158,7 @@ export function lines(cv, series, o = {}) {
 }
 export function bars(cv, ys, o = {}) {
   stamp(cv); cv._redraw = () => { cv._inRedraw = true; try { bars(cv, ys, o); } finally { cv._inRedraw = false; } };
-  cv._csv = async () => { const lines = ['i,label,value']; for (let i = 0; i < ys.length; i++) { lines.push(`${i},${JSON.stringify(o.label ? o.label(i) : String(i))},${ys[i]}`); if ((i & 63) === 63) await frame(); } let out = ''; for (let i = 0; i < lines.length; i += 64) { out += (out ? '\n' : '') + lines.slice(i, i + 64).join('\n'); await frame(); } return out; };
+  cv._csv = async () => { const lines = ['i,label,value']; for (let i = 0; i < ys.length; i++) { lines.push(`${i},${JSON.stringify(o.label ? o.label(i) : String(i))},${ys[i]}`); if ((i & 63) === 63) await frame(); } return csvParts(lines, 64); };
   const h = o.h || 130, n = ys.length; let mx = o.max ?? Math.max(...ys.map(Math.abs)), lo = o.log ? Math.log10(Math.max(1e-12, Math.min(...ys.filter((y) => y > 0)))) : 0; if (!(mx > 0)) mx = 1;
   const padT = o.title ? 22 : 8, padB = 8, padL = 4; let hover = -1, k = !cv._inRedraw && !reduced() && typeof requestAnimationFrame === 'function' ? 0 : 1;
   const draw = () => { const [c, w] = fit(cv, h), bw = (w - padL - 4) / n, base = h - padB, H2 = base - padT;
@@ -188,7 +190,7 @@ export function scatter(cv, pts, o = {}) {
   c.globalCompositeOperation = 'source-over';
   for (const p of pts) if (p.text) { c.fillStyle = TX(); c.font = `10px ${SANS()}`; c.textBaseline = 'alphabetic'; c.textAlign = 'left'; c.fillText(p.text, X(p.x) + 5, Y(p.y) - 4); }
   title(c, o.title, 8);
-  cv._csv = async () => { const lines = ['x,y,label']; for (let i = 0; i < pts.length; i++) { const p = pts[i]; lines.push(`${p.x},${p.y},${JSON.stringify(p.label || '')}`); if ((i & 63) === 63) await frame(); } let out = ''; for (let i = 0; i < lines.length; i += 64) { out += (out ? '\n' : '') + lines.slice(i, i + 64).join('\n'); await frame(); } return out; };
+  cv._csv = async () => { const lines = ['x,y,label']; for (let i = 0; i < pts.length; i++) { const p = pts[i]; lines.push(`${p.x},${p.y},${JSON.stringify(p.label || '')}`); if ((i & 63) === 63) await frame(); } return csvParts(lines, 64); };
   const near = (e) => { const r = cv.getBoundingClientRect(), mx = e.clientX - r.left, my = e.clientY - r.top; let b = null, bd = 100; for (const p of pts) { const dd = (X(p.x) - mx) ** 2 + (Y(p.y) - my) ** 2; if (dd < bd) { bd = dd; b = p; } } return b; };
   cv.onmousemove = (e) => { const p = near(e); cv.style.cursor = p ? 'pointer' : 'crosshair'; showTip(e, p ? p.label || `${p.x.toFixed(3)}, ${p.y.toFixed(3)}` : ''); }; cv.onmouseleave = () => showTip(null, '');
   if (o.onClick) cv.onclick = (e) => { const p = near(e); if (p) o.onClick(p); };
@@ -199,7 +201,7 @@ export function scatter(cv, pts, o = {}) {
 export function arcs(cv, labels, A, o = {}) {
   stamp(cv); cv._redraw = () => { cv._inRedraw = true; try { arcs(cv, labels, A, o); } finally { cv._inRedraw = false; } };
   const T = labels.length, h = o.h || 210, thr = o.min ?? 0.04; let hover = -1, k = !cv._inRedraw && !reduced() && typeof requestAnimationFrame === 'function' ? 0 : 1;
-  cv._csv = async () => { const lines = ['query,key,weight']; for (let q = 0; q < A.length; q++) { const r = A[q]; for (let j = 0; j < r.length; j++) { lines.push(`${q},${j},${r[j]}`); if ((j & 255) === 255) await frame(); } if ((q & 3) === 3) await frame(); } let out = ''; for (let i = 0; i < lines.length; i += 256) { out += (out ? '\n' : '') + lines.slice(i, i + 256).join('\n'); await frame(); } return out; };
+  cv._csv = async () => { const lines = ['query,key,weight']; for (let q = 0; q < A.length; q++) { const r = A[q]; for (let j = 0; j < r.length; j++) { lines.push(`${q},${j},${r[j]}`); if ((j & 255) === 255) await frame(); } if ((q & 3) === 3) await frame(); } return csvParts(lines, 256); };
   const draw = () => { const [c, w] = fit(cv, h), padX = 18, base = h - 34, dx = (w - 2 * padX) / Math.max(1, T - 1), X = (i) => padX + i * dx;
     c.fillStyle = BG(); c.fillRect(0, 0, w, h); title(c, o.title, padX);
     c.strokeStyle = axisC(); c.lineWidth = 1; c.beginPath(); c.moveTo(padX - 6, base + 0.5); c.lineTo(w - padX + 6, base + 0.5); c.stroke();

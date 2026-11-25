@@ -1,7 +1,8 @@
 // NEURALESE v2 — UI wiring. All numerics live in engine/analysis/surgery/decode/sae/rome (unit-tested vs PyTorch).
 import * as U152 from './ui152.js?v=170';
 import { GPT2Tokenizer } from './tokenizer.js?v=170';
-import { CFG, buildWeights, parseSafetensors, cloneWeights, mulberry32 } from './model.js?v=170';
+import { CFG, buildWeights, parseSafetensorsYield, cloneWeights, mulberry32 } from './model.js?v=170';
+import { concatUint8 } from './bytes.js?v=170';
 import { Engine, defaultRuntime, logSoftmax, topK, SITES } from './engine.js?v=170';
 import { RemoteEngine, withBias } from './engine-client.js?v=170';
 import { bindRemote } from './trace-remote.js?v=170';
@@ -47,7 +48,7 @@ async function fetchRange(url, a, b, onp) { return withRetry(`bytes ${a}–${b}`
   const r = await fetch(url, { headers: { Range: `bytes=${a}-${b}` } }); if (!r.ok) throw httpErr(r);
   const total = b - a + 1, rd = r.body.getReader(), chunks = []; let got = 0;
   for (;;) { const { done, value } = await rd.read(); if (done) break; chunks.push(value); got += value.length; onp && onp(got / total); }
-  const out = new Uint8Array(got); let o = 0; for (const c of chunks) { out.set(c, o); o += c.length; }
+  const out = await concatUint8(chunks, 65536, typeof document !== 'undefined' ? frame : null);
   if (r.status === 206 && got !== total) throw new Error(`short read ${got}/${total} bytes`);
   return r.status === 206 ? out.buffer : out.buffer.slice(a, b + 1); }); }
 const fetchText = (url, json) => withRetry(url.split('/').pop(), async () => { const r = await fetch(url); if (!r.ok) throw httpErr(r); return json ? r.json() : r.text(); });
@@ -59,7 +60,12 @@ async function loadModel() {
   const vocabP = fetchText(`${REPO}/main/vocab.json`, true), mergesP = fetchText(`${REPO}/main/merges.txt`); vocabP.catch(() => {}); mergesP.catch(() => {});
   const data = await fetchRange(ST_URL, 8 + n, 8 + n + end - 1, (f) => setLoad(`streaming fp32 weights ${(f * end / 1e6).toFixed(1)} / ${(end / 1e6).toFixed(1)} MB`, f * 0.95));
   setLoad('building tensors + tokenizer…', 0.97);
-  return { W: buildWeights(parseSafetensors(data, n, header)), tok: new GPT2Tokenizer(await vocabP, await mergesP), mb: end / 1e6 };
+  await frame();
+  const T = await parseSafetensorsYield(data, header);
+  await frame();
+  const vocab = await vocabP, merges = await mergesP;
+  await frame();
+  return { W: buildWeights(T), tok: await GPT2Tokenizer.create(vocab, merges), mb: end / 1e6 };
 }
 
 // ───────── state ─────────

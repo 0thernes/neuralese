@@ -30,23 +30,42 @@ function runCorrupted(W, clean, Ac, set, obj) { const d = W.lnfW.length, H = (W.
   return objective(W, A, obj).value; }
 function corruptRun(W, corr) { const mo = []; const A = forward(W, corr, { patch: (site, l, X) => { if (site === 'mlp_out') mo[l] = X.slice(); } }); A.layers.forEach((C, l) => (C.mlpOut = mo[l])); return A; }
 async function corruptRunAsync(W, corr) { const mo = []; const A = await forwardAsync(W, corr, { patch: (site, l, X) => { if (site === 'mlp_out') mo[l] = X.slice(); } }); A.layers.forEach((C, l) => (C.mlpOut = mo[l])); return A; }
+async function metricAsync(W, A, obj = { kind: 'ce' }) {
+  if (typeof document !== 'undefined') await frame();
+  if (!obj || obj.kind === 'ce') {
+    const pos = obj?.positions || [...Array(Math.max(0, A.T - 1)).keys()];
+    let value = 0;
+    for (const t of pos) {
+      const l = await logitsAtAsync(W, A, t);
+      let m = -Infinity; for (const x of l) if (x > m) m = x;
+      let s = 0; for (const x of l) s += Math.exp(x - m);
+      value -= (m + Math.log(s) - l[A.ids[t + 1]]) / (pos.length || 1);
+    }
+    return value;
+  }
+  const t = obj.t ?? A.T - 1, l = await logitsAtAsync(W, A, t);
+  if (obj.kind === 'logitdiff') return l[obj.a] - l[obj.b];
+  if (obj.kind === 'logprob') { let m = -Infinity; for (const x of l) if (x > m) m = x; let s = 0; for (const x of l) s += Math.exp(x - m); return l[obj.a] - (m + Math.log(s)); }
+  throw new Error('unknown objective ' + obj.kind);
+}
 async function runCorruptedAsync(W, clean, Ac, set, obj) { const d = W.lnfW.length, H = (W.cfg || { H: 16 }).H || 16, hd = d / H;
-  const A = await forwardAsync(W, clean, { patch: (site, l, X) => { for (const n of set) if (n.l === l) { if (site === 'z' && !n.mlp) { for (let t = 0; t < clean.length; t++) for (let i = n.h * hd; i < n.h * hd + hd; i++) X[t * d + i] = Ac.layers[l].z[t * d + i]; } else if (site === 'mlp_out' && n.mlp) X.set(Ac.layers[l].mlpOut); } } });
-  return objective(W, A, obj).value; }
+  const A = await forwardAsync(W, clean, { patch: async (site, l, X) => { let k = 0; for (const n of set) if (n.l === l) { if (site === 'z' && !n.mlp) { for (let t = 0; t < clean.length; t++) for (let i = n.h * hd; i < n.h * hd + hd; i++) X[t * d + i] = Ac.layers[l].z[t * d + i]; } else if (site === 'mlp_out' && n.mlp) X.set(Ac.layers[l].mlpOut); if ((++k & 7) === 0 && typeof document !== 'undefined') await frame(); } } });
+  return metricAsync(W, A, obj); }
 export function acdc(W, clean, corr, obj, tau = 0.02) { const g = acdcGen(W, clean, corr, obj, tau); for (;;) { const r = g.next(); if (r.done) return r.value; } }
 // Same search as acdcGen, but each forward returns to the event loop between layers.
 export async function acdcAsync(W, clean, corr, obj, tau = 0.02, onp = () => {}) {
   if (clean.length !== corr.length) throw new Error('clean and corrupt prompts must have equal token length');
-  const Ac = await corruptRunAsync(W, corr), mClean = objective(W, await forwardAsync(W, clean), obj).value, mCorr = objective(W, Ac, obj).value, gap = mClean - mCorr;
+  const Ac = await corruptRunAsync(W, corr); await frame();
+  const mClean = await metricAsync(W, await forwardAsync(W, clean), obj), mCorr = await metricAsync(W, Ac, obj), gap = mClean - mCorr;
   if (Math.abs(gap) < 1e-6) throw new Error('clean and corrupt metric are identical — nothing to explain');
   const nodes = nodeList(W), pruned = new Set(); let cur = mClean, evals = 2; const order = [...nodes].reverse();
-  for (let k = 0; k < order.length; k++) { const n = order[k]; pruned.add(n); const m = await runCorruptedAsync(W, clean, Ac, pruned, obj); evals++; if (Math.abs(m - cur) / Math.abs(gap) < tau) cur = m; else pruned.delete(n); onp((k + 1) / order.length); await frame(); }
+  for (let k = 0; k < order.length; k++) { await frame(); const n = order[k]; pruned.add(n); const m = await runCorruptedAsync(W, clean, Ac, pruned, obj); evals++; if (Math.abs(m - cur) / Math.abs(gap) < tau) cur = m; else pruned.delete(n); onp((k + 1) / order.length); await frame(); }
   const circuit = nodes.filter((n) => !pruned.has(n));
   return { circuit: circuit.map((n) => n.id), nPruned: pruned.size, nNodes: nodes.length, mClean, mCorr, mCircuit: cur, faithfulness: (cur - mCorr) / gap, evals, tau };
 }
 export async function scrubAsync(W, clean, corr, obj, keepIds) {
   const Ac = await corruptRunAsync(W, corr), keep = new Set(keepIds), nodes = nodeList(W), bad = keepIds.filter((x) => !nodes.some((n) => n.id === x)); if (bad.length) throw new Error('unknown nodes: ' + bad.join(', '));
-  const mClean = objective(W, await forwardAsync(W, clean), obj).value, mCorr = objective(W, Ac, obj).value, m = await runCorruptedAsync(W, clean, Ac, nodes.filter((n) => !keep.has(n.id)), obj);
+  const mClean = await metricAsync(W, await forwardAsync(W, clean), obj), mCorr = await metricAsync(W, Ac, obj), m = await runCorruptedAsync(W, clean, Ac, nodes.filter((n) => !keep.has(n.id)), obj);
   return { mClean, mCorr, mHyp: m, faithfulness: (m - mCorr) / (mClean - mCorr), kept: keep.size };
 }
 // generator form: yields progress in [0,1] after each node so a UI can stay responsive

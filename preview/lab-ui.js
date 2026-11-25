@@ -1,6 +1,7 @@
 // Shared helpers for the v5 research tabs (markup builders, export, run tracker).
 import { CFG } from './model.js?v=170';
 import { frame } from './coop.js?v=170';
+import { joinLines } from './bytes.js?v=170';
 import { createLab, fromTracker } from './agent/schema.js?v=170';
 export const { d, H, hd, L, ff, V } = CFG;
 export const $ = (id) => document.getElementById(id), $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -21,13 +22,40 @@ export function tokId(tok, s) { const ids = tok.encode(s); if (!ids.length) thro
 export function parseLayers(s) { const out = new Set(); for (const p of String(s).split(',')) { const m = p.trim().match(/^(\d+)(?:-(\d+))?$/); if (!m) throw new Error('bad layer list ' + s); for (let l = +m[1]; l <= +(m[2] ?? m[1]); l++) if (l < L) out.add(l); } if (!out.size) throw new Error('no valid layers'); return out; }
 export function canvasFit(cvs, h) { const w = cvs.clientWidth || 420; cvs.width = w * devicePixelRatio; cvs.height = h * devicePixelRatio; cvs.style.height = h + 'px'; const c = cvs.getContext('2d'); c.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0); return [c, w]; }
 export const chartBg = () => getComputedStyle(document.documentElement).getPropertyValue('--chart-bg').trim() || '#060a12';
+function exportWorker() { return new Worker(new URL('./export-worker.js?v=171', import.meta.url)); }
+async function blobFromParts(parts, type) {
+  const w = exportWorker();
+  try {
+    for (let i = 0; i < parts.length; i++) { w.postMessage({ op: 'part', s: parts[i] }); if ((i & 7) === 7) await tick(); }
+    return await new Promise((resolve, reject) => { w.onmessage = (e) => resolve(e.data); w.onerror = () => reject(new Error('export worker failed')); w.postMessage({ op: 'end', type }); });
+  } finally { w.terminate(); }
+}
+async function pngBlob(el) {
+  const w = el.width, h = el.height; if (!w || !h) return null;
+  const worker = exportWorker();
+  try {
+    worker.postMessage({ op: 'png-init', w, h });
+    const strip = 64;
+    for (let y = 0; y < h; y += strip) {
+      const sh = Math.min(strip, h - y);
+      let bmp; try { bmp = await createImageBitmap(el, 0, y, w, sh); } catch { return new Promise((resolve) => el.toBlob((b) => resolve(b))); }
+      worker.postMessage({ op: 'png-bitmap', y, bmp }, [bmp]);
+      await tick();
+    }
+    return await new Promise((resolve, reject) => { worker.onmessage = (e) => resolve(e.data); worker.onerror = () => reject(new Error('png worker failed')); worker.postMessage({ op: 'png-end' }); });
+  } finally { worker.terminate(); }
+}
 export async function exportFor(id, kind) {
   await tick();
   const el = $(id); if (!el) return false; const name = `neuralese-${id}-${Date.now()}`;
   const dl = (blob, ext) => { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${name}.${ext}`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); };
-  if (kind === 'png') { if (el.tagName !== 'CANVAS') return false; await new Promise((resolve) => requestAnimationFrame(() => { el.toBlob((b) => { if (b) dl(b, 'png'); resolve(); }); })); return true; }
-  if (kind === 'svg') { const s = el.tagName === 'svg' ? el : el.querySelector('svg'); if (!s) return false; const parts = [s.cloneNode(false).outerHTML.replace(/<\/[^>]+>$/, '')]; const kids = [...s.childNodes]; for (let i = 0; i < kids.length; i++) { parts.push(kids[i].nodeType === 1 ? kids[i].outerHTML : (kids[i].textContent || '')); if ((i & 7) === 7) await tick(); } parts.push(`</${s.tagName}>`); dl(new Blob(parts, { type: 'image/svg+xml' }), 'svg'); return true; }
-  if (kind === 'csv') { const c = el._csv ? await el._csv() : null; if (!c || (Array.isArray(c) && !c.length)) return false; await tick(); dl(new Blob(Array.isArray(c) ? c : [c], { type: 'text/csv' }), 'csv'); return true; }
+  if (kind === 'png') { if (el.tagName !== 'CANVAS') return false; const b = await pngBlob(el); if (b) dl(b, 'png'); return !!b; }
+  if (kind === 'svg') { const s = el.tagName === 'svg' ? el : el.querySelector('svg'); if (!s) return false; const parts = [s.cloneNode(false).outerHTML.replace(/<\/[^>]+>$/, '')]; const kids = [...s.childNodes]; for (let i = 0; i < kids.length; i++) { parts.push(kids[i].nodeType === 1 ? kids[i].outerHTML : (kids[i].textContent || '')); if ((i & 7) === 7) await tick(); } parts.push(`</${s.tagName}>`); dl(await blobFromParts(parts, 'image/svg+xml'), 'svg'); return true; }
+  if (kind === 'csv') {
+    const c = el._csv ? await el._csv() : null; if (c == null || c === '' || (Array.isArray(c) && !c.length)) return false;
+    const parts = Array.isArray(c) ? c : joinLines(String(c).split('\n'), 64);
+    dl(await blobFromParts(parts, 'text/csv'), 'csv'); return true;
+  }
   return false;
 }
 const RKEY = 'neuralese.runs.v5';
