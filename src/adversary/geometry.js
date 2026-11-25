@@ -3,8 +3,8 @@
 // Singular values use the lab's existing one-sided Jacobi SVD (src/linalg.js).
 //
 // Scale: the paper's models were 0.5B–70B. Callers must treat a null result as a result.
-import { svd } from '../linalg.js?v=188';
-import { mulberry32 } from '../model.js?v=188';
+import { svd } from '../linalg.js?v=189';
+import { mulberry32 } from '../model.js?v=189';
 
 // Live readout cadence. Full SVD also runs at prompt end and generation end.
 // Head dim on TinyStories-8M is 16, so one layer is a small Gram matrix; the cadence is the

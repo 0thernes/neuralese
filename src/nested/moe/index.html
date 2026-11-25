@@ -9,7 +9,7 @@
 </main>
 <script src="../shared/iso.js"></script><script>
 const $ = id => document.getElementById(id), HUE = [205, 320, 150, 40];
-const pull = (msg) => new Promise((resolve, reject) => { const w = new Worker(new URL('../../json-worker.js?v=188', location.href)); w.onmessage = (e) => { w.terminate(); e.data && e.data.err ? reject(new Error(e.data.err)) : resolve(e.data); }; w.onerror = () => { w.terminate(); reject(new Error('worker')); }; w.postMessage(msg); });
+const pull = (msg) => new Promise((resolve, reject) => { const w = new Worker(new URL('../../json-worker.js?v=189', location.href)); w.onmessage = (e) => { w.terminate(); e.data && e.data.err ? reject(new Error(e.data.err)) : resolve(e.data); }; w.onerror = () => { w.terminate(); reject(new Error('worker')); }; w.postMessage(msg); });
 pull({ url: new URL('routing.json', location.href).href }).then((m) => m.json).then(R => {
   const draw = () => {
     const l = +$('lay').value;
