@@ -13,6 +13,15 @@ function bytesToUnicode() {
   return m;
 }
 const PAT = /'s|'t|'re|'ve|'m|'ll|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+/gu;
+function packDecoder(vocab) {
+  const src = `self.onmessage=(e)=>{const vocab=typeof e.data==='string'?JSON.parse(e.data):e.data;const bs=[];for(let i=33;i<=126;i++)bs.push(i);for(let i=161;i<=172;i++)bs.push(i);for(let i=174;i<=255;i++)bs.push(i);const cs=bs.slice();let n=0;for(let b=0;b<256;b++)if(!bs.includes(b)){bs.push(b);cs.push(256+n);n++;}const u2b=new Map();bs.forEach((b,i)=>u2b.set(String.fromCharCode(cs[i]),b));let max=0;for(const id of Object.values(vocab))if(id>max)max=id;const parts=new Array(max+1);let total=0;for(const k in vocab){const bytes=[];for(const ch of k)bytes.push(u2b.get(ch));parts[vocab[k]]=bytes;total+=bytes.length;}const offsets=new Uint32Array(max+2),data=new Uint8Array(total);let p=0;for(let id=0;id<=max;id++){offsets[id]=p;const b=parts[id];if(b){data.set(b,p);p+=b.length;}}offsets[max+1]=p;self.postMessage({offsets,data},[offsets.buffer,data.buffer]);};`;
+  const worker = new Worker(URL.createObjectURL(new Blob([src], { type: 'text/javascript' })));
+  return new Promise((resolve, reject) => {
+    worker.onmessage = (e) => { worker.terminate(); resolve(e.data); };
+    worker.onerror = () => { worker.terminate(); reject(new Error('vocab worker failed')); };
+    worker.postMessage(vocab);
+  });
+}
 
 export class GPT2Tokenizer {
   constructor(vocab, mergesText) {
@@ -78,16 +87,16 @@ export class GPT2Tokenizer {
     }
     return tok;
   }
-  // Page path. The rank table is the precomputed binary; only the vocab strings are copied, and that copy yields.
-  static async createFromPairs(vocab, buffer) {
+  // Page path. The inverse vocab is built in a worker and comes back as transferred byte tables, so the page never walks the 50k strings.
+  static async createFromPairs(vocab, buffer, vocabText = null) {
     const tok = GPT2Tokenizer.fromPairs(vocab, buffer, true);
-    tok.decoder = new Array(65536);
-    if (typeof document !== 'undefined') await frame();
-    let i = 0;
-    for (const k in vocab) {
-      tok.decoder[vocab[k]] = k;
-      if ((++i & 255) === 0 && typeof document !== 'undefined') await frame();
+    if (!vocabText || typeof Worker === 'undefined' || typeof document === 'undefined') {
+      tok.decoder = [];
+      for (const [k, v] of Object.entries(vocab)) tok.decoder[v] = k;
+      return tok;
     }
+    tok.bytePack = await packDecoder(vocabText);
+    tok.decoder = [];
     return tok;
   }
   bpe(token) {
@@ -120,6 +129,11 @@ export class GPT2Tokenizer {
     return ids;
   }
   decode(ids) {
+    if (this.bytePack) {
+      const { offsets, data } = this.bytePack, bytes = [];
+      for (const id of ids) for (let i = offsets[id], n = offsets[id + 1]; i < n; i++) bytes.push(data[i]);
+      return this.td.decode(new Uint8Array(bytes));
+    }
     const bytes = [];
     for (const id of ids) for (const ch of this.decoder[id] || '') bytes.push(this.u2b.get(ch));
     return this.td.decode(new Uint8Array(bytes));
