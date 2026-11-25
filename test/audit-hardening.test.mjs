@@ -1,10 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { join } from 'node:path';
 import { concatUint8, joinLines } from '../src/bytes.js';
 import { GPT2Tokenizer } from '../src/tokenizer.js';
 import { parseSafetensors, parseSafetensorsYield } from '../src/model.js';
 import { kl } from '../src/analytics.js';
+import { svd, svdReconstruct } from '../src/linalg.js';
+import { filterDist, pick } from '../src/decode.js';
 
 test('concatUint8 matches a single copy and yields between steps', async () => {
   const a = Uint8Array.from({ length: 50 }, (_, i) => i);
@@ -50,6 +53,28 @@ test('parseSafetensorsYield views equal the copying parser', async () => {
   assert.equal(viewed['w.weight'].buffer, buf);
 });
 
+test('first-party scripts do not call eval or new Function', () => {
+  const bad = [];
+  const walk = (d) => { for (const n of readdirSync(d)) { if (n === 'vendor') continue; const p = join(d, n); if (statSync(p).isDirectory()) walk(p); else if (/\.(js|mjs)$/.test(n) && /\beval\s*\(|new Function\s*\(/.test(readFileSync(p, 'utf8'))) bad.push(p); } };
+  walk(new URL('../src/', import.meta.url).pathname);
+  assert.deepEqual(bad, []);
+});
+
+test('min-p cannot empty the candidate list', () => {
+  const d = filterDist([0, 1, 0.2], { temp: 1, topk: 3, topp: 1, minp: 5, typical: 1 });
+  assert.equal(d.ids.length, 1);
+  assert.ok(d.probs.every((x) => Number.isFinite(x) && x > 0));
+  assert.equal(pick(d, () => 0.5, true), d.ids[0]);
+});
+
+test('Jacobi SVD reconstructs a small matrix within 1e-8', () => {
+  const A = [4, 1, 0, 1, 3, 1, 0, 1, 2];
+  const R = svd(A, 3, 3);
+  const back = svdReconstruct(R, R.S);
+  for (let i = 0; i < 9; i++) assert.ok(Math.abs(back[i] - A[i]) < 1e-8, `${i} ${back[i]} vs ${A[i]}`);
+  assert.ok(R.S[0] >= R.S[1] && R.S[1] >= R.S[2]);
+});
+
 test('kl of a distribution with itself is 0, and a one-bit shift matches log 2', () => {
   assert.equal(kl([0.5, 0.5], [0.5, 0.5]), 0);
   const got = kl([1, 0], [0.5, 0.5]);
@@ -63,6 +88,22 @@ test('chart csv export no longer builds one Blob from the whole string on the ma
   assert.ok(ui.includes('export-worker.js'));
   const charts = readFileSync(new URL('../src/charts.js', import.meta.url), 'utf8');
   assert.ok(!charts.includes('out +='));
+});
+
+test('pages workflow publishes only under preview and keeps the live root', () => {
+  const yml = readFileSync(new URL('../.github/workflows/pages.yml', import.meta.url), 'utf8');
+  assert.match(yml, /destination_dir:\s*preview/);
+  assert.match(yml, /keep_files:\s*true/);
+  const dest = yml.indexOf('destination_dir:');
+  const pub = yml.indexOf('publish_dir:');
+  assert.ok(pub !== -1 && dest > pub);
+});
+
+test('science tests fetch the pinned TinyStories weights and do not skip', () => {
+  const src = readFileSync(new URL('./science.test.mjs', import.meta.url), 'utf8');
+  assert.match(src, /tools\/fetch-model\.mjs/);
+  assert.ok(!src.includes('t.skip'));
+  assert.match(src, /not skipped/);
 });
 
 test('ACDC async path yields per node and does not score with the sync objective', () => {

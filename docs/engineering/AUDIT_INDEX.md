@@ -5,39 +5,39 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 | | |
 |---|---|
 | Files | 505 |
-| Reviewed (passes 23–30) | 23 |
-| Indexed, not reviewed | 482 |
-| Coverage | 4.6% |
+| Reviewed (passes 23–36) | 68 |
+| Indexed, not reviewed | 437 |
+| Coverage | 13.5% |
 
 
 ## `/`
 
 | File | Purpose | Owner | Tests | Status |
 |---|---|---|---|---|
-| `.gitignore` | file | repo root | none mapped | indexed |
-| `AUDIT.md` | documentation | repo root | none mapped | indexed |
-| `CONTRIBUTING.md` | documentation | repo root | none mapped | indexed |
-| `PARITY.md` | documentation | repo root | none mapped | indexed |
-| `README.md` | documentation | repo root | none mapped | indexed |
-| `RELEASE_NOTES.md` | documentation | repo root | none mapped | indexed |
+| `.gitignore` | file | repo root | none mapped | reviewed, passes 31–36 |
+| `AUDIT.md` | documentation | repo root | none mapped | reviewed, passes 31–36 |
+| `CONTRIBUTING.md` | documentation | repo root | none mapped | reviewed, passes 31–36 |
+| `PARITY.md` | documentation | repo root | none mapped | reviewed, passes 31–36 |
+| `README.md` | documentation | repo root | none mapped | reviewed, passes 31–36 |
+| `RELEASE_NOTES.md` | documentation | repo root | none mapped | reviewed, passes 31–36 |
 | `V16_PROGRESS.md` | documentation | repo root | none mapped | indexed |
 | `V17_1_PROGRESS.md` | documentation | repo root | none mapped | indexed |
 | `V17_2_PROGRESS.md` | documentation | repo root | none mapped | indexed |
 | `V17_3_PROGRESS.md` | documentation | repo root | none mapped | indexed |
 | `V17_PROGRESS.md` | documentation | repo root | none mapped | indexed |
-| `capacitor.config.json` | json | repo root | none mapped | indexed |
-| `eslint.config.js` | flat config: recommended correctness rules only (style is not enforced); vendored three.js is excluded. | repo root | none mapped | indexed |
+| `capacitor.config.json` | json | repo root | none mapped | reviewed, passes 31–36 |
+| `eslint.config.js` | flat config: recommended correctness rules only (style is not enforced); vendored three.js is excluded. | repo root | none mapped | reviewed, passes 31–36 |
 | `features.json` | json | repo root | none mapped | indexed |
 | `package-lock.json` | json | repo root | none mapped | indexed |
 | `package.json` | json | repo root | none mapped | reviewed, passes 23–30 |
-| `playwright.config.mjs` | mjs | repo root | none mapped | indexed |
+| `playwright.config.mjs` | mjs | repo root | none mapped | reviewed, passes 31–36 |
 
 ## `.github/workflows/`
 
 | File | Purpose | Owner | Tests | Status |
 |---|---|---|---|---|
-| `pages.yml` | yml | ci | none mapped | indexed |
-| `release.yml` | yml | ci | none mapped | indexed |
+| `pages.yml` | yml | ci | none mapped | reviewed, passes 31–36 |
+| `release.yml` | yml | ci | none mapped | reviewed, passes 31–36 |
 
 ## `desktop/`
 
@@ -47,9 +47,9 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 | `main.cjs` | Electron desktop shell. Serves the bundled web app from app://local/ (a privileged, secure custom scheme) so f | electron | none mapped | reviewed, passes 23–30 |
 | `package-lock.json` | json | electron | none mapped | indexed |
 | `package.json` | json | electron | none mapped | indexed |
-| `prep.cjs` | Builds www/ for packaging from the repo root with the same file set as gh-pages (tools/build-www.mjs). | electron | none mapped | indexed |
+| `prep.cjs` | Builds www/ for packaging from the repo root with the same file set as gh-pages (tools/build-www.mjs). | electron | none mapped | reviewed, passes 31–36 |
 | `safe-path.cjs` | Resolve a request path under the app root. Bad escapes and odd encodings are rejected. | electron | test/desktop-path.test.mjs | reviewed, passes 23–30 |
-| `smoke.cjs` | Desktop smoke: launch the packaged app (linux-unpacked) with a CDP port, wait for the web app to finish loadin | electron | none mapped | indexed |
+| `smoke.cjs` | Desktop smoke: launch the packaged app (linux-unpacked) with a CDP port, wait for the web app to finish loadin | electron | none mapped | reviewed, passes 31–36 |
 
 ## `docs/`
 
@@ -129,30 +129,30 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 
 | File | Purpose | Owner | Tests | Status |
 |---|---|---|---|---|
-| `analysis.js` | Interpretability toolkit: corpus statistics, logit/tuned lens, DLA, activation & path patching, control vector | lab core | none mapped | indexed |
+| `analysis.js` | Interpretability toolkit: corpus statistics, logit/tuned lens, DLA, activation & path patching, control vector | lab core | none mapped | reviewed, passes 31–36 |
 | `analytics.js` | Small spectral and scoring helpers. Tested against hand-computed values in test/analytics.test.mjs. | lab core | test/analytics.test.mjs | reviewed, passes 23–30 |
 | `app.js` | NEURALESE v2 — UI wiring. All numerics live in engine/analysis/surgery/decode/sae/rome (unit-tested vs PyTorch | lab core | none mapped | reviewed, passes 23–30 |
 | `audio.js` | NEURALESE audio: calm, data-driven lab-instrument sonification (Web Audio). Everything is synthesized; no samp | lab core | test/audio.test.mjs | reviewed, passes 23–30 |
 | `build.json` | json | lab core | none mapped | indexed |
 | `bytes.js` | Copy byte chunks without one set() of the whole buffer. | lab core | test/audit-hardening.test.mjs | reviewed, passes 23–30 |
 | `charts.js` | Canvas charts (v15): HiDPI, axes + gridlines + nice ticks, legends, colorbars, perceptual colormaps, hover cro | lab core | test/audit-hardening.test.mjs | reviewed, passes 23–30 |
-| `cli.mjs` | !/usr/bin/env node | lab core | none mapped | indexed |
-| `coop.js` | Keep a long compute off a single animation frame. slice() returns a promise only when 32ms | lab core | none mapped | indexed |
-| `corpus.js` | Reference corpus: 40 stories sampled from clean TinyStories-8M (T=0.8, top-k 40, seed 7), 2558 tokens. | lab core | none mapped | indexed |
-| `dataset.js` | shared dataset: built-in TinyStories-style corpus, or a user-uploaded corpus used by every docs-based tool. | lab core | none mapped | indexed |
-| `decode.js` | Decoding: logit processors, samplers, contrastive decoding, CFG, beam search. | lab core | none mapped | indexed |
-| `drill.js` | Drill-down hierarchy: model → layer → sublayer → matrix → unit (head / neuron) → row/col → weight. | lab core | none mapped | indexed |
+| `cli.mjs` | !/usr/bin/env node | lab core | none mapped | reviewed, passes 31–36 |
+| `coop.js` | Keep a long compute off a single animation frame. slice() returns a promise only when 32ms | lab core | none mapped | reviewed, passes 31–36 |
+| `corpus.js` | Reference corpus: 40 stories sampled from clean TinyStories-8M (T=0.8, top-k 40, seed 7), 2558 tokens. | lab core | none mapped | reviewed, passes 31–36 |
+| `dataset.js` | shared dataset: built-in TinyStories-style corpus, or a user-uploaded corpus used by every docs-based tool. | lab core | none mapped | reviewed, passes 31–36 |
+| `decode.js` | Decoding: logit processors, samplers, contrastive decoding, CFG, beam search. | lab core | none mapped | reviewed, passes 31–36 |
+| `drill.js` | Drill-down hierarchy: model → layer → sublayer → matrix → unit (head / neuron) → row/col → weight. | lab core | none mapped | reviewed, passes 31–36 |
 | `engine-client.js` | v15.3 main-thread client for engine-worker.js. RemoteEngine mirrors the Engine calls used by generation, but a | lab core | none mapped | indexed |
-| `engine-worker.js` | v15.3 engine worker: runs the GPT-Neo forward pass (Engine) off the UI thread. Protocol (all messages {id, op, | lab core | none mapped | indexed |
+| `engine-worker.js` | v15.3 engine worker: runs the GPT-Neo forward pass (Engine) off the UI thread. Protocol (all messages {id, op, | lab core | none mapped | reviewed, passes 31–36 |
 | `engine.js` | NEURALESE engine: GPT-Neo forward pass with a full intervention/hook system. | lab core | none mapped | indexed |
 | `export-worker.js` | Chart CSV/PNG assembly off the main thread. The page posts small strings or bitmaps. | lab core | none mapped | reviewed, passes 23–30 |
-| `gpu.js` | WebGPU compute backend: matrix–vector / matrix–matrix products in WGSL (f32), with CPU fallback and a verifica | lab core | none mapped | indexed |
+| `gpu.js` | WebGPU compute backend: matrix–vector / matrix–matrix products in WGSL (f32), with CPU fallback and a verifica | lab core | none mapped | reviewed, passes 31–36 |
 | `grad.js` | Analytic reverse-mode autodiff for GPT-Neo (TinyStories-8M family): full-sequence forward with stored activati | lab core | test/grad.test.mjs | reviewed, passes 23–30 |
-| `guide.js` | v12.1 guided path through the 65 tabs: ten stops that build on each other, each with one concrete thing to try | lab core | none mapped | indexed |
-| `heavy.js` | Jobs the engine worker runs so the page thread only paints progress. | lab core | none mapped | indexed |
+| `guide.js` | v12.1 guided path through the 65 tabs: ten stops that build on each other, each with one concrete thing to try | lab core | none mapped | reviewed, passes 31–36 |
+| `heavy.js` | Jobs the engine worker runs so the page thread only paints progress. | lab core | none mapped | reviewed, passes 31–36 |
 | `hero.js` | v15.1 overview hero: a stylised 3D network (8 layer rings × 16 instanced head nodes + MLP dust, sparse inter-l | lab core | none mapped | indexed |
 | `index.html` | html | lab core | none mapped | indexed |
-| `lab-eval.js` | EVALUATE group: token timeline, calibration, edit impact, profiler, experiment tracker. | lab core | none mapped | indexed |
+| `lab-eval.js` | EVALUATE group: token timeline, calibration, edit impact, profiler, experiment tracker. | lab core | none mapped | reviewed, passes 31–36 |
 | `lab-frontier.js` | v11 FRONTIER group — consciousness-science proxies, introspection, a self-improvement loop, grokking and a com | lab core | none mapped | indexed |
 | `lab-hub.js` | v12 HUB group — a model hub on transformers.js (pinned 4.3.1, hash-checked, ONNX Runtime Web, in a Web Worker) | lab core | none mapped | indexed |
 | `lab-interpret.js` | INTERPRET group: attention grid/rollout/head classes, residual geometry, circuit graph, neuron atlas, embeddin | lab core | none mapped | indexed |
@@ -167,32 +167,32 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 | `lab-v16.js` | v16 tabs: HUB interpretability (logit lens / CLIP embedding lens, attention rollout, linear probes on ViT, CLI | lab core | none mapped | indexed |
 | `labcore.js` | NEURALESE lab core: pure, testable research computations behind every v5 visualization. | lab core | none mapped | indexed |
 | `lens-worker.js` | Neuron Lens in-browser refit: fits one document's R-lens and S-lens on the current weights (same code path as  | lab core | none mapped | indexed |
-| `linalg.js` | Small dense linear algebra kit (Float64, row-major unless noted). | lab core | none mapped | indexed |
+| `linalg.js` | Small dense linear algebra kit (Float64, row-major unless noted). | lab core | none mapped | reviewed, passes 31–36 |
 | `mf-client.js` | Page-side handle for mf-worker.js. The worker runs machine and Forge compute. | lab core | none mapped | indexed |
 | `mf-worker.js` | Machine and Forge compute. The page sends a job and renders the plain result. | lab core | none mapped | indexed |
 | `model.js` | Tiny GPT-Neo forward pass in plain JS. Weights are mutable Float32Arrays. | lab core | test/core.test.mjs | reviewed, passes 23–30 |
 | `nestedlens.js` | Neuralese v14.7 — float32-weight forward pass + finite-difference R-lens for the nested char LMs (guest, emula | lab core | none mapped | indexed |
 | `neuronlens.js` | NEURALESE v14 Neuron Lens: R-lens, S-lens and their mid targets for GPT-Neo (TinyStories-8M). | lab core | none mapped | indexed |
 | `notebook-worker.js` | Notebook cells run here, not on the page. They get the research functions and a copy of the | lab core | none mapped | indexed |
-| `post.js` | v15.1 post-processing chain (no addons): scene → half-float MSAA target with depth; bloom = soft-threshold bri | lab core | none mapped | indexed |
-| `prereg.js` | v16 enforced pre-registration. A run is described by a JSON document that must validate against PREREG_SCHEMA, | lab core | none mapped | indexed |
-| `provenance.js` | v12.1: provenance banners. Every panel that shows results says where they come from, so stored author results  | lab core | none mapped | indexed |
+| `post.js` | v15.1 post-processing chain (no addons): scene → half-float MSAA target with depth; bloom = soft-threshold bri | lab core | none mapped | reviewed, passes 31–36 |
+| `prereg.js` | v16 enforced pre-registration. A run is described by a JSON document that must validate against PREREG_SCHEMA, | lab core | none mapped | reviewed, passes 31–36 |
+| `provenance.js` | v12.1: provenance banners. Every panel that shows results says where they come from, so stored author results  | lab core | none mapped | reviewed, passes 31–36 |
 | `research.js` | v7 research core (DOM-free, tested in Node): hypothesis tests, ACDC-style circuit discovery, causal scrubbing- | lab core | test/research.test.mjs | reviewed, passes 23–30 |
-| `rome.js` | ROME-style rank-one fact edit on an MLP output matrix (c_proj). | lab core | none mapped | indexed |
-| `sae.js` | Sparse autoencoder trained in-browser on residual activations (ReLU SAE, L1 penalty, unit-norm decoder, Adam). | lab core | none mapped | indexed |
+| `rome.js` | ROME-style rank-one fact edit on an MLP output matrix (c_proj). | lab core | none mapped | reviewed, passes 31–36 |
+| `sae.js` | Sparse autoencoder trained in-browser on residual activations (ReLU SAE, L1 penalty, unit-norm decoder, Adam). | lab core | none mapped | reviewed, passes 31–36 |
 | `science.js` | Quantitative analyses for NEURALESE v6. Every function is deterministic given a seed and documented with its d | lab core | test/science.test.mjs | reviewed, passes 23–30 |
 | `style.css` | gl{position: | lab core | none mapped | indexed |
-| `surgery.js` | Weight surgery: a replayable list of edit ops applied to a fresh copy of the original weights. | lab core | none mapped | indexed |
+| `surgery.js` | Weight surgery: a replayable list of edit ops applied to a fresh copy of the original weights. | lab core | none mapped | reviewed, passes 31–36 |
 | `term-util.js` | js | lab core | none mapped | indexed |
-| `term.js` | In-app terminal: a small, safe command language over the real app API (no eval). Shared by the batch runner. | lab core | none mapped | indexed |
+| `term.js` | In-app terminal: a small, safe command language over the real app API (no eval). Shared by the batch runner. | lab core | none mapped | reviewed, passes 31–36 |
 | `tokenizer.js` | Minimal GPT-2 byte-level BPE tokenizer (vocab.json + merges.txt) | lab core | test/audit-hardening.test.mjs | reviewed, passes 23–30 |
-| `trace-remote.js` | The page binds the engine worker here. Lab tools call steppedRun, which uses it when present. | lab core | none mapped | indexed |
+| `trace-remote.js` | The page binds the engine worker here. Lab tools call steppedRun, which uses it when present. | lab core | none mapped | reviewed, passes 31–36 |
 | `ui15.js` | v15.1 front-end layer: inline SVG icon set, per-section accent colours, overview dashboard (live stats + hero  | lab core | none mapped | indexed |
 | `ui152.js` | v15.2 polish helpers (original Neuralese code): GPU tiering for the 3D default quality, persisted adaptive qua | lab core | none mapped | indexed |
 | `v5.js` | v5 shell: grouped tabs, module install, theme, resizable dock, export bar, shortcuts, terminal + learning cent | lab core | none mapped | indexed |
 | `viz.js` | 3D view: layer stack (heads, neurons, residual stream) + real weight matrix as height-field / point cloud. | lab core | none mapped | indexed |
 | `viz3d.js` | v6 3D modes on top of the base Viz scene: weight voxel field (instanced + LOD), loss surface, residual manifol | lab core | none mapped | indexed |
-| `zoo.js` | Model zoo: other TinyStories GPT-Neo checkpoints (same tokenizer, same 8-layer local/global layout), loaded by | lab core | none mapped | indexed |
+| `zoo.js` | Model zoo: other TinyStories GPT-Neo checkpoints (same tokenizer, same 8-layer local/global layout), loaded by | lab core | none mapped | reviewed, passes 31–36 |
 
 ## `src/adversary/`
 
@@ -213,7 +213,7 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 | `launch.js` | Local experiment launcher. Remote is optional and never invents a result. | agent | none mapped | indexed |
 | `mcp.js` | Line-delimited JSON-RPC for the tools an agent needs. Not a multi-user server. | agent | none mapped | indexed |
 | `schema.js` | Solo, local-first lab store. No orgs, roles, approvals, or shared registries. | agent | none mapped | indexed |
-| `tools.js` | Tool handlers an agent calls. Reads do not invent runs. Mutations log the experiment | agent | none mapped | indexed |
+| `tools.js` | Tool handlers an agent calls. Reads do not invent runs. Mutations log the experiment | agent | none mapped | reviewed, passes 31–36 |
 
 ## `src/arch/`
 
@@ -551,7 +551,7 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 | `audio.test.mjs` | mjs | tests | self | indexed |
 | `audit-hardening.test.mjs` | mjs | tests | self | reviewed, passes 23–30 |
 | `audit-regressions.test.mjs` | v12.1.0 regression tests, one per fix from the 26 Oct 2026 65-tab exploration audit (audit-inputs/codex-65tab- | tests | self | indexed |
-| `cli.test.mjs` | mjs | tests | self | indexed |
+| `cli.test.mjs` | mjs | tests | self | reviewed, passes 31–36 |
 | `core.test.mjs` | mjs | tests | self | indexed |
 | `design-system.test.mjs` | v15 visual overhaul: design tokens, self-hosted fonts with licences, perceptual colormaps, sidebar nav wiring, | tests | self | indexed |
 | `desktop-path.test.mjs` | mjs | tests | self | indexed |
@@ -572,19 +572,19 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 | `machine.test.mjs` | mjs | tests | self | indexed |
 | `neuron-lens.test.mjs` | v14.0.0 Neuron Lens: lens math (vs finite differences of the RelP-patched primal), database integrity, validat | tests | self | indexed |
 | `overview-ui.test.mjs` | v15.1 polish: overview dashboard, icon set, accents, shortcut overlay, post-processing chain, arc diagram + to | tests | self | indexed |
-| `packaging.test.mjs` | v13.0.0: packaging. One version everywhere; the app bundle (www/) is exactly the gh-pages file set; model pins | tests | self | indexed |
+| `packaging.test.mjs` | v13.0.0: packaging. One version everywhere; the app bundle (www/) is exactly the gh-pages file set; model pins | tests | self | reviewed, passes 31–36 |
 | `prereg-enforced.test.mjs` | v16 enforced pre-registration: schema, hash freeze, commit pinning, REPRO bundle round-trip and tamper detecti | tests | self | indexed |
 | `prereg-nested.test.mjs` | v14.1 – v14.9: pre-registration pin, result provenance, nested float32 models + finite-difference lens, head a | tests | self | indexed |
 | `release-hygiene.test.mjs` | v16 release hygiene: exact dependency pins, npm ci only, hash-pinned model downloads, Android signing path, ve | tests | self | indexed |
 | `repo-layout.test.mjs` | v15.3 repo layout: web root in src/, feature-named suites, no root-level smoke/version files, one copy of each | tests | self | indexed |
 | `research.test.mjs` | mjs | tests | self | indexed |
-| `science.test.mjs` | mjs | tests | self | indexed |
+| `science.test.mjs` | mjs | tests | self | reviewed, passes 31–36 |
 | `tsotchke-crosscheck.test.mjs` | v10 cross-checks: (a) Fubini–Study vs Moonlab's native qgt_metric_at, (c) the natural-gradient vs Adam artifac | tests | self | indexed |
 | `tsotchke.test.mjs` | Claims & Evidence for the Tsotchke-powered components (see docs/CLAIMS.md). Every test here can fail; the | tests | self | indexed |
 | `ui-refinement.test.mjs` | v15.2 polish: GPU tiering + quality ladder, theme default, busy/error states, sidebar wrapping, atlas skeleton | tests | self | indexed |
 | `walk.test.mjs` | mjs | tests | self | indexed |
 | `worker-messages.test.mjs` | mjs | tests | self | indexed |
-| `zoo.test.mjs` | mjs | tests | self | indexed |
+| `zoo.test.mjs` | mjs | tests | self | reviewed, passes 31–36 |
 
 ## `test/e2e/`
 
@@ -651,12 +651,12 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 | `agent.mjs` | Solo agent CLI. Usage: | tooling | none mapped | indexed |
 | `bench-engine.mjs` | Engine throughput benchmark (Node, CPU, single thread). Usage: node tools/bench-engine.mjs [engineDir] [nGen] | tooling | none mapped | indexed |
 | `build-features.mjs` | Rebuild features.json and features/releases/*.json from the source tree. | tooling | none mapped | indexed |
-| `build-www.mjs` | Assembles the deployable web app into www/: exactly the file set served on gh-pages. | tooling | none mapped | indexed |
-| `bump-version.mjs` | Sets one version everywhere: package.json, package-lock.json, desktop/package.json, src/term.js, src/index.htm | tooling | none mapped | indexed |
-| `check-features.mjs` | Never-subtract gate. Fails if the current manifest drops a feature that any | tooling | none mapped | indexed |
+| `build-www.mjs` | Assembles the deployable web app into www/: exactly the file set served on gh-pages. | tooling | none mapped | reviewed, passes 31–36 |
+| `bump-version.mjs` | Sets one version everywhere: package.json, package-lock.json, desktop/package.json, src/term.js, src/index.htm | tooling | none mapped | reviewed, passes 31–36 |
+| `check-features.mjs` | Never-subtract gate. Fails if the current manifest drops a feature that any | tooling | none mapped | reviewed, passes 31–36 |
 | `eshkol-ad-crosscheck.mjs` | v10 (d): full backward pass of site/grad.js vs Eshkol's reverse-mode tape (wasm/eshkol_ad, build with its buil | tooling | none mapped | indexed |
 | `fetch-arch-models.mjs` | v16: downloads the HF checkpoints used by test/arch.test.mjs and test/encoder.test.mjs into model/arch/<name>/ | tooling | none mapped | indexed |
-| `fetch-model.mjs` | Downloads the TinyStories weights the tests use into model/ (not in git: ~230 MB) and verifies pinned SHA-256s | tooling | none mapped | indexed |
+| `fetch-model.mjs` | Downloads the TinyStories weights the tests use into model/ (not in git: ~230 MB) and verifies pinned SHA-256s | tooling | none mapped | reviewed, passes 31–36 |
 | `frontier-atlas.mjs` | v11 P6: complete single-unit causal atlas of TinyStories-8M. Exact zero-ablation of all 128 heads and 8192 MLP | tooling | none mapped | indexed |
 | `frontier-grok.mjs` | v11 P5: runs the pre-registered grokking config and the weight-decay-0 control. Usage: node tools/frontier-gro | tooling | none mapped | indexed |
 | `frontier-mind.mjs` | v11 P1–P3: consciousness-science proxies with null models. Usage: node tools/frontier-mind.mjs <P1/P2/P3a/P3b> | tooling | none mapped | indexed |
@@ -672,7 +672,7 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 | `nlens-validate.mjs` | Pre-registered validation of Neuron Lens reads on TinyStories-8M (docs/PREREG-v14.md; its sha256 is recorded i | tooling | none mapped | indexed |
 | `nlens-verdicts.mjs` | Applies the frozen predictions P1–P5 of docs/PREREG-v14.md to validation.json (point estimates, as the prereg  | tooling | none mapped | indexed |
 | `prereg-run.mjs` | v16 enforced pre-registered run (Node). Refuses to start unless the pre-registration validates, hashes to the  | tooling | none mapped | indexed |
-| `serve.mjs` | Minimal static server for the web root (src/) used by the headless smoke tests and local dev. Usage: node tool | tooling | none mapped | indexed |
+| `serve.mjs` | Minimal static server for the web root (src/) used by the headless smoke tests and local dev. Usage: node tool | tooling | none mapped | reviewed, passes 31–36 |
 | `v14x-browserfit.mjs` | v14.9 C9a — fit the full TS-1M lens in headless Chrome through lens-worker.js and compare with the Node fit (l | tooling | none mapped | indexed |
 | `v14x-c1.mjs` | v14.1 C1a / C1c / C2 verdicts from the validation outputs (PREREG-v14x §14.1–14.2). Original Neuralese code. | tooling | none mapped | indexed |
 | `v14x-heads.mjs` | v14.3 — lens attribution of attention heads vs zero-ablation ground truth (PREREG-v14x §14.3). Original Neural | tooling | none mapped | indexed |

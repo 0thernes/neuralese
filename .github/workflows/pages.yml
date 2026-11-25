@@ -18,3 +18,6 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./www
           publish_branch: gh-pages
+          # The live root stays the pinned release. This workflow only refreshes /preview.
+          destination_dir: preview
+          keep_files: true

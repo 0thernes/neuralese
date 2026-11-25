@@ -10,7 +10,7 @@ import * as S from './science.js?v=6';
 import * as D from './drill.js?v=6';
 import { ZOO, loadZoo, httpRange, weightDiff } from './zoo.js?v=6';
 import { CORPUS } from './corpus.js?v=6';
-const VERSION = '6.0.0', REPO = 'https://huggingface.co/roneneldan/TinyStories-8M/resolve';
+const VERSION = '17.3.0', REPO = 'https://huggingface.co/roneneldan/TinyStories-8M/resolve';
 const argv = process.argv.slice(2); let dir = null; const mi = argv.indexOf('--model'); if (mi >= 0) { dir = argv[mi + 1]; argv.splice(mi, 2); }
 const C = { b: (s) => `\x1b[1m${s}\x1b[0m`, c: (s) => `\x1b[36m${s}\x1b[0m`, m: (s) => `\x1b[35m${s}\x1b[0m`, d: (s) => `\x1b[2m${s}\x1b[0m` };
 async function ensureModel() {

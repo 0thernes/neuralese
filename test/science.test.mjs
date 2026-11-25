@@ -1,11 +1,19 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'fs';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { buildWeights, parseSafetensors } from '../src/model.js';
 import { GPT2Tokenizer } from '../src/tokenizer.js';
 import { CORPUS } from '../src/corpus.js';
 import * as S from '../src/science.js';
-const M = 'model/';
+const root = fileURLToPath(new URL('..', import.meta.url));
+const weights = root + '/model/model.safetensors';
+if (!fs.existsSync(weights) || !fs.existsSync(root + '/model/vocab.json') || !fs.existsSync(root + '/model/merges.txt')) {
+  const got = spawnSync(process.execPath, ['tools/fetch-model.mjs'], { cwd: root, stdio: 'inherit', timeout: 600000 });
+  if (got.status !== 0 || !fs.existsSync(weights)) throw new Error('tools/fetch-model.mjs did not produce model/model.safetensors (pinned TinyStories-8M). This test is not skipped.');
+}
+const M = root + '/model/';
 const buf = fs.readFileSync(M + 'model.safetensors'); const n = Number(buf.readBigUInt64LE(0)); const hdr = JSON.parse(buf.subarray(8, 8 + n).toString());
 const W = buildWeights(parseSafetensors(buf.buffer.slice(buf.byteOffset + 8 + n), n, hdr));
 const tok = new GPT2Tokenizer(JSON.parse(fs.readFileSync(M + 'vocab.json')), fs.readFileSync(M + 'merges.txt', 'utf8'));

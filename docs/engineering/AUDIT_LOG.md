@@ -15,8 +15,15 @@ Passes 1–22 are the earlier engineering log in [PASSES.md](PASSES.md). This fi
 | AUD-029 | 29 | `desktop/main.cjs:26`, `desktop/safe-path.cjs` | info | `contextIsolation`, `sandbox`, and `nodeIntegration: false` are set. `safeAppPath` still rejects `..` and a bad `%`. `npm audit` reports 0 vulnerabilities. | No code change. | `test/desktop-path.test.mjs`; `npm audit` |
 | AUD-030 | 30 | `features/` | info | `node tools/check-features.mjs`: 138 features, 10 releases. No feature was removed. | No code change. | `test/features.test.mjs` |
 
+| AUD-031 | 31 | `.github/workflows/pages.yml:16` | high | `workflow_dispatch` published `./www` as the whole `gh-pages` branch, which would replace the pinned root (`2527d67`) and delete `/preview`. | `pending` | `test/audit-hardening.test.mjs` |
+| AUD-032 | 32 | `test/science.test.mjs:9` | medium | The file `readFileSync`s `model/model.safetensors` at import time. A checkout without that file died with ENOENT before any assertion. CI already runs `tools/fetch-model.mjs`; a direct `node --test` did not. | `pending` | The test now runs `tools/fetch-model.mjs` (pinned SHA-256) and throws if the file is still missing. It does not skip. `test/science.test.mjs` passed 8/8 after the download. |
+| AUD-033 | 33 | `src/cli.mjs:13` | low | The CLI reported `v6.0.0` while `package.json` and the terminal are `17.3.0`. `tools/bump-version.mjs` did not update the CLI. | `pending` | `test/cli.test.mjs`, `test/packaging.test.mjs` |
+| AUD-034 | 34 | `src/decode.js:25` | medium | `filterDist` with `minp` above 1 dropped every candidate. `pick` then returned `undefined` in greedy mode. | `pending` | `test/audit-hardening.test.mjs` |
+| AUD-035 | 35 | `src/linalg.js:21` | info | One-sided Jacobi SVD of a 3×3 matrix reconstructs it within 1e-8 and returns singular values in descending order. | no code change | `test/audit-hardening.test.mjs` |
+| AUD-036 | 36 | `src/` first-party scripts | info | `eval` and `new Function` appear only under `src/vendor` and `src/hub/vendor`. | no code change | `test/audit-hardening.test.mjs` |
+
 ## Open
 
 - The 3-width preview click suite has not been run on this commit. The last measured gate is still the `ec18eeb` table in [PASSES.md](PASSES.md): app-script max 549 / 1068 / 1696 ms. That run is not evidence for passes 23–27.
-- `test/science.test.mjs` does not start in this checkout: `model/model.safetensors` is absent. That is an environment gap, not a new defect.
+- `test/science.test.mjs` now fetches the pinned TinyStories-8M files when they are missing and fails if that download fails. It passed 8/8 after `node tools/fetch-model.mjs`.
 - About 4% of [AUDIT_INDEX.md](AUDIT_INDEX.md) is reviewed. The rest is indexed only.
