@@ -14,6 +14,24 @@
     });
     return { D: spec.D, S: spec.slots, L };
   }
+  async function prepAsync(spec) {
+    const nap = () => new Promise((r) => setTimeout(r, 0));
+    const L = [];
+    for (const l of spec.layers) {
+      if (l.type === 'ffn') {
+        const rows = Array.from({ length: l.H }, () => []); let n = 0;
+        for (const [h, d, w] of l.W1) { rows[h].push(d, w); if ((++n & 2047) === 0) await nap(); }
+        const outs = Array.from({ length: l.H }, () => []); n = 0;
+        for (const [d, h, w] of l.W2) { outs[h].push(d, w); if ((++n & 2047) === 0) await nap(); }
+        L.push({ type: 'ffn', name: l.name, rows, outs, b1: l.b1 });
+      } else {
+        const g = (lst) => { let n = 0; for (const [, c] of lst) n = Math.max(n, c + 1); return { lst, n }; };
+        L.push({ type: 'attn', name: l.name, q: g(l.q), k: g(l.k), v: g(l.v), o: l.o });
+      }
+      await nap();
+    }
+    return { D: spec.D, S: spec.slots, L };
+  }
   const proj = (x, m) => { const r = new Float64Array(m.n); for (const [a, c, w] of m.lst) r[c] += x[a] * w; return r; };
   function bitsInto(x, dims, v) { for (let k = 0; k < 32; k++) x[dims[k]] = (v >>> k) & 1; }
   function toInt(x, dims) {
@@ -60,6 +78,6 @@
     }
     ram() { const r = Array(NRAM).fill(0); for (const [s, v] of this.ramTok) r[s] = v; return r; }  // tokens appended in time order
   }
-  const api = { prep, CPU };
+  const api = { prep, prepAsync, CPU };
   if (typeof module !== 'undefined') module.exports = api; else root.RVTransformer = api;
 })(this);
