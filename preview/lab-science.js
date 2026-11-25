@@ -1,18 +1,18 @@
 // v6 SCIENCE group: drill-down inspector, gradients & attribution, head circuits, representation geometry, loss landscape;
 // VIEW: 3D modes; TOOLS: WebGPU, model zoo + diff, shareable experiment URLs. Every number is computed live from the current weights.
-import { CORPUS } from './corpus.js?v=192';
-import { docs as DSdocs } from './dataset.js?v=192';
-import { lines, bars, heatmap, scatter } from './charts.js?v=192';
-import { $, esc, fmt, opts, cv, tipq, prog, tick, lOpts, hOpts } from './lab-ui.js?v=192';
-import * as D from './drill.js?v=192';
-import * as G from './grad.js?v=192';
-import * as S from './science.js?v=192';
-import { svdYield } from './linalg.js?v=192';
-import { slice } from './coop.js?v=192';
-import { GPU, bench, cpuMatVec } from './gpu.js?v=192';
-import { ZOO, loadZoo, httpRange, weightDiff } from './zoo.js?v=192';
-import { cloneWeightsYield } from './model.js?v=192';
-import { frame } from './coop.js?v=192';
+import { CORPUS } from './corpus.js?v=193';
+import { docs as DSdocs } from './dataset.js?v=193';
+import { lines, bars, heatmap, scatter } from './charts.js?v=193';
+import { $, esc, fmt, opts, cv, tipq, prog, tick, lOpts, hOpts } from './lab-ui.js?v=193';
+import * as D from './drill.js?v=193';
+import * as G from './grad.js?v=193';
+import * as S from './science.js?v=193';
+import { svdYield } from './linalg.js?v=193';
+import { slice } from './coop.js?v=193';
+import { GPU, bench, cpuMatVec } from './gpu.js?v=193';
+import { ZOO, loadZoo, httpRange, weightDiff } from './zoo.js?v=193';
+import { cloneWeightsYield } from './model.js?v=193';
+import { frame } from './coop.js?v=193';
 const P = (id) => `<div class="prog" id="${id}"><i></i></div>`;
 const docsN = (n, T = 24) => DSdocs(n, T); // shared dataset (built-in or user corpus)
 const pearson = (a, b) => { const n = a.length, ma = a.reduce((s, x) => s + x, 0) / n, mb = b.reduce((s, x) => s + x, 0) / n; let ab = 0, aa = 0, bb = 0; for (let i = 0; i < n; i++) { ab += (a[i] - ma) * (b[i] - mb); aa += (a[i] - ma) ** 2; bb += (b[i] - mb) ** 2; } return ab / Math.sqrt(aa * bb || 1); };
