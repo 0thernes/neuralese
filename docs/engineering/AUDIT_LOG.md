@@ -34,7 +34,15 @@ Passes 1–22 are the earlier engineering log in [PASSES.md](PASSES.md). This fi
 
 ## Open
 
-- Preview of `3a62a0d` (one 3-width run, workers 1, 0 console errors, 514 clicked, 9 disabled) failed the gate. Mobile axe was clean. Tablet and desktop axe failed contrast and scrollable-region focus. A follow-up (`f16a77b`) yields the merge table every 8 lines, uses `toBlob` for PNG, chunks the grokking step, and gives the header and cosmos hud an opaque background. It is not in the table below.
+- Preview of `fa80009` (one 3-width run, workers 1, 0 console errors) failed the gate. Axe on every width: `color-contrast` on `.logo > span` (`ESE`), 4.47:1 in the light theme (`#0b7d70` on `#eef2f8`). App script max was about 1 s. The long scripts were the edit-impact unembed, `taylorJet`, and a weight copy, all between yields. `d8a8a6f` chunks that unembed (1024 rows) and sets the light-theme logo to `#085e54`. It is not in this table.
+
+| Width | Clicked | Disabled | Console | Axe | Cosmos | #gl | Raw max | Raw p95 | Paint/GL max | App max | App p95 | Worst |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 390×844 | 514 | 9 | 0 | logo contrast | 390×658 | 390×478 | 1018 | 563 | 748 | 1016 | 563 | editImpact unembed |
+| 768×1024 | 489 | 9 | 0 | logo contrast | 388×426 | 373×572 | 1147 | 515 | 1147 | 1038 | 524 | same family, ~1 s |
+| 1440×900 | 515 | 8 | 0 | logo contrast ×7 | 737×369 | 709×490 | 1396 | 442 | 1396 | 1062 | 533 | same family, ~1 s |
+
+- Preview of `3a62a0d` (one 3-width run, workers 1, 0 console errors, 514 clicked, 9 disabled) failed the gate. Mobile axe was clean. Tablet and desktop axe failed contrast and scrollable-region focus.
 
 | Width | Clicked | Disabled | Console | Axe | Cosmos | #gl | Raw max | Raw p95 | Paint/GL max | App max | App p95 | Worst |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
