@@ -219,9 +219,15 @@ export async function neuronAtlas(Wc, docs, l, N = 400, k = 16, onp = () => {}) 
 // ───────── evaluation ─────────
 // Next-token NLL and top-1 confidence for each position of each doc (up to N predictions). engine = live (possibly hacked) model.
 export async function evalCorpus(eng, docs, N = 160, onp = () => {}) {
+  const pause = typeof document !== 'undefined' ? frame : null;
   const rows = []; for (let di = 0; di < docs.length && rows.length < N; di++) { const s = eng.newSeq(docs[di].length);
-    for (let t = 0; t < docs[di].length - 1 && rows.length < N; t++) { const r = eng.step(s, docs[di][t]); const lp = logSoftmax(eng.outLogits ? eng.outLogits(r.h) : eng.logits(r.h)); let am = 0; for (let i = 1; i < lp.length; i++) if (lp[i] > lp[am]) am = i;
-      rows.push({ nll: -lp[docs[di][t + 1]], conf: Math.exp(lp[am]), correct: am === docs[di][t + 1], ent: entropy(lp) }); const y = slice(); if (y) await y; }
+    for (let t = 0; t < docs[di].length - 1 && rows.length < N; t++) {
+      let r; for (;;) { r = eng.step(s, docs[di][t], { budget: true }); if (!r.partial) break; if (pause) await pause(); }
+      const raw = eng.logitsYield ? await eng.logitsYield(r.h, pause) : eng.logits(r.h);
+      const bias = eng.R && eng.R.logitBias; if (bias) for (const k in bias) raw[+k] += bias[k];
+      const lp = logSoftmax(raw); let am = 0; for (let i = 1; i < lp.length; i++) if (lp[i] > lp[am]) am = i;
+      rows.push({ nll: -lp[docs[di][t + 1]], conf: Math.exp(lp[am]), correct: am === docs[di][t + 1], ent: entropy(lp) }); if (pause) await pause();
+    }
     onp(rows.length / N); }
   return rows;
 }
