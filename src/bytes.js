@@ -1,21 +1,28 @@
-// Copy byte chunks. The host decides the slice from the clock, not from a fixed step.
-import { runBudgeted } from './coop.js?v=171';
+// Join byte chunks into one fixed ArrayBuffer. TextDecoder and DataView reject a resizable buffer.
+// The zero-fill happens in a worker. The page only posts the pieces, on the time budget.
+import { runBudgeted } from './coop.js?v=172';
+const CONCAT_SRC = 'let o=0,dst=null;onmessage=(e)=>{if(typeof e.data==="number"){dst=new Uint8Array(e.data);return;}if(e.data===0){postMessage(dst.buffer,[dst.buffer]);return;}const u=new Uint8Array(e.data);dst.set(u,o);o+=u.byteLength;};';
 export async function concatUint8(chunks) {
   let n = 0;
   for (const c of chunks) n += c.length;
   if (!n) return new Uint8Array(0);
-  const out = new Uint8Array(new ArrayBuffer(0, { maxByteLength: n }));
-  let o = 0;
+  if (typeof Worker === 'undefined' || typeof document === 'undefined') {
+    const out = new Uint8Array(n);
+    let o = 0;
+    for (const c of chunks) { out.set(c, o); o += c.length; }
+    return out;
+  }
+  const w = new Worker(URL.createObjectURL(new Blob([CONCAT_SRC], { type: 'text/javascript' })));
+  const done = new Promise((resolve, reject) => {
+    w.onmessage = (e) => { w.terminate(); resolve(new Uint8Array(e.data)); };
+    w.onerror = () => { w.terminate(); reject(new Error('concat worker failed')); };
+  });
+  w.postMessage(n);
   await runBudgeted((function* () {
-    for (const c of chunks) {
-      for (let i = 0; i < c.length; i++) {
-        if (o === out.buffer.byteLength) out.buffer.resize(Math.min(n, o + 4096));
-        out[o++] = c[i];
-        yield;
-      }
-    }
+    for (const c of chunks) { const copy = c.slice(); w.postMessage(copy.buffer, [copy.buffer]); yield; }
   })(), { budgetMs: 8 });
-  return out;
+  w.postMessage(0);
+  return done;
 }
 
 // Join CSV lines into small strings. A growing `out +=` copied the whole file on the last chunk.
