@@ -154,6 +154,13 @@ test('a yielded CE jet matches the sync jet', async () => {
   for (let k = 0; k < a.c.length; k++) assert.ok(Math.abs(a.c[k] - b.c[k]) < 1e-8, k + ' ' + a.c[k] + ' ' + b.c[k]);
 });
 
+test('png export caps the canvas before encoding', () => {
+  const src = readFileSync(new URL('../src/lab-ui.js', import.meta.url), 'utf8');
+  const fn = src.slice(src.indexOf('async function pngBlob'), src.indexOf('export async function exportFor'));
+  assert.match(fn, /cap = 640/);
+  assert.match(fn, /toBlob/);
+});
+
 test('evalCorpus chunks the token step and the unembed', () => {
   const src = readFileSync(new URL('../src/labcore.js', import.meta.url), 'utf8');
   const fn = src.slice(src.indexOf('export async function evalCorpus'), src.indexOf('export function calibration'));

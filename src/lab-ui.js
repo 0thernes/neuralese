@@ -33,8 +33,12 @@ async function blobFromParts(parts, type) {
 async function pngBlob(el) {
   const w = el.width, h = el.height; if (!w || !h) return null;
   await tick();
-  // createImageBitmap on a live canvas flushed the whole framebuffer (~180 ms) even for an 8-row strip.
-  return await new Promise((resolve) => el.toBlob((b) => resolve(b), 'image/png'));
+  const cap = 640, scale = Math.min(1, cap / Math.max(w, h));
+  const cw = Math.max(1, Math.round(w * scale)), ch = Math.max(1, Math.round(h * scale));
+  const c = document.createElement('canvas'); c.width = cw; c.height = ch;
+  c.getContext('2d').drawImage(el, 0, 0, cw, ch);
+  await tick();
+  return await new Promise((resolve) => c.toBlob((b) => resolve(b), 'image/png'));
 }
 export async function exportFor(id, kind) {
   await tick();
