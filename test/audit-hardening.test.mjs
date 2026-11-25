@@ -193,7 +193,8 @@ test('png export captures an ImageBitmap and encodes the blob in the worker', ()
   const src = readFileSync(new URL('../src/lab-ui.js', import.meta.url), 'utf8');
   const fn = src.slice(src.indexOf('async function pngBlob'), src.indexOf('export async function exportFor'));
   assert.match(fn, /createImageBitmap/);
-  assert.match(fn, /max: 96/);
+  assert.match(fn, /resizeWidth/);
+  assert.match(fn, /const max = 96/);
   assert.ok(!fn.includes('getImageData') && !fn.includes('toDataURL') && !fn.includes('toBlob') && !fn.includes('new Blob'));
   const worker = readFileSync(new URL('../src/export-worker.js', import.meta.url), 'utf8');
   assert.match(worker, /convertToBlob/);

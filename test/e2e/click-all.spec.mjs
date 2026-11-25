@@ -66,7 +66,7 @@ for (const [w, h, name] of WIDTHS) test(`click every control · ${name}`, async 
     const page = await context.newPage();
     page.setDefaultTimeout(600000);
     const errors = [];
-    page.on('console', (m) => { if (m.type() === 'error' && !/favicon/i.test(m.text())) errors.push(m.text().slice(0, 300)); if (m.type() === 'warning' && /budget: step/.test(m.text())) console.log(m.text()); });
+    page.on('console', (m) => { if (m.type() === 'error' && !/favicon/i.test(m.text())) errors.push(m.text().slice(0, 300)); if (m.type() === 'warning' && /budget: step|phase /.test(m.text())) console.log(m.text()); });
     page.on('pageerror', (e) => errors.push('PAGE ' + (e.message || '').slice(0, 400)));
     page.on('dialog', (d) => { void d.dismiss(); });
     page.on('filechooser', (fc) => { void fc.setFiles({ name: 'empty.json', mimeType: 'application/json', buffer: Buffer.from('{}') }); });
@@ -91,13 +91,24 @@ for (const [w, h, name] of WIDTHS) test(`click every control · ${name}`, async 
       window.setTimeout = function (fn, delay, ...args) {
         if (typeof fn !== 'function') return origTimeout(fn, delay, ...args);
         const scheduled = tidy(new Error().stack);
+        const src = String(fn).replace(/\s+/g, ' ').slice(0, 160);
         return origTimeout(function () {
           const t0 = performance.now();
           globalThis.__yieldStack = '';
           const r = fn.apply(this, arguments);
-          window.__timerRuns.push({ scheduled, yield: globalThis.__yieldStack || '', t0, t1: performance.now(), click: window.__click || '' });
+          const t1 = performance.now();
+          window.__timerRuns.push({ scheduled, src, yield: globalThis.__yieldStack || '', t0, t1, click: window.__click || '' });
+          if (t1 - t0 > 40) console.warn(`phase timer ${Math.round(t1 - t0)}ms delay ${delay || 0} ${src}`);
           return r;
         }, delay, ...args);
+      };
+      const origURL = URL.createObjectURL;
+      URL.createObjectURL = function (obj) {
+        const t0 = performance.now();
+        const url = origURL.call(URL, obj);
+        const dt = performance.now() - t0;
+        if (dt > 20) console.warn(`phase createObjectURL ${Math.round(dt)}ms size ${obj && obj.size}`);
+        return url;
       };
     });
     await page.goto(URL, { waitUntil: 'domcontentloaded', timeout: 90000 });
@@ -149,7 +160,7 @@ for (const [w, h, name] of WIDTHS) test(`click every control · ${name}`, async 
               const start = s.startTime;
               const runs = window.__timerRuns || [];
               let best = null;
-              for (const r of runs) if (Math.abs(r.t0 - start) < 30 && (!best || Math.abs(r.t0 - start) < Math.abs(best.t0 - start))) best = r;
+              for (const r of runs) if (Math.abs(r.t0 - start) < 250 && (!best || Math.abs(r.t0 - start) < Math.abs(best.t0 - start))) best = r;
               const hs = window.__handlers || [];
               let handler = '';
               let handlerDt = Infinity;
@@ -343,7 +354,7 @@ for (const [w, h, name] of WIDTHS) test(`click every control · ${name}`, async 
     console.log(`${name} raw max=${longMax} p95=${longP95} n=${raw.length} | paint/GL max=${paintMax} n=${paint.length} gl-init max=${glMax}${glName ? ' (' + glName.name + ')' : ''} | app max=${jsMax} p95=${jsP95} n=${js.length}${worst ? ' worst=' + worst.name + (worst.click ? ' @' + worst.click : '') : ''}${timing.loaf ? '' : ' (no long-animation-frames)'}`);
     if (topApp.length) console.log(`${name} top`, topApp.map((f) => `${f.app ?? f.d}ms @${f.click || '?'} ${f.name}`).join(' | '));
     const named = [...(timing.scripts || [])].sort((a, b) => b.d - a.d).slice(0, 8);
-    if (named.length) console.log(`${name} src`, named.map((s) => `${s.d}ms ${(s.handler || (s.then || '').split('\n').slice(1, 4).join(' / ')).slice(0, 140)}`).join(' || '));
+    if (named.length) console.log(`${name} src`, named.map((s) => `${s.d}ms inv=${s.inv || ''} ${(s.scheduled || s.handler || '').replace(/\s+/g, ' ').slice(0, 180)}`).join(' || '));
     report.views[name] = { width: w, height: h, workspaces: workspaces.length, clicked, disabled, disabledNames: [...new Set(disabledNames)], cosmos, gl, errors: errors.slice(0, 8), longMax, longP95, longN: raw.length, paintMax, paintN: paint.length, glInitMax: glMax, glInit: glName ? glName.name : '', appMax: jsMax, appP95: jsP95, appN: js.length, worst: worst ? worst.name : '', loaf: timing.loaf };
     await Promise.race([page.close(), new Promise((r) => setTimeout(r, 5000))]);
   fs.mkdirSync('test/e2e', { recursive: true });

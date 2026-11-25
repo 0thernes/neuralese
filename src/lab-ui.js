@@ -1,8 +1,8 @@
 // Shared helpers for the v5 research tabs (markup builders, export, run tracker).
-import { CFG } from './model.js?v=183';
-import { frame, runBudgeted } from './coop.js?v=183';
-import { joinLines } from './bytes.js?v=183';
-import { createLab, fromTracker } from './agent/schema.js?v=183';
+import { CFG } from './model.js?v=184';
+import { frame, runBudgeted } from './coop.js?v=184';
+import { joinLines } from './bytes.js?v=184';
+import { createLab, fromTracker } from './agent/schema.js?v=184';
 export const { d, H, hd, L, ff, V } = CFG;
 export const $ = (id) => document.getElementById(id), $$ = (s, r = document) => [...r.querySelectorAll(s)];
 export const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
@@ -22,7 +22,7 @@ export function tokId(tok, s) { const ids = tok.encode(s); if (!ids.length) thro
 export function parseLayers(s) { const out = new Set(); for (const p of String(s).split(',')) { const m = p.trim().match(/^(\d+)(?:-(\d+))?$/); if (!m) throw new Error('bad layer list ' + s); for (let l = +m[1]; l <= +(m[2] ?? m[1]); l++) if (l < L) out.add(l); } if (!out.size) throw new Error('no valid layers'); return out; }
 export function canvasFit(cvs, h) { const w = cvs.clientWidth || 420; cvs.width = w * devicePixelRatio; cvs.height = h * devicePixelRatio; cvs.style.height = h + 'px'; const c = cvs.getContext('2d'); c.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0); return [c, w]; }
 export const chartBg = () => getComputedStyle(document.documentElement).getPropertyValue('--chart-bg').trim() || '#060a12';
-function exportWorker() { return new Worker(new URL('./export-worker.js?v=183', import.meta.url)); }
+function exportWorker() { return new Worker(new URL('./export-worker.js?v=184', import.meta.url)); }
 function workerBuffer(w) {
   return new Promise((resolve, reject) => {
     w.onmessage = (e) => resolve(e.data);
@@ -55,11 +55,13 @@ async function blobFromParts(parts, type) {
 }
 async function pngBlob(el) {
   if (!el.width || !el.height) return null;
-  const bmp = await createImageBitmap(el);
+  const max = 96;
+  const scale = Math.min(1, max / Math.max(el.width, el.height));
+  const bmp = await createImageBitmap(el, { resizeWidth: Math.max(1, Math.round(el.width * scale)), resizeHeight: Math.max(1, Math.round(el.height * scale)), resizeQuality: 'low' });
   const w = exportWorker();
   try {
     const done = takeBlob(w);
-    w.postMessage({ op: 'png', bmp, max: 96 }, [bmp]);
+    w.postMessage({ op: 'png', bmp, max }, [bmp]);
     return await done;
   } finally { w.terminate(); }
 }

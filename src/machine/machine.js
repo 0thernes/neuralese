@@ -2,7 +2,7 @@
 // Exact means every architectural field matches and the weight path recorded no precision fault.
 // Wall-clock overhead is measured by running the two machines separately.
 
-import { slice, runBudgeted } from '../coop.js?v=183';
+import { slice, runBudgeted } from '../coop.js?v=184';
 import { enc } from '../forge/isa.js';
 import { matvec } from '../engine.js';
 import { mulberry32 } from '../model.js';
