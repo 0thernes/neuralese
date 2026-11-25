@@ -46,12 +46,14 @@ export class GPT2Tokenizer {
     }
     return undefined;
   }
-  static fromPairs(vocab, buffer) {
+  static fromPairs(vocab, buffer, deferDecoder = false) {
     const view = new DataView(buffer);
     const magic = String.fromCharCode(view.getUint8(0), view.getUint8(1), view.getUint8(2), view.getUint8(3));
     if (magic !== 'BPE1') throw new Error('bad bpe rank table');
     const n = view.getUint32(4, true);
-    const tok = new GPT2Tokenizer(vocab, '');
+    const tok = new GPT2Tokenizer({}, '');
+    tok.encoder = vocab;
+    if (!deferDecoder) { tok.decoder = []; for (const [k, v] of Object.entries(vocab)) tok.decoder[v] = k; }
     tok.pairKeys = new Uint32Array(buffer, 8, n);
     tok.pairRanks = new Uint16Array(buffer, 8 + n * 4, n);
     return tok;
@@ -78,12 +80,12 @@ export class GPT2Tokenizer {
   }
   // Page path. The rank table is the precomputed binary; only the vocab strings are copied, and that copy yields.
   static async createFromPairs(vocab, buffer) {
-    const tok = GPT2Tokenizer.fromPairs(vocab, buffer);
+    const tok = GPT2Tokenizer.fromPairs(vocab, buffer, true);
     tok.decoder = [];
     const keys = Object.keys(vocab);
     for (let i = 0; i < keys.length; i++) {
       tok.decoder[vocab[keys[i]]] = keys[i];
-      if ((i & 255) === 255 && typeof document !== 'undefined') await frame();
+      if ((i & 63) === 63 && typeof document !== 'undefined') await frame();
     }
     return tok;
   }
