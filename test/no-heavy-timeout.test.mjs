@@ -43,5 +43,19 @@ test('timer awaits do not pass the native resolver or hide behind a sleep helper
     const text = fs.readFileSync(file, 'utf8');
     if (RESOLVE_TIMER.test(text)) hits.push(path.relative(root, file));
   }
+  const htmlRoot = path.join(root, 'src');
+  const htmls = [];
+  (function walk(dir) {
+    for (const name of fs.readdirSync(dir)) {
+      if (name === 'node_modules' || name === 'vendor' || name === 'shell') continue;
+      const p = path.join(dir, name);
+      if (fs.statSync(p).isDirectory()) walk(p);
+      else if (name.endsWith('.html')) htmls.push(p);
+    }
+  })(htmlRoot);
+  for (const file of htmls) {
+    const text = fs.readFileSync(file, 'utf8');
+    if (/setTimeout\(\s*(?:resolve|res|rej|r)\s*[,)]/.test(text)) hits.push(path.relative(root, file));
+  }
   assert.deepEqual(hits, []);
 });

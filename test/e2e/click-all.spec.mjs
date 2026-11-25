@@ -70,30 +70,39 @@ for (const [w, h, name] of WIDTHS) test(`click every control · ${name}`, async 
     page.on('pageerror', (e) => errors.push('PAGE ' + (e.message || '').slice(0, 400)));
     page.on('dialog', (d) => { void d.dismiss(); });
     page.on('filechooser', (fc) => { void fc.setFiles({ name: 'empty.json', mimeType: 'application/json', buffer: Buffer.from('{}') }); });
-    await page.addInitScript(() => {
-      localStorage.setItem('neuralese.v17.toured', '1');
-      window.__blockedNav = 0;
-      const block = () => { window.__blockedNav++; };
-      location.reload = block;
-      window.open = () => null;
-      // Schedule stacks for timers and promise continuations. The wrapper calls the original
-      // function immediately; LoAF still times that work. Empty-URL setTimeout(resolve) has no
-      // source of its own, so the stack at the call is what names the function.
-      window.__timerRuns = [];
-      window.__timerMarks = [];
-      globalThis.__timerResume = (stack) => {
-        const name = String(stack || '').split('\n').slice(0, 6).map((s) => s.trim()).join(' | ').slice(0, 240);
-        performance.mark('timer-resume');
-        window.__timerMarks.push({ t: performance.now(), name });
-        if (window.__timerMarks.length > 80) window.__timerMarks.shift();
-      };
+    await context.addInitScript(() => {
+      let topWin = window;
+      try { topWin = window.top || window; } catch { topWin = window; }
+      const own = topWin === window;
+      if (own) {
+        localStorage.setItem('neuralese.v17.toured', '1');
+        window.__blockedNav = 0;
+        const block = () => { window.__blockedNav++; };
+        location.reload = block;
+        window.open = () => null;
+      }
+      // One list on the top window. An iframe's setTimeout is a different realm, and its records
+      // never showed up when each frame kept its own array.
+      if (!topWin.__timerRuns) topWin.__timerRuns = [];
+      if (!topWin.__timerMarks) topWin.__timerMarks = [];
+      if (typeof topWin.__timerResume !== 'function') {
+        topWin.__timerResume = (stack) => {
+          const name = String(stack || '').split('\n').slice(0, 6).map((s) => s.trim()).join(' | ').slice(0, 240);
+          performance.mark('timer-resume');
+          topWin.__timerMarks.push({ t: performance.now(), name });
+          if (topWin.__timerMarks.length > 80) topWin.__timerMarks.shift();
+        };
+      }
       const tidy = (stack) => (stack || '').split('\n').slice(1, 10).map((s) => s.trim().replace(/\?v=\d+/, '')).join('\n');
-      globalThis.__yieldFrom = (stack) => {
-        const lines = String(stack || '').split('\n').map((s) => s.trim()).filter(Boolean);
-        globalThis.__yieldStack = lines.length > 1 ? tidy(stack) : String(stack || '').slice(0, 180);
-      };
-      globalThis.__handlers = [];
-      globalThis.__handler = (fn) => { globalThis.__handlers.push({ t: performance.now(), src: String(fn).replace(/\s+/g, ' ').slice(0, 180) }); };
+      const frameName = () => { try { return `${location.pathname}${location.search}`; } catch { return 'frame'; } };
+      if (own) {
+        globalThis.__yieldFrom = (stack) => {
+          const lines = String(stack || '').split('\n').map((s) => s.trim()).filter(Boolean);
+          globalThis.__yieldStack = lines.length > 1 ? tidy(stack) : String(stack || '').slice(0, 180);
+        };
+        globalThis.__handlers = [];
+        globalThis.__handler = (fn) => { globalThis.__handlers.push({ t: performance.now(), src: String(fn).replace(/\s+/g, ' ').slice(0, 180) }); };
+      }
       const origTimeout = window.setTimeout;
       // Do not wrap the callback. A wrapper defined in this init script has no sourceURL, so LoAF
       // reported every timer as an anonymous setTimeout at position -1 and hid the real function.
@@ -102,17 +111,19 @@ for (const [w, h, name] of WIDTHS) test(`click every control · ${name}`, async 
         const scheduled = tidy(new Error().stack);
         const src = String(fn).replace(/\s+/g, ' ').slice(0, 160);
         const due = performance.now() + (delay || 0);
-        window.__timerRuns.push({ scheduled, src, t0: due, t1: due, click: '' });
+        topWin.__timerRuns.push({ scheduled, src, t0: due, t1: due, frame: frameName(), click: '' });
         return origTimeout(fn, delay, ...args);
       };
-      const origURL = URL.createObjectURL;
-      URL.createObjectURL = function (obj) {
-        const t0 = performance.now();
-        const url = origURL.call(URL, obj);
-        const dt = performance.now() - t0;
-        if (dt > 20) console.warn(`phase createObjectURL ${Math.round(dt)}ms size ${obj && obj.size}`);
-        return url;
-      };
+      if (own) {
+        const origURL = URL.createObjectURL;
+        URL.createObjectURL = function (obj) {
+          const t0 = performance.now();
+          const url = origURL.call(URL, obj);
+          const dt = performance.now() - t0;
+          if (dt > 20) console.warn(`phase createObjectURL ${Math.round(dt)}ms size ${obj && obj.size}`);
+          return url;
+        };
+      }
     });
     await page.goto(URL, { waitUntil: 'domcontentloaded', timeout: 90000 });
     await page.waitForSelector('#v17 .wsbar', { timeout: 30000 });
@@ -183,6 +194,8 @@ for (const [w, h, name] of WIDTHS) test(`click every control · ${name}`, async 
                 inv: s.invoker || '', type: s.invokerType || '',
                 layout: Math.round(s.forcedStyleAndLayoutDuration || 0), pause: Math.round(s.pauseDuration || 0),
                 click: window.__click || '',
+                win: s.windowAttribution || '',
+                frame: best ? (best.frame || '') : '',
                 scheduled: best ? best.scheduled : '',
                 then: best ? best.yield : '',
                 resume,
@@ -364,8 +377,10 @@ for (const [w, h, name] of WIDTHS) test(`click every control · ${name}`, async 
     console.log(`${name} raw max=${longMax} p95=${longP95} n=${raw.length} | paint/GL max=${paintMax} n=${paint.length} gl-init max=${glMax}${glName ? ' (' + glName.name + ')' : ''} | app max=${jsMax} p95=${jsP95} n=${js.length}${worst ? ' worst=' + worst.name + (worst.click ? ' @' + worst.click : '') : ''}${timing.loaf ? '' : ' (no long-animation-frames)'}`);
     if (topApp.length) console.log(`${name} top`, topApp.map((f) => `${f.app ?? f.d}ms @${f.click || '?'} ${f.name}`).join(' | '));
     const named = [...(timing.scripts || [])].sort((a, b) => b.d - a.d).slice(0, 8);
-    if (named.length) console.log(`${name} src`, named.map((s) => `${s.d}ms inv=${s.inv || ''} ${(s.resume || s.scheduled || s.handler || '').replace(/\s+/g, ' ').slice(0, 180)}`).join(' || '));
-    report.views[name] = { width: w, height: h, workspaces: workspaces.length, clicked, disabled, disabledNames: [...new Set(disabledNames)], cosmos, gl, errors: errors.slice(0, 8), longMax, longP95, longN: raw.length, paintMax, paintN: paint.length, glInitMax: glMax, glInit: glName ? glName.name : '', appMax: jsMax, appP95: jsP95, appN: js.length, worst: worst ? worst.name : '', loaf: timing.loaf };
+    const frames = page.frames().map((f) => f.url());
+    console.log(`${name} frames`, frames.join(' | '));
+    if (named.length) console.log(`${name} src`, named.map((s) => `${s.d}ms win=${s.win || '?'} frame=${s.frame || '-'} inv=${s.inv || ''} ${(s.resume || s.scheduled || s.handler || '').replace(/\s+/g, ' ').slice(0, 160)}`).join(' || '));
+    report.views[name] = { width: w, height: h, workspaces: workspaces.length, clicked, disabled, disabledNames: [...new Set(disabledNames)], frames, cosmos, gl, errors: errors.slice(0, 8), longMax, longP95, longN: raw.length, paintMax, paintN: paint.length, glInitMax: glMax, glInit: glName ? glName.name : '', appMax: jsMax, appP95: jsP95, appN: js.length, worst: worst ? worst.name : '', loaf: timing.loaf };
     await Promise.race([page.close(), new Promise((r) => setTimeout(r, 5000))]);
   fs.mkdirSync('test/e2e', { recursive: true });
   const marks = timing.marks || [];

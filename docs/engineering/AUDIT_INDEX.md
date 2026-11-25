@@ -5,9 +5,9 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 | | |
 |---|---|
 | Files | 505 |
-| Reviewed (passes 23–87) | 173 |
-| Indexed, not reviewed | 332 |
-| Coverage | 34.3% |
+| Reviewed (passes 23–92) | 177 |
+| Indexed, not reviewed | 328 |
+| Coverage | 35.0% |
 
 
 ## `/`
@@ -374,8 +374,8 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 | `machine.d.ts` | ts | machine | none mapped | indexed |
 | `machine.js` | Host stepper. The weight machine and the int32 reference run the same program. | machine | none mapped | indexed |
 | `programs.js` | Demo programs for WM-ISA. They are assembled here, not borrowed from another machine. | machine | none mapped | reviewed, pass 86 |
-| `ref.js` | Integer reference machine. Ground truth for Weight-Machine. Words are int32. No float rounding. | machine | none mapped | indexed |
-| `weight.js` | Weight-Machine datapath. Same phase order as ref.js. ALU, memory, MAC, lanes, grant, and | machine | none mapped | indexed |
+| `ref.js` | Integer reference machine. Ground truth for Weight-Machine. Words are int32. No float rounding. | machine | none mapped | reviewed, pass 88 |
+| `weight.js` | Weight-Machine datapath. Same phase order as ref.js. ALU, memory, MAC, lanes, grant, and | machine | none mapped | reviewed, pass 89 |
 | `zoom.js` | Deep Walk chain for one Weight-Machine component: gadget weights, then a Boolean | machine | none mapped | indexed |
 
 ## `src/nested/`
@@ -396,7 +396,7 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 | File | Purpose | Owner | Tests | Status |
 |---|---|---|---|---|
 | `cpu.js` | Browser/Node runtime for the hand-compiled RV32I transformer (artifacts/riscv_spec.json). | nested | none mapped | indexed |
-| `index.html` | html | nested | none mapped | indexed |
+| `index.html` | html | nested | none mapped | reviewed, pass 91 |
 | `programs.json` | json | nested | none mapped | indexed |
 | `ref.js` | Independent JS reference interpreter (same machine model as e1_riscv/rv.py) used ONLY for the live agreement b | nested | none mapped | reviewed, passes 52–53 |
 | `riscv_spec.json` | json | nested | none mapped | indexed |
@@ -412,7 +412,7 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 
 | File | Purpose | Owner | Tests | Status |
 |---|---|---|---|---|
-| `index.html` | html | nested | none mapped | indexed |
+| `index.html` | html | nested | none mapped | reviewed, pass 90 |
 | `lens.json` | json | nested | none mapped | indexed |
 | `lm.js` | Norm-free causal transformer forward pass (Float64), mirrors e2_slm/model.py. Returns logits + residual of las | nested | none mapped | indexed |
 | `models.f32` | f32 | nested | none mapped | indexed |

@@ -1,8 +1,8 @@
 // Jobs the engine worker runs so the page thread only paints progress.
-import { patchResid, patchHeads, pathPatchHeadsToLogits, ablationSweep } from './analysis.js?v=193';
-import { computeRome } from './rome.js?v=193';
-import { SAE } from './sae.js?v=193';
-import { cancelled, resetCancel } from './coop.js?v=193';
+import { patchResid, patchHeads, pathPatchHeadsToLogits, ablationSweep } from './analysis.js?v=194';
+import { computeRome } from './rome.js?v=194';
+import { SAE } from './sae.js?v=194';
+import { cancelled, resetCancel } from './coop.js?v=194';
 
 export async function dispatchHeavy(eng, m, onp) {
   resetCancel();

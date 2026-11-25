@@ -3,10 +3,10 @@
 //  C   = E[k kᵀ] over the reference corpus (+ ridge λ)   →  u = C⁻¹k* / (k*ᵀC⁻¹k*)
 //  v*  = found by iterative ascent of log p(target) in the residual direction γ⊙(w_t − E_p[w])  (gradient of log-softmax wrt the final hidden state)
 //  ΔW  = (v* − W k*) uᵀ         (rank one, so W' k* = v* exactly)
-import { CFG } from './model.js?v=193';
-import { logSoftmax } from './engine.js?v=193';
-import { cholSolve, dot, norm } from './linalg.js?v=193';
-import { slice } from './coop.js?v=193';
+import { CFG } from './model.js?v=194';
+import { logSoftmax } from './engine.js?v=194';
+import { cholSolve, dot, norm } from './linalg.js?v=194';
+import { slice } from './coop.js?v=194';
 const { d, ff, V } = CFG;
 function breathe() { return slice(); }
 export function findSubject(tok, ids, subject) {

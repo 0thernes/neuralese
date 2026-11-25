@@ -1,7 +1,7 @@
 // Canvas charts (v15): HiDPI, axes + gridlines + nice ticks, legends, colorbars, perceptual colormaps, hover crosshairs.
 // heatmap (hover/click), multi-line, bars, scatter. No chart library.
-import { runBudgeted, slice, waitNextFrame } from './coop.js?v=193';
-import { joinLines } from './bytes.js?v=193';
+import { runBudgeted, slice, waitNextFrame } from './coop.js?v=194';
+import { joinLines } from './bytes.js?v=194';
 async function csvParts(lines, n) {
   const parts = [];
   await runBudgeted((function* () {

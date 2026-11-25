@@ -1,13 +1,13 @@
 // Learning center UI: Bible, Glossary, Index, Course (lectures, diagrams, labs, quizzes). Progress in localStorage.
-import { frame, runBudgeted, slice } from '../coop.js?v=193';
+import { frame, runBudgeted, slice } from '../coop.js?v=194';
 let GLOSSARY = [], BIBLE = [], COURSE = [];
 let loading = null;
 // The catalogues are separate modules. Evaluating all three while this module loads was one long script.
 export function loadCatalog() {
   if (!loading) loading = (async () => {
-    GLOSSARY = (await import('./glossary.js?v=193')).GLOSSARY; await frame();
-    BIBLE = (await import('./bible.js?v=193')).BIBLE; await frame();
-    COURSE = (await import('./course.js?v=193')).COURSE;
+    GLOSSARY = (await import('./glossary.js?v=194')).GLOSSARY; await frame();
+    BIBLE = (await import('./bible.js?v=194')).BIBLE; await frame();
+    COURSE = (await import('./course.js?v=194')).COURSE;
     return { GLOSSARY, BIBLE, COURSE };
   })();
   return loading;
