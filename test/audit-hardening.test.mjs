@@ -154,6 +154,13 @@ test('a yielded CE jet matches the sync jet', async () => {
   for (let k = 0; k < a.c.length; k++) assert.ok(Math.abs(a.c[k] - b.c[k]) < 1e-8, k + ' ' + a.c[k] + ' ' + b.c[k]);
 });
 
+test('evalCorpus chunks the token step and the unembed', () => {
+  const src = readFileSync(new URL('../src/labcore.js', import.meta.url), 'utf8');
+  const fn = src.slice(src.indexOf('export async function evalCorpus'), src.indexOf('export function calibration'));
+  assert.match(fn, /budget: true/);
+  assert.match(fn, /logitsYield/);
+});
+
 test('head ablation CE changes when a head is zeroed and restores the columns', () => {
   const d = 8, hd = 4, H = 2, ff = 8, V = 12;
   const g = (n, s = 1) => Float32Array.from({ length: n }, (_, i) => Math.sin(i * 1.3 + s) * 0.2);
