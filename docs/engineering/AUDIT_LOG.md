@@ -73,6 +73,14 @@ Passes 1–22 are the earlier engineering log in [PASSES.md](PASSES.md). This fi
 
 ## Open
 
+- Preview of `adce652` (page scripts `?v=193`, gh-pages `36af331`). One 3-width run, workers 1. The 493-id set is unchanged: 485 clicked, 8 disabled, 0 missing. Console errors 0. Axe was not in the failure list. three.js no longer calls `scheduler.yield()` or `setTimeout(done)` around a native resolver; those waits are a paint plus a message, and each one records a caller mark when the sweep installs the hook. The runs table is appended a few rows at a time. The measure handler waits a frame before the first row. The remaining empty-URL timers were not scheduled through `window.setTimeout` and did not hit that mark. Mobile 213 / 81, tablet 228 / 88, desktop 255 / 95. Tablet and desktop are worse than `e7c4f7e` (220 / 223). Mobile is over 200 and worse than the `?v=192` run (199).
+
+| Width | Clicked | Disabled | Missing | Console | Axe | Cosmos | #gl | Raw max | Raw p95 | Paint/GL max | App max | App p95 | Worst |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 390×844 | 485 | 8 | 0 | 0 | none in the failure list | 390×657 | 390×477 | 793 | 109 | 666 | 213 | 81 | residual_explosion, `setTimeout`, 205 ms, no page timer and no yield mark |
+| 768×1024 | 485 | 8 | 0 | 0 | none in the failure list | 388×425 | 373×571 | 1222 | 224 | 1222 | 228 | 88 | csv export, `setTimeout`, 218 ms, no page timer and no yield mark |
+| 1440×900 | 485 | 8 | 0 | 0 | none in the failure list | 737×368 | 709×489 | 1386 | 363 | 1386 | 255 | 95 | png export, `setTimeout`, 247 ms. The nearest recorded timer is a toast |
+
 - Preview of `53836df` (page scripts `?v=181`). The 493-id set is unchanged: 485 clicked, 8 disabled, 0 missing at every width. The batch table is stored and then painted a few rows per frame through the virtual table. The timeline refresh draws one chart per animation frame and skips a redraw when the series is unchanged. Notebook and fine-tune worker messages schedule their text and charts on a later frame. `test/worker-handlers.test.mjs` rejects a page-side worker handler that writes the DOM before it yields. Console errors 0. Axe was not in the failure list. Screenshots succeeded. Mobile app max is 198 and p95 is 80, inside the gate. Tablet is 218 / 90 and desktop is 348 / 95. The remaining long turns are a PNG export readback (218 ms) and a CSV export (348 ms). Desktop is worse than `e7c4f7e` (223).
 
 | Width | Clicked | Disabled | Missing | Console | Axe | Cosmos | #gl | Raw max | Raw p95 | Paint/GL max | App max | App p95 | Worst |
