@@ -5,9 +5,9 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 | | |
 |---|---|
 | Files | 505 |
-| Reviewed (passes 23–42) | 100 |
-| Indexed, not reviewed | 405 |
-| Coverage | 19.8% |
+| Reviewed (passes 23–44) | 104 |
+| Indexed, not reviewed | 401 |
+| Coverage | 20.6% |
 
 
 ## `/`
@@ -62,11 +62,11 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 | `CLAIMS.md` | documentation | docs | none mapped | reviewed, passes 39–40 |
 | `COURSE.md` | documentation | docs | none mapped | indexed |
 | `DEEP_WALKTHROUGH.md` | documentation | docs | none mapped | indexed |
-| `FRONTIER.md` | documentation | docs | none mapped | indexed |
+| `FRONTIER.md` | documentation | docs | none mapped | reviewed, passes 43–44 |
 | `GLOSSARY.md` | documentation | docs | none mapped | indexed |
 | `KANBAN.md` | documentation | docs | none mapped | indexed |
 | `NEST_CPU.md` | documentation | docs | none mapped | indexed |
-| `NEURON_LENS_METHOD.md` | documentation | docs | none mapped | indexed |
+| `NEURON_LENS_METHOD.md` | documentation | docs | none mapped | reviewed, passes 43–44 |
 | `PREREG-v11.md` | documentation | docs | none mapped | indexed |
 | `PREREG-v14.md` | documentation | docs | none mapped | reviewed, passes 41–42 |
 | `PREREG-v14x.md` | documentation | docs | none mapped | indexed |
@@ -85,8 +85,8 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 |---|---|---|---|---|
 | `AUDIT_INDEX.md` | documentation | docs | none mapped | reviewed, passes 23–30 |
 | `AUDIT_LOG.md` | documentation | docs | none mapped | reviewed, passes 23–30 |
-| `BUGS.md` | documentation | docs | none mapped | indexed |
-| `FEATURE_PARITY.md` | documentation | docs | none mapped | indexed |
+| `BUGS.md` | documentation | docs | none mapped | reviewed, passes 43–44 |
+| `FEATURE_PARITY.md` | documentation | docs | none mapped | reviewed, passes 43–44 |
 | `PASSES.md` | documentation | docs | none mapped | reviewed, passes 23–30 |
 | `RESEARCH_TRACKS.md` | documentation | docs | none mapped | indexed |
 | `SOP.md` | documentation | docs | none mapped | reviewed, passes 41–42 |

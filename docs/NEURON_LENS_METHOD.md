@@ -65,4 +65,4 @@ The hash of the pre-registration is pinned in `test/v14.test.mjs`. One documente
 3. The causal check uses one dose (4× the 99th-percentile activation, + pole only) instead of 1× and 4×.
 4. The tuned-lens baseline is fitted by least squares, not KL.
 5. Head footprints use a frequency-weighted mean query.
-6. Only TinyStories-8M is fitted in v14.0. distilgpt2 and GPT-2 are planned for v14.1 (docs/ROADMAP-v14.md).
+6. Only TinyStories-8M is fitted in v14.0. v14.1 fitted TinyStories-1M and TinyStories-3M. distilgpt2 and GPT-2 (d=768) were not fitted; that substitution is in docs/REPORT-v14.md.

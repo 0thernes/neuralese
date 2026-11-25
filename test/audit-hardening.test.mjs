@@ -114,6 +114,15 @@ test('ACDC async path yields per node and does not score with the sync objective
   assert.ok(!fn.slice(0, fn.indexOf('export async function scrubAsync')).includes('objective('));
 });
 
+test('frontier and neuron-lens docs name the files that exist', () => {
+  const frontier = readFileSync(new URL('../docs/FRONTIER.md', import.meta.url), 'utf8');
+  assert.match(frontier, /src\/frontier\/data/);
+  assert.ok(statSync(new URL('../src/frontier/data/grok.json', import.meta.url)).isFile());
+  const method = readFileSync(new URL('../docs/NEURON_LENS_METHOD.md', import.meta.url), 'utf8');
+  assert.match(method, /TinyStories-1M and TinyStories-3M/);
+  assert.match(method, /were not fitted/);
+});
+
 test('the v13 stack record points at the current src tree', () => {
   const doc = readFileSync(new URL('../docs/STACK.md', import.meta.url), 'utf8');
   assert.match(doc, /src\/vendor\/three\/three\.module\.min\.js/);

@@ -1,5 +1,7 @@
 # FRONTIER (v11): consciousness-science proxies, introspection, self-improvement, grokking and a causal atlas — tested honestly
 
+Result files cited as `site/frontier/data/` are `src/frontier/data/` in this tree.
+
 **What this is not.** Nothing here shows, or claims, that TinyStories-8M is conscious, sentient, introspective in a human sense, or superintelligent. Each module turns a frontier question into an *operational proxy* with an explicit definition, a *null model*, and a *pass/fail threshold that was frozen before any experiment ran*: [`PREREG-v11.md`](PREREG-v11.md), sha256 `8b923ab4…ddbec93`, committed to `main` at `2a2b3ef` (frozen 2026-10-26 00:16:32 PT). Every result file in `site/frontier/data/` cites that hash; `test/v11.test.mjs` re-scores each file against the frozen rule.
 
 **Scorecard: 14 pre-registered hypotheses — 6 supported (H1a, H2a, H4a, H4b, H5c, H6a), 8 not supported (H2b, H3a, H3b, H4c, H4d, H5a, H5b, H6b; H4c is a prediction falsified in the "good" direction).**
