@@ -29,6 +29,18 @@ test('joinLines keeps a newline between chunks and not after the last', () => {
   assert.equal(parts.join(''), 'a\nb\nc\nd\ne');
 });
 
+test('the shipped BPE table matches merges.txt', () => {
+  const vocab = JSON.parse(readFileSync(new URL('../model/vocab.json', import.meta.url), 'utf8'));
+  const merges = readFileSync(new URL('../model/merges.txt', import.meta.url), 'utf8');
+  const raw = readFileSync(new URL('../src/bpe-ranks.bin', import.meta.url));
+  const buffer = raw.buffer.slice(raw.byteOffset, raw.byteOffset + raw.byteLength);
+  const slow = new GPT2Tokenizer(vocab, merges);
+  const fast = GPT2Tokenizer.fromPairs(vocab, buffer);
+  const text = 'Once upon a time, there was a little girl named Lily. She loved to';
+  assert.deepEqual(fast.encode(text), slow.encode(text));
+  assert.equal(fast.decode(fast.encode(text)), slow.decode(slow.encode(text)));
+});
+
 test('tokenizer.create matches the sync constructor on a small vocab', async () => {
   const vocab = { hello: 0, world: 1, '!': 2 };
   const merges = '#version: 0.2\nhello world\n';

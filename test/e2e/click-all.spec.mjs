@@ -93,7 +93,8 @@ for (const [w, h, name] of WIDTHS) test(`click every control · ${name}`, async 
       };
     });
     await page.goto(URL, { waitUntil: 'domcontentloaded', timeout: 90000 });
-    await page.waitForSelector('#v17 .wsbar', { timeout: 240000 });
+    await page.waitForSelector('#v17 .wsbar', { timeout: 30000 });
+    await page.waitForFunction(() => document.body.dataset.modelReady === '1', { timeout: 240000 });
     await page.evaluate(() => document.fonts ? document.fonts.ready : null);
     await page.keyboard.press('Escape');
     await page.evaluate(() => {

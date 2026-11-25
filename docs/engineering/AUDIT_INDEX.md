@@ -5,9 +5,9 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 | | |
 |---|---|
 | Files | 505 |
-| Reviewed (passes 23–51) | 129 |
-| Indexed, not reviewed | 376 |
-| Coverage | 25.5% |
+| Reviewed (passes 23–53) | 138 |
+| Indexed, not reviewed | 367 |
+| Coverage | 27.3% |
 
 
 ## `/`
@@ -211,7 +211,7 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 | File | Purpose | Owner | Tests | Status |
 |---|---|---|---|---|
 | `launch.js` | Local experiment launcher. Remote is optional and never invents a result. | agent | none mapped | indexed |
-| `mcp.js` | Line-delimited JSON-RPC for the tools an agent needs. Not a multi-user server. | agent | none mapped | indexed |
+| `mcp.js` | Line-delimited JSON-RPC for the tools an agent needs. Not a multi-user server. | agent | none mapped | reviewed, passes 52–53 |
 | `schema.js` | Solo, local-first lab store. No orgs, roles, approvals, or shared registries. | agent | none mapped | indexed |
 | `tools.js` | Tool handlers an agent calls. Reads do not invent runs. Mutations log the experiment | agent | none mapped | reviewed, passes 31–36 |
 
@@ -236,7 +236,7 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 | `host.d.ts` | ts | forge | none mapped | indexed |
 | `host.js` | Host attachment. The Forge subspace is a separate 64-wide stamp. | forge | none mapped | indexed |
 | `isa.js` | ForgeISA/1 — Neuralese-original machine. Not a port of any published weight-baked CPU. | forge | none mapped | indexed |
-| `mdcc.js` | MDCC lane: a deterministic proposer reads the task string, then the host computes with bigint. | forge | none mapped | indexed |
+| `mdcc.js` | MDCC lane: a deterministic proposer reads the task string, then the host computes with bigint. | forge | none mapped | reviewed, passes 52–53 |
 | `nestlang.js` | NestLang/1 — Neuralese-original surface language for ForgeISA. | forge | none mapped | indexed |
 | `session.d.ts` | ts | forge | none mapped | indexed |
 | `session.js` | One Forge run: language-model tokens, then the delimiter, then one engine token group per clock. | forge | none mapped | indexed |
@@ -280,7 +280,7 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 
 | File | Purpose | Owner | Tests | Status |
 |---|---|---|---|---|
-| `finetune.js` | v12 in-browser fine-tuning of TinyStories-8M on the user's own text. Honest scope: parameter-efficient, 1,536  | hub | none mapped | indexed |
+| `finetune.js` | v12 in-browser fine-tuning of TinyStories-8M on the user's own text. Honest scope: parameter-efficient, 1,536  | hub | none mapped | reviewed, passes 52–53 |
 | `ft-worker.js` | v12: runs the fine-tune off the main thread (the exact-gradient loop costs ~10 s per Adam step on CPU). | hub | none mapped | reviewed, passes 50–51 |
 | `models.js` | v12 MODEL HUB registry. Every entry is a real, public ONNX repo on the Hugging Face Hub, run by transformers.j | hub | none mapped | reviewed, passes 39–40 |
 | `worker.js` | v12 MODEL HUB worker: runs transformers.js pipelines off the main thread. Messages: {id, op:'load'/'run'/'info | hub | none mapped | indexed |
@@ -398,14 +398,14 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 | `cpu.js` | Browser/Node runtime for the hand-compiled RV32I transformer (artifacts/riscv_spec.json). | nested | none mapped | indexed |
 | `index.html` | html | nested | none mapped | indexed |
 | `programs.json` | json | nested | none mapped | indexed |
-| `ref.js` | Independent JS reference interpreter (same machine model as e1_riscv/rv.py) used ONLY for the live agreement b | nested | none mapped | indexed |
+| `ref.js` | Independent JS reference interpreter (same machine model as e1_riscv/rv.py) used ONLY for the live agreement b | nested | none mapped | reviewed, passes 52–53 |
 | `riscv_spec.json` | json | nested | none mapped | indexed |
 
 ## `src/nested/shared/`
 
 | File | Purpose | Owner | Tests | Status |
 |---|---|---|---|---|
-| `iso.js` | Tiny original isometric renderer: stacked layer slabs with glowing cells (no external libs). | nested | none mapped | indexed |
+| `iso.js` | Tiny original isometric renderer: stacked layer slabs with glowing cells (no external libs). | nested | none mapped | reviewed, passes 52–53 |
 | `lab.css` | css | nested | none mapped | indexed |
 
 ## `src/nested/slm/`
@@ -453,7 +453,7 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 | `moonlabqgt.js` | Moonlab's native quantum-geometry module (tsotchke/moonlab@cd3b234, MIT: src/algorithms/quantum_geometry/qgt.c | tsotchke | none mapped | indexed |
 | `neurosym.js` | Port of Eshkol's lib/core/ml/neurosymbolic.esk (tsotchke/eshkol@341ac81, MIT): differentiable symbol embedding | tsotchke | none mapped | indexed |
 | `nist.js` | NIST SP 800-22 rev1a statistical tests (subset): 2.1 frequency (monobit), 2.2 block frequency, 2.3 runs, | tsotchke | none mapped | indexed |
-| `qgtl.js` | QGTL (tsotchke/quantum_geometric_tensor@770994a, MIT) geometric-measure core, compiled to WebAssembly by us | tsotchke | none mapped | indexed |
+| `qgtl.js` | QGTL (tsotchke/quantum_geometric_tensor@770994a, MIT) geometric-measure core, compiled to WebAssembly by us | tsotchke | none mapped | reviewed, passes 52–53 |
 | `qgtl.mjs` | mjs | tsotchke | none mapped | indexed |
 | `qgtl.wasm.b64` | b64 | tsotchke | none mapped | indexed |
 | `qrng.js` | Browser/Node wrapper over tsotchke/quantum_rng (commit 1a77e77, MIT, © 2024 Tsotchke) compiled to WebAssembly  | tsotchke | none mapped | indexed |
@@ -554,7 +554,7 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 | `cli.test.mjs` | mjs | tests | self | reviewed, passes 31–36 |
 | `core.test.mjs` | mjs | tests | self | indexed |
 | `design-system.test.mjs` | v15 visual overhaul: design tokens, self-hosted fonts with licences, perceptual colormaps, sidebar nav wiring, | tests | self | indexed |
-| `desktop-path.test.mjs` | mjs | tests | self | indexed |
+| `desktop-path.test.mjs` | mjs | tests | self | reviewed, passes 52–53 |
 | `drill.test.mjs` | mjs | tests | self | indexed |
 | `encoder.test.mjs` | v16 HUB-model interpretability: our JS ViT / CLIP-vision / Whisper-encoder forwards reproduce HF (float64) log | tests | self | indexed |
 | `engine-kv.test.mjs` | KV-cache correctness: logits from the incremental (KV-cached) engine must equal an independent, cache-free, fu | tests | self | indexed |
@@ -575,8 +575,8 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 | `packaging.test.mjs` | v13.0.0: packaging. One version everywhere; the app bundle (www/) is exactly the gh-pages file set; model pins | tests | self | reviewed, passes 31–36 |
 | `prereg-enforced.test.mjs` | v16 enforced pre-registration: schema, hash freeze, commit pinning, REPRO bundle round-trip and tamper detecti | tests | self | indexed |
 | `prereg-nested.test.mjs` | v14.1 – v14.9: pre-registration pin, result provenance, nested float32 models + finite-difference lens, head a | tests | self | indexed |
-| `release-hygiene.test.mjs` | v16 release hygiene: exact dependency pins, npm ci only, hash-pinned model downloads, Android signing path, ve | tests | self | indexed |
-| `repo-layout.test.mjs` | v15.3 repo layout: web root in src/, feature-named suites, no root-level smoke/version files, one copy of each | tests | self | indexed |
+| `release-hygiene.test.mjs` | v16 release hygiene: exact dependency pins, npm ci only, hash-pinned model downloads, Android signing path, ve | tests | self | reviewed, passes 52–53 |
+| `repo-layout.test.mjs` | v15.3 repo layout: web root in src/, feature-named suites, no root-level smoke/version files, one copy of each | tests | self | reviewed, passes 52–53 |
 | `research.test.mjs` | mjs | tests | self | indexed |
 | `science.test.mjs` | mjs | tests | self | reviewed, passes 31–36 |
 | `tsotchke-crosscheck.test.mjs` | v10 cross-checks: (a) Fubini–Study vs Moonlab's native qgt_metric_at, (c) the natural-gradient vs Adam artifac | tests | self | indexed |

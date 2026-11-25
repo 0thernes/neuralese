@@ -32,6 +32,30 @@ export class GPT2Tokenizer {
     this.te = new TextEncoder();
     this.td = new TextDecoder('utf-8', { fatal: false });
   }
+  // Rank of a vocab-string pair. The shipped table is a sorted Uint32 key array, so the page never parses merges.txt.
+  pairRank(left, right) {
+    if (!this.pairKeys) return this.ranks.get(left + ' ' + right);
+    const a = this.encoder[left], b = this.encoder[right];
+    if (a == null || b == null) return undefined;
+    const key = a * 65536 + b, keys = this.pairKeys;
+    let lo = 0, hi = keys.length - 1;
+    while (lo <= hi) {
+      const mid = (lo + hi) >> 1, k = keys[mid];
+      if (k === key) return this.pairRanks[mid];
+      if (k < key) lo = mid + 1; else hi = mid - 1;
+    }
+    return undefined;
+  }
+  static fromPairs(vocab, buffer) {
+    const view = new DataView(buffer);
+    const magic = String.fromCharCode(view.getUint8(0), view.getUint8(1), view.getUint8(2), view.getUint8(3));
+    if (magic !== 'BPE1') throw new Error('bad bpe rank table');
+    const n = view.getUint32(4, true);
+    const tok = new GPT2Tokenizer(vocab, '');
+    tok.pairKeys = new Uint32Array(buffer, 8, n);
+    tok.pairRanks = new Uint16Array(buffer, 8 + n * 4, n);
+    return tok;
+  }
   // The 50k-entry vocab walk is split. The sync constructor stays for tests and small vocabs.
   static async create(vocab, mergesText) {
     const tok = new GPT2Tokenizer({}, '');
@@ -52,13 +76,24 @@ export class GPT2Tokenizer {
     }
     return tok;
   }
+  // Page path. The rank table is the precomputed binary; only the vocab strings are copied, and that copy yields.
+  static async createFromPairs(vocab, buffer) {
+    const tok = GPT2Tokenizer.fromPairs(vocab, buffer);
+    tok.decoder = [];
+    const keys = Object.keys(vocab);
+    for (let i = 0; i < keys.length; i++) {
+      tok.decoder[vocab[keys[i]]] = keys[i];
+      if ((i & 255) === 255 && typeof document !== 'undefined') await frame();
+    }
+    return tok;
+  }
   bpe(token) {
     if (this.cache.has(token)) return this.cache.get(token);
     let word = Array.from(token);
     while (word.length > 1) {
       let best = null, bestRank = Infinity;
       for (let i = 0; i < word.length - 1; i++) {
-        const r = this.ranks.get(word[i] + ' ' + word[i + 1]);
+        const r = this.pairRank(word[i], word[i + 1]);
         if (r !== undefined && r < bestRank) { bestRank = r; best = i; }
       }
       if (best === null) break;

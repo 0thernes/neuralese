@@ -20,6 +20,7 @@ const flatten = (w: Workspace, n: Node): Node => {
 };
 export function App(): JSX.Element {
   const initial = WORKSPACES.find((w) => w.id === (store.get('neuralese.v17.ws') ?? '')) ?? WORKSPACES[0]!;
+  const [modelReady, setModelReady] = createSignal(!!legacy());
   const [ws, setWs] = createSignal<Workspace>(initial); const [layout, setLayoutSig] = createSignal<Node>(loadLayout(initial));
   const [compact, setCompact] = createSignal(innerWidth < 760); const [pal, setPal] = createSignal(false); const [tour, setTour] = createSignal(false);
   const setLayout = (n: Node): void => { setLayoutSig(n); store.set(LK(ws().id), serialize(n)); };
@@ -65,8 +66,11 @@ export function App(): JSX.Element {
     // legacy code that calls showTab(k) on its own (links, terminal, quiz) → bring that tab's workspace forward
     document.addEventListener('neuralese:tab', (e) => { if (isShowing()) return; const k = (e as CustomEvent<string>).detail; if (activeLegacy.has(k)) return; const w = workspaceOfLegacy(k); if (w) go(w, 'legacy:' + k); });
     if (!store.get(TOUR_KEY) && !/notour/.test(location.search)) setTour(true);
+    const mark = (): void => setModelReady(true);
+    if (legacy()) mark(); else document.addEventListener('neuralese:ready', mark, { once: true });
   });
   return <div class="v17" classList={{ compact: compact() }} data-theme={theme()}>
+    <Show when={!modelReady()}><div class="loadnote" role="status">Loading the model. The workspaces are here; generation starts when the weights arrive.</div></Show>
     <nav class="wsbar" aria-label="workspaces">
       <For each={WORKSPACES}>{(w) => <button classList={{ on: w.id === ws().id }} aria-current={w.id === ws().id ? 'page' : undefined} title={`${w.blurb}${/^[0-9]$/.test(w.key) ? ` (Alt+${w.key})` : ''}`} data-ws={w.id} data-feature={`feature-ws-${w.id}`} onClick={() => go(w)}>{w.title}</button>}</For>
       <span class="sp" />

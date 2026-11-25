@@ -12,7 +12,8 @@ export const activeLegacy = new Set<string>();
 // event handlers and state survive layout changes.
 function Adopt(p: { id: string; onShow?: () => void; class?: string }): JSX.Element {
   let host!: HTMLDivElement;
-  onMount(() => { const el = $(p.id); if (!el) return; setTimeout(() => { if (host.isConnected) { host.appendChild(el); p.onShow?.(); } }, 0); });
+  const take = (): void => { const el = $(p.id); if (!el || !host?.isConnected || host.contains(el)) return; host.appendChild(el); p.onShow?.(); };
+  onMount(() => { setTimeout(take, 0); document.addEventListener('neuralese:ready', take); onCleanup(() => document.removeEventListener('neuralese:ready', take)); });
   onCleanup(() => { const el = $(p.id); if (el && host.contains(el)) $('v17-park')?.appendChild(el); });
   return <div class={p.class ?? 'adopt'} ref={host} />;
 }
