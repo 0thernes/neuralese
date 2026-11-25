@@ -1,5 +1,5 @@
-import { runBudgeted } from './coop.js?v=178';
-import { allocZeroYield } from './model.js?v=178';
+import { runBudgeted } from './coop.js?v=179';
+import { allocZeroYield } from './model.js?v=179';
 // v15.3 main-thread client for engine-worker.js. RemoteEngine mirrors the Engine calls used by generation, but async:
 //   const re = await RemoteEngine.create(); await re.sync('main', eng); const s = await re.newSeq('main', n); const r = await re.step(s, tok, {trace})
 // r = {h, trace, l}: l are the raw logits (Engine.logits); add R.logitBias on the main thread for Engine.outLogits.
@@ -34,7 +34,7 @@ const cloneR = (R) => { try { return structuredClone(R); } catch { return JSON.p
 const plainStats = (s) => s && { N: s.N, Z: s.Z, meanZ: s.meanZ, meanAct: s.meanAct };
 const plainSae = (s) => s && { layer: s.layer, Wenc: s.Wenc, benc: s.benc, bdec: s.bdec, Wdec: s.Wdec };
 export class RemoteEngine {
-  static async create(url = new URL('./engine-worker.js?v=178', import.meta.url)) {
+  static async create(url = new URL('./engine-worker.js?v=179', import.meta.url)) {
     if (typeof Worker === 'undefined') throw new Error('Worker unavailable');
     const w = new Worker(url, { type: 'module' }), re = new RemoteEngine(w);
     await new Promise((res, rej) => { const to = setTimeout(() => rej(new Error('engine worker did not start')), 15000); w.addEventListener('message', function f(e) { if (e.data && e.data.ready) { clearTimeout(to); w.removeEventListener('message', f); res(); } }); w.addEventListener('error', (e) => { clearTimeout(to); rej(new Error('engine worker error: ' + (e.message || 'load failed'))); }); });
@@ -47,7 +47,10 @@ export class RemoteEngine {
   call(msg, transfer = []) { const id = ++this.n; this.calls++; return new Promise((res, rej) => { this.pend.set(id, { res, rej }); this.w.postMessage({ id, ...msg }, transfer); }); }
   // Push the current state of a main-thread Engine into worker slot `key`. Weights are re-sent only when their checksum changed.
   async sync(key, eng) {
-    const sum = await weightsChecksum(eng.W), msg = { op: 'sync', key, R: cloneR(eng.R) }, tr = [];
+    let sum;
+    try { sum = await weightsChecksum(eng.W); }
+    catch (e) { if (String(e?.message || e) === 'cancelled') return null; throw e; }
+    const msg = { op: 'sync', key, R: cloneR(eng.R) }, tr = [];
     if (this.sums[key] !== sum) { msg.W = await plainW(eng.W); this.sums[key] = sum; for (const v of [msg.W.wte, msg.W.wpe, msg.W.lnfW, msg.W.lnfB, ...msg.W.layers.flatMap((L) => Object.values(L))]) tr.push(v.buffer); }
     const st = eng.stats || null, sa = eng.sae || null; if (this.stamp[key + 's'] !== st) { msg.stats = plainStats(st); this.stamp[key + 's'] = st; } if (this.stamp[key + 'a'] !== sa) { msg.sae = plainSae(sa); this.stamp[key + 'a'] = sa; }
     return this.call(msg, tr);
