@@ -1,7 +1,7 @@
 // Notebook cells run here, not on the page. They get the research functions and a copy of the
 // weights. They do not get the DOM, localStorage, or the editor.
-import * as research from './research.js?v=185';
-import { docs, DS } from './dataset.js?v=185';
+import * as research from './research.js?v=186';
+import { docs, DS } from './dataset.js?v=186';
 
 let W = null;
 let M = null;

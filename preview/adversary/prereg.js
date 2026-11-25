@@ -1,6 +1,6 @@
 // Adversary Lab pre-registration. Separate from src/prereg.js, whose schema rejects extra fields.
 // A locked document is deep-frozen. Changing it throws. revise() returns a new version.
-import { canonical, sha256Hex } from '../prereg.js?v=185';
+import { canonical, sha256Hex } from '../prereg.js?v=186';
 
 export class PreregLockError extends Error {}
 

@@ -1,5 +1,5 @@
 // Minimal GPT-2 byte-level BPE tokenizer (vocab.json + merges.txt)
-import { runBudgeted } from './coop.js?v=185';
+import { runBudgeted } from './coop.js?v=186';
 function bytesToUnicode() {
   const bs = [];
   for (let i = 33; i <= 126; i++) bs.push(i);

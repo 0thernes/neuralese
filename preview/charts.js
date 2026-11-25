@@ -1,8 +1,18 @@
 // Canvas charts (v15): HiDPI, axes + gridlines + nice ticks, legends, colorbars, perceptual colormaps, hover crosshairs.
 // heatmap (hover/click), multi-line, bars, scatter. No chart library.
-import { runBudgeted, slice, waitNextFrame } from './coop.js?v=185';
-import { joinLines } from './bytes.js?v=185';
-async function csvParts(lines, n) { const parts = joinLines(lines, n); for (let i = 0; i < parts.length; i++) { const y = slice(); if (y) await y; } return parts; }
+import { runBudgeted, slice, waitNextFrame } from './coop.js?v=186';
+import { joinLines } from './bytes.js?v=186';
+async function csvParts(lines, n) {
+  const parts = [];
+  await runBudgeted((function* () {
+    for (let i = 0; i < lines.length; i += n) {
+      const chunk = lines.slice(i, i + n).join('\n');
+      parts.push(i + n < lines.length ? chunk + '\n' : chunk);
+      yield;
+    }
+  })(), { budgetMs: 8, label: 'csv-join' });
+  return parts;
+}
 const tip = () => document.getElementById('tip');
 const css = (v, f) => (typeof document !== 'undefined' && getComputedStyle(document.documentElement).getPropertyValue(v).trim()) || f;
 export const BG = () => css('--chart-bg', '#0a0f1a'), FG = () => css('--m', '#7c89a3'), GRID = () => css('--b', '#1f2a42'), TX = () => css('--t', '#dbe4f3');
