@@ -27,12 +27,20 @@ Passes 1–22 are the earlier engineering log in [PASSES.md](PASSES.md). This fi
 | AUD-042 | 42 | `docs/CLAIMS-v14.md`, `docs/REPORT-v14.md`, `docs/CLAIMS-v14x.md` | info | The v14 write-ups report the failed predictions (P3, P4, C3, C5, C6, C8a) with the same numbers in the claims tables and the report. No rewrite. | no code change | existing `test/neuron-lens.test.mjs` V14-6 and V14-7 pin the pre-registration and the validation rows |
 | AUD-043 | 43 | `docs/FRONTIER.md:1` | low | The frontier write-up pointed at `site/frontier/data/`. The result files are `src/frontier/data/`. The scores themselves match `docs/CLAIMS.md`. | `00cd131` | `test/audit-hardening.test.mjs` |
 | AUD-044 | 44 | `docs/NEURON_LENS_METHOD.md:68` | low | The method page still said distilgpt2 and GPT-2 were planned for v14.1. That release fitted TinyStories-1M and 3M instead, and the report already said so. | `00cd131` | `test/audit-hardening.test.mjs` |
-| AUD-045 | 45 | `src/frontier/grok.js` `step` | high | One live grokking step was still a single script (104 ms on the desktop preview of `3a62a0d`). The training pass now yields every 32 examples. The Adam update matches a full step. | this commit | `test/audit-hardening.test.mjs` |
-| AUD-046 | 46 | `src/style.css` header; `ui/src/Dock.tsx` panel; `ui/src/styles.css` `.cosmos-hud` | medium | At 768×1024, axe reported contrast on `#bTheme`, `#bPal`, and `.cosmos-hud`, and a scrollable `#panel-cosmos` that could not take focus. The header was translucent. The hud had no background. The panel had no tabindex. | this commit | the click-all axe gate |
+| AUD-045 | 45 | `src/frontier/grok.js` `step` | high | One live grokking step was still a single script (104 ms on the desktop preview of `3a62a0d`). The training pass now yields every 32 examples. The Adam update matches a full step. | `f16a77b` | `test/audit-hardening.test.mjs` |
+| AUD-046 | 46 | `src/style.css` header; `ui/src/Dock.tsx` panel; `ui/src/styles.css` `.cosmos-hud` | medium | At 768×1024, axe reported contrast on `#bTheme`, `#bPal`, and `.cosmos-hud`, and a scrollable `#panel-cosmos` that could not take focus. The header was translucent. The hud had no background. The panel had no tabindex. | `f16a77b` | the click-all axe gate |
 | AUD-035 | 35 | `src/linalg.js:21` | info | One-sided Jacobi SVD of a 3×3 matrix reconstructs it within 1e-8 and returns singular values in descending order. | no code change | `test/audit-hardening.test.mjs` |
 | AUD-036 | 36 | `src/` first-party scripts | info | `eval` and `new Function` appear only under `src/vendor` and `src/hub/vendor`. | no code change | `test/audit-hardening.test.mjs` |
 
 ## Open
+
+- Preview of `3a62a0d` (one 3-width run, workers 1, 0 console errors, 514 clicked, 9 disabled) failed the gate. Mobile axe was clean. Tablet and desktop axe failed contrast and scrollable-region focus. A follow-up (`f16a77b`) yields the merge table every 8 lines, uses `toBlob` for PNG, chunks the grokking step, and gives the header and cosmos hud an opaque background. It is not in the table below.
+
+| Width | Clicked | Disabled | Console | Axe | Cosmos | #gl | Raw max | Raw p95 | Paint/GL max | App max | App p95 | Worst |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 390×844 | 514 | 9 | 0 | none | 390×658 | 390×478 | 816 | 434 | 816 | 179 | 104 | exportFor @Lower to gates |
+| 768×1024 | 514 | 9 | 0 | contrast 5, scrollable 1 | 388×426 | 373×572 | 1305 | 416 | 951 | 299 | 186 | GPT2Tokenizer.create |
+| 1440×900 | 514 | 9 | 0 | contrast 6, scrollable 1 | 737×369 | 709×490 | 1203 | 349 | 1006 | 342 | 342 | GPT2Tokenizer.create |
 
 - Preview of `b895908` (gh-pages `bb6d56e`), one 3-width run, workers 1, failed the gate. Console errors were not reported. Tablet axe: `color-contrast:5, scrollable-region-focusable:1`. Desktop and mobile axe were clean on that run.
 
@@ -44,6 +52,5 @@ Passes 1–22 are the earlier engineering log in [PASSES.md](PASSES.md). This fi
 
 Raw / paint (not gated): mobile raw max 684 p95 460, paint/GL 684, gl-init 684. Tablet raw 1230 / 379, paint 906, gl-init 618. Desktop raw 1129 / 365, paint 1129, gl-init 1129. Scripts still between 100 and 200 ms on that run, which fails p95 whenever fewer than 20 frames are at least 50 ms: mobile dot-product tour 178, `lab-v16.js` import 137, weight snapshot 102; tablet SVG export 187, grok live 114.
 
-- AUD-038 splits those three named scripts. The suite has not been re-run on that commit.
 - `test/science.test.mjs` fetches the pinned TinyStories-8M files when they are missing and fails if that download fails. It passed 8/8 after `node tools/fetch-model.mjs`.
-- 68 of 505 files in [AUDIT_INDEX.md](AUDIT_INDEX.md) are reviewed (13.5%).
+- 104 of 505 files in [AUDIT_INDEX.md](AUDIT_INDEX.md) are reviewed (20.6%).
