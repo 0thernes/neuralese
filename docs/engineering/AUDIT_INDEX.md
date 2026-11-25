@@ -5,9 +5,9 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 | | |
 |---|---|
 | Files | 505 |
-| Reviewed (passes 23–49) | 119 |
-| Indexed, not reviewed | 386 |
-| Coverage | 23.6% |
+| Reviewed (passes 23–51) | 129 |
+| Indexed, not reviewed | 376 |
+| Coverage | 25.5% |
 
 
 ## `/`
@@ -203,7 +203,7 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 | `measured-tinystories.json` | json | adversary | none mapped | indexed |
 | `neurons.js` | MLP-unit search and a steering-vs-random comparison. | adversary | none mapped | indexed |
 | `prereg.js` | Adversary Lab pre-registration. Separate from src/prereg.js, whose schema rejects extra fields. | adversary | none mapped | indexed |
-| `prompts.d.ts` | ts | adversary | none mapped | indexed |
+| `prompts.d.ts` | ts | adversary | none mapped | reviewed, passes 50–51 |
 | `prompts.js` | Same-user-prompt bank. Only the system string changes. Length is equalized by appending a | adversary | none mapped | indexed |
 
 ## `src/agent/`
@@ -281,7 +281,7 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 | File | Purpose | Owner | Tests | Status |
 |---|---|---|---|---|
 | `finetune.js` | v12 in-browser fine-tuning of TinyStories-8M on the user's own text. Honest scope: parameter-efficient, 1,536  | hub | none mapped | indexed |
-| `ft-worker.js` | v12: runs the fine-tune off the main thread (the exact-gradient loop costs ~10 s per Adam step on CPU). | hub | none mapped | indexed |
+| `ft-worker.js` | v12: runs the fine-tune off the main thread (the exact-gradient loop costs ~10 s per Adam step on CPU). | hub | none mapped | reviewed, passes 50–51 |
 | `models.js` | v12 MODEL HUB registry. Every entry is a real, public ONNX repo on the Hugging Face Hub, run by transformers.j | hub | none mapped | reviewed, passes 39–40 |
 | `worker.js` | v12 MODEL HUB worker: runs transformers.js pipelines off the main thread. Messages: {id, op:'load'/'run'/'info | hub | none mapped | indexed |
 
@@ -543,7 +543,7 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 
 | File | Purpose | Owner | Tests | Status |
 |---|---|---|---|---|
-| `_paths.mjs` | v15.3 repo layout: the web app lives in src/. rp('engine.js') → '../src/engine.js'; rp('docs/x.md') → '../docs | tests | self | indexed |
+| `_paths.mjs` | v15.3 repo layout: the web app lives in src/. rp('engine.js') → '../src/engine.js'; rp('docs/x.md') → '../docs | tests | self | reviewed, passes 50–51 |
 | `adversary.test.mjs` | Adversary Lab: key-cache geometry, FWL, padding, detector, neuron rule, prereg lock. | tests | self | indexed |
 | `agent.test.mjs` | mjs | tests | self | indexed |
 | `analytics.test.mjs` | mjs | tests | self | indexed |
@@ -561,7 +561,7 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 | `eshkol-ad.test.mjs` | v10 (d): every weight gradient of site/grad.js's analytic backward pass vs Eshkol's reverse-mode tape | tests | self | indexed |
 | `eshkol-taylor.test.mjs` | v10 (b): site/tsotchke/taylor.js vs Eshkol's REAL Taylor kernels (tr_* in lib/core/runtime_taylor.c @341ac81,  | tests | self | indexed |
 | `exact.test.mjs` | mjs | tests | self | indexed |
-| `features.test.mjs` | mjs | tests | self | indexed |
+| `features.test.mjs` | mjs | tests | self | reviewed, passes 50–51 |
 | `forge.test.mjs` | mjs | tests | self | indexed |
 | `frontier.test.mjs` | v11 FRONTIER: statistics code against known values, analytic gradients against finite differences, and every p | tests | self | indexed |
 | `grad.test.mjs` | mjs | tests | self | indexed |
@@ -619,7 +619,7 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 
 | File | Purpose | Owner | Tests | Status |
 |---|---|---|---|---|
-| `_gpu.mjs` | mjs | tests | self | indexed |
+| `_gpu.mjs` | mjs | tests | self | reviewed, passes 50–51 |
 | `audio.smoke.mjs` | mjs | tests | self | indexed |
 | `audit-regressions.smoke.mjs` | v12.1 smoke at the audit viewport (1240x700): one check per audit fix, screenshots of each, no console errors. | tests | self | indexed |
 | `core-ui.smoke.mjs` | mjs | tests | self | indexed |
@@ -645,8 +645,8 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 
 | File | Purpose | Owner | Tests | Status |
 |---|---|---|---|---|
-| `_fload.mjs` | Shared loader for v11 FRONTIER tools: reads the local safetensors (8M, plus 3M/1M from the model zoo). | tooling | none mapped | indexed |
-| `a11y.mjs` | WCAG 2 A/AA audit of every tab with axe-core (npm i --no-save axe-core@4; node tools/a11y.mjs [url]). | tooling | none mapped | indexed |
+| `_fload.mjs` | Shared loader for v11 FRONTIER tools: reads the local safetensors (8M, plus 3M/1M from the model zoo). | tooling | none mapped | reviewed, passes 50–51 |
+| `a11y.mjs` | WCAG 2 A/AA audit of every tab with axe-core (npm i --no-save axe-core@4; node tools/a11y.mjs [url]). | tooling | none mapped | reviewed, passes 50–51 |
 | `adversary-measure.mjs` | One honest TinyStories-8M pass of the Adversary Lab defaults. | tooling | none mapped | indexed |
 | `agent.mjs` | Solo agent CLI. Usage: | tooling | none mapped | indexed |
 | `bench-engine.mjs` | Engine throughput benchmark (Node, CPU, single thread). Usage: node tools/bench-engine.mjs [engineDir] [nGen] | tooling | none mapped | indexed |
@@ -658,13 +658,13 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 | `fetch-arch-models.mjs` | v16: downloads the HF checkpoints used by test/arch.test.mjs and test/encoder.test.mjs into model/arch/<name>/ | tooling | none mapped | indexed |
 | `fetch-model.mjs` | Downloads the TinyStories weights the tests use into model/ (not in git: ~230 MB) and verifies pinned SHA-256s | tooling | none mapped | reviewed, passes 31–36 |
 | `frontier-atlas.mjs` | v11 P6: complete single-unit causal atlas of TinyStories-8M. Exact zero-ablation of all 128 heads and 8192 MLP | tooling | none mapped | indexed |
-| `frontier-grok.mjs` | v11 P5: runs the pre-registered grokking config and the weight-decay-0 control. Usage: node tools/frontier-gro | tooling | none mapped | indexed |
+| `frontier-grok.mjs` | v11 P5: runs the pre-registered grokking config and the weight-decay-0 control. Usage: node tools/frontier-gro | tooling | none mapped | reviewed, passes 50–51 |
 | `frontier-mind.mjs` | v11 P1–P3: consciousness-science proxies with null models. Usage: node tools/frontier-mind.mjs <P1/P2/P3a/P3b> | tooling | none mapped | indexed |
 | `frontier-rsi.mjs` | v11 P4 (H4a/H4b loop, H4c self-distillation, H4d test-time training). Usage: node tools/frontier-rsi.mjs [loop | tooling | none mapped | indexed |
 | `gendocs.mjs` | Generates docs/BIBLE.md, docs/GLOSSARY.md, docs/COURSE.md from the in-app learning data. | tooling | none mapped | indexed |
 | `mkcorpus.mjs` | mjs | tooling | none mapped | indexed |
-| `nested-convert.mjs` | Convert neuralese-nested's float64 models.json into one Float32 binary + a JSON index (v14.7). Original Neural | tooling | none mapped | indexed |
-| `netfail.mjs` | Network-failure check: the first two weight requests fail (HTTP 503, then an aborted connection); the loader m | tooling | none mapped | indexed |
+| `nested-convert.mjs` | Convert neuralese-nested's float64 models.json into one Float32 binary + a JSON index (v14.7). Original Neural | tooling | none mapped | reviewed, passes 50–51 |
+| `netfail.mjs` | Network-failure check: the first two weight requests fail (HTTP 503, then an aborted connection); the loader m | tooling | none mapped | reviewed, passes 50–51 |
 | `ngvsadam.mjs` | v10 (c): natural gradient (Fisher = 4 × Fubini–Study metric of √p) vs Adam, equal step counts, seeded, with 95 | tooling | none mapped | indexed |
 | `nlens-common.mjs` | Shared Node helpers for the v14 Neuron Lens pipeline (fit, database, validation). | tooling | none mapped | indexed |
 | `nlens-db.mjs` | Builds the Neuron Lens database for TinyStories-8M: every MLP neuron's input/output reads through every lens a | tooling | none mapped | indexed |

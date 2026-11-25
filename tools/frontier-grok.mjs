@@ -1,4 +1,4 @@
-// v11 P5: runs the pre-registered grokking config and the weight-decay-0 control. Usage: node tools/frontier-grok.mjs > site/frontier/data/grok.json
+// v11 P5: runs the pre-registered grokking config and the weight-decay-0 control. Usage: node tools/frontier-grok.mjs > src/frontier/data/grok.json
 import { SITE, prereg } from './_fload.mjs';
 const G = await import(SITE + 'frontier/grok.js'); const t0 = Date.now();
 const main = G.run(G.CONFIGS[0], 50), ctl = G.run({ ...G.CONFIGS[0], wd: 0 }, 50);

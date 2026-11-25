@@ -32,6 +32,7 @@ Passes 1–22 are the earlier engineering log in [PASSES.md](PASSES.md). This fi
 | AUD-047 | 47 | `src/lab-tsotchke.js` `taylorJet`; `src/lab-research.js` `statsHeads`; `src/model.js` `copyWeightsIntoYield` | high | On preview `3d36ace`, mobile app max was 628 ms and tablet 621 ms. The scripts were `forwardAsync` and `ceJetLnf` inside the Taylor jet, `docCE` inside the head study, and a 262144-float weight copy. | `d81bc83` | `test/audit-hardening.test.mjs`. The jet and the head study run in `engine-worker.js` and return the coefficients or the CE vectors. Main-thread copies are 8192 floats. |
 | AUD-048 | 48 | `.github/workflows/release.yml` | medium | The TinyStories cache key was `tinystories-model-v1`, so a pin change could reuse the wrong files. The key is now the pinned `model.safetensors` SHA-256. `fetch-model.mjs` still runs, and `test/science.test.mjs` still throws if the file is missing. | `d81bc83` | `test/audit-hardening.test.mjs` |
 | AUD-049 | 49 | `docs/STEERING_GUIDE.md` | low | The beginner guide said the weight download is about 80 MB. The pinned file is 112377544 bytes. | `d81bc83` | `test/audit-hardening.test.mjs` |
+| AUD-050 | 50 | `tools/a11y.mjs:3` | low | The axe helper only read `/workspace/neuralese/node_modules/axe-core/axe.min.js`, a path from an old checkout. It now uses this repo's `node_modules` and still accepts that older path. | this commit | the file throws a clear error when axe-core is absent |
 | AUD-035 | 35 | `src/linalg.js:21` | info | One-sided Jacobi SVD of a 3×3 matrix reconstructs it within 1e-8 and returns singular values in descending order. | no code change | `test/audit-hardening.test.mjs` |
 | AUD-036 | 36 | `src/` first-party scripts | info | `eval` and `new Function` appear only under `src/vendor` and `src/hub/vendor`. | no code change | `test/audit-hardening.test.mjs` |
 
@@ -72,4 +73,4 @@ Passes 1–22 are the earlier engineering log in [PASSES.md](PASSES.md). This fi
 Raw / paint (not gated): mobile raw max 684 p95 460, paint/GL 684, gl-init 684. Tablet raw 1230 / 379, paint 906, gl-init 618. Desktop raw 1129 / 365, paint 1129, gl-init 1129. Scripts still between 100 and 200 ms on that run, which fails p95 whenever fewer than 20 frames are at least 50 ms: mobile dot-product tour 178, `lab-v16.js` import 137, weight snapshot 102; tablet SVG export 187, grok live 114.
 
 - `test/science.test.mjs` fetches the pinned TinyStories-8M files when they are missing and fails if that download fails. It passed 8/8 after `node tools/fetch-model.mjs`.
-- 119 of 505 files in [AUDIT_INDEX.md](AUDIT_INDEX.md) are reviewed (23.6%).
+- 129 of 505 files in [AUDIT_INDEX.md](AUDIT_INDEX.md) are reviewed (25.5%).
