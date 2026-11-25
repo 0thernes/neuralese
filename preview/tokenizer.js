@@ -81,11 +81,12 @@ export class GPT2Tokenizer {
   // Page path. The rank table is the precomputed binary; only the vocab strings are copied, and that copy yields.
   static async createFromPairs(vocab, buffer) {
     const tok = GPT2Tokenizer.fromPairs(vocab, buffer, true);
-    tok.decoder = [];
+    tok.decoder = new Array(65536);
+    if (typeof document !== 'undefined') await frame();
     let i = 0;
     for (const k in vocab) {
       tok.decoder[vocab[k]] = k;
-      if ((++i & 63) === 0 && typeof document !== 'undefined') await frame();
+      if ((++i & 255) === 0 && typeof document !== 'undefined') await frame();
     }
     return tok;
   }
