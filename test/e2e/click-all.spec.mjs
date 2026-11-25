@@ -39,9 +39,17 @@ function pngVaries(buf) {
 
 async function nonBlank(page, selector) {
   const loc = page.locator(selector).first();
+  await loc.waitFor({ state: 'attached', timeout: 20000 }).catch(() => {});
   const box = await loc.boundingBox({ timeout: 20000 }).catch(() => null);
   if (!box || box.width < 20 || box.height < 20) return { ok: false, reason: 'size', w: box?.width ?? 0, h: box?.height ?? 0 };
-  const png = await loc.screenshot({ type: 'png', timeout: 20000 });
+  const clip = { x: Math.max(0, box.x), y: Math.max(0, box.y), width: Math.max(1, Math.floor(box.width)), height: Math.max(1, Math.floor(box.height)) };
+  let png = null;
+  let err = '';
+  for (let i = 0; i < 3 && !png; i++) {
+    try { png = await page.screenshot({ type: 'png', clip, animations: 'disabled', timeout: 20000 }); }
+    catch (e) { err = String(e.message || e).slice(0, 180); await page.waitForTimeout(300); }
+  }
+  if (!png) return { ok: false, reason: err || 'shot', w: box.width, h: box.height };
   return pngVaries(png);
 }
 
@@ -95,6 +103,19 @@ for (const [w, h, name] of WIDTHS) test(`click every control · ${name}`, async 
     await page.goto(URL, { waitUntil: 'domcontentloaded', timeout: 90000 });
     await page.waitForSelector('#v17 .wsbar', { timeout: 30000 });
     await page.waitForFunction(() => document.body.dataset.modelReady === '1', null, { timeout: 600000 });
+    const manifest = await page.evaluate(() => window.__manifestPanels || []);
+    if (!manifest.length) failures.push(`${name} manifest missing`);
+    for (const ws of manifest) {
+      const on = await page.evaluate((id) => {
+        const b = document.querySelector(`#v17 .wsbar button[data-ws="${id}"]`);
+        if (!b) return false;
+        b.click();
+        return document.querySelector('#v17 .wsbar button.on')?.getAttribute('data-ws') === id;
+      }, ws.id);
+      if (!on) { failures.push(`${name} workspace ${ws.id} did not activate`); continue; }
+      const have = await page.locator('#v17 [data-panel]').evaluateAll((els) => els.map((e) => e.getAttribute('data-panel')));
+      for (const pid of ws.panels) if (!have.includes(pid)) failures.push(`${name} missing manifest panel ${pid} in ${ws.id}`);
+    }
     await page.evaluate(() => document.fonts ? document.fonts.ready : null);
     await page.keyboard.press('Escape');
     await page.evaluate(() => {
@@ -241,7 +262,8 @@ for (const [w, h, name] of WIDTHS) test(`click every control · ${name}`, async 
     shot.on('pageerror', (e) => shotErrors.push('PAGE ' + (e.message || '').slice(0, 400)));
     await shot.addInitScript(() => { localStorage.setItem('neuralese.v17.toured', '1'); });
     await shot.goto(URL, { waitUntil: 'domcontentloaded', timeout: 90000 });
-    await shot.waitForSelector('#v17 .wsbar', { timeout: 240000 });
+    await shot.waitForSelector('#v17 .wsbar', { timeout: 30000 });
+    await shot.waitForFunction(() => document.body.dataset.modelReady === '1', null, { timeout: 600000 });
     const showShot = async (ws, panel) => {
       await shot.evaluate((id) => document.querySelector(`#v17 .wsbar button[data-ws="${id}"]`)?.click(), ws);
       await shot.waitForFunction((id) => document.querySelector('#v17 .wsbar button.on')?.dataset.ws === id, ws);

@@ -1,13 +1,13 @@
 // In-app terminal: a small, safe command language over the real app API (no eval). Shared by the batch runner.
-import { $, esc, MATS_OK } from './term-util.js?v=173';
-import { ping } from './mf-client.js?v=173';
-import { frame } from './coop.js?v=173';
+import { $, esc, MATS_OK } from './term-util.js?v=174';
+import { ping } from './mf-client.js?v=174';
+import { frame } from './coop.js?v=174';
 export const VERSION = '17.3.0';
-import { CMDS as SCI_CMDS } from './lab-science.js?v=173';
-import { CMDS as RES_CMDS } from './lab-research.js?v=173';
-import { CMDS as TSK_CMDS } from './lab-tsotchke.js?v=173';
-import { CMDS as FR_CMDS } from './lab-frontier.js?v=173';
-import { CMDS as HUB_CMDS } from './lab-hub.js?v=173';
+import { CMDS as SCI_CMDS } from './lab-science.js?v=174';
+import { CMDS as RES_CMDS } from './lab-research.js?v=174';
+import { CMDS as TSK_CMDS } from './lab-tsotchke.js?v=174';
+import { CMDS as FR_CMDS } from './lab-frontier.js?v=174';
+import { CMDS as HUB_CMDS } from './lab-hub.js?v=174';
 const SET_KEYS = ['n', 'seed', 'temp', 'topk', 'topp', 'minp', 'typical', 'rep', 'freq', 'pres', 'mode'];
 export const COMMANDS = {
   help: ['help [cmd]', 'list commands or show usage of one'],
@@ -70,7 +70,7 @@ export function makeTerminal(A, out) {
       case 'set': { const k = a[0]; if (!SET_KEYS.includes(k)) throw new Error('key must be one of ' + SET_KEYS.join(', ')); const el = $('d_' + k); if (k === 'mode') { if (![...el.options].some((o) => o.value === a[1])) throw new Error('mode: ' + [...el.options].map((o) => o.value).join('|')); el.value = a[1]; } else el.value = num(a[1], k); return `${k} = ${el.value}`; }
       case 'get': { const R = A.R(); return SET_KEYS.map((k) => `${k}=${$('d_' + k).value}`).join(' ') + `\nweight edits ${A.ed().edits.length} · steering ops ${R.steer.length} · logit biases ${Object.keys(R.logitBias || {}).length} · h-steers ${(R.hSteer || []).length} · head ablations ${R.headAbl.flat().filter(Boolean).length} · neuron ablations ${R.neuronAbl.length}`; }
       case 'edit': { const k = a[0], seed = Date.now() % 1e6;
-        if (k === 'chaos') { const p = num(a[1], 'pct', 0, 100); A.commit(`chaos ${p}%`, () => A.ed().push({ kind: 'chaos', pct: p, seed })); }
+        if (k === 'chaos') { const p = num(a[1], 'pct', 0, 100); await A.commitAsync(`chaos ${p}%`, () => A.ed().pushAsync({ kind: 'chaos', pct: p, seed })); }
         else if (k === 'quant') { const bits = num(a[1], 'bits', 1, 8) | 0, ls = a[2] ? A.parseLayers(a[2]) : new Set([0, 1, 2, 3, 4, 5, 6, 7]); A.commit(`int${bits} quantize`, () => A.ed().push({ kind: 'quant', bits, layers: [...ls], mats: MATS_OK })); }
         else if (k === 'svd') { const p = mat(a[1]), kk = num(a[2], 'k', 1, 1024) | 0; A.weightEdit(`SVD keep top-${kk} ${p}`, { kind: 'svd', path: p, mode: 'topk', k: kk }, p); }
         else if (k === 'scale') { const p = mat(a[1]), f = num(a[2], 'factor'); A.weightEdit(`scale ${p} ×${f}`, { kind: 'elem', target: { type: 'matrix', path: p }, fn: 'scale', amt: f, seed }, p); }
@@ -85,7 +85,7 @@ export function makeTerminal(A, out) {
       case 'bias': if (a[0] === 'clear') { A.commit('clear logit bias', () => (A.R().logitBias = {})); return 'cleared'; } return 'bias ' + JSON.stringify(out.logitBias(rest));
       case 'hsteer': out.hsteer(' ' + a[0], num(a[1], 'coef')); return `✔ h-steer toward "${a[0]}"`;
       case 'undo': A.undo(); return `undo · ${A.ed().edits.length} edits`; case 'redo': A.redo(); return 'redo';
-      case 'reset': A.reset(); return 'reset: model is bit-identical to the original';
+      case 'reset': await A.reset(); return 'reset: model is bit-identical to the original';
       case 'analyze': A.showTab('an'); await A.analyze(); return 'analysis done (ANALYZE tab)';
       case 'impact': { if (rest) $('xIP').value = rest; const r = await out.impact(); return `final KL ${r.finalKL.toExponential(3)} nats · TV ${r.tv.toFixed(4)} · per-slot KL ${r.perLayer.map((x) => x.toExponential(1)).join(' ')}`; }
       case 'calib': { const r = await out.calib(a[0] ? num(a[0], 'N', 16, 1000) : 160); return `clean ppl ${r.clean.ppl.toFixed(3)} acc ${(100 * r.clean.acc).toFixed(1)}% ECE ${(100 * r.clean.ece).toFixed(2)}%\ncurrent ppl ${r.cur.ppl.toFixed(3)} acc ${(100 * r.cur.acc).toFixed(1)}% ECE ${(100 * r.cur.ece).toFixed(2)}%`; }

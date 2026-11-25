@@ -25,17 +25,13 @@ export function App(): JSX.Element {
   const [compact, setCompact] = createSignal(innerWidth < 760); const [pal, setPal] = createSignal(false); const [tour, setTour] = createSignal(false);
   const setLayout = (n: Node): void => { setLayoutSig(n); store.set(LK(ws().id), serialize(n)); };
   const go = (w: Workspace, panel?: string): void => {
-    // A workspace change re-renders the dock. Doing the signal write and the layout
-    // write in one turn was a single long script after the Neuron Lens / Nested quick buttons.
-    const paintLegacy = (): void => { if (panel?.startsWith('legacy:')) setTimeout(() => showLegacy(panel.slice(7)), 0); };
-    if (w.id !== ws().id) {
-      setTimeout(() => {
-        setWs(w); store.set('neuralese.v17.ws', w.id);
-        setTimeout(() => { setLayout(panel ? activate(addPanel(loadLayout(w), panel), panel) : loadLayout(w)); paintLegacy(); }, 0);
-      }, 0);
-      return;
-    }
-    if (panel) { setLayout(activate(addPanel(layout(), panel), panel)); paintLegacy(); }
+    // The dock updates in this turn. A deferred layout write raced the cooperative queue:
+    // the click returned, and the panel was not in the document yet.
+    const base = w.id === ws().id ? layout() : loadLayout(w);
+    const next = panel ? activate(addPanel(base, panel), panel) : base;
+    if (w.id !== ws().id) { setWs(w); store.set('neuralese.v17.ws', w.id); }
+    setLayout(next);
+    if (panel?.startsWith('legacy:')) showLegacy(panel.slice(7));
   };
   const cmds = (): Cmd[] => [
     ...WORKSPACES.map((w) => ({ id: 'ws-' + w.id, title: `${w.title} workspace`, hint: w.blurb, run: () => go(w) })),
@@ -66,6 +62,7 @@ export function App(): JSX.Element {
     // legacy code that calls showTab(k) on its own (links, terminal, quiz) → bring that tab's workspace forward
     document.addEventListener('neuralese:tab', (e) => { if (isShowing()) return; const k = (e as CustomEvent<string>).detail; if (activeLegacy.has(k)) return; const w = workspaceOfLegacy(k); if (w) go(w, 'legacy:' + k); });
     if (!store.get(TOUR_KEY) && !/notour/.test(location.search)) setTour(true);
+    (window as unknown as { __manifestPanels?: { id: string; panels: string[] }[] }).__manifestPanels = WORKSPACES.map((w) => ({ id: w.id, panels: panelsOf(w) }));
     const mark = (): void => setModelReady(true);
     if (legacy()) mark(); else document.addEventListener('neuralese:ready', mark, { once: true });
   });

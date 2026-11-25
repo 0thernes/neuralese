@@ -1,29 +1,60 @@
-// One scheduler for every long loop. A slice runs until budgetMs of wall time, then yields.
-// scheduler.yield() hands the frame back to the browser. MessageChannel is the next choice.
-// requestAnimationFrame is the last. setTimeout is not used: it clamps and bunches.
+// One queue, one frame budget. Every concurrent job spends the same ~8 ms, then waits for the
+// next paint. requestAnimationFrame, then a MessageChannel post, so the continuation runs after
+// the browser has rendered. scheduler.yield() is not used: its continuations pile into one frame.
+const FRAME_MS = 8;
+const SLOW_STEP_MS = 16;
 let stop = false;
-let t0 = 0;
+let frameStart = 0;
+let gate = null;
+
 export function cancelJobs() { stop = true; }
-export function resetCancel() { stop = false; t0 = 0; }
+export function resetCancel() { stop = false; frameStart = 0; gate = null; }
 export function cancelled() { return stop; }
+
 function noteYield(label) {
   if (typeof globalThis.__yieldFrom === 'function') globalThis.__yieldFrom(label || '');
 }
-export function yieldHost(label) {
+
+function armFrame() {
+  if (!frameStart) frameStart = performance.now();
+}
+
+export function frameBudgetSpent() {
+  armFrame();
+  return performance.now() - frameStart >= FRAME_MS;
+}
+
+// rAF marks the next frame. The MessageChannel task runs after that frame's paint.
+function nextPaint(label) {
   noteYield(label || '');
-  const sched = globalThis.scheduler;
-  if (sched && typeof sched.yield === 'function') return sched.yield();
-  const Channel = globalThis.MessageChannel;
-  if (typeof Channel === 'function') {
-    return new Promise((resolve) => {
-      const ch = new Channel();
-      ch.port1.onmessage = () => { ch.port1.close(); ch.port2.close(); resolve(); };
-      ch.port2.postMessage(null);
+  return new Promise((resolve) => {
+    const post = () => {
+      const Channel = globalThis.MessageChannel;
+      if (typeof Channel === 'function') {
+        const ch = new Channel();
+        ch.port1.onmessage = () => { ch.port1.close(); ch.port2.close(); resolve(); };
+        ch.port2.postMessage(0);
+        return;
+      }
+      resolve();
+    };
+    if (typeof requestAnimationFrame === 'function') requestAnimationFrame(() => post());
+    else post();
+  });
+}
+
+export function waitNextFrame(label) {
+  if (!gate) {
+    gate = nextPaint(label).then(() => {
+      frameStart = performance.now();
+      gate = null;
     });
   }
-  if (typeof requestAnimationFrame === 'function') return new Promise((resolve) => requestAnimationFrame(() => resolve()));
-  return Promise.resolve();
+  return gate;
 }
+
+export function yieldHost(label) { return waitNextFrame(label); }
+
 function asIterator(iter) {
   if (iter && typeof iter.next === 'function') return iter;
   if (iter && typeof iter[Symbol.iterator] === 'function') return iter[Symbol.iterator]();
@@ -33,33 +64,32 @@ function asIterator(iter) {
   }
   throw new Error('runBudgeted needs an iterator');
 }
-// iter is an iterator or a generator function. Each next() is one step. When performance.now()
-// shows the budget is spent, the host is yielded and the clock restarts.
+
+function noteSlow(label, ms) {
+  if (ms > SLOW_STEP_MS) console.warn(`budget: step ${label} took ${ms.toFixed(1)} ms`);
+}
+
+// All callers share frameStart. A job waits when the frame is already spent, including by another job.
 export async function runBudgeted(iter, opts = {}) {
-  const budget = opts.budgetMs ?? 8;
   const it = asIterator(iter);
-  const label = opts.label || new Error().stack || '';
-  let start = performance.now();
+  const label = opts.label || 'anonymous';
   for (;;) {
+    if (stop) { stop = false; throw new Error('cancelled'); }
+    if (gate || frameBudgetSpent()) await waitNextFrame(label);
+    const t0 = performance.now();
     const step = it.next();
+    noteSlow(label, performance.now() - t0);
     if (step.done) return step.value;
     if (step.value && typeof step.value.then === 'function') await step.value;
-    if (stop) { stop = false; throw new Error('cancelled'); }
-    if (performance.now() - start >= budget) {
-      await yieldHost(label);
-      start = performance.now();
-    }
   }
 }
-globalThis.neuraleseBudget = { runBudgeted, yieldHost };
-export function frame() { return yieldHost(new Error().stack); }
-export function namedFrame(label) { return yieldHost(String(label || '')); }
+
+globalThis.neuraleseBudget = { runBudgeted, yieldHost, waitNextFrame, frameBudgetSpent };
+export function frame() { return waitNextFrame(new Error().stack); }
+export function namedFrame(label) { return waitNextFrame(String(label || '')); }
 export function slice() {
-  const now = performance.now();
-  if (!t0) t0 = now;
-  if (!stop && now - t0 < 8) return null;
-  return yieldHost(new Error().stack).then(() => {
-    t0 = performance.now();
-    if (stop) { stop = false; throw new Error('cancelled'); }
-  });
+  if (stop) { stop = false; throw new Error('cancelled'); }
+  if (gate) return waitNextFrame(new Error().stack);
+  if (!frameBudgetSpent()) return null;
+  return waitNextFrame(new Error().stack);
 }

@@ -14,89 +14,136 @@ function clock() {
   };
 }
 
-test('runBudgeted yields only after the time budget is spent and keeps step order', async () => {
+function installFrame(t) {
+  const prevRaf = globalThis.requestAnimationFrame;
+  const PrevMC = globalThis.MessageChannel;
+  const prevSched = globalThis.scheduler;
+  let raf = 0;
+  let posts = 0;
+  let yields = 0;
+  globalThis.scheduler = { yield() { yields++; return Promise.resolve(); } };
+  globalThis.requestAnimationFrame = (cb) => { raf++; queueMicrotask(() => cb(t.get())); return raf; };
+  globalThis.MessageChannel = class extends PrevMC {
+    constructor() { super(); posts++; }
+  };
+  return {
+    raf: () => raf,
+    posts: () => posts,
+    yields: () => yields,
+    restore() {
+      globalThis.requestAnimationFrame = prevRaf;
+      globalThis.MessageChannel = PrevMC;
+      globalThis.scheduler = prevSched;
+    },
+  };
+}
+
+test('runBudgeted waits for a frame only after the shared budget is spent', async () => {
   const t = clock();
+  const frame = installFrame(t);
   const seen = [];
-  const yields = [];
-  const prev = globalThis.scheduler;
-  globalThis.scheduler = { yield() { yields.push(t.get()); return Promise.resolve(); } };
   try {
     await runBudgeted((function* () {
       for (let i = 0; i < 5; i++) { seen.push(i); t.add(3); yield; }
-    })(), { budgetMs: 8 });
+    })(), { budgetMs: 8, label: 'order' });
   } finally {
     t.restore();
-    globalThis.scheduler = prev;
+    frame.restore();
     resetCancel();
   }
   assert.deepEqual(seen, [0, 1, 2, 3, 4]);
-  // 0+3, +3, +3 crosses 8 at t=9. The clock then restarts, and the last two steps stay inside the next budget.
-  assert.deepEqual(yields, [9]);
+  assert.equal(frame.yields(), 0);
+  assert.ok(frame.raf() >= 1);
+  assert.equal(frame.posts(), frame.raf());
 });
 
-test('runBudgeted does not yield while the work stays inside the budget', async () => {
+test('work inside the frame budget does not wait for a paint', async () => {
   const t = clock();
-  const yields = [];
-  const prev = globalThis.scheduler;
-  globalThis.scheduler = { yield() { yields.push(t.get()); return Promise.resolve(); } };
+  const frame = installFrame(t);
   try {
     await runBudgeted((function* () {
       for (let i = 0; i < 4; i++) { t.add(1); yield; }
-    })(), { budgetMs: 8 });
+    })(), { label: 'short' });
   } finally {
     t.restore();
-    globalThis.scheduler = prev;
+    frame.restore();
+    resetCancel();
   }
-  assert.deepEqual(yields, []);
+  assert.equal(frame.raf(), 0);
 });
 
-test('yieldHost prefers scheduler.yield, then MessageChannel, then requestAnimationFrame', async () => {
-  const prevSched = globalThis.scheduler;
-  const PrevMC = globalThis.MessageChannel;
-  const prevRaf = globalThis.requestAnimationFrame;
+test('concurrent jobs share one frame budget', async () => {
+  const t = clock();
+  const frame = installFrame(t);
+  const marks = [];
   try {
-    let used = '';
-    globalThis.scheduler = { yield() { used = 'sched'; return Promise.resolve(); } };
-    globalThis.MessageChannel = function () { used = 'mc'; throw new Error('channel'); };
-    await yieldHost();
-    assert.equal(used, 'sched');
-
-    used = '';
-    globalThis.scheduler = undefined;
-    let constructed = 0;
-    globalThis.MessageChannel = class extends PrevMC {
-      constructor() { super(); constructed++; }
-    };
-    await yieldHost();
-    assert.equal(constructed, 1);
-
-    used = '';
-    globalThis.scheduler = undefined;
-    globalThis.MessageChannel = undefined;
-    let raf = 0;
-    globalThis.requestAnimationFrame = (cb) => { raf++; cb(0); return 1; };
-    await yieldHost();
-    assert.equal(raf, 1);
+    const job = (name) => runBudgeted((function* () {
+      for (let i = 0; i < 4; i++) { marks.push({ name, t: t.get(), frame: frame.raf() }); t.add(5); yield; }
+    })(), { label: name });
+    await Promise.all([job('a'), job('b')]);
   } finally {
-    globalThis.scheduler = prevSched;
-    globalThis.MessageChannel = PrevMC;
-    globalThis.requestAnimationFrame = prevRaf;
+    t.restore();
+    frame.restore();
+    resetCancel();
   }
+  assert.equal(marks.length, 8);
+  const byFrame = new Map();
+  for (const m of marks) {
+    const span = byFrame.get(m.frame) ?? { lo: m.t, hi: m.t };
+    span.lo = Math.min(span.lo, m.t);
+    span.hi = Math.max(span.hi, m.t);
+    byFrame.set(m.frame, span);
+  }
+  for (const span of byFrame.values()) assert.ok(span.hi - span.lo <= 13, JSON.stringify([...byFrame]));
+  assert.ok(frame.raf() >= 3, 'frames ' + frame.raf());
+  assert.equal(frame.yields(), 0);
+});
+
+test('a frame wait is requestAnimationFrame then a MessageChannel post', async () => {
+  const t = clock();
+  const frame = installFrame(t);
+  try {
+    await yieldHost('paint');
+  } finally {
+    t.restore();
+    frame.restore();
+  }
+  assert.equal(frame.yields(), 0);
+  assert.equal(frame.raf(), 1);
+  assert.equal(frame.posts(), 1);
 });
 
 test('runBudgeted throws once the job is cancelled', async () => {
   const t = clock();
-  const prev = globalThis.scheduler;
-  globalThis.scheduler = { yield() { return Promise.resolve(); } };
+  const frame = installFrame(t);
   try {
     await assert.rejects(runBudgeted((function* () {
       t.add(5); yield;
       cancelJobs();
       t.add(5); yield;
-    })(), { budgetMs: 1 }), /cancelled/);
+    })(), { budgetMs: 1, label: 'cancel' }), /cancelled/);
   } finally {
     t.restore();
-    globalThis.scheduler = prev;
+    frame.restore();
     resetCancel();
   }
+});
+
+test('a step over 16 ms is logged with its name', async () => {
+  const t = clock();
+  const frame = installFrame(t);
+  const warnings = [];
+  const orig = console.warn;
+  console.warn = (...args) => { warnings.push(args.join(' ')); };
+  try {
+    await runBudgeted((function* () {
+      t.add(20); yield;
+    })(), { label: 'batch-reset' });
+  } finally {
+    console.warn = orig;
+    t.restore();
+    frame.restore();
+    resetCancel();
+  }
+  assert.ok(warnings.some((w) => w.includes('batch-reset') && w.includes('20.0')));
 });
