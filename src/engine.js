@@ -35,6 +35,18 @@ export function matvec(Wm, x, out, nOut, nIn, bias) { // nIn must be a multiple 
   }
   return out;
 }
+export async function matvecYield(Wm, x, out, nOut, nIn, bias, pause, step = 1024) {
+  for (let i0 = 0; i0 < nOut; i0 += step) {
+    const i1 = Math.min(nOut, i0 + step);
+    for (let i = i0; i < i1; i++) {
+      let s0 = 0, s1 = 0, s2 = 0, s3 = 0; const o = i * nIn;
+      for (let j = 0; j < nIn; j += 4) { s0 += Wm[o + j] * x[j]; s1 += Wm[o + j + 1] * x[j + 1]; s2 += Wm[o + j + 2] * x[j + 2]; s3 += Wm[o + j + 3] * x[j + 3]; }
+      out[i] = (bias ? bias[i] : 0) + s0 + s1 + s2 + s3;
+    }
+    if (pause) await pause();
+  }
+  return out;
+}
 export const gelu = (x) => 0.5 * x * (1 + Math.tanh(0.7978845608028654 * (x + 0.044715 * x * x * x)));
 export function posIndex(P, t) {
   let p = P.freeze >= 0 ? Math.min(t, P.freeze) : Math.round(t * P.scale) + P.shift;
@@ -211,6 +223,8 @@ export class Engine {
     return { h, trace: tr, x };
   }
   logits(h) { if (this.gpu && this.gpu.ready && this.gpu.W === this.W) return this.gpu.unembedSync ? this.gpu.unembedSync(h) : matvec(this.W.wte, h, new Float32Array(V), V, d); return matvec(this.W.wte, h, new Float32Array(V), V, d); }
+  async logitsYield(h, pause) { const out = new Float32Array(V); await matvecYield(this.W.wte, h, out, V, d, null, pause, 1024); return out; }
+  async lensLogitsYield(x, pause) { const h = new Float32Array(d); layerNorm(x, this.W.lnfW, this.W.lnfB, h); return this.logitsYield(h, pause); }
   // logits used for sampling: unembedding + logit-space bias
   outLogits(h) { const l = this.logits(h), B = this.R.logitBias || {}; for (const k in B) l[+k] += B[k]; return l; }
   logitOf(h, id) { let s = 0; const o = id * d; for (let j = 0; j < d; j++) s += this.W.wte[o + j] * h[j]; return s; }

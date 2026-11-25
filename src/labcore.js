@@ -247,7 +247,8 @@ export async function editImpact(engC, engH, ids) {
   };
   const a = await play(engC), b = await play(engH), T = ids.length;
   const sl = Math.min(engC.R.program.length, engH.R.program.length), perLayer = [];
-  for (let s = 0; s < sl; s++) { perLayer.push(klLogits(logSoftmax(engH.lensLogits(b[T - 1].resid_post[s])), logSoftmax(engC.lensLogits(a[T - 1].resid_post[s])))); if ((s & 1) === 1) await frame(); }
+  const pause = typeof document !== 'undefined' ? frame : null;
+  for (let s = 0; s < sl; s++) { perLayer.push(klLogits(logSoftmax(await engH.lensLogitsYield(b[T - 1].resid_post[s], pause)), logSoftmax(await engC.lensLogitsYield(a[T - 1].resid_post[s], pause)))); }
   const perPos = []; for (let i = 0; i < a.length; i++) { perPos.push(klLogits(logSoftmax(engH.logits(b[i].h)), logSoftmax(engC.logits(a[i].h)))); const y = slice(); if (y) await y; }
   const pC = logSoftmax(engC.logits(a[T - 1].h)), pH = logSoftmax(engH.logits(b[T - 1].h)), dif = [];
   for (let i = 0; i < pC.length; i++) { const dlt = Math.exp(pH[i]) - Math.exp(pC[i]); if (Math.abs(dlt) > 1e-4) dif.push([i, dlt, Math.exp(pC[i]), Math.exp(pH[i])]); }

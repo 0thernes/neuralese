@@ -115,6 +115,16 @@ test('ACDC async path yields per node and does not score with the sync objective
   assert.ok(!fn.slice(0, fn.indexOf('export async function scrubAsync')).includes('objective('));
 });
 
+test('a yielded unembed matches a full matvec', async () => {
+  const { matvec, matvecYield } = await import('../src/engine.js');
+  const nOut = 3000, nIn = 8;
+  const W = Float32Array.from({ length: nOut * nIn }, (_, i) => ((i * 17) % 50) / 25 - 1);
+  const x = Float32Array.from({ length: nIn }, (_, i) => i - 3);
+  const a = matvec(W, x, new Float32Array(nOut), nOut, nIn);
+  const b = await matvecYield(W, x, new Float32Array(nOut), nOut, nIn, null, async () => {}, 1024);
+  for (let i = 0; i < nOut; i++) assert.ok(Math.abs(a[i] - b[i]) < 1e-5);
+});
+
 test('a yielded grokking step matches one full step', async () => {
   const cfg = { p: 7, N: 8, lr: 3e-3, wd: 1, frac: 0.5, steps: 2, seed: 1 };
   const a = Grok.init(cfg), b = Grok.init(cfg);
