@@ -5,9 +5,9 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 | | |
 |---|---|
 | Files | 505 |
-| Reviewed (passes 23–73) | 161 |
-| Indexed, not reviewed | 344 |
-| Coverage | 31.9% |
+| Reviewed (passes 23–79) | 167 |
+| Indexed, not reviewed | 338 |
+| Coverage | 33.1% |
 
 
 ## `/`
@@ -220,7 +220,7 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 | File | Purpose | Owner | Tests | Status |
 |---|---|---|---|---|
 | `arch.js` | v16 Arch interface: one decoder-only transformer forward for several HF families, replacing the single hard-wi | arch | none mapped | indexed |
-| `encoder-worker.js` | v16 HUB interpretability worker: loads a revision-pinned HF safetensors checkpoint (ViT, CLIP vision tower, Wh | arch | none mapped | indexed |
+| `encoder-worker.js` | v16 HUB interpretability worker: loads a revision-pinned HF safetensors checkpoint (ViT, CLIP vision tower, Wh | arch | none mapped | reviewed, passes 74–79 |
 | `encoder.js` | v16 encoder forwards for the HUB families, written from the HF reference implementations so that hidden states | arch | none mapped | indexed |
 | `remote.js` | v16: read only the tensors you need from a remote .safetensors with HTTP Range requests (e.g. the CLIP vision  | arch | none mapped | reviewed, pass 58 |
 
@@ -232,7 +232,7 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 | `cells.d.ts` | ts | forge | none mapped | indexed |
 | `cells.js` | Frozen arithmetic cells for the WeightCPU / MDCC comparison. | forge | none mapped | reviewed, pass 66 |
 | `engine.d.ts` | ts | forge | none mapped | indexed |
-| `engine.js` | Weight-constructed Forge engine. One step is one clock: fetch, decode, ALU, writeback. | forge | none mapped | indexed |
+| `engine.js` | Weight-constructed Forge engine. One step is one clock: fetch, decode, ALU, writeback. | forge | none mapped | reviewed, passes 74–79 |
 | `host.d.ts` | ts | forge | none mapped | indexed |
 | `host.js` | Host attachment. The Forge subspace is a separate 64-wide stamp. | forge | none mapped | reviewed, pass 57 |
 | `isa.js` | ForgeISA/1 — Neuralese-original machine. Not a port of any published weight-baked CPU. | forge | none mapped | reviewed, pass 62 |
@@ -240,7 +240,7 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 | `nestlang.js` | NestLang/1 — Neuralese-original surface language for ForgeISA. | forge | none mapped | reviewed, pass 69 |
 | `session.d.ts` | ts | forge | none mapped | indexed |
 | `session.js` | One Forge run: language-model tokens, then the delimiter, then one engine token group per clock. | forge | none mapped | indexed |
-| `vm.js` | Integer reference VM for ForgeISA/1. Ground truth. Words are int32. No float rounding. | forge | none mapped | indexed |
+| `vm.js` | Integer reference VM for ForgeISA/1. Ground truth. Words are int32. No float rounding. | forge | none mapped | reviewed, passes 74–79 |
 
 ## `src/frontier/`
 
@@ -283,7 +283,7 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 | `finetune.js` | v12 in-browser fine-tuning of TinyStories-8M on the user's own text. Honest scope: parameter-efficient, 1,536  | hub | none mapped | reviewed, passes 52–53 |
 | `ft-worker.js` | v12: runs the fine-tune off the main thread (the exact-gradient loop costs ~10 s per Adam step on CPU). | hub | none mapped | reviewed, passes 50–51 |
 | `models.js` | v12 MODEL HUB registry. Every entry is a real, public ONNX repo on the Hugging Face Hub, run by transformers.j | hub | none mapped | reviewed, passes 39–40 |
-| `worker.js` | v12 MODEL HUB worker: runs transformers.js pipelines off the main thread. Messages: {id, op:'load'/'run'/'info | hub | none mapped | indexed |
+| `worker.js` | v12 MODEL HUB worker: runs transformers.js pipelines off the main thread. Messages: {id, op:'load'/'run'/'info | hub | none mapped | reviewed, passes 74–79 |
 
 ## `src/hub/vendor/`
 
@@ -624,7 +624,7 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 | `audit-regressions.smoke.mjs` | v12.1 smoke at the audit viewport (1240x700): one check per audit fix, screenshots of each, no console errors. | tests | self | indexed |
 | `core-ui.smoke.mjs` | mjs | tests | self | indexed |
 | `design-system.smoke.mjs` | v15 smoke: every tab renders with 0 console errors at 1440×900, 1240×700 and 390×844; sidebar search/collapse  | tests | self | indexed |
-| `engine-worker.smoke.mjs` | v15.3 smoke: generation runs in the engine Web Worker and produces exactly the main-thread (?noworker) tokens; | tests | self | indexed |
+| `engine-worker.smoke.mjs` | v15.3 smoke: generation runs in the engine Web Worker and produces exactly the main-thread (?noworker) tokens; | tests | self | reviewed, passes 74–79 |
 | `frontier.smoke.mjs` | v11 smoke: FRONTIER group — every tab renders and loads its data, every live check holds, live grokking and li | tests | self | indexed |
 | `hub.smoke.mjs` | v12 smoke: HUB group — each tab renders, every model actually runs in the worker, each self-test meets its thr | tests | self | indexed |
 | `lab-quiz.smoke.mjs` | mjs | tests | self | indexed |
@@ -715,7 +715,7 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 | `adv.ts` | Shared Adversary Lab state. The math lives in src/adversary and runs through the legacy bridge. | v17 shell | none mapped | indexed |
 | `bridge.ts` | Typed view of the legacy app (src/app.js publishes window.NEURALESE and fires neuralese:ready / neuralese:sel) | v17 shell | none mapped | indexed |
 | `cosmos-data.ts` | Derives what the model cosmos draws from real engine traces (Engine.step(…, {trace:true}) records). | v17 shell | none mapped | indexed |
-| `engine-api.ts` | Types for the existing worker protocols in src/ (engine-worker.js, arch/encoder-worker.js, lens-worker.js). | v17 shell | none mapped | indexed |
+| `engine-api.ts` | Types for the existing worker protocols in src/ (engine-worker.js, arch/encoder-worker.js, lens-worker.js). | v17 shell | none mapped | reviewed, passes 74–79 |
 | `forge.ts` | Shared Forge workspace state. The machine lives in src/forge. | v17 shell | none mapped | indexed |
 | `layout.ts` | Dockable, splittable panel layout as an immutable tree. Pure functions → unit-tested; persisted per workspace. | v17 shell | none mapped | indexed |
 | `machine.ts` | Signals for the Machine Room. The gadgets live in src/machine. | v17 shell | none mapped | indexed |

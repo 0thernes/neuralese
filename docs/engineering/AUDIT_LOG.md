@@ -54,6 +54,13 @@ Passes 1–22 are the earlier engineering log in [PASSES.md](PASSES.md). This fi
 | AUD-071 | 71 | `src/machine/isa.js` | info | WM-ISA adds a SYS opcode on top of ForgeISA/1 for the devices around the core. | no code change | machine tests |
 | AUD-072 | 72 | `src/walk/bits.js` | info | Float fields are read by rounding into a Float32Array, then splitting sign, exponent, and fraction. | no code change | walk tests |
 | AUD-073 | 73 | `src/walk/record.js` | info | A recorded forward copies the engine tensors out. Logits are the engine matvec on the final hidden state. | no code change | walk tests |
+| AUD-074 | 74 | `src/hub/worker.js` embed | medium | The embedding pipeline copied `t.data` into a plain array, then the result was structured-cloned. The page now receives that `Float32Array` by transfer. | this change | `test/audit-hardening.test.mjs` |
+| AUD-075 | 75 | `src/arch/encoder-worker.js` `MODELS` | info | ViT and Whisper check the whole-file SHA-256. CLIP is revision-pinned and fetched by range, and the progress line says the whole-file hash is not computed. | no code change | `test/encoder.test.mjs` covers the forward, not the download |
+| AUD-076 | 76 | `src/forge/vm.js` `step` | info | x0 is cleared after every instruction. BLT and SLT use a signed `<`. An illegal opcode or funct sets `fail` to `illegal` and does not write. LW/SW addresses are masked to 8 bits. | no code change | `test/forge.test.mjs` |
+| AUD-077 | 77 | `src/forge/engine.js` `step` | info | Fetch is a one-hot mux of the ROM word. Halt requires both the HALT opcode and `FUNCT_HALT`. BLT takes `sltBit`, the same signed compare as the VM. | no code change | `test/forge.test.mjs` |
+| AUD-078 | 78 | `ui/src/core/engine-api.ts` | info | The file types the worker messages. It does not reimplement the forward pass. | no code change | no new test |
+| AUD-079 | 79 | `test/smoke/engine-worker.smoke.mjs` | info | The smoke generates with the worker and with `?noworker` and requires the token strings to match. It also requires zero CSP violations across the legacy tabs. | no code change | the smoke itself |
+| AUD-080 | 80 | `desktop/main.cjs` | info | There is no preload script and no `ipcMain` handler. The window sets `contextIsolation`, `sandbox`, and `nodeIntegration: false`. Navigation off `app://` is cancelled. | no code change | `test/desktop-path.test.mjs` |
 | AUD-035 | 35 | `src/linalg.js:21` | info | One-sided Jacobi SVD of a 3×3 matrix reconstructs it within 1e-8 and returns singular values in descending order. | no code change | `test/audit-hardening.test.mjs` |
 | AUD-036 | 36 | `src/` first-party scripts | info | `eval` and `new Function` appear only under `src/vendor` and `src/hub/vendor`. | no code change | `test/audit-hardening.test.mjs` |
 

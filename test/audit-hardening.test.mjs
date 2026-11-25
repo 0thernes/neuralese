@@ -120,6 +120,12 @@ test('kl of a distribution with itself is 0, and a one-bit shift matches log 2',
   assert.equal(kl([0.2, 0.8], [0, 1]), Infinity);
 });
 
+test('hub embed posts the float buffer instead of a copied array', () => {
+  const src = readFileSync(new URL('../src/hub/worker.js', import.meta.url), 'utf8');
+  assert.ok(!src.includes('data: Array.from'));
+  assert.match(src, /\[data\.buffer\]/);
+});
+
 test('lab export stringifies one run at a time', () => {
   const src = readFileSync(new URL('../src/lab-eval.js', import.meta.url), 'utf8');
   assert.ok(!src.includes('JSON.stringify(lab.dump()'));
@@ -195,17 +201,20 @@ test('a yielded CE jet matches the sync jet', async () => {
   for (let k = 0; k < a.c.length; k++) assert.ok(Math.abs(a.c[k] - b.c[k]) < 1e-8, k + ' ' + a.c[k] + ' ' + b.c[k]);
 });
 
-test('png export captures an ImageBitmap and encodes the blob in the worker', () => {
+test('chart export posts an ImageBitmap or typed columns and does not build the file on the page', () => {
   const src = readFileSync(new URL('../src/lab-ui.js', import.meta.url), 'utf8');
-  const fn = src.slice(src.indexOf('async function pngBlob'), src.indexOf('export async function exportFor'));
-  assert.match(fn, /createImageBitmap/);
-  assert.match(fn, /resizeWidth/);
-  assert.match(fn, /const max = 96/);
-  assert.ok(!fn.includes('getImageData') && !fn.includes('toDataURL') && !fn.includes('toBlob') && !fn.includes('new Blob'));
+  const fn = src.slice(src.indexOf('export async function exportFor'));
+  assert.match(fn, /createImageBitmap\(src\)/);
+  assert.match(fn, /op: 'png'/);
+  assert.match(fn, /op: 'series'/);
+  assert.ok(!fn.includes('_csv') && !fn.includes('getImageData') && !fn.includes('toDataURL') && !fn.includes('TextEncoder'));
+  const charts = readFileSync(new URL('../src/charts.js', import.meta.url), 'utf8');
+  assert.match(charts, /const max = 96/);
+  assert.match(charts, /_thumb/);
+  assert.match(charts, /_pack/);
   const worker = readFileSync(new URL('../src/export-worker.js', import.meta.url), 'utf8');
   assert.match(worker, /convertToBlob/);
-  assert.match(worker, /new Blob/);
-  assert.match(worker, /createObjectURL/);
+  assert.match(worker, /op === 'series'/);
   assert.ok(!worker.includes('arrayBuffer'));
 });
 

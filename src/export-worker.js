@@ -17,6 +17,20 @@ onmessage = async (e) => {
     postMessage({ url: URL.createObjectURL(blob) });
     return;
   }
+  if (m && m.op === 'series') {
+    const cols = (m.cols || []).map((b) => new Float64Array(b));
+    const n = cols.reduce((hi, c) => Math.max(hi, c.length), 0);
+    const header = m.header || [];
+    const labels = m.labels || [];
+    const lines = [header.join(',')];
+    for (let i = 0; i < n; i++) {
+      const cells = [JSON.stringify(String(labels[i] ?? i))];
+      for (const col of cols) { const v = col[i]; cells.push(Number.isFinite(v) ? String(+v.toPrecision(6)) : ''); }
+      lines.push(cells.join(','));
+    }
+    postMessage({ url: URL.createObjectURL(new Blob([lines.join('\n')], { type: 'text/csv' })) });
+    return;
+  }
   if (m && m.op === 'png' && m.bmp) {
     const max = m.max || 96;
     const scale = Math.min(1, max / Math.max(m.bmp.width, m.bmp.height));

@@ -88,19 +88,15 @@ for (const [w, h, name] of WIDTHS) test(`click every control · ${name}`, async 
       globalThis.__handlers = [];
       globalThis.__handler = (fn) => { globalThis.__handlers.push({ t: performance.now(), src: String(fn).replace(/\s+/g, ' ').slice(0, 180) }); };
       const origTimeout = window.setTimeout;
+      // Do not wrap the callback. A wrapper defined in this init script has no sourceURL, so LoAF
+      // reported every timer as an anonymous setTimeout at position -1 and hid the real function.
       window.setTimeout = function (fn, delay, ...args) {
         if (typeof fn !== 'function') return origTimeout(fn, delay, ...args);
         const scheduled = tidy(new Error().stack);
         const src = String(fn).replace(/\s+/g, ' ').slice(0, 160);
-        return origTimeout(function () {
-          const t0 = performance.now();
-          globalThis.__yieldStack = '';
-          const r = fn.apply(this, arguments);
-          const t1 = performance.now();
-          window.__timerRuns.push({ scheduled, src, yield: globalThis.__yieldStack || '', t0, t1, click: window.__click || '' });
-          if (t1 - t0 > 40) console.warn(`phase timer ${Math.round(t1 - t0)}ms delay ${delay || 0} ${src}`);
-          return r;
-        }, delay, ...args);
+        const due = performance.now() + (delay || 0);
+        window.__timerRuns.push({ scheduled, src, t0: due, t1: due, click: '' });
+        return origTimeout(fn, delay, ...args);
       };
       const origURL = URL.createObjectURL;
       URL.createObjectURL = function (obj) {

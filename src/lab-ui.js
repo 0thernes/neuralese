@@ -1,8 +1,8 @@
 // Shared helpers for the v5 research tabs (markup builders, export, run tracker).
-import { CFG } from './model.js?v=189';
-import { frame, runBudgeted } from './coop.js?v=189';
-import { joinLines } from './bytes.js?v=189';
-import { createLab, fromTracker } from './agent/schema.js?v=189';
+import { CFG } from './model.js?v=190';
+import { frame, runBudgeted } from './coop.js?v=190';
+import { joinLines } from './bytes.js?v=190';
+import { createLab, fromTracker } from './agent/schema.js?v=190';
 export const { d, H, hd, L, ff, V } = CFG;
 export const $ = (id) => document.getElementById(id), $$ = (s, r = document) => [...r.querySelectorAll(s)];
 export const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
@@ -22,7 +22,7 @@ export function tokId(tok, s) { const ids = tok.encode(s); if (!ids.length) thro
 export function parseLayers(s) { const out = new Set(); for (const p of String(s).split(',')) { const m = p.trim().match(/^(\d+)(?:-(\d+))?$/); if (!m) throw new Error('bad layer list ' + s); for (let l = +m[1]; l <= +(m[2] ?? m[1]); l++) if (l < L) out.add(l); } if (!out.size) throw new Error('no valid layers'); return out; }
 export function canvasFit(cvs, h) { const w = cvs.clientWidth || 420; cvs.width = w * devicePixelRatio; cvs.height = h * devicePixelRatio; cvs.style.height = h + 'px'; const c = cvs.getContext('2d'); c.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0); return [c, w]; }
 export const chartBg = () => getComputedStyle(document.documentElement).getPropertyValue('--chart-bg').trim() || '#060a12';
-function exportWorker() { return new Worker(new URL('./export-worker.js?v=189', import.meta.url)); }
+function exportWorker() { return new Worker(new URL('./export-worker.js?v=190', import.meta.url)); }
 function workerBuffer(w) {
   return new Promise((resolve, reject) => {
     w.onmessage = (e) => resolve(e.data);
@@ -64,31 +64,34 @@ async function blobFromParts(parts, type) {
     return { url: await done, worker: w };
   } catch (e) { w.terminate(); throw e; }
 }
-async function pngBlob(el) {
-  if (!el.width || !el.height) return null;
-  const max = 96;
-  const scale = Math.min(1, max / Math.max(el.width, el.height));
-  const bmp = await createImageBitmap(el, { resizeWidth: Math.max(1, Math.round(el.width * scale)), resizeHeight: Math.max(1, Math.round(el.height * scale)), resizeQuality: 'low' });
-  const w = exportWorker();
-  const done = takeUrl(w);
-  try {
-    w.postMessage({ op: 'png', bmp, max }, [bmp]);
-    return { url: await done, worker: w };
-  } catch (e) { w.terminate(); throw e; }
-}
 function deliver(got, name) { clickUrl(got.url, name); releaseUrl(got.worker, got.url); }
+function armDownload(w, name) {
+  w.onmessage = (e) => { if (e.data && e.data.url) deliver({ url: e.data.url, worker: w }, name); };
+  w.onerror = () => w.terminate();
+}
 export async function saveParts(filename, parts, type = 'application/json') {
   deliver(await blobFromParts(parts, type), filename);
 }
 export async function exportFor(id, kind) {
-  await tick();
   const el = $(id); if (!el) return false; const name = `neuralese-${id}-${Date.now()}`;
-  if (kind === 'png') { if (el.tagName !== 'CANVAS') return false; const b = await pngBlob(el); if (!b) return false; deliver(b, `${name}.png`); return true; }
+  if (kind === 'png') {
+    const src = el._thumb || (el.tagName === 'CANVAS' ? el : null);
+    if (!src || !src.width || !src.height) return false;
+    const bmp = await createImageBitmap(src);
+    const w = exportWorker();
+    armDownload(w, `${name}.png`);
+    w.postMessage({ op: 'png', bmp, max: 96 }, [bmp]);
+    return true;
+  }
   if (kind === 'svg') { const s = el.tagName === 'svg' ? el : el.querySelector('svg'); if (!s) return false; const parts = [s.cloneNode(false).outerHTML.replace(/<\/[^>]+>$/, '')]; const kids = [...s.childNodes]; await runBudgeted((function* () { for (let i = 0; i < kids.length; i++) { parts.push(kids[i].nodeType === 1 ? kids[i].outerHTML : (kids[i].textContent || '')); yield; } })(), { budgetMs: 8 }); parts.push(`</${s.tagName}>`); deliver(await blobFromParts(parts, 'image/svg+xml'), `${name}.svg`); return true; }
   if (kind === 'csv') {
-    const c = el._csv ? await el._csv() : null; if (c == null || c === '' || (Array.isArray(c) && !c.length)) return false;
-    const parts = Array.isArray(c) ? c : joinLines(String(c).split('\n'), 64);
-    deliver(await blobFromParts(parts, 'text/csv'), `${name}.csv`); return true;
+    const pack = el._pack;
+    if (!pack || !pack.cols || !pack.cols.length) return false;
+    const cols = pack.cols.map((c) => c.slice());
+    const w = exportWorker();
+    armDownload(w, `${name}.csv`);
+    w.postMessage({ op: 'series', header: pack.header, labels: pack.labels, cols: cols.map((c) => c.buffer) }, cols.map((c) => c.buffer));
+    return true;
   }
   return false;
 }
