@@ -57,15 +57,16 @@ async function loadModel() {
   const n = Number(new DataView(await fetchRange(ST_URL, 0, 7)).getBigUint64(0, true));
   const header = JSON.parse(new TextDecoder().decode(await fetchRange(ST_URL, 8, 8 + n - 1)));
   let end = 0; for (const v of Object.values(header)) if (v.dtype === 'F32') end = Math.max(end, v.data_offsets[1]);
-  const vocabP = fetchText(`${REPO}/main/vocab.json`, true), mergesP = fetchText(`${REPO}/main/merges.txt`); vocabP.catch(() => {}); mergesP.catch(() => {});
+  const vocabP = fetchText(`${REPO}/main/vocab.json`, true); vocabP.catch(() => {});
+  const ranksP = fetch(new URL('./bpe-ranks.bin', import.meta.url)).then((r) => { if (!r.ok) throw new Error('bpe rank table ' + r.status); return r.arrayBuffer(); });
   const data = await fetchRange(ST_URL, 8 + n, 8 + n + end - 1, (f) => setLoad(`streaming fp32 weights ${(f * end / 1e6).toFixed(1)} / ${(end / 1e6).toFixed(1)} MB`, f * 0.95));
   setLoad('building tensors + tokenizer…', 0.97);
   await frame();
   const T = await parseSafetensorsYield(data, header);
   await frame();
-  const vocab = await vocabP, merges = await mergesP;
+  const vocab = await vocabP, ranks = await ranksP;
   await frame();
-  return { W: buildWeights(T), tok: await GPT2Tokenizer.create(vocab, merges), mb: end / 1e6 };
+  return { W: buildWeights(T), tok: await GPT2Tokenizer.createFromPairs(vocab, ranks), mb: end / 1e6 };
 }
 
 // ───────── state ─────────
@@ -674,7 +675,7 @@ function wire() {
       hostForward: async () => { if (!RE) return null; await RE.sync('main', eng); return RE.forwardOnce('main', tok.encode('Forge.')); },
       hostGreedy: async (text, n) => { if (!RE) return null; await RE.sync('main', eng); return RE.greedy('main', tok.encode(text), n); },
       mf };
-    Object.defineProperties(window.NEURALESE, Object.getOwnPropertyDescriptors({ showTab, setSel, get sel() { return { ...S.sel }; }, order: V5.order, long: V5.long, cfg: CFG, get lastTraces() { return S.lastTraces; }, get lastIds() { return S.lastIds || null; } })); document.dispatchEvent(new CustomEvent('neuralese:ready')); // v17 shell bridge (typed in ui/src/bridge.ts)
+    Object.defineProperties(window.NEURALESE, Object.getOwnPropertyDescriptors({ showTab, setSel, get sel() { return { ...S.sel }; }, order: V5.order, long: V5.long, cfg: CFG, get lastTraces() { return S.lastTraces; }, get lastIds() { return S.lastIds || null; } })); document.body.dataset.modelReady = '1'; document.dispatchEvent(new CustomEvent('neuralese:ready')); // v17 shell bridge (typed in ui/src/bridge.ts)
     if (/#x=/.test(location.hash)) { try { await V5.out.shareLoad(location.hash); } catch (e) { toast('share link: ' + e.message); } }
     await generate();
   } catch (e) { console.error(e); setLoad('✖ ' + e.message + ' — check your connection'); const b = $('loadRetry'); if (b) { b.classList.remove('hidden'); b.onclick = () => location.reload(); b.focus(); } }

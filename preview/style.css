@@ -253,8 +253,8 @@ iframe{border:1px solid var(--b)!important;border-radius:var(--rad);background:v
 }
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
 .tb button,#bGuide{white-space:nowrap}
-header#top button,.tb button{color:#f8fafc;background:#0b1220}
-:root[data-theme=light] header#top button,:root[data-theme=light] .tb button{color:#0b1220;background:#ffffff}
+header#top button{color:#f8fafc;background-color:#0b1220;background-image:none}
+:root[data-theme=light] header#top button{color:#0b1220;background-color:#ffffff;background-image:none}
 @media (max-width:900px){.logo{letter-spacing:.16em;font-size:12px}.tb button{font-size:12px;padding:0 6px}header#top button{white-space:nowrap}#bGuide{font-size:0;padding:0 7px}#bGuide::first-letter{font-size:13px}}
 
 /* ═══════════ v15.1 polish layer ═══════════ */
@@ -407,3 +407,8 @@ fieldset>legend{font-size:var(--fs-s);letter-spacing:.04em;color:var(--t2);paddi
 #insp,#dock2{font-variant-numeric:tabular-nums}
 #wHash.sm{color:#e8eef8;background:#080c16;opacity:1}
 .ohead b{color:#fff;background:#8d2d4e}
+/* Header controls. The id rule was beating the light-theme shorthand, so text and fill were the same color. */
+header#top button{color:#f8fafc !important;background-color:#0b1220 !important;background-image:none !important;opacity:1 !important}
+:root[data-theme=light] header#top button{color:#0b1220 !important;background-color:#ffffff !important;background-image:none !important}
+body.dense header#top button{color:#f8fafc !important;background-color:#0b1220 !important}
+:root[data-theme=light] body.dense header#top button{color:#0b1220 !important;background-color:#ffffff !important}
