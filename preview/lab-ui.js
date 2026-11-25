@@ -1,8 +1,8 @@
 // Shared helpers for the v5 research tabs (markup builders, export, run tracker).
-import { CFG } from './model.js?v=181';
-import { frame, runBudgeted } from './coop.js?v=181';
-import { joinLines } from './bytes.js?v=181';
-import { createLab, fromTracker } from './agent/schema.js?v=181';
+import { CFG } from './model.js?v=182';
+import { frame, runBudgeted } from './coop.js?v=182';
+import { joinLines } from './bytes.js?v=182';
+import { createLab, fromTracker } from './agent/schema.js?v=182';
 export const { d, H, hd, L, ff, V } = CFG;
 export const $ = (id) => document.getElementById(id), $$ = (s, r = document) => [...r.querySelectorAll(s)];
 export const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
@@ -22,35 +22,41 @@ export function tokId(tok, s) { const ids = tok.encode(s); if (!ids.length) thro
 export function parseLayers(s) { const out = new Set(); for (const p of String(s).split(',')) { const m = p.trim().match(/^(\d+)(?:-(\d+))?$/); if (!m) throw new Error('bad layer list ' + s); for (let l = +m[1]; l <= +(m[2] ?? m[1]); l++) if (l < L) out.add(l); } if (!out.size) throw new Error('no valid layers'); return out; }
 export function canvasFit(cvs, h) { const w = cvs.clientWidth || 420; cvs.width = w * devicePixelRatio; cvs.height = h * devicePixelRatio; cvs.style.height = h + 'px'; const c = cvs.getContext('2d'); c.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0); return [c, w]; }
 export const chartBg = () => getComputedStyle(document.documentElement).getPropertyValue('--chart-bg').trim() || '#060a12';
-function exportWorker() { return new Worker(new URL('./export-worker.js?v=181', import.meta.url)); }
+function exportWorker() { return new Worker(new URL('./export-worker.js?v=182', import.meta.url)); }
+function workerBuffer(w) {
+  return new Promise((resolve, reject) => {
+    w.onmessage = (e) => resolve(e.data);
+    w.onerror = () => reject(new Error('export worker failed'));
+  });
+}
 async function blobFromParts(parts, type) {
   const w = exportWorker();
+  const enc = new TextEncoder();
   try {
-    await runBudgeted((function* () { for (let i = 0; i < parts.length; i++) { w.postMessage({ op: 'part', s: parts[i] }); yield; } })(), { budgetMs: 8 });
-    return await new Promise((resolve, reject) => { w.onmessage = (e) => resolve(e.data); w.onerror = () => reject(new Error('export worker failed')); w.postMessage({ op: 'end', type }); });
+    const done = workerBuffer(w);
+    await runBudgeted((function* () {
+      for (let i = 0; i < parts.length; i++) {
+        const part = parts[i];
+        for (let j = 0; j < part.length; j += 4096) {
+          const bytes = enc.encode(part.slice(j, j + 4096));
+          w.postMessage({ op: 'bytes', buf: bytes.buffer }, [bytes.buffer]);
+          yield;
+        }
+      }
+    })(), { budgetMs: 8, label: 'csv-export' });
+    w.postMessage({ op: 'end' });
+    return new Blob([await done], { type });
   } finally { w.terminate(); }
 }
 async function pngBlob(el) {
-  const w = el.width, h = el.height; if (!w || !h) return null;
-  const cap = 96, scale = Math.min(1, cap / Math.max(w, h));
-  const cw = Math.max(1, Math.round(w * scale)), ch = Math.max(1, Math.round(h * scale));
-  const c = document.createElement('canvas'); c.width = cw; c.height = ch;
-  const ctx = c.getContext('2d');
-  const sw = Math.min(48, el.width), sh = Math.min(48, el.height);
-  await runBudgeted((function* () {
-    for (let y = 0; y < sh; y++) {
-      ctx.drawImage(el, 0, y, sw, 1, 0, Math.floor(y * ch / sh), cw, Math.max(1, Math.ceil(ch / sh)));
-      yield;
-    }
-  })(), { budgetMs: 8 });
-  const bmp = await createImageBitmap(c);
-  const worker = exportWorker();
+  if (!el.width || !el.height) return null;
+  const bmp = await createImageBitmap(el);
+  const w = exportWorker();
   try {
-    worker.postMessage({ op: 'png-init', w: cw, h: ch });
-    worker.postMessage({ op: 'png-bitmap', y: 0, bmp }, [bmp]);
-    await tick();
-    return await new Promise((resolve, reject) => { worker.onmessage = (e) => resolve(e.data); worker.onerror = () => reject(new Error('png worker failed')); worker.postMessage({ op: 'png-end' }); });
-  } finally { worker.terminate(); }
+    const done = workerBuffer(w);
+    w.postMessage({ op: 'png', bmp, max: 96 }, [bmp]);
+    return new Blob([await done], { type: 'image/png' });
+  } finally { w.terminate(); }
 }
 export async function exportFor(id, kind) {
   await tick();

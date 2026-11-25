@@ -13,7 +13,7 @@
 <script src="../shared/iso.js"></script><script src="ref.js"></script><script src="cpu.js"></script><script>
 let spec, model, progs, cpu, ref, prevX, rec = {}, y = null, agree = 0, timer = null;
 const $ = id => document.getElementById(id), hex = v => '0x' + (v >>> 0).toString(16).padStart(8, '0');
-const pull = (msg) => new Promise((resolve, reject) => { const w = new Worker(new URL('../../json-worker.js?v=181', location.href)); w.onmessage = (e) => { w.terminate(); e.data && e.data.err ? reject(new Error(e.data.err)) : resolve(e.data); }; w.onerror = () => { w.terminate(); reject(new Error('worker')); }; w.postMessage(msg); });
+const pull = (msg) => new Promise((resolve, reject) => { const w = new Worker(new URL('../../json-worker.js?v=182', location.href)); w.onmessage = (e) => { w.terminate(); e.data && e.data.err ? reject(new Error(e.data.err)) : resolve(e.data); }; w.onerror = () => { w.terminate(); reject(new Error('worker')); }; w.postMessage(msg); });
 async function init() {
   spec = (await pull({ url: new URL('riscv_spec.json', location.href).href })).json; await new Promise((r) => requestAnimationFrame(() => setTimeout(r, 0)));
   progs = (await pull({ url: new URL('programs.json', location.href).href })).json; model = await RVTransformer.prepAsync(spec); $('D').textContent = spec.D;

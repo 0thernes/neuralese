@@ -1,12 +1,12 @@
 // INTERPRET group: attention grid/rollout/head classes, residual geometry, circuit graph, neuron atlas, embeddings, SAE dashboard.
-import * as C from './labcore.js?v=181';
-import { logSoftmax, topK, entropy } from './engine.js?v=181';
-import { dla, steppedRun } from './analysis.js?v=181';
-import { CORPUS } from './corpus.js?v=181';
-import { allDocs } from './dataset.js?v=181';
-import { heatmap, lines, bars, scatter, showTip, seqColor, arcs, heatStrip, stampGrid, viridisBytes } from './charts.js?v=181';
-import { $, esc, fmt, opts, lOpts, XB, cv, tipq, pal, PAL, prog, svgEl, tick, tokId, canvasFit, d, H, L, ff, V } from './lab-ui.js?v=181';
-import { slice } from './coop.js?v=181';
+import * as C from './labcore.js?v=182';
+import { logSoftmax, topK, entropy } from './engine.js?v=182';
+import { dla, steppedRun } from './analysis.js?v=182';
+import { CORPUS } from './corpus.js?v=182';
+import { allDocs } from './dataset.js?v=182';
+import { heatmap, lines, bars, scatter, showTip, seqColor, arcs, heatStrip, stampGrid, viridisBytes } from './charts.js?v=182';
+import { $, esc, fmt, opts, lOpts, XB, cv, tipq, pal, PAL, prog, svgEl, tick, tokId, canvasFit, d, H, L, ff, V } from './lab-ui.js?v=182';
+import { slice } from './coop.js?v=182';
 const IOI = 'When Mary and John went to the store, John gave a drink to';
 export const markup = {
   attn: ['ATTENTION', 'Attention patterns', `<fieldset><legend>input</legend><div class="r"><input id="xAP" style="flex:1" value="${IOI}"/><button class="pri" id="xA">run</button></div><div id="xAInfo" class="sm"></div></fieldset>

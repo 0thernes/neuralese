@@ -1,25 +1,35 @@
-// Chart CSV/PNG assembly off the main thread. The page posts small strings or bitmaps.
-let parts = [];
-let canvas = null;
-let ctx = null;
+// Chart CSV and PNG assembly. The page posts UTF-8 bytes or one ImageBitmap.
+// The reply is a transferred ArrayBuffer. The page wraps it in a Blob.
+let chunks = [];
+let total = 0;
 onmessage = async (e) => {
   const m = e.data;
-  if (m.op === 'part') { parts.push(m.s); return; }
-  if (m.op === 'end') {
-    const b = new Blob(parts, { type: m.type || 'text/csv' });
-    parts = [];
-    postMessage(b);
+  if (m && m.op === 'bytes') {
+    const u = new Uint8Array(m.buf);
+    chunks.push(u);
+    total += u.byteLength;
     return;
   }
-  if (m.op === 'png-init') {
-    canvas = new OffscreenCanvas(m.w, m.h);
-    ctx = canvas.getContext('2d');
+  if (m && m.op === 'end') {
+    const out = new Uint8Array(total);
+    let o = 0;
+    for (const c of chunks) { out.set(c, o); o += c.byteLength; }
+    chunks = [];
+    total = 0;
+    postMessage(out.buffer, [out.buffer]);
     return;
   }
-  if (m.op === 'png-bitmap') {
-    ctx.drawImage(m.bmp, 0, m.y);
+  if (m && m.op === 'png' && m.bmp) {
+    const max = m.max || 96;
+    const scale = Math.min(1, max / Math.max(m.bmp.width, m.bmp.height));
+    const w = Math.max(1, Math.round(m.bmp.width * scale));
+    const h = Math.max(1, Math.round(m.bmp.height * scale));
+    const canvas = new OffscreenCanvas(w, h);
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(m.bmp, 0, 0, w, h);
     m.bmp.close();
-    return;
+    const blob = await canvas.convertToBlob({ type: 'image/png' });
+    const buf = await blob.arrayBuffer();
+    postMessage(buf, [buf]);
   }
-  if (m.op === 'png-end') postMessage(await canvas.convertToBlob({ type: 'image/png' }));
 };
