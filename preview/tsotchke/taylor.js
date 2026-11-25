@@ -3,7 +3,7 @@
 // docs/design/AD_TAYLOR_TOWER.md. A jet stores Taylor coefficients c[k] = f^(k)(x0)/k!, so f^(k) = k!·c[k].
 // Only the recurrences are ported (no Eshkol compiler/runtime code); perturbation tags, exact/bignum coefficients and
 // Taylor models are NOT ported. DOM-free; used by the TAYLOR tab and test/tsotchke.test.mjs.
-import { runBudgeted } from '../coop.js?v=171';
+import { runBudgeted } from '../coop.js?v=172';
 export const SOURCE = { repo: 'tsotchke/eshkol', commit: '341ac812ed600fd9d27c28e9509d66ab71363947', file: 'lib/core/taylor_recurrences.def', license: 'MIT' };
 export const K_MAX = 16;
 export class Jet {
