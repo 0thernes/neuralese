@@ -49,8 +49,22 @@ export function copyWeightsInto(dst, src) {
   dst.wte.set(src.wte); dst.wpe.set(src.wpe); dst.lnfW.set(src.lnfW); dst.lnfB.set(src.lnfB);
   dst.layers.forEach((L, i) => { for (const k in L) L[k].set(src.layers[i][k]); });
 }
+function allocOffThread(n) {
+  const src = 'onmessage=(e)=>{const o=new Float32Array(e.data|0);postMessage(o.buffer,[o.buffer]);};';
+  const w = new Worker(URL.createObjectURL(new Blob([src], { type: 'text/javascript' })));
+  return new Promise((resolve, reject) => {
+    w.onmessage = (e) => { w.terminate(); resolve(new Float32Array(e.data)); };
+    w.onerror = () => { w.terminate(); reject(new Error('alloc worker failed')); };
+    w.postMessage(n);
+  });
+}
 export async function cloneWeightsYield(W) {
-  const alloc = async (a) => { const o = new Float32Array(a.length); if (a.length > 262144) await frame(); return o; };
+  const alloc = async (a) => {
+    if (a.length > 262144 && typeof Worker !== 'undefined' && typeof document !== 'undefined') return allocOffThread(a.length);
+    const o = new Float32Array(a.length);
+    if (a.length > 262144) await frame();
+    return o;
+  };
   const dst = { wte: await alloc(W.wte), wpe: await alloc(W.wpe), lnfW: await alloc(W.lnfW), lnfB: await alloc(W.lnfB), layers: [] };
   for (const L of W.layers) { const o = {}; for (const k of Object.keys(L)) o[k] = await alloc(L[k]); dst.layers.push(o); if (dst.layers.length % 2 === 0) await frame(); }
   await copyWeightsIntoYield(dst, W);
