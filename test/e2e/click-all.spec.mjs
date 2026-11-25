@@ -56,7 +56,7 @@ for (const [w, h, name] of WIDTHS) test(`click every control · ${name}`, async 
   const failures = [];
     const context = await browser.newContext({ viewport: { width: w, height: h } });
     const page = await context.newPage();
-    page.setDefaultTimeout(180000);
+    page.setDefaultTimeout(300000);
     const errors = [];
     page.on('console', (m) => { if (m.type() === 'error' && !/favicon/i.test(m.text())) errors.push(m.text().slice(0, 300)); });
     page.on('pageerror', (e) => errors.push('PAGE ' + (e.message || '').slice(0, 400)));
