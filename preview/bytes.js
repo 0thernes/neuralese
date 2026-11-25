@@ -1,6 +1,6 @@
 // Join byte chunks into one fixed ArrayBuffer. TextDecoder and DataView reject a resizable buffer.
 // The zero-fill happens in a worker. The page only posts the pieces, on the time budget.
-import { runBudgeted } from './coop.js?v=182';
+import { runBudgeted } from './coop.js?v=183';
 const CONCAT_SRC = 'let o=0,dst=null;onmessage=(e)=>{const m=e.data;if(m&&m.n){dst=new Uint8Array(m.n);return;}if(m&&m.done){postMessage(dst.buffer,[dst.buffer]);return;}const u=new Uint8Array(m);dst.set(u,o);o+=u.byteLength;};';
 export async function concatUint8(chunks) {
   let n = 0;

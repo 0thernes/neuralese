@@ -1,22 +1,16 @@
 // Chart CSV and PNG assembly. The page posts UTF-8 bytes or one ImageBitmap.
-// The reply is a transferred ArrayBuffer. The page wraps it in a Blob.
+// The reply is a Blob built here, so the page never copies the bytes.
 let chunks = [];
-let total = 0;
 onmessage = async (e) => {
   const m = e.data;
   if (m && m.op === 'bytes') {
-    const u = new Uint8Array(m.buf);
-    chunks.push(u);
-    total += u.byteLength;
+    chunks.push(new Uint8Array(m.buf));
     return;
   }
   if (m && m.op === 'end') {
-    const out = new Uint8Array(total);
-    let o = 0;
-    for (const c of chunks) { out.set(c, o); o += c.byteLength; }
+    const blob = new Blob(chunks, { type: m.type || 'application/octet-stream' });
     chunks = [];
-    total = 0;
-    postMessage(out.buffer, [out.buffer]);
+    postMessage(blob);
     return;
   }
   if (m && m.op === 'png' && m.bmp) {
@@ -28,8 +22,6 @@ onmessage = async (e) => {
     const ctx = canvas.getContext('2d');
     ctx.drawImage(m.bmp, 0, 0, w, h);
     m.bmp.close();
-    const blob = await canvas.convertToBlob({ type: 'image/png' });
-    const buf = await blob.arrayBuffer();
-    postMessage(buf, [buf]);
+    postMessage(await canvas.convertToBlob({ type: 'image/png' }));
   }
 };
