@@ -56,6 +56,14 @@ Passes 1–22 are the earlier engineering log in [PASSES.md](PASSES.md). This fi
 
 ## Open
 
+- Preview of `a592537` shares one 8 ms frame budget and waits for the next paint with `requestAnimationFrame`, then a `MessageChannel` post. Workers 1. A separate load check found every manifest panel in all 13 workspaces. The click sweep still missed panels on mobile, so that width clicked 198. Tablet and desktop screenshots succeeded. Console errors 0. Axe was not in the failure list. App max is 218 / 247 / 228. That is under `e7c4f7e` on mobile (305) and over it on tablet (220) and desktop (223). p95 is 72 / 80 / 79.
+
+| Width | Clicked | Disabled | Console | Axe | Cosmos | #gl | Raw max | Raw p95 | Paint/GL max | App max | App p95 | Worst |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 390×844 | 198 | 11 | 0 | none in the failure list | 390×657 | 390×477 | 609 | 289 | 609 | 218 | 72 | Index, `setTimeout` handler, 191 ms |
+| 768×1024 | 231 | 11 | 0 | none in the failure list | 388×425 | 373×571 | 1210 | 306 | 1210 | 247 | 80 | Attention scores, `setTimeout` handler, 188 ms |
+| 1440×900 | 231 | 11 | 0 | none in the failure list | 737×368 | 709×489 | 1347 | 476 | 1347 | 228 | 79 | Logits, `setTimeout` handler, 181 ms |
+
 - Preview of `aca26b0` is the run with `runBudgeted`. Workers 1. The model becomes ready. The gate does not pass. `scheduler.yield()` continuations still share a frame, so the frame sum is far above one 8 ms slice. Mobile also lost panels while those continuations were in flight, so the click count is 25. Tablet died on a screenshot before it recorded a frame table. Console errors were 0 on the widths that recorded. Axe was not in the failure list.
 
 | Width | Clicked | Disabled | Console | Axe | Cosmos | #gl | Raw max | Raw p95 | Paint/GL max | App max | App p95 | Worst |
