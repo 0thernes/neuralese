@@ -61,7 +61,7 @@ function DockInner(p: { node: Node; set: (n: Node) => void; root: Node; compact:
         </>}</For>
       </div>
     </Show>
-    <div class="panel" role="tabpanel" id={`panel-${act()}`} aria-labelledby={`tab-${act()}`} data-panel={act()}>
+    <div class="panel" role="tabpanel" id={`panel-${act()}`} aria-labelledby={`tab-${act()}`} data-panel={act()} tabindex="0">
       <For each={[act()]}>{(id) => <Panel id={id} />}</For>
     </div>
   </div>;

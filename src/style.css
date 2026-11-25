@@ -108,7 +108,7 @@ code,kbd,pre,textarea,.otext,.term,#tmIn,td,.mono,#hud b,.ver,#wHash,.chip,#topk
 .bar{width:min(420px,80vw);height:6px;border-radius:9px;background:var(--p3);overflow:hidden}#loadbar{border-radius:9px;background:var(--a)}
 
 /* header */
-header#top{height:44px;gap:var(--s3);padding:0 var(--s3);background:var(--hdr);backdrop-filter:blur(14px) saturate(140%);-webkit-backdrop-filter:blur(14px) saturate(140%);border-bottom:1px solid var(--b)}
+header#top{height:44px;gap:var(--s3);padding:0 var(--s3);background:var(--bg);border-bottom:1px solid var(--b)}
 .logo{font-weight:800;letter-spacing:.24em;font-size:13px;display:flex;align-items:center;gap:2px}.logo span{color:var(--a)}
 .logo i{font-style:normal;font-weight:600;letter-spacing:.02em;font-size:10px;color:#f7fffc;background:#0b6b5e;border-radius:999px;padding:1px 6px;margin-left:6px}
 .ver{border-radius:999px;padding:2px 8px;font-size:10px;color:var(--m);background:var(--p2);border-color:var(--b);white-space:nowrap}

@@ -8,6 +8,7 @@ import { parseSafetensors, parseSafetensorsYield } from '../src/model.js';
 import { kl } from '../src/analytics.js';
 import { svd, svdReconstruct } from '../src/linalg.js';
 import { filterDist, pick } from '../src/decode.js';
+import * as Grok from '../src/frontier/grok.js';
 
 test('concatUint8 matches a single copy and yields between steps', async () => {
   const a = Uint8Array.from({ length: 50 }, (_, i) => i);
@@ -112,6 +113,15 @@ test('ACDC async path yields per node and does not score with the sync objective
   assert.match(fn, /await frame\(\)/);
   assert.match(fn, /metricAsync\(/);
   assert.ok(!fn.slice(0, fn.indexOf('export async function scrubAsync')).includes('objective('));
+});
+
+test('a yielded grokking step matches one full step', async () => {
+  const cfg = { p: 7, N: 8, lr: 3e-3, wd: 1, frac: 0.5, steps: 2, seed: 1 };
+  const a = Grok.init(cfg), b = Grok.init(cfg);
+  Grok.step(a);
+  await Grok.stepYield(b, async () => {}, 3);
+  assert.equal(a.t, b.t);
+  for (let q = 0; q < 3; q++) for (let i = 0; i < a.P[q].length; i++) assert.ok(Math.abs(a.P[q][i] - b.P[q][i]) < 1e-8);
 });
 
 test('frontier and neuron-lens docs name the files that exist', () => {
