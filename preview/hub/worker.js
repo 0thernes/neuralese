@@ -1,5 +1,5 @@
 // v12 MODEL HUB worker: runs transformers.js pipelines off the main thread. Messages: {id, op:'load'|'run'|'info', key, input, opts}.
-import { byKey, ORT_WASM, TFJS } from './models.js?v=189';
+import { byKey, ORT_WASM, TFJS } from './models.js?v=190';
 const P = {}; let wasmReady = null, T = null;
 const hex = (b) => [...new Uint8Array(b)].map((x) => x.toString(16).padStart(2, '0')).join('');
 async function verified(url, sha, what) { const r = await fetch(url); if (!r.ok) throw new Error(`${what} HTTP ${r.status}`); const buf = await r.arrayBuffer(), h = hex(await crypto.subtle.digest('SHA-256', buf)); if (h !== sha) throw new Error(`${what} SHA-256 mismatch: got ${h}`); return buf; }
@@ -15,7 +15,7 @@ async function load(key, post, device) { const m = byKey(key); if (P[key]) retur
   const opts = { dtype: m.dtype || 'q8', device: device || 'wasm', progress_callback: (p) => { if (p.status === 'progress') post({ stage: 'download', file: p.file, progress: p.progress / 100, loaded: p.loaded, total: p.total }); } };
   const { pipeline } = await lib(); P[key] = await pipeline(m.task, m.repo, opts); post({ stage: 'ready', ms: performance.now() - t0 }); return P[key]; }
 async function run(key, input, o, post) { const p = await load(key, post, o.device), { RawImage } = await lib(); const t0 = performance.now(); let out;
-  if (key === 'embed') { const t = await p(input, { pooling: 'mean', normalize: true }); out = { dims: t.dims, data: Array.from(t.data) }; }
+  if (key === 'embed') { const t = await p(input, { pooling: 'mean', normalize: true }); out = { dims: t.dims, data: t.data instanceof Float32Array ? t.data : Float32Array.from(t.data) }; }
   else if (key === 'asr') out = await p(new Float32Array(input), { chunk_length_s: 30, stride_length_s: 5 });
   else if (key === 'tts') { const r = await p(input); out = { audio: r.audio, rate: r.sampling_rate }; }
   else if (key === 'ocr' || key === 'caption') out = await p(new RawImage(new Uint8ClampedArray(input.data), input.width, input.height, 4), { max_new_tokens: 48 });
@@ -25,4 +25,4 @@ async function run(key, input, o, post) { const p = await load(key, post, o.devi
   return { out, ms: performance.now() - t0 }; }
 self.onmessage = async (e) => { const { id, op, key, input, opts = {} } = e.data, post = (x) => self.postMessage({ id, evt: true, ...x });
   try { let r; if (op === 'load') { await load(key, post, opts.device); r = { ok: true }; } else if (op === 'run') r = await run(key, input, opts, post); else if (op === 'info') r = { loaded: Object.keys(P), isolated: self.crossOriginIsolated, gpu: !!self.navigator?.gpu, wasm: await wasmReady?.catch(() => null) };
-    self.postMessage({ id, ok: true, result: r }); } catch (err) { self.postMessage({ id, ok: false, error: String(err?.message || err) }); } };
+    const data = r && r.out && r.out.data; const transfers = data && data.buffer ? [data.buffer] : []; self.postMessage({ id, ok: true, result: r }, transfers); } catch (err) { self.postMessage({ id, ok: false, error: String(err?.message || err) }); } };
