@@ -5,9 +5,9 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 | | |
 |---|---|
 | Files | 505 |
-| Reviewed (passes 23–70) | 158 |
-| Indexed, not reviewed | 347 |
-| Coverage | 31.3% |
+| Reviewed (passes 23–72) | 160 |
+| Indexed, not reviewed | 345 |
+| Coverage | 31.7% |
 
 
 ## `/`
@@ -370,7 +370,7 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 | File | Purpose | Owner | Tests | Status |
 |---|---|---|---|---|
 | `gadget.js` | Weight gadgets. A gadget is a fixed net of linear combinations, ReLU gates, and hard attention. | machine | none mapped | indexed |
-| `isa.js` | Weight-Machine / WM-ISA. ForgeISA/1 plus a SYS opcode for the devices around it. | machine | none mapped | indexed |
+| `isa.js` | Weight-Machine / WM-ISA. ForgeISA/1 plus a SYS opcode for the devices around it. | machine | none mapped | reviewed, pass 71 |
 | `machine.d.ts` | ts | machine | none mapped | indexed |
 | `machine.js` | Host stepper. The weight machine and the int32 reference run the same program. | machine | none mapped | indexed |
 | `programs.js` | Demo programs for WM-ISA. They are assembled here, not borrowed from another machine. | machine | none mapped | indexed |
@@ -519,7 +519,7 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 | File | Purpose | Owner | Tests | Status |
 |---|---|---|---|---|
 | `archwalk.js` | Walk an Arch forward (src/arch/arch.js) when that model is actually loaded. | walk | none mapped | indexed |
-| `bits.js` | IEEE-754 binary32 field view. The engine stores weights and activations as float32. | walk | none mapped | indexed |
+| `bits.js` | IEEE-754 binary32 field view. The engine stores weights and activations as float32. | walk | none mapped | reviewed, pass 72 |
 | `chapters.d.ts` | ts | walk | none mapped | indexed |
 | `chapters.js` | Original narration for the deep walk. The idea of stepping through a transformer as blocks | walk | none mapped | indexed |
 | `cmos.d.ts` | ts | walk | none mapped | indexed |

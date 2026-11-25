@@ -51,6 +51,8 @@ Passes 1–22 are the earlier engineering log in [PASSES.md](PASSES.md). This fi
 | AUD-068 | 68 | `src/adversary/prereg.js` | info | A locked adversary pre-registration is frozen. `revise` returns a new version. The hash omits `sha256`, `locked`, and `locked_at`. | no code change | adversary tests |
 | AUD-069 | 69 | `src/forge/nestlang.js` | info | Unmarked bindings are affine. `rec` is the only loop and its counter must be `nat`. RAM word 255 is compiler scratch. | no code change | `test/forge.test.mjs` |
 | AUD-070 | 70 | `src/frontier/mind.js` | info | PCI, ignition, and the Hill fit are operational proxies. The file says they are not a consciousness claim. | no code change | frontier tests |
+| AUD-071 | 71 | `src/machine/isa.js` | info | WM-ISA adds a SYS opcode on top of ForgeISA/1 for the devices around the core. | no code change | machine tests |
+| AUD-072 | 72 | `src/walk/bits.js` | info | Float fields are read by rounding into a Float32Array, then splitting sign, exponent, and fraction. | no code change | walk tests |
 | AUD-035 | 35 | `src/linalg.js:21` | info | One-sided Jacobi SVD of a 3×3 matrix reconstructs it within 1e-8 and returns singular values in descending order. | no code change | `test/audit-hardening.test.mjs` |
 | AUD-036 | 36 | `src/` first-party scripts | info | `eval` and `new Function` appear only under `src/vendor` and `src/hub/vendor`. | no code change | `test/audit-hardening.test.mjs` |
 
@@ -131,4 +133,4 @@ Passes 1–22 are the earlier engineering log in [PASSES.md](PASSES.md). This fi
 Raw / paint (not gated): mobile raw max 684 p95 460, paint/GL 684, gl-init 684. Tablet raw 1230 / 379, paint 906, gl-init 618. Desktop raw 1129 / 365, paint 1129, gl-init 1129. Scripts still between 100 and 200 ms on that run, which fails p95 whenever fewer than 20 frames are at least 50 ms: mobile dot-product tour 178, `lab-v16.js` import 137, weight snapshot 102; tablet SVG export 187, grok live 114.
 
 - `test/science.test.mjs` fetches the pinned TinyStories-8M files when they are missing and fails if that download fails. It passed 8/8 after `node tools/fetch-model.mjs`.
-- 158 of 505 files in [AUDIT_INDEX.md](AUDIT_INDEX.md) are reviewed (31.3%). Passes 68–70 read the adversary pre-registration, NestLang, and the frontier proxies.
+- 160 of 505 files in [AUDIT_INDEX.md](AUDIT_INDEX.md) are reviewed (31.7%). Passes 71–72 read the weight-machine ISA and the float32 bit view.
