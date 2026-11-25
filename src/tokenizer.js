@@ -40,7 +40,7 @@ export class GPT2Tokenizer {
     const keys = Object.keys(vocab);
     for (let i = 0; i < keys.length; i++) {
       tok.decoder[vocab[keys[i]]] = keys[i];
-      if ((i & 2047) === 2047 && typeof document !== 'undefined') await frame();
+      if ((i & 255) === 255 && typeof document !== 'undefined') await frame();
     }
     tok.ranks = new Map();
     const lines = String(mergesText).split('\n');
@@ -48,7 +48,7 @@ export class GPT2Tokenizer {
     for (let i = 0; i < lines.length; i++) {
       const l = lines[i];
       if (l && !l.startsWith('#version')) tok.ranks.set(l, r++);
-      if ((i & 4095) === 4095 && typeof document !== 'undefined') await frame();
+      if ((i & 511) === 511 && typeof document !== 'undefined') await frame();
     }
     return tok;
   }
