@@ -38,6 +38,14 @@ Passes 1–22 are the earlier engineering log in [PASSES.md](PASSES.md). This fi
 
 ## Open
 
+- Preview of `ab1361d` is the latest finished 3-width run. Workers 1. Console errors 0. 514 clicked, 9 disabled. Mobile passed the script gate and axe. Tablet and desktop did not. The long script is one merge-table chunk inside `GPT2Tokenizer.create` (354 ms tablet, 361 ms desktop). Axe is `color-contrast` on `#bTheme` (tablet) and `#bDense` (desktop). Yielding every merge line kept the shell from mounting within 240 s, so the yield is every 8 lines again.
+
+| Width | Clicked | Disabled | Console | Axe | Cosmos | #gl | Raw max | Raw p95 | Paint/GL max | App max | App p95 | Worst |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 390×844 | 514 | 9 | 0 | none | 390×658 | 390×478 | 713 | 361 | 713 | 178 | 81 | export @Voltage |
+| 768×1024 | 514 | 9 | 0 | contrast 5, `#bTheme` | 388×426 | 373×572 | 1618 | 384 | 1618 | 354 | 99 | tokenizer merges |
+| 1440×900 | 514 | 9 | 0 | contrast 6, `#bDense` | 737×369 | 709×490 | 1594 | 367 | 1594 | 361 | 116 | tokenizer merges |
+
 - Preview of `3d36ace` finished, workers 1, 0 console errors, 514 clicked and 9 disabled at each width. It failed. App max 628 / 621 / 624 ms. Mobile and desktop axe were clean. Tablet axe was `color-contrast:5`, first node `#bTheme`. The long scripts were the Taylor jet, the head-study loss, and the weight copy. `d81bc83` moves the jet and the study into the engine worker.
 
 | Width | Clicked | Disabled | Console | Axe | Cosmos | #gl | Raw max | Raw p95 | Paint/GL max | App max | App p95 | Worst |
