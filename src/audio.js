@@ -1,6 +1,6 @@
 // NEURALESE audio: calm, data-driven lab-instrument sonification (Web Audio). Everything is synthesized; no samples.
 // Pure mapping functions at the top are unit-tested (test/audio.test.mjs) and have no Web Audio dependency.
-import { frame } from './coop.js?v=170';
+import { frame, slice } from './coop.js?v=171';
 
 // ───────── pure data → sound mappings ─────────
 // Consonant scales only. "lydian" here omits the #4 so no tritone over the root can ever sound.
@@ -91,7 +91,7 @@ export class AudioEngine {
   makeIR() { const C = this.ctx, sec = STYLES[this.style].rev * this.revSize, n = Math.max(1, Math.floor(C.sampleRate * sec)), b = C.createBuffer(2, n, C.sampleRate);
     for (let ch = 0; ch < 2; ch++) { const d = b.getChannelData(ch); let lp = 0; for (let i = 0; i < n; i++) { lp = lp * 0.85 + (Math.random() * 2 - 1) * 0.15; d[i] = lp * Math.pow(1 - i / n, 4); } } this.rev.buffer = b; }
   async fillIR() { const C = this.ctx, sec = STYLES[this.style].rev * this.revSize, n = Math.max(1, Math.floor(C.sampleRate * sec)), b = C.createBuffer(2, n, C.sampleRate);
-    for (let ch = 0; ch < 2; ch++) { const d = b.getChannelData(ch); let lp = 0; for (let i = 0; i < n; i++) { lp = lp * 0.85 + (Math.random() * 2 - 1) * 0.15; d[i] = lp * Math.pow(1 - i / n, 4); if ((i & 2047) === 2047) await frame(); } } this.rev.buffer = b; }
+    for (let ch = 0; ch < 2; ch++) { const d = b.getChannelData(ch); let lp = 0; for (let i = 0; i < n; i++) { lp = lp * 0.85 + (Math.random() * 2 - 1) * 0.15; d[i] = lp * Math.pow(1 - i / n, 4); { const y = slice(); if (y) await y; } } } this.rev.buffer = b; }
   applyVol() { if (!this.ctx) return; const t = this.ctx.currentTime; this.master.gain.setTargetAtTime(this.muted ? 0 : this.vol.master, t, 0.08); for (const k in this.bus) this.bus[k].gain.setTargetAtTime(this.vol[k], t, 0.08); }
   setMute(m) { this.muted = m; this.applyVol(); }
   applyStyle() { if (!this.ctx) return; const S = STYLES[this.style], t = this.ctx.currentTime; this.padG.gain.setTargetAtTime(0.5 * S.pad, t, 1); this.padF.frequency.setTargetAtTime(S.cutoff * 0.5, t, 1); this.makeIR(); }

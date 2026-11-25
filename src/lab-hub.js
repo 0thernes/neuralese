@@ -2,11 +2,12 @@
 // 3D map, speech recognition (mic + file), text-to-speech, a chained speech-to-speech demo, OCR, captioning, CLIP zero-shot,
 // swappable generation-only LMs, and parameter-efficient fine-tuning of the main TinyStories-8M model on your own text.
 // Every demo has a built-in self-test with a numeric pass threshold (see docs/ROADMAP-v12.md, docs/CLAIMS.md).
-import { lines } from './charts.js?v=170';
-import { $, esc, tipq } from './lab-ui.js?v=170';
-import { MODELS, TOOL_MATRIX, TFJS_VERSION, ORT_WASM, pca3, cosine, resample, wav, wer, TRANSFORMS, byKey, cer } from './hub/models.js?v=170';
-import { toEdit } from './hub/finetune.js?v=170';
-import { slice, frame } from './coop.js?v=170';
+import { lines } from './charts.js?v=171';
+import { $, esc, tipq } from './lab-ui.js?v=171';
+import { MODELS, TOOL_MATRIX, TFJS_VERSION, ORT_WASM, pca3, cosine, resample, wav, wer, TRANSFORMS, byKey, cer } from './hub/models.js?v=171';
+import { toEdit } from './hub/finetune.js?v=171';
+import { frame, runBudgeted } from './coop.js?v=171';
+import { allocZeroYield } from './model.js?v=171';
 const kv = (rows) => `<table class="kv">${rows.map(([a, b]) => `<tr><td>${a}</td><td>${b}</td></tr>`).join('')}</table>`;
 const ok = (b) => (b ? '<span class="good">✔ pass</span>' : '<span class="warn">✖ fail</span>');
 const st = (id) => `<div class="sm" id="${id}St" aria-live="polite"></div>`;
@@ -41,7 +42,7 @@ export const markup = {
 };
 // ---------- worker client ----------
 let W8 = null, seq = 0; const pend = new Map();
-function hub() { if (W8) return W8; W8 = new Worker(new URL('./hub/worker.js?v=170', import.meta.url), { type: 'module' });
+function hub() { if (W8) return W8; W8 = new Worker(new URL('./hub/worker.js?v=171', import.meta.url), { type: 'module' });
   W8.onmessage = (e) => { const p = pend.get(e.data.id); if (!p) return; if (e.data.evt) return p.on?.(e.data); pend.delete(e.data.id); e.data.ok ? p.res(e.data.result) : p.rej(new Error(e.data.error)); };
   W8.onerror = (e) => { for (const p of pend.values()) p.rej(new Error('hub worker failed: ' + (e.message || 'load error'))); pend.clear(); W8 = null; }; return W8; }
 const say = (id, s) => { const el = $(id + 'St'); if (el) el.textContent = s; };
@@ -121,9 +122,17 @@ export function install(A, out) {
   on('hgGo', 'click', () => out.hgen());
   // fine-tune
   let lastFT = null;
-  const copyW = async (W) => { const c = async (a) => { const o = new Float32Array(a.length), N = 65536; for (let i = 0; i < a.length; i += N) { o.set(a.subarray(i, Math.min(a.length, i + N)), i); const y = slice(); if (y) await y; } return o; }; const layers = []; for (const P of W.layers) { const o = {}; for (const k of Object.keys(P)) o[k] = await c(P[k]); layers.push(o); } return { wte: await c(W.wte), wpe: await c(W.wpe), lnfW: await c(W.lnfW), lnfB: await c(W.lnfB), layers }; };
+  const copyW = async (W) => {
+    const c = async (a) => {
+      const o = await allocZeroYield(a.length);
+      await runBudgeted((function* () { for (let i = 0; i < a.length; i++) { o[i] = a[i]; yield; } })(), { budgetMs: 8 });
+      return o;
+    };
+    const layers = []; for (const P of W.layers) { const o = {}; for (const k of Object.keys(P)) o[k] = await c(P[k]); layers.push(o); }
+    return { wte: await c(W.wte), wpe: await c(W.wpe), lnfW: await c(W.lnfW), lnfB: await c(W.lnfB), layers };
+  };
   const bufs = (W) => { const b = [W.wte.buffer, W.wpe.buffer, W.lnfW.buffer, W.lnfB.buffer]; for (const P of W.layers) for (const a of Object.values(P)) b.push(a.buffer); return b; };
-  out.finetune = async (text, steps, lr) => { const ids = A.tok().encode(text ?? $('hfIn').value), W = await copyW(A.W()); return new Promise((res, rej) => { const w = new Worker(new URL('./hub/ft-worker.js?v=170', import.meta.url), { type: 'module' }); const curve = []; say('hf', `${ids.length} tokens · precomputing frozen activations…`); $('hfApply').disabled = true;
+  out.finetune = async (text, steps, lr) => { const ids = A.tok().encode(text ?? $('hfIn').value), W = await copyW(A.W()); return new Promise((res, rej) => { const w = new Worker(new URL('./hub/ft-worker.js?v=171', import.meta.url), { type: 'module' }); const curve = []; say('hf', `${ids.length} tokens · precomputing frozen activations…`); $('hfApply').disabled = true;
     w.onmessage = (e) => { if (e.data.evt) { curve.push(e.data.held); say('hf', `step ${e.data.step}: held-out CE ${e.data.held.toFixed(4)}`); lines($('hfCh'), [{ label: 'held-out CE', ys: curve }], { title: 'held-out cross-entropy per Adam step' }); return; } w.terminate(); if (!e.data.ok) return rej(new Error(e.data.error)); const r = e.data.result; lastFT = r;
       $('hfOut').innerHTML = kv([['trainable parameters', r.params], ['chunks train / held-out', `${r.trainChunks} / ${r.heldChunks} (${r.heldTokens} held-out targets)`], ['held-out CE before → after', `${r.before.toFixed(4)} → ${r.after.toFixed(4)}`], ['change, 95% bootstrap CI', `${r.delta.est.toFixed(4)} [${r.delta.lo.toFixed(4)}, ${r.delta.hi.toFixed(4)}]`], ['criterion', 'CI upper bound < 0'], ['result', ok(r.improved)], ['‖Δθ‖₂', r.editL2.toFixed(4)]]);
       $('hfApply').disabled = false; say('hf', 'done'); keep('finetune', `fine-tune ${r.curve.length - 1} steps`, { before: r.before, after: r.after, improved: r.improved }); res(r); };

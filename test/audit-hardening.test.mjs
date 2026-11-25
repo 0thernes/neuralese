@@ -13,15 +13,13 @@ import { headAblationCE } from '../src/research.js';
 import { ceJetLnf, ceJetLnfAsync, Jet } from '../src/tsotchke/taylor.js';
 import { assessInverter, cmosParams, transferCurveYield } from '../src/walk/cmos.js';
 
-test('concatUint8 matches a single copy and yields between steps', async () => {
+test('concatUint8 matches a single copy', async () => {
   const a = Uint8Array.from({ length: 50 }, (_, i) => i);
   const b = Uint8Array.from({ length: 30 }, (_, i) => 100 + i);
-  let pauses = 0;
-  const out = await concatUint8([a, b], 16, async () => { pauses++; });
+  const out = await concatUint8([a, b]);
   assert.equal(out.length, 80);
   assert.deepEqual([...out.subarray(0, 50)], [...a]);
   assert.deepEqual([...out.subarray(50)], [...b]);
-  assert.ok(pauses >= 2);
 });
 
 test('joinLines keeps a newline between chunks and not after the last', () => {
@@ -32,21 +30,17 @@ test('joinLines keeps a newline between chunks and not after the last', () => {
 
 test('a yielded inverter curve matches one full curve', async () => {
   const p = cmosParams({ VDD: 1, Vth0: 0.25, T: 300 });
-  let pauses = 0;
-  const curve = await transferCurveYield(p, 41, async () => { pauses++; });
+  const curve = await transferCurveYield(p, 41);
   const full = assessInverter(p, { steps: 41 });
   assert.equal(curve.length, full.curve.length);
-  assert.ok(pauses >= 4);
   for (let i = 0; i < curve.length; i++) assert.ok(Math.abs((curve[i].vout ?? 0) - (full.curve[i].vout ?? 0)) < 1e-9);
 });
 
 test('a yielded vocab parse matches JSON.parse', async () => {
   const text = readFileSync(new URL('../model/vocab.json', import.meta.url), 'utf8');
-  let pauses = 0;
-  const yielded = await parseVocabYield(text, async () => { pauses++; });
+  const yielded = await parseVocabYield(text);
   const parsed = JSON.parse(text);
   assert.equal(Object.keys(yielded).length, Object.keys(parsed).length);
-  assert.ok(pauses > 100);
   for (const k of ['Once', ' hello', '!']) if (k in parsed) assert.equal(yielded[k], parsed[k]);
   assert.equal(yielded[Object.keys(parsed)[0]], parsed[Object.keys(parsed)[0]]);
 });

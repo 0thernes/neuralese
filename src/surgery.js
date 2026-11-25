@@ -1,8 +1,8 @@
 // Weight surgery: a replayable list of edit ops applied to a fresh copy of the original weights.
-import { CFG, copyWeightsInto, copyWeightsIntoYield, mulberry32, gauss } from './model.js?v=170';
-import { frame } from './coop.js?v=170';
-import { svd, svdReconstruct, svdYield } from './linalg.js?v=170';
-import { resolve, fromPath } from './drill.js?v=170';
+import { CFG, copyWeightsInto, copyWeightsIntoYield, mulberry32, gauss } from './model.js?v=171';
+import { frame, slice } from './coop.js?v=171';
+import { svd, svdReconstruct, svdYield } from './linalg.js?v=171';
+import { resolve, fromPath } from './drill.js?v=171';
 const { d, ff, L } = CFG;
 export const MATS = ['q', 'k', 'v', 'o', 'fc', 'proj'];
 export const SHAPE = { q: [d, d], k: [d, d], v: [d, d], o: [d, d], fc: [ff, d], proj: [d, ff] };
@@ -33,7 +33,7 @@ export class Editor {
     a.fill(0);
     for (let k = 0; k < S2.length; k++) { const s = S2[k]; if (!s) continue; const u = R.U[k], v = R.V[k];
       for (let i = 0; i < rows; i++) { const us = u[i] * s; if (!us) continue; const o = i * cols; for (let j = 0; j < cols; j++) a[o + j] += us * v[j]; }
-      if ((k & 3) === 3) await frame(); }
+      { const y = slice(); if (y) await y; } }
     e._err = null; }
   setEdits(list) { this.edits = list; this.nextId = list.reduce((a, e) => Math.max(a, e.id + 1), 1); this.rebuild(); }
   rebuild() { copyWeightsInto(this.mod, this.orig); for (const e of this.edits) this.apply(e); bump(this.mod); this.onRebuild && this.onRebuild(); }

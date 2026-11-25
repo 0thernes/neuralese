@@ -1,7 +1,8 @@
 // v11 P5: grokking on a + b mod p (Power et al. 2022; MLP construction after Gromov 2023), trainable in the browser.
 // Model: h = W1a[:, a] + W1b[:, b] (N hidden), φ(h) = h², logits = W2 φ(h) / N. Full-batch AdamW, cross-entropy.
 // Config list (the FIRST entry is the pre-registered one; see docs/PREREG-v11.md P5).
-import { rng, gauss } from './core.js?v=170';
+import { rng, gauss } from './core.js?v=171';
+import { runBudgeted } from '../coop.js?v=171';
 export const CONFIGS = [{ p: 31, N: 256, lr: 3e-3, wd: 1.0, frac: 0.5, steps: 6000, seed: 1 }];
 export function init(cfg = CONFIGS[0]) { const { p, N, seed, frac } = cfg, r = rng(seed); const W1a = new Float64Array(N * p), W1b = new Float64Array(N * p), W2 = new Float64Array(p * N);
   for (let i = 0; i < W1a.length; i++) { W1a[i] = gauss(r); W1b[i] = gauss(r); } for (let i = 0; i < W2.length; i++) W2[i] = gauss(r);
@@ -21,8 +22,8 @@ function adam(S, G) { S.t++; const { lr, wd } = S.cfg, b1 = 0.9, b2 = 0.98, eps 
     P[i] -= lr * ((m[i] / (1 - b1 ** S.t)) / (Math.sqrt(v[i] / (1 - b2 ** S.t)) + eps) + wd * P[i]); } } }
 export function step(S) { const G = S.P.map((x) => new Float64Array(x.length)); const tr = pass(S, S.train, G); adam(S, G); return tr; }
 // Same AdamW step, but the training pass yields so one full-batch update is not one script.
-export async function stepYield(S, pause, chunk = 32) { const G = S.P.map((x) => new Float64Array(x.length)); const n = S.train.length;
-  for (let i = 0; i < n; i += chunk) { pass(S, S.train.slice(i, i + chunk), G, n); if (pause) await pause(); }
+export async function stepYield(S, _pause, _chunk = 32) { const G = S.P.map((x) => new Float64Array(x.length)); const n = S.train.length;
+  await runBudgeted((function* () { for (let i = 0; i < n; i++) { pass(S, S.train.slice(i, i + 1), G, n); yield; } })(), { budgetMs: 8 });
   adam(S, G); }
 // Per-neuron Fourier concentration of the a-input weights: share of non-DC power in the single strongest frequency.
 export function fourier(S) { const { p, N } = S.cfg, W = S.P[0], K = (p - 1) / 2, share = [], freq = [], spectrum = new Float64Array(K + 1);

@@ -3,6 +3,7 @@
 // Gadgets are the functions in bits.js. A fault is recorded if any bit leaves {0, 1}.
 
 import { FUNCT_HALT, OP, OP_NAME, ROM_WORDS, STEP_LIMIT, WORD_BITS, padRom } from './isa.js';
+import { runBudgeted } from '../coop.js?v=171';
 import { addBits, bitsToInt32, bitsToUint, checkBit, mux, muxBank, not, oneHot, or2, orN, sltBit, writeBank, writeBits, xor2 } from './bits.js';
 
 export const PRECISION = Object.freeze({
@@ -176,11 +177,13 @@ export function runEngine(words, ArrayType = Float32Array, limit = STEP_LIMIT) {
 export async function runEngineAsync(words, ArrayType = Float32Array, limit = STEP_LIMIT, shouldStop = () => false) {
   const eng = new ForgeEngine(words, ArrayType);
   const trace = [];
-  while (!eng.halted && !eng.fail && trace.length < limit && eng.faults.length === 0) {
-    if (shouldStop()) { eng.fail = 'cancelled'; break; }
-    trace.push(eng.step());
-    if ((trace.length & 31) === 0) await new Promise((r) => setTimeout(r, 0));
-  }
+  await runBudgeted((function* () {
+    while (!eng.halted && !eng.fail && trace.length < limit && eng.faults.length === 0) {
+      if (shouldStop()) { eng.fail = 'cancelled'; return; }
+      trace.push(eng.step());
+      yield;
+    }
+  })(), { budgetMs: 8 });
   if (!eng.halted && !eng.fail && eng.faults.length === 0) eng.fail = 'step-limit';
   return finishEngine(eng, trace);
 }

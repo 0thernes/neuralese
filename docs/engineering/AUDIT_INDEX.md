@@ -5,9 +5,9 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 | | |
 |---|---|
 | Files | 505 |
-| Reviewed (passes 23–55) | 143 |
-| Indexed, not reviewed | 362 |
-| Coverage | 28.3% |
+| Reviewed (passes 23–65) | 153 |
+| Indexed, not reviewed | 352 |
+| Coverage | 30.3% |
 
 
 ## `/`
@@ -64,7 +64,7 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 | `DEEP_WALKTHROUGH.md` | documentation | docs | none mapped | indexed |
 | `FRONTIER.md` | documentation | docs | none mapped | reviewed, passes 43–44 |
 | `GLOSSARY.md` | documentation | docs | none mapped | indexed |
-| `KANBAN.md` | documentation | docs | none mapped | indexed |
+| `KANBAN.md` | documentation | docs | none mapped | reviewed, pass 65 |
 | `NEST_CPU.md` | documentation | docs | none mapped | reviewed, passes 47–49 |
 | `NEURON_LENS_METHOD.md` | documentation | docs | none mapped | reviewed, passes 43–44 |
 | `PREREG-v11.md` | documentation | docs | none mapped | reviewed, passes 47–49 |
@@ -173,7 +173,7 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 | `model.js` | Tiny GPT-Neo forward pass in plain JS. Weights are mutable Float32Arrays. | lab core | test/core.test.mjs | reviewed, passes 23–30 |
 | `nestedlens.js` | Neuralese v14.7 — float32-weight forward pass + finite-difference R-lens for the nested char LMs (guest, emula | lab core | none mapped | reviewed, passes 41–42 |
 | `neuronlens.js` | NEURALESE v14 Neuron Lens: R-lens, S-lens and their mid targets for GPT-Neo (TinyStories-8M). | lab core | none mapped | reviewed, passes 39–40 |
-| `notebook-worker.js` | Notebook cells run here, not on the page. They get the research functions and a copy of the | lab core | none mapped | indexed |
+| `notebook-worker.js` | Notebook cells run here, not on the page. They get the research functions and a copy of the | lab core | none mapped | reviewed, pass 60 |
 | `post.js` | v15.1 post-processing chain (no addons): scene → half-float MSAA target with depth; bloom = soft-threshold bri | lab core | none mapped | reviewed, passes 31–36 |
 | `prereg.js` | v16 enforced pre-registration. A run is described by a JSON document that must validate against PREREG_SCHEMA, | lab core | none mapped | reviewed, passes 31–36 |
 | `provenance.js` | v12.1: provenance banners. Every panel that shows results says where they come from, so stored author results  | lab core | none mapped | reviewed, passes 31–36 |
@@ -188,7 +188,7 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 | `tokenizer.js` | Minimal GPT-2 byte-level BPE tokenizer (vocab.json + merges.txt) | lab core | test/audit-hardening.test.mjs | reviewed, passes 23–30 |
 | `trace-remote.js` | The page binds the engine worker here. Lab tools call steppedRun, which uses it when present. | lab core | none mapped | reviewed, passes 31–36 |
 | `ui15.js` | v15.1 front-end layer: inline SVG icon set, per-section accent colours, overview dashboard (live stats + hero  | lab core | none mapped | indexed |
-| `ui152.js` | v15.2 polish helpers (original Neuralese code): GPU tiering for the 3D default quality, persisted adaptive qua | lab core | none mapped | indexed |
+| `ui152.js` | v15.2 polish helpers (original Neuralese code): GPU tiering for the 3D default quality, persisted adaptive qua | lab core | none mapped | reviewed, pass 61 |
 | `v5.js` | v5 shell: grouped tabs, module install, theme, resizable dock, export bar, shortcuts, terminal + learning cent | lab core | none mapped | indexed |
 | `viz.js` | 3D view: layer stack (heads, neurons, residual stream) + real weight matrix as height-field / point cloud. | lab core | none mapped | indexed |
 | `viz3d.js` | v6 3D modes on top of the base Viz scene: weight voxel field (instanced + LOD), loss surface, residual manifol | lab core | none mapped | indexed |
@@ -210,9 +210,9 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 
 | File | Purpose | Owner | Tests | Status |
 |---|---|---|---|---|
-| `launch.js` | Local experiment launcher. Remote is optional and never invents a result. | agent | none mapped | indexed |
+| `launch.js` | Local experiment launcher. Remote is optional and never invents a result. | agent | none mapped | reviewed, pass 56 |
 | `mcp.js` | Line-delimited JSON-RPC for the tools an agent needs. Not a multi-user server. | agent | none mapped | reviewed, passes 52–53 |
-| `schema.js` | Solo, local-first lab store. No orgs, roles, approvals, or shared registries. | agent | none mapped | indexed |
+| `schema.js` | Solo, local-first lab store. No orgs, roles, approvals, or shared registries. | agent | none mapped | reviewed, pass 56 |
 | `tools.js` | Tool handlers an agent calls. Reads do not invent runs. Mutations log the experiment | agent | none mapped | reviewed, passes 31–36 |
 
 ## `src/arch/`
@@ -222,20 +222,20 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 | `arch.js` | v16 Arch interface: one decoder-only transformer forward for several HF families, replacing the single hard-wi | arch | none mapped | indexed |
 | `encoder-worker.js` | v16 HUB interpretability worker: loads a revision-pinned HF safetensors checkpoint (ViT, CLIP vision tower, Wh | arch | none mapped | indexed |
 | `encoder.js` | v16 encoder forwards for the HUB families, written from the HF reference implementations so that hidden states | arch | none mapped | indexed |
-| `remote.js` | v16: read only the tensors you need from a remote .safetensors with HTTP Range requests (e.g. the CLIP vision  | arch | none mapped | indexed |
+| `remote.js` | v16: read only the tensors you need from a remote .safetensors with HTTP Range requests (e.g. the CLIP vision  | arch | none mapped | reviewed, pass 58 |
 
 ## `src/forge/`
 
 | File | Purpose | Owner | Tests | Status |
 |---|---|---|---|---|
-| `bits.js` | Binary gadgets for the Forge weight engine. | forge | none mapped | indexed |
+| `bits.js` | Binary gadgets for the Forge weight engine. | forge | none mapped | reviewed, pass 57 |
 | `cells.d.ts` | ts | forge | none mapped | indexed |
 | `cells.js` | Frozen arithmetic cells for the WeightCPU / MDCC comparison. | forge | none mapped | indexed |
 | `engine.d.ts` | ts | forge | none mapped | indexed |
 | `engine.js` | Weight-constructed Forge engine. One step is one clock: fetch, decode, ALU, writeback. | forge | none mapped | indexed |
 | `host.d.ts` | ts | forge | none mapped | indexed |
-| `host.js` | Host attachment. The Forge subspace is a separate 64-wide stamp. | forge | none mapped | indexed |
-| `isa.js` | ForgeISA/1 — Neuralese-original machine. Not a port of any published weight-baked CPU. | forge | none mapped | indexed |
+| `host.js` | Host attachment. The Forge subspace is a separate 64-wide stamp. | forge | none mapped | reviewed, pass 57 |
+| `isa.js` | ForgeISA/1 — Neuralese-original machine. Not a port of any published weight-baked CPU. | forge | none mapped | reviewed, pass 62 |
 | `mdcc.js` | MDCC lane: a deterministic proposer reads the task string, then the host computes with bigint. | forge | none mapped | reviewed, passes 52–53 |
 | `nestlang.js` | NestLang/1 — Neuralese-original surface language for ForgeISA. | forge | none mapped | indexed |
 | `session.d.ts` | ts | forge | none mapped | indexed |
@@ -274,7 +274,7 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 
 | File | Purpose | Owner | Tests | Status |
 |---|---|---|---|---|
-| `webgpu-engine.js` | v16 WebGPU forward path (WGSL) for the GPT-Neo-8M engine — the clean path only: default runtime R, no hooks, s | gpu | none mapped | indexed |
+| `webgpu-engine.js` | v16 WebGPU forward path (WGSL) for the GPT-Neo-8M engine — the clean path only: default runtime R, no hooks, s | gpu | none mapped | reviewed, pass 59 |
 
 ## `src/hub/`
 

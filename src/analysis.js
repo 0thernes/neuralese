@@ -1,9 +1,9 @@
 // Interpretability toolkit: corpus statistics, logit/tuned lens, DLA, activation & path patching, control vectors.
-import { CFG, mulberry32 } from './model.js?v=170';
-import { Engine, defaultRuntime, layerNorm, logSoftmax, topK, entropy } from './engine.js?v=170';
-import { cholSolve, pca1, dot } from './linalg.js?v=170';
-import { slice } from './coop.js?v=170';
-import { remoteEngine } from './trace-remote.js?v=170';
+import { CFG, mulberry32 } from './model.js?v=171';
+import { Engine, defaultRuntime, layerNorm, logSoftmax, topK, entropy } from './engine.js?v=171';
+import { cholSolve, pca1, dot } from './linalg.js?v=171';
+import { slice } from './coop.js?v=171';
+import { remoteEngine } from './trace-remote.js?v=171';
 const { d, H, hd, L, ff } = CFG;
 function breathe() { return slice(); }
 // One token per slice so a traced forward is not a single 0.5–2s task.
@@ -72,7 +72,7 @@ export async function fitTunedLens(stats, lambda = 1e-2) {
       for (let a = 0; a < D; a++) { const xa = a < d ? X[xo + a] : 1; if (!xa) continue; const ar = a * D;
         for (let b = 0; b <= a; b++) A[ar + b] += xa * (b < d ? X[xo + b] : 1);
         const br = a * d; for (let j = 0; j < d; j++) B[br + j] += xa * Y[xo + j]; }
-      if ((i & 7) === 7) { const y = breathe(); if (y) await y; }
+      { const y = slice(); if (y) await y; }
     }
     let tr = 0; for (let a = 0; a < D; a++) tr += A[a * D + a];
     for (let a = 0; a < D; a++) { for (let b = 0; b < a; b++) A[b * D + a] = A[a * D + b]; A[a * D + a] += lambda * tr / D; }

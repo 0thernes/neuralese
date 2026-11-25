@@ -1,5 +1,6 @@
 import { createEffect, createMemo, createSignal, For, getOwner, onCleanup, onMount, runWithOwner, Show, type JSX } from 'solid-js';
 import { CHAPTERS } from '../../../src/walk/chapters.js';
+import { yieldHost } from '../../../src/coop.js';
 import { CMOS_BANNER, assessInverter, cmosParams, transferCurveYield, type CmosParams, type InverterReport } from '../../../src/walk/cmos.js';
 import { significandProduct, vmOperands, type ForgeGate, type SigProduct } from '../../../src/walk/forgealu.js';
 import { legacy } from '../core/bridge';
@@ -58,7 +59,7 @@ function Stage(): JSX.Element {
         const st = await createStage(host, () => getComputedStyle(document.documentElement).getPropertyValue('--c-bg').trim() || '#070a12');
         const scene = createWalk(st);
         if (owner) runWithOwner(owner, () => {
-          const paint = () => new Promise<void>((resolve) => requestAnimationFrame(() => setTimeout(resolve, 0)));
+          const paint = () => yieldHost();
           let ticket = 0;
           createEffect(() => {
             const view = walkView();
@@ -197,7 +198,7 @@ function ZoomPanel(): JSX.Element {
   const [temp, setTemp] = createSignal(300);
   const [noise, setNoise] = createSignal(0);
   const [report, setReport] = createSignal<InverterReport | null>(null);
-  const paint = () => new Promise<void>((resolve) => requestAnimationFrame(() => setTimeout(resolve, 0)));
+  const paint = () => yieldHost();
   createEffect(() => {
     const params = cmosParams({ VDD: vdd(), Vth0: vth(), T: temp() });
     const sigma = noise();
@@ -206,7 +207,7 @@ function ZoomPanel(): JSX.Element {
     void (async () => {
       await paint();
       if (dead) return;
-      const curve = await transferCurveYield(params, 41, paint);
+      const curve = await transferCurveYield(params, 41);
       if (dead) return;
       setReport(assessInverter(params, { noiseSigma: sigma, noiseDraws: sigma > 0 ? 32 : 0, seed: 1729, steps: 41 }, curve));
       setWalkCurve(curve);

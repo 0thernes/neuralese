@@ -1,6 +1,7 @@
 // Deep-walk stage. Instanced blocks for tensors, bits, and gates. The voltage curve is the same
 // blocks laid on a transfer characteristic. Large tensors are already sampled before they get here.
 import * as THREE from 'three/webgpu';
+import { runBudgeted } from '../../../src/coop.js';
 import type { Stage } from './stage';
 import type { WalkCell, WalkOp, WalkView, Zoom } from '../core/walk';
 
@@ -71,7 +72,7 @@ export function createWalk(st: Stage): WalkScene {
   }
 
   return {
-    async show(view, zoom, op, cell, gates, curve, light, pause = null) {
+    async show(view, zoom, op, cell, gates, curve, light, _pause = null) {
       hide();
       queued.length = 0;
       const L = view.cfg.L;
@@ -142,10 +143,9 @@ export function createWalk(st: Stage): WalkScene {
         aimAt = new THREE.Vector3(0, 0.8, 0);
         aimDist = zoom === 'matmul' ? 8 : 10;
       }
-      for (let n = 0; n < queued.length; n++) {
-        place(queued[n]!);
-        if (pause && (n & 7) === 7) await pause();
-      }
+      await runBudgeted((function* () {
+        for (let n = 0; n < queued.length; n++) { place(queued[n]!); yield; }
+      })(), { budgetMs: 8 });
       if (used > 0) {
         ring.visible = zoom === 'matmul' || zoom === 'unit' || zoom === 'dot';
         ring.position.copy(aimAt);

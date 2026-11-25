@@ -1,10 +1,10 @@
 // INTERVENE/RUN extras: parameter sweeps, batch experiments, advanced steering controls (all act on the real engine).
-import * as C from './labcore.js?v=170';
-import { logSoftmax } from './engine.js?v=170';
-import { CORPUS } from './corpus.js?v=170';
-import { lines } from './charts.js?v=170';
-import { $, esc, opts, hOpts, cv, tipq, prog, tick, tokId, parseLayers, d, H, hd, L, ff } from './lab-ui.js?v=170';
-import { slice } from './coop.js?v=170';
+import * as C from './labcore.js?v=171';
+import { logSoftmax } from './engine.js?v=171';
+import { CORPUS } from './corpus.js?v=171';
+import { lines } from './charts.js?v=171';
+import { $, esc, opts, hOpts, cv, tipq, prog, tick, tokId, parseLayers, d, H, hd, L, ff } from './lab-ui.js?v=171';
+import { slice } from './coop.js?v=171';
 async function lastH(eng, ids) { const s = eng.newSeq(ids.length); let last; for (const t of ids) { for (;;) { last = eng.step(s, t, { budget: true }); if (!last.partial) break; const y = slice(); if (y) await y; } const y = slice(); if (y) await y; } return last.h; }
 const PROMPT = 'Once upon a time, there was a little girl named Lily. She loved to';
 export const markup = {

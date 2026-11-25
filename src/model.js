@@ -1,5 +1,5 @@
 // Tiny GPT-Neo forward pass in plain JS. Weights are mutable Float32Arrays.
-import { frame } from './coop.js?v=170';
+import { runBudgeted, yieldHost } from './coop.js?v=171';
 export const CFG = { d: 256, H: 16, hd: 16, L: 8, ff: 1024, V: 50257, window: 256, eps: 1e-5 };
 
 export function parseSafetensors(buf, hdrLen, header) {
@@ -15,13 +15,20 @@ export function parseSafetensors(buf, hdrLen, header) {
 // Views into the downloaded buffer, one tensor per paint. Copying wte in one Float32Array was a long script.
 export async function parseSafetensorsYield(buf, header) {
   const T = {};
-  for (const [k, v] of Object.entries(header)) {
-    if (k === '__metadata__' || v.dtype !== 'F32') continue;
-    const [a, b] = v.data_offsets, n = (b - a) >> 2;
-    if ((a & 3) === 0) T[k] = new Float32Array(buf, a, n);
-    else { const dst = new Float32Array(n); dst.set(new Float32Array(buf.slice(a, b))); T[k] = dst; }
-    await frame();
-  }
+  const entries = Object.entries(header);
+  await runBudgeted((function* () {
+    for (const [k, v] of entries) {
+      if (k === '__metadata__' || v.dtype !== 'F32') { yield; continue; }
+      const [a, b] = v.data_offsets, n = (b - a) >> 2;
+      if ((a & 3) === 0) T[k] = new Float32Array(buf, a, n);
+      else {
+        const src = new Uint8Array(buf, a, b - a), raw = new Uint8Array(n * 4);
+        for (let i = 0; i < raw.length; i++) raw[i] = src[i];
+        T[k] = new Float32Array(raw.buffer);
+      }
+      yield;
+    }
+  })(), { budgetMs: 8 });
   return T;
 }
 
@@ -49,29 +56,45 @@ export function copyWeightsInto(dst, src) {
   dst.wte.set(src.wte); dst.wpe.set(src.wpe); dst.lnfW.set(src.lnfW); dst.lnfB.set(src.lnfB);
   dst.layers.forEach((L, i) => { for (const k in L) L[k].set(src.layers[i][k]); });
 }
-function allocOffThread(n) {
-  const src = 'onmessage=(e)=>{const o=new Float32Array(e.data|0);postMessage(o.buffer,[o.buffer]);};';
-  const w = new Worker(URL.createObjectURL(new Blob([src], { type: 'text/javascript' })));
+const ALLOC_SRC = 'let all,i=0,n=0;onmessage=(e)=>{if(e.data&&e.data.n){n=e.data.n|0;all=new Float32Array(n);i=0;}if(i>=n){postMessage(0);return;}const k=Math.min(4096,n-i),o=all.subarray(i,i+k).slice(),at=i;i+=k;postMessage({at,buf:o.buffer},[o.buffer]);};';
+export function allocZeroYield(n) {
+  if (!(n > 0)) return Promise.resolve(new Float32Array(0));
+  const grow = typeof ArrayBuffer !== 'undefined' && 'resize' in ArrayBuffer.prototype;
+  if (!(n > 262144) || typeof Worker === 'undefined' || typeof document === 'undefined' || !grow) return Promise.resolve(new Float32Array(n));
+  const w = new Worker(URL.createObjectURL(new Blob([ALLOC_SRC], { type: 'text/javascript' })));
   return new Promise((resolve, reject) => {
-    w.onmessage = (e) => { w.terminate(); resolve(new Float32Array(e.data)); };
+    const dst = new Float32Array(new ArrayBuffer(0, { maxByteLength: n * 4 }));
+    let start = performance.now();
+    w.onmessage = async (e) => {
+      if (e.data === 0) { w.terminate(); resolve(dst); return; }
+      const part = new Float32Array(e.data.buf);
+      dst.buffer.resize((e.data.at + part.length) * 4);
+      dst.set(part, e.data.at);
+      if (performance.now() - start >= 8) { await yieldHost(); start = performance.now(); }
+      w.postMessage(1);
+    };
     w.onerror = () => { w.terminate(); reject(new Error('alloc worker failed')); };
-    w.postMessage(n);
+    w.postMessage({ n });
   });
 }
 export async function cloneWeightsYield(W) {
-  const alloc = async (a) => {
-    if (a.length > 262144 && typeof Worker !== 'undefined' && typeof document !== 'undefined') return allocOffThread(a.length);
-    const o = new Float32Array(a.length);
-    if (a.length > 262144) await frame();
-    return o;
-  };
+  const alloc = (a) => allocZeroYield(a.length);
   const dst = { wte: await alloc(W.wte), wpe: await alloc(W.wpe), lnfW: await alloc(W.lnfW), lnfB: await alloc(W.lnfB), layers: [] };
-  for (const L of W.layers) { const o = {}; for (const k of Object.keys(L)) o[k] = await alloc(L[k]); dst.layers.push(o); if (dst.layers.length % 2 === 0) await frame(); }
+  await runBudgeted((function* () {
+    for (const L of W.layers) {
+      const o = {};
+      for (const k of Object.keys(L)) o[k] = new Float32Array(L[k].length);
+      dst.layers.push(o);
+      yield;
+    }
+  })(), { budgetMs: 8 });
   await copyWeightsIntoYield(dst, W);
   return dst;
 }
 export async function copyWeightsIntoYield(dst, src) {
-  const put = async (d, s) => { const N = 32768; if (s.length <= N) { d.set(s); return; } for (let i = 0; i < s.length; i += N) { d.set(s.subarray(i, Math.min(s.length, i + N)), i); await frame(); } };
+  const put = (d, s) => runBudgeted((function* () {
+    for (let i = 0; i < s.length; i++) { d[i] = s[i]; yield; }
+  })(), { budgetMs: 8 });
   await put(dst.wte, src.wte); await put(dst.wpe, src.wpe); await put(dst.lnfW, src.lnfW); await put(dst.lnfB, src.lnfB);
   for (let i = 0; i < dst.layers.length; i++) for (const k of Object.keys(dst.layers[i])) await put(dst.layers[i][k], src.layers[i][k]);
 }

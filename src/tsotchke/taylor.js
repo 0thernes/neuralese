@@ -3,6 +3,7 @@
 // docs/design/AD_TAYLOR_TOWER.md. A jet stores Taylor coefficients c[k] = f^(k)(x0)/k!, so f^(k) = k!·c[k].
 // Only the recurrences are ported (no Eshkol compiler/runtime code); perturbation tags, exact/bignum coefficients and
 // Taylor models are NOT ported. DOM-free; used by the TAYLOR tab and test/tsotchke.test.mjs.
+import { runBudgeted } from '../coop.js?v=171';
 export const SOURCE = { repo: 'tsotchke/eshkol', commit: '341ac812ed600fd9d27c28e9509d66ab71363947', file: 'lib/core/taylor_recurrences.def', license: 'MIT' };
 export const K_MAX = 16;
 export class Jet {
@@ -82,8 +83,13 @@ export async function ceJetLnfAsync(W, xPre, ids, v, K = 3, pause = null) {
     let mu = 0; for (let i = 0; i < d; i++) mu += xPre[t * d + i]; mu /= d; let va = 0; for (let i = 0; i < d; i++) va += (xPre[t * d + i] - mu) ** 2; va /= d; const r = 1 / Math.sqrt(va + eps);
     for (let i = 0; i < d; i++) { n[i] = (xPre[t * d + i] - mu) * r; y0[i] = n[i] * W.lnfW[i] + W.lnfB[i]; y1[i] = n[i] * v[i]; }
     let m = -Infinity;
-    for (let o = 0; o < V; o++) { let s0 = 0, s1 = 0; const off = o * d; for (let i = 0; i < d; i++) { s0 += W.wte[off + i] * y0[i]; s1 += W.wte[off + i] * y1[i]; } a[o] = s0; b[o] = s1; if (s0 > m) m = s0; if (pause && (o & 511) === 511) await pause(); }
-    let Z = Jet.const(0, K); for (let o = 0; o < V; o++) { const u = Jet.const(a[o] - m, K); u.c[1] = b[o]; Z = add(Z, exp(u)); if (pause && (o & 511) === 511) await pause(); }
+    await runBudgeted((function* () {
+      for (let o = 0; o < V; o++) { let s0 = 0, s1 = 0; const off = o * d; for (let i = 0; i < d; i++) { s0 += W.wte[off + i] * y0[i]; s1 += W.wte[off + i] * y1[i]; } a[o] = s0; b[o] = s1; if (s0 > m) m = s0; yield; }
+    })(), { budgetMs: 8 });
+    let Z = Jet.const(0, K);
+    await runBudgeted((function* () {
+      for (let o = 0; o < V; o++) { const u = Jet.const(a[o] - m, K); u.c[1] = b[o]; Z = add(Z, exp(u)); yield; }
+    })(), { budgetMs: 8 });
     const tg = ids[t + 1], lt = Jet.const(a[tg] - m, K); lt.c[1] = b[tg]; acc = add(acc, sub(log(Z), lt));
     if (pause) await pause();
   }
