@@ -182,9 +182,16 @@ for (const [w, h, name] of WIDTHS) test(`click every control · ${name}`, async 
       if (!found) return false;
       return page.waitForFunction((ws) => document.querySelector('#v17 .wsbar button.on')?.dataset.ws === ws, id, { timeout: 180000 }).then(() => true).catch(() => false);
     };
-    const clickControls = (panel) => page.evaluate(async (pid) => {
+    const clickControls = (ws, panel) => page.evaluate(async ({ ws, pid }) => {
       const paint = () => new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve, 0)));
-      const btn = [...document.querySelectorAll('#v17 .tabstrip button[role=tab]')].find((b) => b.getAttribute('data-panel') === pid);
+      const open = () => {
+        const cur = document.querySelector('#v17 .wsbar button.on')?.getAttribute('data-ws');
+        if (cur !== ws) document.querySelector(`#v17 .wsbar button[data-ws="${ws}"]`)?.click();
+        return [...document.querySelectorAll('#v17 .tabstrip button[role=tab]')].find((b) => b.getAttribute('data-panel') === pid) || null;
+      };
+      let btn = open();
+      const deadline = performance.now() + 4000;
+      while (!btn && performance.now() < deadline) { await paint(); btn = open(); }
       btn?.click();
       await paint();
       const host = [...document.querySelectorAll('#v17 .panel')].find((el) => el.getAttribute('data-panel') === pid);
@@ -204,7 +211,7 @@ for (const [w, h, name] of WIDTHS) test(`click every control · ${name}`, async 
         await paint();
       }
       return { missing: false, clicked, disabled };
-    }, panel);
+    }, { ws, pid: panel });
     let clicked = 0;
     let disabled = 0;
     if (!process.env.E2E_PIXELS_ONLY) for (const id of workspaces) {
@@ -217,7 +224,7 @@ for (const [w, h, name] of WIDTHS) test(`click every control · ${name}`, async 
         // showTab from a control is supposed to leave this panel. That navigation is the
         // control working. Open the intended panel and click its controls in one turn,
         // before a queued showTab can move the shell again.
-        let stats = await clickControls(panel);
+        let stats = await clickControls(id, panel);
         if (stats.missing) {
           await showWs(id);
           await page.waitForTimeout(40);
