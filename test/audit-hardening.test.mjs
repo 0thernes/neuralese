@@ -169,7 +169,7 @@ test('a yielded CE jet matches the sync jet', async () => {
 test('png export caps the canvas before encoding', () => {
   const src = readFileSync(new URL('../src/lab-ui.js', import.meta.url), 'utf8');
   const fn = src.slice(src.indexOf('async function pngBlob'), src.indexOf('export async function exportFor'));
-  assert.match(fn, /cap = 320/);
+  assert.match(fn, /cap = 96/);
   assert.match(fn, /png-end/);
   assert.ok(!fn.includes('toBlob'));
 });
