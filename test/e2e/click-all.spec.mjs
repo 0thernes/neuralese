@@ -118,6 +118,10 @@ for (const [w, h, name] of WIDTHS) test(`click every control · ${name}`, async 
     }
     await page.evaluate(() => document.fonts ? document.fonts.ready : null);
     await page.keyboard.press('Escape');
+    const axe = await new AxeBuilder({ page }).include('#top').include('#v17').analyze();
+    const serious = axe.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical');
+    if (serious.length) failures.push(`${name} axe ${serious.map((v) => { const n = v.nodes[0]; const where = n ? ` ${(n.target || []).join(' ')} ${String(n.html || '').replace(/\s+/g, ' ').slice(0, 90)}` : ''; return v.id + ':' + v.nodes.length + where; }).slice(0, 4).join(' | ')}`);
+    await page.waitForTimeout(1000);
     await page.evaluate(() => {
       window.__frames = [];
       window.__scripts = [];
@@ -172,9 +176,6 @@ for (const [w, h, name] of WIDTHS) test(`click every control · ${name}`, async 
       window.__long = [];
       try { new PerformanceObserver((list) => { for (const e of list.getEntries()) if (e.duration >= 50) window.__long.push(Math.round(e.duration)); }).observe({ type: 'longtask' }); } catch { /* this browser has no long-task entries */ }
     });
-    const axe = await new AxeBuilder({ page }).include('#top').include('#v17').analyze();
-    const serious = axe.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical');
-    if (serious.length) failures.push(`${name} axe ${serious.map((v) => { const n = v.nodes[0]; const where = n ? ` ${(n.target || []).join(' ')} ${String(n.html || '').replace(/\s+/g, ' ').slice(0, 90)}` : ''; return v.id + ':' + v.nodes.length + where; }).slice(0, 4).join(' | ')}`);
     const workspaces = await page.locator('.wsbar button[data-ws]').evaluateAll((els) => els.map((e) => e.getAttribute('data-ws')));
     expect(workspaces.length).toBeGreaterThanOrEqual(13);
     const showWs = async (id) => {
@@ -188,6 +189,7 @@ for (const [w, h, name] of WIDTHS) test(`click every control · ${name}`, async 
         ch.port1.onmessage = () => { ch.port1.close(); ch.port2.close(); resolve(); };
         ch.port2.postMessage(0);
       }));
+      window.__holdWs = ws;
       const hostOf = () => {
         const cur = document.querySelector('#v17 .wsbar button.on')?.getAttribute('data-ws');
         if (cur !== ws) document.querySelector(`#v17 .wsbar button[data-ws="${ws}"]`)?.click();
@@ -199,16 +201,20 @@ for (const [w, h, name] of WIDTHS) test(`click every control · ${name}`, async 
       const deadline = performance.now() + 4000;
       while (!host && performance.now() < deadline) { await paint(); host = hostOf(); }
       if (!host) return { missing: true, clicked: 0, disabled: 0, disabledNames: [], ws: document.querySelector('#v17 .wsbar button.on')?.getAttribute('data-ws'), panels: [...document.querySelectorAll('#v17 .panel')].map((p) => p.getAttribute('data-panel')) };
-      const spec = [...host.querySelectorAll('button, input[type="checkbox"]')].map((el, i) => ({ i, id: el.id || '', text: (el.textContent || '').trim().slice(0, 48), disabled: !!el.disabled, file: el instanceof HTMLInputElement && el.type === 'file' }));
+      const spec = [...host.querySelectorAll('button, input[type="checkbox"]')].map((el, i) => ({ i, id: el.id || '', text: (el.textContent || '').trim().slice(0, 48), file: el instanceof HTMLInputElement && el.type === 'file' }));
       let clicked = 0; let disabled = 0; const disabledNames = [];
       for (const s of spec) {
         if (s.file) continue;
-        if (s.disabled) { disabled++; disabledNames.push(s.id || s.text || pid); continue; }
-        let live = [...document.querySelectorAll('#v17 .panel')].find((el) => el.getAttribute('data-panel') === pid);
-        if (!live) { await paint(); live = hostOf(); }
-        if (!live) continue;
-        const els = [...live.querySelectorAll('button, input[type="checkbox"]')];
-        const el = els.find((e) => (s.id && e.id === s.id) || (!s.id && (e.textContent || '').trim().slice(0, 48) === s.text)) || els[s.i];
+        let el = null;
+        const until = performance.now() + 2000;
+        while (performance.now() < until) {
+          let live = [...document.querySelectorAll('#v17 .panel')].find((node) => node.getAttribute('data-panel') === pid);
+          if (!live) live = hostOf();
+          const els = live ? [...live.querySelectorAll('button, input[type="checkbox"]')] : [];
+          el = els.find((e) => (s.id && e.id === s.id) || (!s.id && (e.textContent || '').trim().slice(0, 48) === s.text)) || els[s.i] || null;
+          if (el) break;
+          await paint();
+        }
         if (!el || (el instanceof HTMLInputElement && el.type === 'file')) continue;
         if (el.disabled) { disabled++; disabledNames.push(s.id || s.text || pid); continue; }
         window.__click = (s.id || s.text || pid).slice(0, 48);

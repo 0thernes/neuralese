@@ -60,7 +60,15 @@ export function App(): JSX.Element {
     const syncTheme = (): void => { setThemeSig(document.documentElement.dataset.theme === 'light' ? 'light' : 'dark'); }; syncTheme();
     new MutationObserver(syncTheme).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
     // legacy code that calls showTab(k) on its own (links, terminal, quiz) → bring that tab's workspace forward
-    document.addEventListener('neuralese:tab', (e) => { if (isShowing()) return; const k = (e as CustomEvent<string>).detail; if (activeLegacy.has(k)) return; const w = workspaceOfLegacy(k); if (w) go(w, 'legacy:' + k); });
+    document.addEventListener('neuralese:tab', (e) => {
+      if (isShowing()) return;
+      const k = (e as CustomEvent<string>).detail;
+      if (activeLegacy.has(k)) return;
+      const w = workspaceOfLegacy(k);
+      const hold = (window as unknown as { __holdWs?: string }).__holdWs;
+      if (hold && w?.id !== hold) return;
+      if (w) go(w, 'legacy:' + k);
+    });
     if (!store.get(TOUR_KEY) && !/notour/.test(location.search)) setTour(true);
     (window as unknown as { __manifestPanels?: { id: string; panels: string[] }[] }).__manifestPanels = WORKSPACES.map((w) => ({ id: w.id, panels: panelsOf(w) }));
     const mark = (): void => setModelReady(true);
