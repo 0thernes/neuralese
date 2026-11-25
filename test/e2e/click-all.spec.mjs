@@ -262,10 +262,13 @@ for (const [w, h, name] of WIDTHS) test(`click every control · ${name}`, async 
       if (status.state === 'missing' && row.selector) {
         await page.evaluate((row) => {
           const hosts = [...document.querySelectorAll('#v17 .panel')].filter((el) => el.getAttribute('data-panel') === row.panel);
-          const host = hosts.sort((a, b) => b.querySelectorAll('button').length - a.querySelectorAll('button').length)[0];
-          host?.querySelector('[data-lv="course"], #lnBack')?.click();
+          const paneId = row.panel.startsWith('legacy:') ? 'pane_' + row.panel.slice(7) : '';
+          const pane = paneId ? document.getElementById(paneId) : null;
+          const host = (pane && hosts.find((el) => el.contains(pane))) || hosts.sort((a, b) => b.querySelectorAll('button').length - a.querySelectorAll('button').length)[0];
+          (host || document).querySelector('[data-lv="course"], #lnBack')?.click();
         }, row);
-        for (let i = 0; i < 8 && status.state === 'missing'; i++) { await idle(); status = await clickOne(row); }
+        const until = Date.now() + 20000;
+        while (status.state === 'missing' && Date.now() < until) { await idle(); status = await clickOne(row); }
       }
       if (status.state === 'clicked') await idle();
       results.push({ ...row, state: status.state, reason: status.reason || row.reason });
