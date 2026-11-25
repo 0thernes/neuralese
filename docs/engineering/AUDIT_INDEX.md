@@ -5,9 +5,9 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 | | |
 |---|---|
 | Files | 505 |
-| Reviewed (passes 23–67) | 155 |
-| Indexed, not reviewed | 350 |
-| Coverage | 30.7% |
+| Reviewed (passes 23–70) | 158 |
+| Indexed, not reviewed | 347 |
+| Coverage | 31.3% |
 
 
 ## `/`
@@ -202,7 +202,7 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 | `geometry.js` | Key-cache geometry (Lyra Technique, Edrington, Watson & Wilkes, Liberation Labs, 2026). | adversary | none mapped | indexed |
 | `measured-tinystories.json` | json | adversary | none mapped | indexed |
 | `neurons.js` | MLP-unit search and a steering-vs-random comparison. | adversary | none mapped | indexed |
-| `prereg.js` | Adversary Lab pre-registration. Separate from src/prereg.js, whose schema rejects extra fields. | adversary | none mapped | indexed |
+| `prereg.js` | Adversary Lab pre-registration. Separate from src/prereg.js, whose schema rejects extra fields. | adversary | none mapped | reviewed, pass 68 |
 | `prompts.d.ts` | ts | adversary | none mapped | reviewed, passes 50–51 |
 | `prompts.js` | Same-user-prompt bank. Only the system string changes. Length is equalized by appending a | adversary | none mapped | indexed |
 
@@ -237,7 +237,7 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 | `host.js` | Host attachment. The Forge subspace is a separate 64-wide stamp. | forge | none mapped | reviewed, pass 57 |
 | `isa.js` | ForgeISA/1 — Neuralese-original machine. Not a port of any published weight-baked CPU. | forge | none mapped | reviewed, pass 62 |
 | `mdcc.js` | MDCC lane: a deterministic proposer reads the task string, then the host computes with bigint. | forge | none mapped | reviewed, passes 52–53 |
-| `nestlang.js` | NestLang/1 — Neuralese-original surface language for ForgeISA. | forge | none mapped | indexed |
+| `nestlang.js` | NestLang/1 — Neuralese-original surface language for ForgeISA. | forge | none mapped | reviewed, pass 69 |
 | `session.d.ts` | ts | forge | none mapped | indexed |
 | `session.js` | One Forge run: language-model tokens, then the delimiter, then one engine token group per clock. | forge | none mapped | indexed |
 | `vm.js` | Integer reference VM for ForgeISA/1. Ground truth. Words are int32. No float rounding. | forge | none mapped | indexed |
@@ -249,7 +249,7 @@ Coverage record for the hardening audit on `cursor/never-subtract-features-54d2`
 | `cites.js` | v11 FRONTIER citations. Every entry was checked against its arXiv abstract page or its DOI record (Crossref) o | frontier | none mapped | indexed |
 | `core.js` | v11 FRONTIER shared core: null models, cross-entropy, statistics, LZ76 complexity. Pure ES module (Node + brow | frontier | none mapped | reviewed, pass 67 |
 | `grok.js` | v11 P5: grokking on a + b mod p (Power et al. 2022; MLP construction after Gromov 2023), trainable in the brow | frontier | none mapped | reviewed, passes 37–38 |
-| `mind.js` | v11 consciousness-science PROXIES (operational definitions only — see docs/FRONTIER.md for what they cannot sh | frontier | none mapped | indexed |
+| `mind.js` | v11 consciousness-science PROXIES (operational definitions only — see docs/FRONTIER.md for what they cannot sh | frontier | none mapped | reviewed, pass 70 |
 | `rsi.js` | v11 P4: a closed self-improvement loop on TinyStories-8M. Editable θ = ln_f gain/bias (512) + output gains γ o | frontier | none mapped | indexed |
 
 ## `src/frontier/data/`
