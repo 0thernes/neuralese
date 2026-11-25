@@ -38,7 +38,14 @@ async function pngBlob(el) {
   const c = document.createElement('canvas'); c.width = cw; c.height = ch;
   c.getContext('2d').drawImage(el, 0, 0, cw, ch);
   await tick();
-  return await new Promise((resolve) => c.toBlob((b) => resolve(b), 'image/png'));
+  const bmp = await createImageBitmap(c);
+  const worker = exportWorker();
+  try {
+    worker.postMessage({ op: 'png-init', w: cw, h: ch });
+    worker.postMessage({ op: 'png-bitmap', y: 0, bmp }, [bmp]);
+    await tick();
+    return await new Promise((resolve, reject) => { worker.onmessage = (e) => resolve(e.data); worker.onerror = () => reject(new Error('png worker failed')); worker.postMessage({ op: 'png-end' }); });
+  } finally { worker.terminate(); }
 }
 export async function exportFor(id, kind) {
   await tick();

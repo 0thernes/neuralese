@@ -158,7 +158,8 @@ test('png export caps the canvas before encoding', () => {
   const src = readFileSync(new URL('../src/lab-ui.js', import.meta.url), 'utf8');
   const fn = src.slice(src.indexOf('async function pngBlob'), src.indexOf('export async function exportFor'));
   assert.match(fn, /cap = 640/);
-  assert.match(fn, /toBlob/);
+  assert.match(fn, /png-end/);
+  assert.ok(!fn.includes('toBlob'));
 });
 
 test('evalCorpus chunks the token step and the unembed', () => {
