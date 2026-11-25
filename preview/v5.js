@@ -1,25 +1,25 @@
 // v5 shell: grouped tabs, module install, theme, resizable dock, export bar, shortcuts, terminal + learning center.
-import { initialTheme, navTooltips } from './ui152.js?v=176';
-import { GROUPS, runs, exportFor, parseLayers, $, $$ } from './lab-ui.js?v=176';
-import * as LM from './lab-model.js?v=176';
-import * as LI from './lab-interpret.js?v=176';
-import * as LV from './lab-intervene.js?v=176';
-import * as LE from './lab-eval.js?v=176';
-import * as LS from './lab-science.js?v=176';
-import * as LR from './lab-research.js?v=176';
-import * as LT from './lab-tsotchke.js?v=176';
-import * as LF from './lab-frontier.js?v=176';
-import * as LH from './lab-hub.js?v=176';
-import * as LN from './lab-lens.js?v=176';
-import * as LX from './lab-nested.js?v=176';
-import * as L16 from './lab-v16.js?v=176';
-import { installModes } from './viz3d.js?v=176';
-import { redrawAll } from './charts.js?v=176';
-import { frame } from './coop.js?v=176';
-import { makeTerminal, termMarkup, mountTerminal, VERSION } from './term.js?v=176';
-import { learnMarkup, mountLearn } from './learn/learn.js?v=176';
-import { banner } from './provenance.js?v=176';
-import { installGuide } from './guide.js?v=176';
+import { initialTheme, navTooltips } from './ui152.js?v=178';
+import { GROUPS, runs, exportFor, parseLayers, $, $$ } from './lab-ui.js?v=178';
+import * as LM from './lab-model.js?v=178';
+import * as LI from './lab-interpret.js?v=178';
+import * as LV from './lab-intervene.js?v=178';
+import * as LE from './lab-eval.js?v=178';
+import * as LS from './lab-science.js?v=178';
+import * as LR from './lab-research.js?v=178';
+import * as LT from './lab-tsotchke.js?v=178';
+import * as LF from './lab-frontier.js?v=178';
+import * as LH from './lab-hub.js?v=178';
+import * as LN from './lab-lens.js?v=178';
+import * as LX from './lab-nested.js?v=178';
+import * as L16 from './lab-v16.js?v=178';
+import { installModes } from './viz3d.js?v=178';
+import { redrawAll } from './charts.js?v=178';
+import { frame, runBudgeted } from './coop.js?v=178';
+import { makeTerminal, termMarkup, mountTerminal, VERSION } from './term.js?v=178';
+import { learnMarkup, mountLearn } from './learn/learn.js?v=178';
+import { banner } from './provenance.js?v=178';
+import { installGuide } from './guide.js?v=178';
 export { VERSION };
 const MODS = [LM, LI, LN, LX, LV, LE, LS, LR, LT, LF, LH, L16];
 const AUTO = { arch: 'arch', params: 'params', timeline: 'timeline', runs: 'runs' }; // cheap views rendered on open
@@ -56,10 +56,21 @@ export function buildV5(TABS, P) {
     },
     // a11y: give every unlabelled form control an accessible name (from its preceding <label>, placeholder, title or id),
     // make scroll containers keyboard-focusable, and expose the splitter's value.
-    a11y(root = document) { for (const el of root.querySelectorAll('input:not([type=hidden]),select,textarea')) { if (el.getAttribute('aria-label') || el.labels?.length || el.closest('label')) continue; let p = el.previousElementSibling; while (p && p.tagName !== 'LABEL' && !['INPUT', 'SELECT', 'TEXTAREA', 'BUTTON'].includes(p.tagName)) p = p.previousElementSibling;
-        const name = (p?.tagName === 'LABEL' && p.textContent.trim()) || el.placeholder || el.title || (el.closest('.r')?.querySelector('b')?.textContent.trim() ? el.closest('.r').querySelector('b').textContent.trim() + ' ' + (el.dataset.k || el.tagName.toLowerCase()) : '') || el.id.replace(/^[a-z]+/, '').replace(/([A-Z])/g, ' $1').trim() || el.id; if (name) el.setAttribute('aria-label', name); }
+    async a11y(root = document) {
+      const els = [...root.querySelectorAll('input:not([type=hidden]),select,textarea')];
+      await runBudgeted((function* () {
+        for (const el of els) {
+          if (el.getAttribute('aria-label') || el.labels?.length || el.closest('label')) { yield; continue; }
+          let p = el.previousElementSibling;
+          while (p && p.tagName !== 'LABEL' && !['INPUT', 'SELECT', 'TEXTAREA', 'BUTTON'].includes(p.tagName)) p = p.previousElementSibling;
+          const name = (p?.tagName === 'LABEL' && p.textContent.trim()) || el.placeholder || el.title || (el.closest('.r')?.querySelector('b')?.textContent.trim() ? el.closest('.r').querySelector('b').textContent.trim() + ' ' + (el.dataset.k || el.tagName.toLowerCase()) : '') || el.id.replace(/^[a-z]+/, '').replace(/([A-Z])/g, ' $1').trim() || el.id;
+          if (name) el.setAttribute('aria-label', name);
+          yield;
+        }
+      })(), { label: 'a11y' });
       for (const id of ['outA', 'xArchSvg', 'xParTab']) $(id)?.setAttribute('tabindex', '0');
-      const sp = $('split'), dock = $('dock'); if (sp && dock) { sp.setAttribute('aria-valuemin', '320'); sp.setAttribute('aria-valuemax', String(innerWidth)); sp.setAttribute('aria-valuenow', String(Math.round(dock.getBoundingClientRect().width))); } },
+      const sp = $('split'), dock = $('dock'); if (sp && dock) { sp.setAttribute('aria-valuemin', '320'); sp.setAttribute('aria-valuemax', String(innerWidth)); sp.setAttribute('aria-valuenow', String(Math.round(dock.getBoundingClientRect().width))); }
+    },
     mount(base) {
       api = { ...base, on: (id, ev, fn) => { const el = $(id); if (!el) throw new Error('missing element #' + id); el.addEventListener(ev, base.guard(fn)); },
         logRun: (r) => runs.add(r), runs: () => runs.all(), importRuns: (a) => runs.save(a.slice(-300)), appVersion: VERSION, parseLayers: (s) => [...parseLayers(s)], hasTab: (k) => !!$('pane_' + k), setTheme: V.setTheme,
@@ -69,7 +80,10 @@ export function buildV5(TABS, P) {
       const T = makeTerminal(api, out); api.term = mountTerminal(api, T); V.exec = T.exec; V.term = api.term;
       V.learn = mountLearn(api); V.api = api; V.setTheme(document.documentElement.dataset.theme || 'dark');
       $$('#tabs button').forEach((b) => b.setAttribute('aria-controls', 'pane_' + b.dataset.t));
-      V.a11y(); let a11yT; new MutationObserver(() => { clearTimeout(a11yT); a11yT = setTimeout(() => V.a11y(), 200); }).observe($('panes') || document.body, { childList: true, subtree: true });
+      let a11yGen = 0;
+      const scheduleA11y = () => { const gen = ++a11yGen; void frame().then(() => { if (gen === a11yGen) return V.a11y(); }); };
+      scheduleA11y();
+      new MutationObserver(() => scheduleA11y()).observe($('panes') || document.body, { childList: true, subtree: true });
     },
   };
   return V;

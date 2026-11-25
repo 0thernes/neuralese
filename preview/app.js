@@ -1,31 +1,31 @@
 // NEURALESE v2 — UI wiring. All numerics live in engine/analysis/surgery/decode/sae/rome (unit-tested vs PyTorch).
-import * as U152 from './ui152.js?v=176';
-import { GPT2Tokenizer, parseVocabYield } from './tokenizer.js?v=176';
-import { CFG, buildWeights, parseSafetensorsYield, cloneWeightsYield, mulberry32 } from './model.js?v=176';
-import { concatUint8 } from './bytes.js?v=176';
-import { Engine, defaultRuntime, logSoftmax, topK, SITES } from './engine.js?v=176';
-import { RemoteEngine, withBias } from './engine-client.js?v=176';
-import { bindRemote } from './trace-remote.js?v=176';
-import { computeStats, actCovariance, fitTunedLens, lensGrid, dla, patchResid, patchHeads, pathPatchHeadsToLogits, ablationSweep, buildControlVector, vectorArithmetic, tokenStats } from './analysis.js?v=176';
-import { Editor, MATS, getMat, toSafetensorsYield, quantize } from './surgery.js?v=176';
-import { defaultDecode, applyPenalties, filterDist, pick, contrastiveLogits, cfgLogits, beamSearch } from './decode.js?v=176';
-import { SAE } from './sae.js?v=176';
-import { computeRome, findSubject } from './rome.js?v=176';
-import { slice, cancelJobs, resetCancel, frame, namedFrame, runBudgeted } from './coop.js?v=176';
-import * as mf from './mf-client.js?v=176';
+import * as U152 from './ui152.js?v=178';
+import { GPT2Tokenizer, parseVocabYield } from './tokenizer.js?v=178';
+import { CFG, buildWeights, parseSafetensorsYield, cloneWeightsYield, mulberry32 } from './model.js?v=178';
+import { concatUint8 } from './bytes.js?v=178';
+import { Engine, defaultRuntime, logSoftmax, topK, SITES } from './engine.js?v=178';
+import { RemoteEngine, withBias } from './engine-client.js?v=178';
+import { bindRemote } from './trace-remote.js?v=178';
+import { computeStats, actCovariance, fitTunedLens, lensGrid, dla, patchResid, patchHeads, pathPatchHeadsToLogits, ablationSweep, buildControlVector, vectorArithmetic, tokenStats } from './analysis.js?v=178';
+import { Editor, MATS, getMat, toSafetensorsYield, quantize } from './surgery.js?v=178';
+import { defaultDecode, applyPenalties, filterDist, pick, contrastiveLogits, cfgLogits, beamSearch } from './decode.js?v=178';
+import { SAE } from './sae.js?v=178';
+import { computeRome, findSubject } from './rome.js?v=178';
+import { slice, cancelJobs, resetCancel, frame, namedFrame, runBudgeted } from './coop.js?v=178';
+import * as mf from './mf-client.js?v=178';
 mf.ping().catch(() => {});
-import { svdYield } from './linalg.js?v=176';
-import { CORPUS } from './corpus.js?v=176';
-import { heatmap, lines, bars, showTip, seqColor, divColor, markStale, heatStrip, emit } from './charts.js?v=176';
-import { Viz } from './viz.js?v=176';
-import { AudioEngine, editKind, STYLES } from './audio.js?v=176';
-import { buildV5 } from './v5.js?v=176';
-import { vecToJSON as _v2j, vecFromJSON as _j2v } from './labcore.js?v=176';
-import * as UI15 from './ui15.js?v=176';
-import { homeMarkup } from './ui15.js?v=176';
-import { geometryFromSeq, KV_CADENCE } from './adversary/geometry.js?v=176';
-import { attachAdversary } from './adversary/campaign.js?v=176';
-import { CITATIONS, FAULT_SPEC, runFaultOp, runWalkCellOp, runWalkOp } from './walk/session.js?v=176';
+import { svdYield } from './linalg.js?v=178';
+import { CORPUS } from './corpus.js?v=178';
+import { heatmap, lines, bars, showTip, seqColor, divColor, markStale, heatStrip, emit } from './charts.js?v=178';
+import { Viz } from './viz.js?v=178';
+import { AudioEngine, editKind, STYLES } from './audio.js?v=178';
+import { buildV5 } from './v5.js?v=178';
+import { vecToJSON as _v2j, vecFromJSON as _j2v } from './labcore.js?v=178';
+import * as UI15 from './ui15.js?v=178';
+import { homeMarkup } from './ui15.js?v=178';
+import { geometryFromSeq, KV_CADENCE } from './adversary/geometry.js?v=178';
+import { attachAdversary } from './adversary/campaign.js?v=178';
+import { CITATIONS, FAULT_SPEC, runFaultOp, runWalkCellOp, runWalkOp } from './walk/session.js?v=178';
 const audio = new AudioEngine();
 const { d, H, L, ff, V } = CFG;
 const $ = (id) => document.getElementById(id), $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -85,7 +85,8 @@ async function undo() { const u = S.undo.pop(); if (!u) return; S.redo.push({ la
 async function redo() { const u = S.redo.pop(); if (!u) return; S.undo.push({ label: u.label, s: snap() }); await restoreAsync(u.s); toast('↷ ' + u.label); audio.edit('undo'); }
 async function restoreAsync(s) { R = structuredClone(s.R); eng.R = R; await ed.setEditsAsync(structuredClone(s.edits)); afterChange(); }
 let regenT = null;
-let hashT; function afterChange() { markStale(); clearTimeout(hashT); hashT = setTimeout(() => V5?.out?.hashes?.().catch(() => {}), 400); renderOps(); renderSteerList(); renderProgram(); renderHeadGrid(); refreshWeights(); hud(); clearTimeout(regenT); if ($('autoRegen').checked) regenT = setTimeout(() => generate(), 120); }
+let hashGen = 0;
+function afterChange() { markStale(); const gen = ++hashGen; void frame().then(() => { if (gen === hashGen) V5?.out?.hashes?.().catch(() => {}); }); renderOps(); renderSteerList(); renderProgram(); renderHeadGrid(); refreshWeights(); hud(); clearTimeout(regenT); if ($('autoRegen').checked) regenT = setTimeout(() => { void frame().then(() => generate()); }, 120); }
 async function ensureStats() {
   if (stats) return stats; const n = +$('statN').value;
   stats = await computeStats(W, CORPUS, n, (f) => prog('statP', f)); eng.stats = stats; engClean.stats = stats;
@@ -463,7 +464,7 @@ function weightEdit(label, e, path) { // records relative Frobenius change of th
 async function showSvd() {
   const path = matPath(); if (path === 'wte') throw new Error('wte SVD (50257×256) is too slow for the browser here; use a layer matrix or wpe'); $('svdInfo').textContent = 'running one-sided Jacobi SVD…'; await tick();
   const t0 = performance.now(), { a, rows, cols } = getMat(M, path), r = await svdYield(a, rows, cols), S2 = r.S; const tot = S2.reduce((x, y) => x + y * y, 0); let c = 0; const cum = S2.map((s) => (c += s * s) / tot);
-  const out = new Float32Array(rows * cols); (await import('./linalg.js?v=176')).svdReconstruct(r, Float64Array.from(S2), out); let e = 0; for (let i = 0; i < out.length; i++) e += (out[i] - a[i]) ** 2;
+  const out = new Float32Array(rows * cols); (await import('./linalg.js?v=178')).svdReconstruct(r, Float64Array.from(S2), out); let e = 0; for (let i = 0; i < out.length; i++) e += (out[i] - a[i]) ** 2;
   bars($('svdC'), Array.from(S2), { log: true, title: `σ spectrum ${path} (${rows}×${cols}, log) · hover for energy`, label: (i) => `σ${i} = ${S2[i].toPrecision(5)}  cum energy ${(cum[i] * 100).toFixed(2)}%`, onClick: (i) => ($('svK').value = i + 1) });
   $('svdInfo').textContent = `${S2.length} σ · ${r.sweeps} sweeps · ${(performance.now() - t0).toFixed(0)} ms · recon rel.err ${(Math.sqrt(e) / frob(a)).toExponential(2)} · 90% energy @ k=${cum.findIndex((x) => x >= 0.9) + 1}`;
 }
@@ -618,9 +619,15 @@ function wire() {
   $$('[data-sfx]').forEach((b) => b.addEventListener('click', guard(async () => { await startAudio(); audio.edit(b.dataset.sfx); })));
   $$('[data-anom]').forEach((b) => b.addEventListener('click', guard(async () => { await startAudio(); audio.anomaly(b.dataset.anom); })));
   audio.onAnomaly = (t) => { const b = $('anomBadge'); b.textContent = '◆ ' + t.replace('_', ' '); b.style.opacity = 1; clearTimeout(b._t); b._t = setTimeout(() => (b.style.opacity = 0), 4000); };
-  setInterval(() => { if (!audio.on || !$('pane_audio').classList.contains('on')) return; const h = audio.hist, n = h.ent.length;
+  let scopeQueued = false;
+  setInterval(() => {
+    if (!audio.on || !$('pane_audio').classList.contains('on')) return;
+    const h = audio.hist, n = h.ent.length;
     $('auState').textContent = `mode ${audio.harm.mode} · root ${['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'][audio.harm.root % 12]}${Math.floor(audio.harm.root / 12) - 1} (MIDI ${audio.harm.root}) · last entropy ${n ? h.ent[n - 1].toFixed(2) : '–'} nats · KL(hacked‖clean) ${audio.lastKL != null ? audio.lastKL.toFixed(4) : '–'} · level ${audio.level.toFixed(2)} · anomalies ${audio.events.length}`;
-    const buf = new Uint8Array(audio.an.fftSize); audio.an.getByteTimeDomainData(buf); lines($('auScope'), [{ ys: Array.from(buf, (x) => x / 128 - 1), color: '#5eead4' }], { min: -1, max: 1, h: 80 }); }, 120);
+    if (scopeQueued) return;
+    scopeQueued = true;
+    void frame().then(() => { scopeQueued = false; if (!audio.on) return; const buf = new Uint8Array(audio.an.fftSize); audio.an.getByteTimeDomainData(buf); lines($('auScope'), [{ ys: Array.from(buf, (x) => x / 128 - 1), color: '#5eead4' }], { min: -1, max: 1, h: 80 }); });
+  }, 120);
   // keyboard
   addEventListener('keydown', (e) => { const typing = /INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName);
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); palOpen(); return; }

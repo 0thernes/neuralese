@@ -2,8 +2,8 @@
 // exact backward for every op (embeddings, LayerNorm, unscaled causal/local attention, GELU-tanh MLP, tied unembedding).
 // Computes gradients w.r.t. activations at every hook site and (optionally) every weight. Runtime interventions are NOT
 // applied here: gradients describe the current weight set M with the default forward pass.
-import { CFG } from './model.js?v=176';
-import { slice, frame, runBudgeted } from './coop.js?v=176';
+import { CFG } from './model.js?v=178';
+import { slice, frame, runBudgeted } from './coop.js?v=178';
 function pause() { return typeof document === 'undefined' ? null : slice(); }
 export const dims = (W) => W.cfg || CFG;
 const GC = 0.7978845608028654, GA = 0.044715;

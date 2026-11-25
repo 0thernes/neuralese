@@ -1,6 +1,6 @@
 // NEURALESE audio: calm, data-driven lab-instrument sonification (Web Audio). Everything is synthesized; no samples.
 // Pure mapping functions at the top are unit-tested (test/audio.test.mjs) and have no Web Audio dependency.
-import { frame, slice } from './coop.js?v=176';
+import { frame, slice } from './coop.js?v=178';
 
 // ───────── pure data → sound mappings ─────────
 // Consonant scales only. "lydian" here omits the #4 so no tritone over the root can ever sound.
@@ -86,7 +86,8 @@ export class AudioEngine {
     this.fmC = C.createOscillator(); this.fmM = C.createOscillator(); this.fmI = C.createGain(); this.fmI.gain.value = 0; this.fmM.connect(this.fmI).connect(this.fmC.frequency); this.fmG = C.createGain(); this.fmG.gain.value = 0;
     this.fmC.connect(this.fmG).connect(this.bus.choir); this.fmC.start(t); this.fmM.start(t);
     this.on = true; this.applyStyle(); this.applyVol(); this.setHarmony(this.harm);
-    this.timer = setInterval(() => { this.an.getByteFrequencyData(this.abuf); let s = 0; for (let i = 0; i < 64; i++) s += this.abuf[i]; this.level = s / (64 * 255); }, 50);
+    const levelOf = (buf) => { let s = 0; for (let i = 0; i < 64; i++) s += buf[i]; return s / (64 * 255); };
+    this.timer = setInterval(() => { this.an.getByteFrequencyData(this.abuf); this.level = levelOf(this.abuf); }, 50);
   }
   makeIR() { const C = this.ctx, sec = STYLES[this.style].rev * this.revSize, n = Math.max(1, Math.floor(C.sampleRate * sec)), b = C.createBuffer(2, n, C.sampleRate);
     for (let ch = 0; ch < 2; ch++) { const d = b.getChannelData(ch); let lp = 0; for (let i = 0; i < n; i++) { lp = lp * 0.85 + (Math.random() * 2 - 1) * 0.15; d[i] = lp * Math.pow(1 - i / n, 4); } } this.rev.buffer = b; }
