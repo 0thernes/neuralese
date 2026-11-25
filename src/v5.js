@@ -1,24 +1,25 @@
 // v5 shell: grouped tabs, module install, theme, resizable dock, export bar, shortcuts, terminal + learning center.
-import { initialTheme, navTooltips } from './ui152.js?v=175';
-import { GROUPS, runs, exportFor, parseLayers, $, $$ } from './lab-ui.js?v=175';
-import * as LM from './lab-model.js?v=175';
-import * as LI from './lab-interpret.js?v=175';
-import * as LV from './lab-intervene.js?v=175';
-import * as LE from './lab-eval.js?v=175';
-import * as LS from './lab-science.js?v=175';
-import * as LR from './lab-research.js?v=175';
-import * as LT from './lab-tsotchke.js?v=175';
-import * as LF from './lab-frontier.js?v=175';
-import * as LH from './lab-hub.js?v=175';
-import * as LN from './lab-lens.js?v=175';
-import * as LX from './lab-nested.js?v=175';
-import * as L16 from './lab-v16.js?v=175';
-import { installModes } from './viz3d.js?v=175';
-import { redrawAll } from './charts.js?v=175';
-import { makeTerminal, termMarkup, mountTerminal, VERSION } from './term.js?v=175';
-import { learnMarkup, mountLearn } from './learn/learn.js?v=175';
-import { banner } from './provenance.js?v=175';
-import { installGuide } from './guide.js?v=175';
+import { initialTheme, navTooltips } from './ui152.js?v=176';
+import { GROUPS, runs, exportFor, parseLayers, $, $$ } from './lab-ui.js?v=176';
+import * as LM from './lab-model.js?v=176';
+import * as LI from './lab-interpret.js?v=176';
+import * as LV from './lab-intervene.js?v=176';
+import * as LE from './lab-eval.js?v=176';
+import * as LS from './lab-science.js?v=176';
+import * as LR from './lab-research.js?v=176';
+import * as LT from './lab-tsotchke.js?v=176';
+import * as LF from './lab-frontier.js?v=176';
+import * as LH from './lab-hub.js?v=176';
+import * as LN from './lab-lens.js?v=176';
+import * as LX from './lab-nested.js?v=176';
+import * as L16 from './lab-v16.js?v=176';
+import { installModes } from './viz3d.js?v=176';
+import { redrawAll } from './charts.js?v=176';
+import { frame } from './coop.js?v=176';
+import { makeTerminal, termMarkup, mountTerminal, VERSION } from './term.js?v=176';
+import { learnMarkup, mountLearn } from './learn/learn.js?v=176';
+import { banner } from './provenance.js?v=176';
+import { installGuide } from './guide.js?v=176';
 export { VERSION };
 const MODS = [LM, LI, LN, LX, LV, LE, LS, LR, LT, LF, LH, L16];
 const AUTO = { arch: 'arch', params: 'params', timeline: 'timeline', runs: 'runs' }; // cheap views rendered on open
@@ -32,8 +33,8 @@ export function buildV5(TABS, P) {
   for (const k of Object.keys(TABS)) if (!seen.has(k)) order.push([k, TABS[k]]);
   let api = null, out = {}, autoDone = new Set();
   const V = { order, groupStart, long, out, version: VERSION,
-    onShow(k) { if (!api) return; if (k === 'v3d' && $('mInfo') && api.viz) $('mInfo').textContent = api.viz.info3d || ''; if (AUTO[k] && (k === 'timeline' || k === 'runs' || !autoDone.has(k))) { autoDone.add(k); try { out[AUTO[k]](); } catch (e) { console.warn(e); } } try { api.onTab?.(k); } catch (e) { console.warn(e); } if (k === 'term') setTimeout(() => $('tmIn')?.focus(), 0); },
-    setTheme(t) { document.documentElement.dataset.theme = t; setTimeout(redrawAll, 0); try { localStorage.setItem('neuralese.theme', t); } catch { /* */ } (api?.viz || window.NEURALESE?.viz)?.setBg?.(t === 'light'); const b = $('bTheme'); if (b) b.textContent = t === 'light' ? '☾ dark' : '☀ light'; },
+    onShow(k) { if (!api) return; if (k === 'v3d' && $('mInfo') && api.viz) $('mInfo').textContent = api.viz.info3d || ''; if (AUTO[k] && (k === 'timeline' || k === 'runs' || !autoDone.has(k))) { autoDone.add(k); try { out[AUTO[k]](); } catch (e) { console.warn(e); } } try { api.onTab?.(k); } catch (e) { console.warn(e); } if (k === 'term') requestAnimationFrame(() => $('tmIn')?.focus()); },
+    setTheme(t) { document.documentElement.dataset.theme = t; void redrawAll(); try { localStorage.setItem('neuralese.theme', t); } catch { /* */ } (api?.viz || window.NEURALESE?.viz)?.setBg?.(t === 'light'); const b = $('bTheme'); if (b) b.textContent = t === 'light' ? '☾ dark' : '☀ light'; },
     toggleTheme() { V.setTheme(document.documentElement.dataset.theme === 'light' ? 'dark' : 'light'); },
     wire({ guard }) {
       V.setTheme(initialTheme(localStorage.getItem('neuralese.theme'), matchMedia?.('(prefers-color-scheme: light)').matches)); navTooltips();
@@ -63,7 +64,7 @@ export function buildV5(TABS, P) {
       api = { ...base, on: (id, ev, fn) => { const el = $(id); if (!el) throw new Error('missing element #' + id); el.addEventListener(ev, base.guard(fn)); },
         logRun: (r) => runs.add(r), runs: () => runs.all(), importRuns: (a) => runs.save(a.slice(-300)), appVersion: VERSION, parseLayers: (s) => [...parseLayers(s)], hasTab: (k) => !!$('pane_' + k), setTheme: V.setTheme,
         audioOn: async () => { await base.audio.start(); if (base.audio.muted) base.audio.setMute(false); }, audioMute: () => base.audio.setMute(true) };
-      if (base.viz && !base.viz.mode) { installModes(base.viz); setTimeout(() => base.viz.preset('stack', 0), 0); } // v12.1: fitted default framing
+      if (base.viz && !base.viz.mode) { installModes(base.viz); void frame().then(() => base.viz.preset('stack', 0)); } // v12.1: fitted default framing
       for (const m of MODS) m.install(api, out);
       const T = makeTerminal(api, out); api.term = mountTerminal(api, T); V.exec = T.exec; V.term = api.term;
       V.learn = mountLearn(api); V.api = api; V.setTheme(document.documentElement.dataset.theme || 'dark');

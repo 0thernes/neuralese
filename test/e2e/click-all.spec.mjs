@@ -183,24 +183,35 @@ for (const [w, h, name] of WIDTHS) test(`click every control · ${name}`, async 
       return page.waitForFunction((ws) => document.querySelector('#v17 .wsbar button.on')?.dataset.ws === ws, id, { timeout: 180000 }).then(() => true).catch(() => false);
     };
     const clickControls = (ws, panel) => page.evaluate(async ({ ws, pid }) => {
-      const paint = () => new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve, 0)));
-      const open = () => {
+      const paint = () => new Promise((resolve) => requestAnimationFrame(() => {
+        const ch = new MessageChannel();
+        ch.port1.onmessage = () => { ch.port1.close(); ch.port2.close(); resolve(); };
+        ch.port2.postMessage(0);
+      }));
+      const hostOf = () => {
         const cur = document.querySelector('#v17 .wsbar button.on')?.getAttribute('data-ws');
         if (cur !== ws) document.querySelector(`#v17 .wsbar button[data-ws="${ws}"]`)?.click();
-        return [...document.querySelectorAll('#v17 .tabstrip button[role=tab]')].find((b) => b.getAttribute('data-panel') === pid) || null;
+        const btn = [...document.querySelectorAll('#v17 .tabstrip button[role=tab]')].find((b) => b.getAttribute('data-panel') === pid);
+        btn?.click();
+        return [...document.querySelectorAll('#v17 .panel')].find((el) => el.getAttribute('data-panel') === pid) || null;
       };
-      let btn = open();
+      let host = hostOf();
       const deadline = performance.now() + 4000;
-      while (!btn && performance.now() < deadline) { await paint(); btn = open(); }
-      btn?.click();
-      await paint();
-      const host = [...document.querySelectorAll('#v17 .panel')].find((el) => el.getAttribute('data-panel') === pid);
-      if (!host) return { missing: true, clicked: 0, disabled: 0, ws: document.querySelector('#v17 .wsbar button.on')?.getAttribute('data-ws'), panels: [...document.querySelectorAll('#v17 .panel')].map((p) => p.getAttribute('data-panel')), tabs: [...document.querySelectorAll('#v17 .tabstrip button[role=tab]')].map((b) => b.getAttribute('data-panel')) };
-      let clicked = 0; let disabled = 0;
-      for (const el of host.querySelectorAll('button, input[type="checkbox"]')) {
-        if (el instanceof HTMLInputElement && el.type === 'file') continue;
-        if (el.disabled) { disabled++; continue; }
-        window.__click = (el.id || el.getAttribute('data-hubload') || el.textContent || '').trim().slice(0, 48);
+      while (!host && performance.now() < deadline) { await paint(); host = hostOf(); }
+      if (!host) return { missing: true, clicked: 0, disabled: 0, disabledNames: [], ws: document.querySelector('#v17 .wsbar button.on')?.getAttribute('data-ws'), panels: [...document.querySelectorAll('#v17 .panel')].map((p) => p.getAttribute('data-panel')) };
+      const spec = [...host.querySelectorAll('button, input[type="checkbox"]')].map((el, i) => ({ i, id: el.id || '', text: (el.textContent || '').trim().slice(0, 48), disabled: !!el.disabled, file: el instanceof HTMLInputElement && el.type === 'file' }));
+      let clicked = 0; let disabled = 0; const disabledNames = [];
+      for (const s of spec) {
+        if (s.file) continue;
+        if (s.disabled) { disabled++; disabledNames.push(s.id || s.text || pid); continue; }
+        let live = [...document.querySelectorAll('#v17 .panel')].find((el) => el.getAttribute('data-panel') === pid);
+        if (!live) { await paint(); live = hostOf(); }
+        if (!live) continue;
+        const els = [...live.querySelectorAll('button, input[type="checkbox"]')];
+        const el = els.find((e) => (s.id && e.id === s.id) || (!s.id && (e.textContent || '').trim().slice(0, 48) === s.text)) || els[s.i];
+        if (!el || (el instanceof HTMLInputElement && el.type === 'file')) continue;
+        if (el.disabled) { disabled++; disabledNames.push(s.id || s.text || pid); continue; }
+        window.__click = (s.id || s.text || pid).slice(0, 48);
         const t0 = performance.now();
         performance.mark('click-before');
         window.__marks.push({ k: 'before', label: window.__click, t: Math.round(t0) });
@@ -210,55 +221,25 @@ for (const [w, h, name] of WIDTHS) test(`click every control · ${name}`, async 
         clicked++;
         await paint();
       }
-      return { missing: false, clicked, disabled };
+      return { missing: false, clicked, disabled, disabledNames };
     }, { ws, pid: panel });
     let clicked = 0;
     let disabled = 0;
+    const disabledNames = [];
     if (!process.env.E2E_PIXELS_ONLY) for (const id of workspaces) {
       if (!await showWs(id)) { failures.push(`${name} lost workspace button ${id} url=${page.url()}`); break; }
       fs.appendFileSync('/tmp/e2e-progress.txt', `${name} ${id}\n`);
-      await page.waitForTimeout(150);
-      const tabs = await page.locator('#v17 .tabstrip button[role=tab]').evaluateAll((els) => els.map((e) => e.getAttribute('data-panel')));
+      const fromManifest = (manifest.find((w) => w.id === id) || {}).panels;
+      const tabs = fromManifest && fromManifest.length ? fromManifest : await page.locator('#v17 .tabstrip button[role=tab]').evaluateAll((els) => [...new Set(els.map((e) => e.getAttribute('data-panel')))]);
       for (const panel of tabs) {
-        // A control can call showTab and move the shell to another workspace. Come back, then open this panel.
-        // showTab from a control is supposed to leave this panel. That navigation is the
-        // control working. Open the intended panel and click its controls in one turn,
-        // before a queued showTab can move the shell again.
-        let stats = await clickControls(id, panel);
-        if (stats.missing) {
-          await showWs(id);
-          await page.waitForTimeout(40);
-          stats = await page.evaluate(async ({ ws, pid }) => {
-            const paint = () => new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve, 0)));
-            if (document.querySelector('#v17 .wsbar button.on')?.dataset.ws !== ws) document.querySelector(`#v17 .wsbar button[data-ws="${ws}"]`)?.click();
-            await paint();
-            const btn = [...document.querySelectorAll('#v17 .tabstrip button[role=tab]')].find((b) => b.getAttribute('data-panel') === pid);
-            btn?.click();
-            await paint();
-            const host = [...document.querySelectorAll('#v17 .panel')].find((el) => el.getAttribute('data-panel') === pid);
-            if (!host) return { missing: true, clicked: 0, disabled: 0, ws: document.querySelector('#v17 .wsbar button.on')?.dataset.ws, panels: [...document.querySelectorAll('#v17 .panel')].map((p) => p.getAttribute('data-panel')), tabs: [...document.querySelectorAll('#v17 .tabstrip button[role=tab]')].map((b) => b.getAttribute('data-panel')) };
-            let clicked = 0, disabled = 0;
-            for (const el of host.querySelectorAll('button, input[type="checkbox"]')) {
-              if (el instanceof HTMLInputElement && el.type === 'file') continue;
-              if (el.disabled) { disabled++; continue; }
-              window.__click = (el.id || el.getAttribute('data-hubload') || el.textContent || '').trim().slice(0, 48);
-              const t0 = performance.now();
-              performance.mark('click-before');
-              window.__marks.push({ k: 'before', label: window.__click, t: Math.round(t0) });
-              el.click();
-              performance.mark('click-after');
-              window.__marks.push({ k: 'after', label: window.__click, t: Math.round(performance.now()), sync: Math.round(performance.now() - t0) });
-              clicked++;
-              await paint();
-            }
-            return { missing: false, clicked, disabled };
-          }, { ws: id, pid: panel });
-        }
-        if (stats.missing) { console.log('MISSING', name, panel, JSON.stringify(stats)); failures.push(`${name} missing panel ${panel} ws=${stats.ws} panels=${(stats.panels || []).join('|')} tabs=${(stats.tabs || []).slice(0, 12).join('|')}`); }
+        const stats = await clickControls(id, panel);
+        if (stats.missing) { console.log('MISSING', name, panel, JSON.stringify(stats)); failures.push(`${name} missing panel ${panel} ws=${stats.ws} panels=${(stats.panels || []).join('|')}`); }
         clicked += stats.clicked || 0;
         disabled += stats.disabled || 0;
+        if (stats.disabledNames) disabledNames.push(...stats.disabledNames);
       }
     }
+    if (disabledNames.length) console.log(name, 'disabled', [...new Set(disabledNames)].join(', '));
     // Heavy buttons keep the main thread after they yield. A fresh page is the check that the
     // stage still draws; the clicks above already ran on this page.
     const shotContext = await browser.newContext({ viewport: { width: w, height: h } });
@@ -312,7 +293,7 @@ for (const [w, h, name] of WIDTHS) test(`click every control · ${name}`, async 
     if (topApp.length) console.log(`${name} top`, topApp.map((f) => `${f.app ?? f.d}ms @${f.click || '?'} ${f.name}`).join(' | '));
     const named = [...(timing.scripts || [])].sort((a, b) => b.d - a.d).slice(0, 8);
     if (named.length) console.log(`${name} src`, named.map((s) => `${s.d}ms ${(s.handler || (s.then || '').split('\n').slice(1, 4).join(' / ')).slice(0, 140)}`).join(' || '));
-    report.views[name] = { width: w, height: h, workspaces: workspaces.length, clicked, disabled, cosmos, gl, errors: errors.slice(0, 8), longMax, longP95, longN: raw.length, paintMax, paintN: paint.length, glInitMax: glMax, glInit: glName ? glName.name : '', appMax: jsMax, appP95: jsP95, appN: js.length, worst: worst ? worst.name : '', loaf: timing.loaf };
+    report.views[name] = { width: w, height: h, workspaces: workspaces.length, clicked, disabled, disabledNames: [...new Set(disabledNames)], cosmos, gl, errors: errors.slice(0, 8), longMax, longP95, longN: raw.length, paintMax, paintN: paint.length, glInitMax: glMax, glInit: glName ? glName.name : '', appMax: jsMax, appP95: jsP95, appN: js.length, worst: worst ? worst.name : '', loaf: timing.loaf };
     await Promise.race([page.close(), new Promise((r) => setTimeout(r, 5000))]);
   fs.mkdirSync('test/e2e', { recursive: true });
   const marks = timing.marks || [];

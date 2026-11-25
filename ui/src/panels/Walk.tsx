@@ -164,7 +164,7 @@ function Read(): JSX.Element {
       <Show when={current()}>{(o) => <p class="hint">{o().title} · shape [{o().length}] · {o().note}{o().head != null ? ` · head ${o().head}` : ''}</p>}</Show>
     </article>
     <div class="adv-row">
-      <For each={CHAPTERS.slice(0, 9)}>{(c) => <button onClick={() => { const i = ops().findIndex((o) => o.chapter === c.id && (o.layer == null || o.layer === sel().layer)); if (i >= 0) { setWalkPlaying(false); setWalkOp(i); } }}>{c.title}</button>}</For>
+      <For each={CHAPTERS.slice(0, 9)}>{(c) => <button onClick={() => { const i = ops().findIndex((o) => o.chapter === c.id && (o.layer == null || o.layer === sel().layer)); if (i >= 0) { setWalkPlaying(false); void yieldHost().then(() => setWalkOp(i)); } }}>{c.title}</button>}</For>
     </div>
     <Show when={walkView()?.archNote}><p class="hint">{walkView()!.archNote}</p></Show>
   </>;
