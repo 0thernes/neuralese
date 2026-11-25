@@ -1,8 +1,8 @@
 // Shared helpers for the v5 research tabs (markup builders, export, run tracker).
-import { CFG } from './model.js?v=190';
-import { frame, runBudgeted } from './coop.js?v=190';
-import { joinLines } from './bytes.js?v=190';
-import { createLab, fromTracker } from './agent/schema.js?v=190';
+import { CFG } from './model.js?v=191';
+import { frame, runBudgeted } from './coop.js?v=191';
+import { joinLines } from './bytes.js?v=191';
+import { createLab, fromTracker } from './agent/schema.js?v=191';
 export const { d, H, hd, L, ff, V } = CFG;
 export const $ = (id) => document.getElementById(id), $$ = (s, r = document) => [...r.querySelectorAll(s)];
 export const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
@@ -22,7 +22,7 @@ export function tokId(tok, s) { const ids = tok.encode(s); if (!ids.length) thro
 export function parseLayers(s) { const out = new Set(); for (const p of String(s).split(',')) { const m = p.trim().match(/^(\d+)(?:-(\d+))?$/); if (!m) throw new Error('bad layer list ' + s); for (let l = +m[1]; l <= +(m[2] ?? m[1]); l++) if (l < L) out.add(l); } if (!out.size) throw new Error('no valid layers'); return out; }
 export function canvasFit(cvs, h) { const w = cvs.clientWidth || 420; cvs.width = w * devicePixelRatio; cvs.height = h * devicePixelRatio; cvs.style.height = h + 'px'; const c = cvs.getContext('2d'); c.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0); return [c, w]; }
 export const chartBg = () => getComputedStyle(document.documentElement).getPropertyValue('--chart-bg').trim() || '#060a12';
-function exportWorker() { return new Worker(new URL('./export-worker.js?v=190', import.meta.url)); }
+function exportWorker() { return new Worker(new URL('./export-worker.js?v=191', import.meta.url)); }
 function workerBuffer(w) {
   return new Promise((resolve, reject) => {
     w.onmessage = (e) => resolve(e.data);
@@ -75,9 +75,10 @@ export async function saveParts(filename, parts, type = 'application/json') {
 export async function exportFor(id, kind) {
   const el = $(id); if (!el) return false; const name = `neuralese-${id}-${Date.now()}`;
   if (kind === 'png') {
-    const src = el._thumb || (el.tagName === 'CANVAS' ? el : null);
+    const src = el._thumb;
     if (!src || !src.width || !src.height) return false;
-    const bmp = await createImageBitmap(src);
+    const bmp = el._bmp || await createImageBitmap(src);
+    el._bmp = null;
     const w = exportWorker();
     armDownload(w, `${name}.png`);
     w.postMessage({ op: 'png', bmp, max: 96 }, [bmp]);

@@ -1,7 +1,7 @@
 // Canvas charts (v15): HiDPI, axes + gridlines + nice ticks, legends, colorbars, perceptual colormaps, hover crosshairs.
 // heatmap (hover/click), multi-line, bars, scatter. No chart library.
-import { runBudgeted, slice, waitNextFrame } from './coop.js?v=190';
-import { joinLines } from './bytes.js?v=190';
+import { runBudgeted, slice, waitNextFrame } from './coop.js?v=191';
+import { joinLines } from './bytes.js?v=191';
 async function csvParts(lines, n) {
   const parts = [];
   await runBudgeted((function* () {
@@ -124,6 +124,7 @@ function thumb(cv) {
   if (t.width !== w) t.width = w;
   if (t.height !== h) t.height = h;
   t.getContext('2d').drawImage(cv, 0, 0, w, h);
+  createImageBitmap(t).then((bmp) => { if (cv._bmp) cv._bmp.close(); cv._bmp = bmp; }).catch(() => {});
 }
 // M: rows × cols numbers. opts: {rows,cols labels, diverging, max, label(i,j) -> tooltip, onClick(i,j), h, cmap:'viridis'|'magma', colorbar:false}
 export function heatmap(cv, M, o = {}) {
